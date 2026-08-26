@@ -1,0 +1,64 @@
+- id: "1"
+  title: Zugang und Mitgliederverwaltung
+  description: >-
+    Deckt CAP-8 ab: der geschützte Bereich, in dem Mitglieder aufgenommen und
+    ihre Zugänge beendet werden, sowie das Einlösen des persönlichen
+    Einladungslinks. Muss vor allem anderen stehen, weil ohne Identität kein
+    Schreibpfad und kein Dienstplan existiert.
+  spec_checkpoint: true
+  invoke_dev_with: >-
+    Bindend sind AD-3, AD-10, AD-11 und AD-13 der Architektur-Spine:
+    Einladungstokens nur als SHA-256-Hash speichern, Klartext-Link genau einmal
+    nach dem Erzeugen anzeigen, das erste Admin-Mitglied entsteht ausschliesslich
+    per CLI-Skript, und SESSION_SECRET wirft beim Modulladen wenn nicht gesetzt.
+
+- id: "2"
+  title: Kernschleife — Aufgaben sehen, erfassen, abhaken
+  description: >-
+    Deckt CAP-1, CAP-2 und CAP-4 ab: die offene Aufgabenliste, das Abhaken mit
+    genau einer Interaktion und das Erfassen einer Aufgabe vor Ort. Als
+    vollständige Schleife geschnitten, weil Liste und Abhaken ohne eine
+    Erfassungsmöglichkeit nicht testbar sind.
+  spec_checkpoint: true
+  done_checkpoint: true
+  invoke_dev_with: >-
+    AD-14 legt die Zusammensetzung der Startseite fest und AD-5 verbietet, den
+    Abhakenden anzuzeigen — nur dass etwas erledigt ist, nie von wem.
+
+- id: "3"
+  title: Monatsplan in einem Zug ablegen
+  description: >-
+    Deckt CAP-3 ab: die rotierende planende Person überträgt 20–40 Aufgaben in
+    einer Sitzung, ohne dass der Aufwand die bisherige Papier- oder
+    Chat-Variante übersteigt. Setzt dabei `due_at` einmal für den ganzen Stapel.
+  done_checkpoint: true
+
+- id: "4"
+  title: Überfällig-Markierung nach drei Wochen
+  description: >-
+    Setzt den Constraint um, dass offene Aufgaben nie verfallen, nach drei Wochen
+    aber sichtbar hervorgehoben werden. Rechnet nach AD-8 mit
+    `COALESCE(due_at, created_at)` zur Anzeigezeit, ohne Spalte und ohne Job.
+
+- id: "5"
+  title: Dienstplan mit Namen und laufender Woche
+  description: >-
+    Deckt CAP-5 ab: wochenweise Dienste bis drei Monate im Voraus namentlich
+    zugeteilt, die zuständige Person erkennt ihre laufende Woche ohne Suchen, und
+    ein zugeteilter Name kann durch einen anderen ersetzt werden.
+  spec_checkpoint: true
+
+- id: "6"
+  title: Einzelaufgabe mit Anmeldung
+  description: >-
+    Deckt CAP-6 ab: eine unregelmässig anfallende verbindliche Einzelaufgabe wird
+    ausgeschrieben und von einer Person übernommen, jederzeit sichtbar ob und von
+    wem. Ersetzt die Umfrage im Gruppenchat für diesen Vorgang.
+
+- id: "7"
+  title: Referenz-Sheets
+  description: >-
+    Deckt CAP-7 ab (Priorität SHOULD): freie Textblätter für Nachschlagewissen,
+    das unabhängig von einzelnen Beeten gilt, von jedem Handy auffindbar und
+    lesbar. Kein Pflegeaufwand pro Beet oder pro Pflanze.
+  done_checkpoint: true

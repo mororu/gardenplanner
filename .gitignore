@@ -1,0 +1,22 @@
+# Abhängigkeiten
+node_modules/
+
+# Build-Ausgaben
+build/
+.svelte-kit/
+dist/
+
+# Umgebung und Geheimnisse
+.env
+.env.*
+!.env.example
+
+# Datenbank
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Betriebssystem und Editor
+.DS_Store
+*.swp

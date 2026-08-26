@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Startseite — Gemeinschaftsgarten</title><style>
+/* Governed by: DESIGN.md §Colors §Typography §Layout & Spacing §Components
+   EXPERIENCE.md §Information Architecture §Component Patterns §State Patterns
+   Palette: Gartenbeet. Kein CDN, keine Skripte, keine Schatten. */
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;padding:28px 18px 56px;background:#e8e8e2;
+  font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#1c221b}
+.page{max-width:1100px;margin:0 auto}
+h1.doc{font-size:26px;margin:0 0 4px;letter-spacing:-.02em}
+p.doc{color:#5b6355;margin:0 0 26px;max-width:76ch}
+.row{display:grid;grid-template-columns:1fr;gap:26px;justify-items:start}
+@media(min-width:820px){.row{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}}
+.cap{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#5b6355;margin-bottom:8px}
+
+/* Tokens: Gartenbeet hell */
+.ph{--base:#F5F4EF;--surf:#FFFFFF;--ink:#1C221B;--ink2:#66705F;--line:#DCDCD2;
+    --acc:#2F6B3F;--accink:#FFFFFF;--od:#9A5A12;
+    width:100%;max-width:390px;background:var(--base);color:var(--ink);
+    border:1px solid #c9c9c1;border-radius:14px;overflow:hidden;
+    display:flex;flex-direction:column;min-height:668px}
+.ph.dark{--base:#12160F;--surf:#1A2018;--ink:#E9EDE4;--ink2:#98A292;--line:#2C3529;
+    --acc:#7FBB8C;--accink:#0E1410;--od:#D99B4E;border-color:#2c3529}
+
+.tbar{background:var(--acc);color:var(--accink);padding:12px 16px;
+  font-weight:700;font-size:20px;letter-spacing:-.015em}
+.main{padding:16px;flex:1 1 auto}
+.ptitle{font-size:30px;font-weight:700;line-height:1.12;letter-spacing:-.02em;margin:8px 0 16px}
+.lbl{font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink2);margin:0 0 8px 2px}
+
+.duty{background:var(--surf);border:1px solid var(--line);border-left:3px solid var(--acc);
+  border-radius:5px;padding:12px;margin-bottom:12px;font-size:16px}
+.duty b{color:var(--acc);font-weight:600}
+.duty .sub{font-size:13px;font-weight:500;color:var(--ink2);margin-top:2px}
+
+.card{background:var(--surf);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:24px}
+.su-t{font-size:20px;font-weight:700;letter-spacing:-.015em;line-height:1.2}
+.su-m{font-size:13px;font-weight:500;color:var(--ink2);margin:2px 0 12px}
+.btn{display:block;width:100%;background:var(--acc);color:var(--accink);border:0;
+  border-radius:8px;min-height:44px;font-size:16px;font-weight:700;font-family:inherit;
+  letter-spacing:-.01em;cursor:pointer}
+.btn.quiet{background:transparent;color:var(--acc);border:1px solid var(--line)}
+
+ul.tasks{list-style:none;margin:0 0 24px;padding:0;background:var(--surf);
+  border:1px solid var(--line);border-radius:12px}
+ul.tasks li{display:flex;gap:12px;align-items:flex-start;padding:12px;min-height:44px;
+  border-top:1px solid var(--line)}
+ul.tasks li:first-child{border-top:0}
+.hit{flex:0 0 44px;height:44px;margin:-11px 0 -11px -11px;
+  display:flex;align-items:center;justify-content:center}
+.box{width:22px;height:22px;border:2px solid var(--acc);border-radius:5px;
+  display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700}
+.box.on{background:var(--acc);border-color:var(--acc);color:var(--accink)}
+.tx{font-size:16px;line-height:1.45;padding-top:10px}
+.od{display:block;font-size:13px;font-weight:500;color:var(--od);margin-top:2px}
+li.done .tx{color:var(--ink2);text-decoration:line-through}
+
+.nav{display:flex;border-top:1px solid var(--line);background:var(--surf);
+  padding-bottom:8px;margin-top:auto}
+.nav a{flex:1;text-align:center;padding:10px 4px 8px;min-height:44px;text-decoration:none;
+  font-size:13px;font-weight:500;color:var(--ink2);border-top:2px solid transparent}
+.nav a.on{color:var(--acc);border-top-color:var(--acc);font-weight:600}
+
+/* Massen-Eingabe */
+.fld{font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink2);display:block;margin:0 0 6px 2px}
+.date{width:100%;background:var(--surf);border:1px solid var(--line);border-radius:8px;
+  min-height:44px;padding:0 12px;font:16px/44px inherit;color:var(--ink);margin-bottom:20px}
+.ta{width:100%;background:var(--surf);border:1px solid var(--line);border-radius:8px;
+  min-height:16em;padding:12px;font:16px/1.45 inherit;color:var(--ink);resize:none}
+.count{font-size:13px;font-weight:500;color:var(--ink2);margin:8px 0 20px 2px}
+ol.prev{list-style:none;counter-reset:l;margin:0 0 20px;padding:0;background:var(--surf);
+  border:1px solid var(--line);border-radius:12px}
+ol.prev li{display:flex;gap:12px;align-items:center;padding:10px 12px;min-height:44px;
+  border-top:1px solid var(--line);font-size:16px}
+ol.prev li:first-child{border-top:0}
+ol.prev .x{margin-left:auto;flex:0 0 44px;height:44px;display:flex;align-items:center;
+  justify-content:center;color:var(--ink2);font-size:19px}
+.empty{font-size:16px;color:var(--ink2);padding:20px 2px 24px}
+</style></head>
+<body><div class="page">
+<h1 class="doc">Startseite — Gemeinschaftsgarten</h1><p class="doc">Die kanonische Einstiegsoberfläche in drei Zuständen. Reihenfolge der Blöcke nach AD-14: Diensthinweis, freie Einzelaufgaben, Aufgaben-Pool. Zeile 2 ist überfällig und trägt den Text dazu, nicht nur die Farbe. Zeile 5 wurde in dieser Sitzung abgehakt und bleibt durchgestrichen stehen.</p>
+<div class="row"><div><div class="cap">Hell · Standard</div><div class="ph">
+  <div class="tbar">Gemeinschaftsgarten</div>
+  <div class="main">
+      <div class="duty">
+        <b>Diese Woche</b> bist du am Tränken
+        <div class="sub">Mo 24. bis So 30. August</div>
+      </div>
+
+      <div class="card">
+        <div class="su-t">Setzlinge abholen</div>
+        <div class="su-m">Sa 14 Uhr · noch niemand</div>
+        <button class="btn">Übernehmen</button>
+      </div>
+
+      <div class="lbl">Offen</div>
+      <ul class="tasks">
+        <li><span class="hit"><span class="box"></span></span>
+            <span class="tx">Beet 25 Nüsslisalat jäten</span></li>
+        <li><span class="hit"><span class="box"></span></span>
+            <span class="tx">Tunnel 2 Blattläuse nachbehandeln
+              <span class="od">seit 4 Wochen offen</span></span></li>
+        <li><span class="hit"><span class="box"></span></span>
+            <span class="tx">Tomaten ausgeizen, Beete 3 bis 7</span></li>
+        <li><span class="hit"><span class="box"></span></span>
+            <span class="tx">Randen ernten, Beet 12</span></li>
+        <li class="done"><span class="hit"><span class="box on">✓</span></span>
+            <span class="tx">Tunnel 1 lüften</span></li>
+      </ul>
+      <button class="btn">+ Aufgabe</button>
+  </div>
+  <nav class="nav">
+    <a class="on" href="#">Aufgaben</a><a href="#">Dienstplan</a>
+    <a href="#">Wissen</a><a href="#">Mehr</a>
+  </nav>
+</div></div><div><div class="cap">Dunkel · Standard</div><div class="ph dark">
+  <div class="tbar">Gemeinschaftsgarten</div>
+  <div class="main">
+      <div class="duty">
+        <b>Diese Woche</b> bist du am Tränken
+        <div class="sub">Mo 24. bis So 30. August</div>
+      </div>
+
+      <div class="card">
+        <div class="su-t">Setzlinge abholen</div>
+        <div class="su-m">Sa 14 Uhr · noch niemand</div>
+        <button class="btn">Übernehmen</button>
+      </div>
+
+      <div class="lbl">Offen</div>
+      <ul class="tasks">
+        <li><span class="hit"><span class="box"></span></span>
+            <span class="tx">Beet 25 Nüsslisalat jäten</span></li>
+        <li><span class="hit"><span class="box"></span></span>
+            <span class="tx">Tunnel 2 Blattläuse nachbehandeln
+              <span class="od">seit 4 Wochen offen</span></span></li>
+        <li><span class="hit"><span class="box"></span></span>
+            <span class="tx">Tomaten ausgeizen, Beete 3 bis 7</span></li>
+        <li><span class="hit"><span class="box"></span></span>
+            <span class="tx">Randen ernten, Beet 12</span></li>
+        <li class="done"><span class="hit"><span class="box on">✓</span></span>
+            <span class="tx">Tunnel 1 lüften</span></li>
+      </ul>
+      <button class="btn">+ Aufgabe</button>
+  </div>
+  <nav class="nav">
+    <a class="on" href="#">Aufgaben</a><a href="#">Dienstplan</a>
+    <a href="#">Wissen</a><a href="#">Mehr</a>
+  </nav>
+</div></div><div><div class="cap">Hell · Pool leer</div><div class="ph">
+  <div class="tbar">Gemeinschaftsgarten</div>
+  <div class="main">
+      <div class="lbl">Offen</div>
+      <div class="empty">Nichts offen. Schön.</div>
+      <button class="btn">+ Aufgabe</button>
+  </div>
+  <nav class="nav">
+    <a class="on" href="#">Aufgaben</a><a href="#">Dienstplan</a>
+    <a href="#">Wissen</a><a href="#">Mehr</a>
+  </nav>
+</div></div></div>
+</div></body></html>

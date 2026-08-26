@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Farbvarianten — Gartenliste</title>
+<style>
+/* Konkrete Hex-Werte je Variante, zum Herausziehen:
+  /* Gartenbeet: hell acc #2f6b3f ink #1c221b bg #f5f4ef warn #9a5a12 | dunkel acc #7fbb8c ink #e9ede4 bg #12160f warn #d99b4e */
+  /* Kalk & Tafel: hell acc #2c5f7a ink #20262b bg #f4f4f2 warn #a2561d | dunkel acc #79b3d0 ink #e8ebed bg #14181b warn #d99b5e */
+  /* Setzling: hell acc #5f9410 ink #1a1e1c bg #f6f7f5 warn #a35c0c | dunkel acc #a3d155 ink #eaeeea bg #111413 warn #dda355 */
+  /* Zinkeimer: hell acc #2f5d8c ink #1b1f24 bg #f3f4f6 warn #96551b | dunkel acc #7aaad4 ink #e8eaee bg #12151a warn #d1955a */
+  /* Randen: hell acc #8c2d4a ink #211b1e bg #f6f4f4 warn #9a5c10 | dunkel acc #d97a97 ink #eee9ea bg #161213 warn #d99b52 */
+*/
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#fafafa;color:#18181b;
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:32px 20px 64px}
+h1{font-size:29px;margin:0 0 6px;letter-spacing:-.02em}
+.intro{color:#52525b;margin:0 0 34px;max-width:70ch}
+.var{border-top:1px solid #e4e4e7;padding:28px 0 6px}
+.vh h2{font-size:21px;margin:0 0 4px;letter-spacing:-.015em}
+.vh p{margin:0 0 16px;color:#52525b;max-width:74ch}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#3f3f46;
+  border:1px solid #e4e4e7;border-radius:4px;padding:4px 7px;background:#fff}
+.chip code{font-size:10.5px;color:#71717a}
+.sw{width:13px;height:13px;border-radius:3px;border:1px solid rgba(0,0,0,.16);display:inline-block}
+.pair{display:grid;grid-template-columns:1fr;gap:18px}
+@media(min-width:800px){.pair{grid-template-columns:1fr 1fr}}
+.mode{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.1em;
+  color:#71717a;margin-bottom:7px}
+.phone{background:var(--bg);border:1px solid #d4d4d8;border-radius:12px;overflow:hidden;
+  max-width:390px;color:var(--ink)}
+.bar{background:var(--acc);color:var(--accink);padding:11px 15px;font-weight:700;font-size:15.5px;
+  letter-spacing:-.01em}
+.body{padding:15px}
+.duty{background:var(--surf);border:1px solid var(--line);border-left:3px solid var(--acc);
+  border-radius:6px;padding:10px 12px;font-size:14px;margin-bottom:12px}
+.duty b{color:var(--acc)}
+.signup{background:var(--surf);border:1px solid var(--line);border-radius:8px;padding:12px;
+  margin-bottom:20px;display:flex;flex-direction:column;gap:3px;align-items:flex-start}
+.su-t{font-weight:700;font-size:15px}
+.su-m{font-size:12.5px;color:var(--mut);margin-bottom:8px}
+.btn{background:var(--acc);color:var(--accink);border:0;border-radius:7px;
+  padding:0 16px;min-height:44px;font-size:14.5px;font-weight:700;font-family:inherit;cursor:pointer}
+.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);
+  margin:0 0 8px 2px}
+.tasks{list-style:none;margin:0;padding:0;background:var(--surf);
+  border:1px solid var(--line);border-radius:8px}
+.tasks li{display:flex;gap:11px;align-items:flex-start;padding:12px;min-height:44px;
+  border-top:1px solid var(--line)}
+.tasks li:first-child{border-top:0}
+.box{width:22px;height:22px;flex:0 0 22px;border:2px solid var(--acc);border-radius:5px;
+  margin-top:1px;display:flex;align-items:center;justify-content:center;
+  font-size:14px;color:var(--accink);font-weight:700}
+.box.on{background:var(--ok);border-color:var(--ok)}
+.t{font-size:14.5px;display:flex;flex-direction:column;gap:2px}
+.od{font-size:11.5px;color:var(--warn);font-weight:600}
+.done .t{color:var(--mut);text-decoration:line-through}
+</style></head><body><div class="wrap">
+<h1>Farbvarianten</h1>
+<p class="intro">Fünf Richtungen für die Gartenliste, jede in Hell und Dunkel. Der Ausschnitt zeigt echte Inhalte: den Diensthinweis, eine offene Einzelaufgabe zum Übernehmen, den Aufgaben-Pool mit einer überfälligen Zeile und einer abgehakten. Die Hex-Werte stehen als Kommentar im Stylesheet, falls du eine Variante herausziehen willst.</p>
+<section class="var">
+  <header class="vh">
+    <h2>Gartenbeet</h2>
+    <p>Ruhig und bodenständig. Tiefes Beetgrün als Signal, warmes Off-White als Grund. Wirkt wie ein gepflegter Garten im Halbschatten.</p>
+  </header>
+  <div class="chips"><span class="chip"><span class="sw" style="background:#f5f4ef"></span>Grund<code>#f5f4ef</code></span><span class="chip"><span class="sw" style="background:#ffffff"></span>Fläche<code>#ffffff</code></span><span class="chip"><span class="sw" style="background:#1c221b"></span>Text<code>#1c221b</code></span><span class="chip"><span class="sw" style="background:#66705f"></span>Gedämpft<code>#66705f</code></span><span class="chip"><span class="sw" style="background:#dcdcd2"></span>Linie<code>#dcdcd2</code></span><span class="chip"><span class="sw" style="background:#2f6b3f"></span>Akzent<code>#2f6b3f</code></span><span class="chip"><span class="sw" style="background:#9a5a12"></span>Überfällig<code>#9a5a12</code></span></div>
+  <div class="pair">
+    <div class="col"><span class="mode">Hell</span><div class="phone" style="
+      --bg:#f5f4ef;--surf:#ffffff;--ink:#1c221b;--mut:#66705f;
+      --line:#dcdcd2;--acc:#2f6b3f;--accink:#ffffff;--warn:#9a5a12;--ok:#2f6b3f">
+  <div class="bar">Gartenliste</div>
+  <div class="body">
+    <div class="duty"><b>Diese Woche</b> bist du am Tränken</div>
+    <div class="signup">
+      <div class="su-t">Setzlinge abholen</div>
+      <div class="su-m">Sa 14 Uhr · noch niemand</div>
+      <button class="btn">Übernehmen</button>
+    </div>
+    <div class="lbl">Offen</div>
+    <ul class="tasks">
+      <li><span class="box"></span><span class="t">Beet 25 Nüsslisalat jäten</span></li>
+      <li><span class="box"></span><span class="t">Tunnel 2 Blattläuse nachbehandeln<span class="od">seit 4 Wochen offen</span></span></li>
+      <li><span class="box"></span><span class="t">Tomaten ausgeizen</span></li>
+      <li class="done"><span class="box on">✓</span><span class="t">Tunnel 1 lüften</span></li>
+    </ul>
+  </div>
+</div></div>
+    <div class="col"><span class="mode">Dunkel</span><div class="phone" style="
+      --bg:#12160f;--surf:#1a2018;--ink:#e9ede4;--mut:#98a292;
+      --line:#2c3529;--acc:#7fbb8c;--accink:#0e1410;--warn:#d99b4e;--ok:#7fbb8c">
+  <div class="bar">Gartenliste</div>
+  <div class="body">
+    <div class="duty"><b>Diese Woche</b> bist du am Tränken</div>
+    <div class="signup">
+      <div class="su-t">Setzlinge abholen</div>
+      <div class="su-m">Sa 14 Uhr · noch niemand</div>
+      <button class="btn">Übernehmen</button>
+    </div>
+    <div class="lbl">Offen</div>
+    <ul class="tasks">
+      <li><span class="box"></span><span class="t">Beet 25 Nüsslisalat jäten</span></li>
+      <li><span class="box"></span><span class="t">Tunnel 2 Blattläuse nachbehandeln<span class="od">seit 4 Wochen offen</span></span></li>
+      <li><span class="box"></span><span class="t">Tomaten ausgeizen</span></li>
+      <li class="done"><span class="box on">✓</span><span class="t">Tunnel 1 lüften</span></li>
+    </ul>
+  </div>
+</div></div>
+  </div>
+</section><section class="var">
+  <header class="vh">
+    <h2>Kalk & Tafel</h2>
+    <p>Wie die Kreidetafel am Gartenhaus. Schiefergrau, Kalkweiß, ein Kreidestrich in Blau. Am nächsten am Notizzettel, am wenigsten an einer App.</p>
+  </header>
+  <div class="chips"><span class="chip"><span class="sw" style="background:#f4f4f2"></span>Grund<code>#f4f4f2</code></span><span class="chip"><span class="sw" style="background:#ffffff"></span>Fläche<code>#ffffff</code></span><span class="chip"><span class="sw" style="background:#20262b"></span>Text<code>#20262b</code></span><span class="chip"><span class="sw" style="background:#69727a"></span>Gedämpft<code>#69727a</code></span><span class="chip"><span class="sw" style="background:#d8dadb"></span>Linie<code>#d8dadb</code></span><span class="chip"><span class="sw" style="background:#2c5f7a"></span>Akzent<code>#2c5f7a</code></span><span class="chip"><span class="sw" style="background:#a2561d"></span>Überfällig<code>#a2561d</code></span></div>
+  <div class="pair">
+    <div class="col"><span class="mode">Hell</span><div class="phone" style="
+      --bg:#f4f4f2;--surf:#ffffff;--ink:#20262b;--mut:#69727a;
+      --line:#d8dadb;--acc:#2c5f7a;--accink:#ffffff;--warn:#a2561d;--ok:#2c6b57">
+  <div class="bar">Gartenliste</div>
+  <div class="body">
+    <div class="duty"><b>Diese Woche</b> bist du am Tränken</div>
+    <div class="signup">
+      <div class="su-t">Setzlinge abholen</div>
+      <div class="su-m">Sa 14 Uhr · noch niemand</div>
+      <button class="btn">Übernehmen</button>
+    </div>
+    <div class="lbl">Offen</div>
+    <ul class="tasks">
+      <li><span class="box"></span><span class="t">Beet 25 Nüsslisalat jäten</span></li>
+      <li><span class="box"></span><span class="t">Tunnel 2 Blattläuse nachbehandeln<span class="od">seit 4 Wochen offen</span></span></li>
+      <li><span class="box"></span><span class="t">Tomaten ausgeizen</span></li>
+      <li class="done"><span class="box on">✓</span><span class="t">Tunnel 1 lüften</span></li>
+    </ul>
+  </div>
+</div></div>
+    <div class="col"><span class="mode">Dunkel</span><div class="phone" style="
+      --bg:#14181b;--surf:#1c2226;--ink:#e8ebed;--mut:#98a2a9;
+      --line:#2b3338;--acc:#79b3d0;--accink:#0f1417;--warn:#d99b5e;--ok:#6fbfa2">
+  <div class="bar">Gartenliste</div>
+  <div class="body">
+    <div class="duty"><b>Diese Woche</b> bist du am Tränken</div>
+    <div class="signup">
+      <div class="su-t">Setzlinge abholen</div>
+      <div class="su-m">Sa 14 Uhr · noch niemand</div>
+      <button class="btn">Übernehmen</button>
+    </div>
+    <div class="lbl">Offen</div>
+    <ul class="tasks">
+      <li><span class="box"></span><span class="t">Beet 25 Nüsslisalat jäten</span></li>
+      <li><span class="box"></span><span class="t">Tunnel 2 Blattläuse nachbehandeln<span class="od">seit 4 Wochen offen</span></span></li>
+      <li><span class="box"></span><span class="t">Tomaten ausgeizen</span></li>
+      <li class="done"><span class="box on">✓</span><span class="t">Tunnel 1 lüften</span></li>
+    </ul>
+  </div>
+</div></div>
+  </div>
+</section><section class="var">
+  <header class="vh">
+    <h2>Setzling</h2>
+    <p>Frisch und einladend. Neutrale kühle Grautöne, dazu das Grün der ersten zwei Blätter als einziger Farbakzent. Der anmächeligste Vorschlag.</p>
+  </header>
+  <div class="chips"><span class="chip"><span class="sw" style="background:#f6f7f5"></span>Grund<code>#f6f7f5</code></span><span class="chip"><span class="sw" style="background:#ffffff"></span>Fläche<code>#ffffff</code></span><span class="chip"><span class="sw" style="background:#1a1e1c"></span>Text<code>#1a1e1c</code></span><span class="chip"><span class="sw" style="background:#6a736d"></span>Gedämpft<code>#6a736d</code></span><span class="chip"><span class="sw" style="background:#dcdfda"></span>Linie<code>#dcdfda</code></span><span class="chip"><span class="sw" style="background:#5f9410"></span>Akzent<code>#5f9410</code></span><span class="chip"><span class="sw" style="background:#a35c0c"></span>Überfällig<code>#a35c0c</code></span></div>
+  <div class="pair">
+    <div class="col"><span class="mode">Hell</span><div class="phone" style="
+      --bg:#f6f7f5;--surf:#ffffff;--ink:#1a1e1c;--mut:#6a736d;
+      --line:#dcdfda;--acc:#5f9410;--accink:#ffffff;--warn:#a35c0c;--ok:#5f9410">
+  <div class="bar">Gartenliste</div>
+  <div class="body">
+    <div class="duty"><b>Diese Woche</b> bist du am Tränken</div>
+    <div class="signup">
+      <div class="su-t">Setzlinge abholen</div>
+      <div class="su-m">Sa 14 Uhr · noch niemand</div>
+      <button class="btn">Übernehmen</button>
+    </div>
+    <div class="lbl">Offen</div>
+    <ul class="tasks">
+      <li><span class="box"></span><span class="t">Beet 25 Nüsslisalat jäten</span></li>
+      <li><span class="box"></span><span class="t">Tunnel 2 Blattläuse nachbehandeln<span class="od">seit 4 Wochen offen</span></span></li>
+      <li><span class="box"></span><span class="t">Tomaten ausgeizen</span></li>
+      <li class="done"><span class="box on">✓</span><span class="t">Tunnel 1 lüften</span></li>
+    </ul>
+  </div>
+</div></div>
+    <div class="col"><span class="mode">Dunkel</span><div class="phone" style="
+      --bg:#111413;--surf:#191d1b;--ink:#eaeeea;--mut:#98a19b;
+      --line:#282e2b;--acc:#a3d155;--accink:#131711;--warn:#dda355;--ok:#a3d155">
+  <div class="bar">Gartenliste</div>
+  <div class="body">
+    <div class="duty"><b>Diese Woche</b> bist du am Tränken</div>
+    <div class="signup">
+      <div class="su-t">Setzlinge abholen</div>
+      <div class="su-m">Sa 14 Uhr · noch niemand</div>
+      <button class="btn">Übernehmen</button>
+    </div>
+    <div class="lbl">Offen</div>
+    <ul class="tasks">
+      <li><span class="box"></span><span class="t">Beet 25 Nüsslisalat jäten</span></li>
+      <li><span class="box"></span><span class="t">Tunnel 2 Blattläuse nachbehandeln<span class="od">seit 4 Wochen offen</span></span></li>
+      <li><span class="box"></span><span class="t">Tomaten ausgeizen</span></li>
+      <li class="done"><span class="box on">✓</span><span class="t">Tunnel 1 lüften</span></li>
+    </ul>
+  </div>
+</div></div>
+  </div>
+</section><section class="var">
+  <header class="vh">
+    <h2>Zinkeimer</h2>
+    <p>Werkzeug, nicht Produkt. Verzinkte Graublautöne, ein sachliches Signalblau. Die neutralste Variante — nichts lenkt ab, nichts lockt.</p>
+  </header>
+  <div class="chips"><span class="chip"><span class="sw" style="background:#f3f4f6"></span>Grund<code>#f3f4f6</code></span><span class="chip"><span class="sw" style="background:#ffffff"></span>Fläche<code>#ffffff</code></span><span class="chip"><span class="sw" style="background:#1b1f24"></span>Text<code>#1b1f24</code></span><span class="chip"><span class="sw" style="background:#666e78"></span>Gedämpft<code>#666e78</code></span><span class="chip"><span class="sw" style="background:#d7dade"></span>Linie<code>#d7dade</code></span><span class="chip"><span class="sw" style="background:#2f5d8c"></span>Akzent<code>#2f5d8c</code></span><span class="chip"><span class="sw" style="background:#96551b"></span>Überfällig<code>#96551b</code></span></div>
+  <div class="pair">
+    <div class="col"><span class="mode">Hell</span><div class="phone" style="
+      --bg:#f3f4f6;--surf:#ffffff;--ink:#1b1f24;--mut:#666e78;
+      --line:#d7dade;--acc:#2f5d8c;--accink:#ffffff;--warn:#96551b;--ok:#2c6f5c">
+  <div class="bar">Gartenliste</div>
+  <div class="body">
+    <div class="duty"><b>Diese Woche</b> bist du am Tränken</div>
+    <div class="signup">
+      <div class="su-t">Setzlinge abholen</div>
+      <div class="su-m">Sa 14 Uhr · noch niemand</div>
+      <button class="btn">Übernehmen</button>
+    </div>
+    <div class="lbl">Offen</div>
+    <ul class="tasks">
+      <li><span class="box"></span><span class="t">Beet 25 Nüsslisalat jäten</span></li>
+      <li><span class="box"></span><span class="t">Tunnel 2 Blattläuse nachbehandeln<span class="od">seit 4 Wochen offen</span></span></li>
+      <li><span class="box"></span><span class="t">Tomaten ausgeizen</span></li>
+      <li class="done"><span class="box on">✓</span><span class="t">Tunnel 1 lüften</span></li>
+    </ul>
+  </div>
+</div></div>
+    <div class="col"><span class="mode">Dunkel</span><div class="phone" style="
+      --bg:#12151a;--surf:#1a1f25;--ink:#e8eaee;--mut:#959ea9;
+      --line:#282f37;--acc:#7aaad4;--accink:#0f1318;--warn:#d1955a;--ok:#67bba3">
+  <div class="bar">Gartenliste</div>
+  <div class="body">
+    <div class="duty"><b>Diese Woche</b> bist du am Tränken</div>
+    <div class="signup">
+      <div class="su-t">Setzlinge abholen</div>
+      <div class="su-m">Sa 14 Uhr · noch niemand</div>
+      <button class="btn">Übernehmen</button>
+    </div>
+    <div class="lbl">Offen</div>
+    <ul class="tasks">
+      <li><span class="box"></span><span class="t">Beet 25 Nüsslisalat jäten</span></li>
+      <li><span class="box"></span><span class="t">Tunnel 2 Blattläuse nachbehandeln<span class="od">seit 4 Wochen offen</span></span></li>
+      <li><span class="box"></span><span class="t">Tomaten ausgeizen</span></li>
+      <li class="done"><span class="box on">✓</span><span class="t">Tunnel 1 lüften</span></li>
+    </ul>
+  </div>
+</div></div>
+  </div>
+</section><section class="var">
+  <header class="vh">
+    <h2>Randen</h2>
+    <p>Ein Risiko. Neutraler Grund, aber ein tiefes Randenrot als Akzent — essbar, warm, ungewohnt für eine Aufgabenliste. Fällt auf, ohne verspielt zu sein.</p>
+  </header>
+  <div class="chips"><span class="chip"><span class="sw" style="background:#f6f4f4"></span>Grund<code>#f6f4f4</code></span><span class="chip"><span class="sw" style="background:#ffffff"></span>Fläche<code>#ffffff</code></span><span class="chip"><span class="sw" style="background:#211b1e"></span>Text<code>#211b1e</code></span><span class="chip"><span class="sw" style="background:#6f6669"></span>Gedämpft<code>#6f6669</code></span><span class="chip"><span class="sw" style="background:#dedada"></span>Linie<code>#dedada</code></span><span class="chip"><span class="sw" style="background:#8c2d4a"></span>Akzent<code>#8c2d4a</code></span><span class="chip"><span class="sw" style="background:#9a5c10"></span>Überfällig<code>#9a5c10</code></span></div>
+  <div class="pair">
+    <div class="col"><span class="mode">Hell</span><div class="phone" style="
+      --bg:#f6f4f4;--surf:#ffffff;--ink:#211b1e;--mut:#6f6669;
+      --line:#dedada;--acc:#8c2d4a;--accink:#ffffff;--warn:#9a5c10;--ok:#2e6b4f">
+  <div class="bar">Gartenliste</div>
+  <div class="body">
+    <div class="duty"><b>Diese Woche</b> bist du am Tränken</div>
+    <div class="signup">
+      <div class="su-t">Setzlinge abholen</div>
+      <div class="su-m">Sa 14 Uhr · noch niemand</div>
+      <button class="btn">Übernehmen</button>
+    </div>
+    <div class="lbl">Offen</div>
+    <ul class="tasks">
+      <li><span class="box"></span><span class="t">Beet 25 Nüsslisalat jäten</span></li>
+      <li><span class="box"></span><span class="t">Tunnel 2 Blattläuse nachbehandeln<span class="od">seit 4 Wochen offen</span></span></li>
+      <li><span class="box"></span><span class="t">Tomaten ausgeizen</span></li>
+      <li class="done"><span class="box on">✓</span><span class="t">Tunnel 1 lüften</span></li>
+    </ul>
+  </div>
+</div></div>
+    <div class="col"><span class="mode">Dunkel</span><div class="phone" style="
+      --bg:#161213;--surf:#1e191b;--ink:#eee9ea;--mut:#a39a9d;
+      --line:#302a2c;--acc:#d97a97;--accink:#170f12;--warn:#d99b52;--ok:#6fbc98">
+  <div class="bar">Gartenliste</div>
+  <div class="body">
+    <div class="duty"><b>Diese Woche</b> bist du am Tränken</div>
+    <div class="signup">
+      <div class="su-t">Setzlinge abholen</div>
+      <div class="su-m">Sa 14 Uhr · noch niemand</div>
+      <button class="btn">Übernehmen</button>
+    </div>
+    <div class="lbl">Offen</div>
+    <ul class="tasks">
+      <li><span class="box"></span><span class="t">Beet 25 Nüsslisalat jäten</span></li>
+      <li><span class="box"></span><span class="t">Tunnel 2 Blattläuse nachbehandeln<span class="od">seit 4 Wochen offen</span></span></li>
+      <li><span class="box"></span><span class="t">Tomaten ausgeizen</span></li>
+      <li class="done"><span class="box on">✓</span><span class="t">Tunnel 1 lüften</span></li>
+    </ul>
+  </div>
+</div></div>
+  </div>
+</section>
+</div></body></html>
