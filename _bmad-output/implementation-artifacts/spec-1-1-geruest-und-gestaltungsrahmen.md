@@ -2,7 +2,7 @@
 title: 'Story 1.1 — Gerüst und Gestaltungsrahmen'
 type: 'feature'
 created: '2026-08-26'
-status: 'in-progress'
+status: 'done'
 review_loop_iteration: 2
 baseline_commit: '6fb5bb1cf2115cbdf1c5558fd337d48724e0ea67'
 context:
@@ -177,3 +177,64 @@ Komponenten schreiben `var(--accent)` ohne Fallback. **Kein PWA-Plugin** — Ins
 - Skip-Link mit der Tastatur erreichbar und wirksam
 - Ab 600px: Navigation oben
 - Zum Home-Bildschirm hinzufügen: eigenes Icon, kein Ausrichtungszwang
+
+## Suggested Review Order
+
+**Das Tor — der eigentliche Ertrag dieser Story**
+
+- Warum es existiert: ein Prüfskript ohne Selbstnachweis täuscht Sicherheit vor.
+  [`gate.mjs:9`](../../scripts/gate.mjs#L9)
+
+- Schwellen aus den Plugins abgeleitet, nicht im Code festgeschrieben.
+  [`gate.mjs:210`](../../scripts/gate.mjs#L210)
+
+- Jeder Lesefehler wird benannte Verletzung statt Stacktrace.
+  [`gate.mjs:262`](../../scripts/gate.mjs#L262)
+
+- Neun Fehlerproben, eine je Regel; `selftest` scheitert, wenn eine ungefunden bleibt.
+  [`gate-fixtures/`](../../scripts/gate-fixtures)
+
+- Die Torkette: `lint` ruft `gate` **und** `gate:selftest`.
+  [`package.json:19`](../../package.json#L19)
+
+- `--fail-on-warnings` macht aus einer a11y-Warnung einen Fehlschlag.
+  [`package.json:16`](../../package.json#L16)
+
+**Die ESLint-Verkabelung, an der zwei Iterationen scheiterten**
+
+- `configs.recommended` sind Arrays; `.rules` darauf ist `undefined`.
+  [`eslint.config.js:9`](../../eslint.config.js#L9)
+
+- Beide Regelsätze abgeflacht und auf `.svelte` gehängt — 37 plus 20 Regeln.
+  [`eslint.config.js:25`](../../eslint.config.js#L25)
+
+**Der Token-Block als einzige Farbquelle**
+
+- `viewport-fit=cover` ist Pflicht, sonst ist `env(safe-area-inset-bottom)` auf iOS null.
+  [`app.html:11`](../../src/app.html#L11)
+
+- `color-scheme: light dark` färbt Scrollbalken und Formularelemente mit.
+  [`app.html:48`](../../src/app.html#L48)
+
+- Dunkel-Block mit eigenen Werten, keine Invertierung.
+  [`app.html:139`](../../src/app.html#L139)
+
+- Drei `theme-color`-Metas, deren Werte das Tor gegen die Tokens prüft.
+  [`app.html:25`](../../src/app.html#L25)
+
+**Barrierefreiheit und Navigation**
+
+- Sprunglink vor der Navigation, damit die vier Ziele übertabbbar sind.
+  [`+layout.svelte:33`](../../src/routes/+layout.svelte#L33)
+
+- Kommentar beschreibt DOM- gegen Sichtreihenfolge wahrheitsgemäss für beide Zustände.
+  [`+layout.svelte:30`](../../src/routes/+layout.svelte#L30)
+
+- Segmentgrenze statt nacktem `startsWith`: `/wissenschaft` markiert nichts.
+  [`NavBar.svelte:18`](../../src/lib/components/NavBar.svelte#L18)
+
+- `eslint-disable` klammert nur den `each`-Block, nicht die Datei.
+  [`NavBar.svelte:34`](../../src/lib/components/NavBar.svelte#L34)
+
+- Eigenes `--navbar-height` statt `--touch` als Leistenhöhe.
+  [`NavBar.svelte:91`](../../src/lib/components/NavBar.svelte#L91)
