@@ -1,0 +1,34 @@
+{
+	"id": "/",
+	"name": "Gemeinschaftsgarten",
+	"short_name": "Garten",
+	"description": "Aufgabenliste für den Gemeinschaftsgarten: sehen, was offen ist, und mit einem Griff abhaken.",
+	"lang": "de",
+	"dir": "ltr",
+	"display": "standalone",
+	"orientation": "portrait",
+	"start_url": "/",
+	"scope": "/",
+	"theme_color": "#2F6B3F",
+	"background_color": "#F5F4EF",
+	"icons": [
+		{
+			"src": "/icons/icon-192.png",
+			"sizes": "192x192",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/icons/icon-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/icons/icon-512-maskable.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		}
+	]
+}

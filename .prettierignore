@@ -1,0 +1,11 @@
+# BMad-Gerüst und Planungsartefakte — kein Anwendungscode
+_bmad/
+_bmad-output/
+
+# Claude-Konfiguration
+.claude/
+
+# Bauartefakte
+build/
+.svelte-kit/
+node_modules/
