@@ -29,7 +29,7 @@ Die planende Person sichtete alle vergangenen September-Pläne — ohne vor Ort 
 Die Wissensträgerin weiß, was zu tun ist — sie braucht die App nicht, müsste sie aber pflegen. Die Vielen brauchen die App — haben aber kein Wissen, das sie einspeisen könnten.
 
 **4. Chat informiert alle und verpflichtet niemanden.**
-Belegfall: Cora entdeckt Blattläuse, behandelt, notiert es auf einem Papierblatt („Wellnessbehandlung für Pflanzen"), setzt eine Chat-Notiz. Eine Woche später hat niemand die Folgebehandlung gemacht — also macht sie die erfahrenste Gärtnerin zum zweiten Mal selbst. **Ein Log löst nichts aus. Eine Broadcast-Nachricht an 20 Leute ist Zuständigkeit für niemanden.** Wo niemand zuständig ist, absorbieren immer dieselben zwei Zuverlässigen die Lücke.
+Belegfall: C. entdeckt Blattläuse, behandelt, notiert es auf einem Papierblatt („Wellnessbehandlung für Pflanzen"), setzt eine Chat-Notiz. Eine Woche später hat niemand die Folgebehandlung gemacht — also macht sie die erfahrenste Gärtnerin zum zweiten Mal selbst. **Ein Log löst nichts aus. Eine Broadcast-Nachricht an 20 Leute ist Zuständigkeit für niemanden.** Wo niemand zuständig ist, absorbieren immer dieselben zwei Zuverlässigen die Lücke.
 
 ---
 

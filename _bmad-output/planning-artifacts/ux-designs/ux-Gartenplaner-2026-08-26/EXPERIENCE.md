@@ -63,7 +63,7 @@ Alles, was eine Person höchstens einmal im Monat tut — Monatsplan ablegen, Ei
 
 Zeitangaben in Alltagssprache: `heute`, `gestern`, `seit 4 Wochen offen`, `Sa 14 Uhr`. Kein `26.08.2026 14:00` in Listen; das ausgeschriebene Datum nur dort, wo es zählt (Dienstplan, Einzelaufgabe).
 
-**Nie in einem Text auftauchen:** wer eine Aufgabe abgehakt hat (AD-5). Kein `von Renate erledigt`, nirgends, auch nicht als Tooltip.
+**Nie in einem Text auftauchen:** wer eine Aufgabe abgehakt hat (AD-5). Kein `von R. erledigt`, nirgends, auch nicht als Tooltip.
 
 ## Component Patterns
 
@@ -144,9 +144,9 @@ Nach dem Ablegen: Weiterleitung auf `/` mit `24 Aufgaben abgelegt.`
 
 ## Key Flows
 
-Die Personen sind aus der Brainstorming-Session, nicht erfunden.
+Die Personen sind reale Mitglieder der Gemeinschaft, aus der Brainstorming-Session — hier auf Initialen abgekürzt.
 
-### Renate, Donnerstag 7 Uhr, allein im Garten
+### R., Donnerstag 7 Uhr, allein im Garten
 
 1. Sie kommt an, Handschuhe schon an, und öffnet Gemeinschaftsgarten vom Home-Bildschirm.
 2. Sie liest die offenen Aufgaben. Drei davon hat sie letzte Woche selbst gemacht.
@@ -170,7 +170,7 @@ Die Personen sind aus der Brainstorming-Session, nicht erfunden.
 4. **Der Höhepunkt:** sie tippt `Übernehmen`, bestätigt, und ihr Name steht daneben. Sie hat zum ersten Mal etwas übernommen, ohne jemanden ansprechen zu müssen.
 5. Danach nimmt sie sich aus dem Pool eine Aufgabe, bei der sie sich sicher ist. Bei `Beet 25 Nüsslisalat jäten` fragt sie lieber — die Liste hilft ihr da nicht, und das ist bewusst so.
 
-### Cora, Dienstag, Blattläuse in Tunnel 2
+### C., Dienstag, Blattläuse in Tunnel 2
 
 1. Sie entdeckt den Befall, behandelt ihn.
 2. Sie öffnet die Liste und tippt `+ Aufgabe`.
