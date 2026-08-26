@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="de">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="manifest" href="/manifest.webmanifest" />
+		<meta name="theme-color" content="#2f6b3f" />
+		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#2f6b3f" />
+		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#7fbb8c" />
+		<style>
+			:root {
+				--surface-base: #f5f4ef;
+				--surface-raised: #ffffff;
+				--accent: #2f6b3f;
+				--gutter: 1rem;
+			}
+			/*
+			 * Fehlerprobe zu Regel 4, zweiter Fall: dem Dunkel-Block fehlt die
+			 * schliessende Klammer der Medienabfrage. Eine Klammersuche ohne
+			 * -1-Schutz und ohne Unbalanciert-Prüfung liefert hier stillschweigend
+			 * einen leeren Block und meldet nichts. Der ganze dunkle Modus wäre
+			 * damit unbemerkt weg. Diese Datei ist absichtlich kaputtes CSS und
+			 * steht deshalb in .prettierignore.
+			 */
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--surface-base: #12160f;
+					--surface-raised: #1a2018;
+					--accent: #7fbb8c;
+				}
+		</style>
+		%sveltekit.head%
+	</head>
+	<body>
+		%sveltekit.body%
+	</body>
+</html>

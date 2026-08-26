@@ -1,0 +1,7 @@
+/*
+ * Fehlerprobe zu Regel 1: ein Hex-Wert in einer .css-Datei. Die erste Fassung
+ * des Tors sah nur in .svelte-Dateien nach und hat genau das durchgelassen.
+ */
+.hex-in-einer-css {
+	background-color: #ff0000;
+}

@@ -1,0 +1,47 @@
+{
+	"name": "gartenplaner",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"engines": {
+		"node": ">=24",
+		"npm": ">=11"
+	},
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"start": "node build/index.js",
+		"prepare": "svelte-kit sync",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
+		"gate": "node scripts/gate.mjs",
+		"gate:selftest": "node scripts/gate.mjs --selftest",
+		"lint": "prettier --check . && eslint . && npm run gate && npm run gate:selftest",
+		"format": "prettier --write ."
+	},
+	"devDependencies": {
+		"@eslint/js": "10.0.1",
+		"@sveltejs/adapter-node": "5.5.7",
+		"@sveltejs/kit": "2.70.3",
+		"@sveltejs/vite-plugin-svelte": "7.3.0",
+		"@types/node": "24.13.3",
+		"drizzle-kit": "0.31.10",
+		"eslint": "10.9.1",
+		"eslint-plugin-svelte": "3.23.0",
+		"globals": "17.11.0",
+		"prettier": "3.9.6",
+		"prettier-plugin-svelte": "4.1.1",
+		"svelte": "5.56.10",
+		"svelte-check": "4.7.6",
+		"svelte-eslint-parser": "1.8.1",
+		"typescript": "6.0.3",
+		"typescript-eslint": "8.68.0",
+		"vite": "8.2.2"
+	},
+	"dependencies": {
+		"@fontsource-variable/figtree": "5.3.0",
+		"@fontsource-variable/inter": "5.3.0",
+		"better-sqlite3": "13.0.3",
+		"drizzle-orm": "0.45.2"
+	}
+}

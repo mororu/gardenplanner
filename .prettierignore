@@ -1,0 +1,16 @@
+# BMad-Gerüst und Planungsartefakte — kein Anwendungscode
+_bmad/
+_bmad-output/
+
+# Claude-Konfiguration
+.claude/
+
+# Bauartefakte
+build/
+.svelte-kit/
+node_modules/
+
+# Fehlerproben für das Tor. Sie enthalten absichtlich kaputtes CSS, das Prettier
+# nicht parsen kann, und einen bewusst umbrochenen var()-Fallback, den Prettier
+# wieder zusammenziehen würde — damit wäre genau die Probe zerstört.
+scripts/gate-fixtures/

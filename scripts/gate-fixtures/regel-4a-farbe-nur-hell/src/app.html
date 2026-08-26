@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="de">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="manifest" href="/manifest.webmanifest" />
+		<meta name="theme-color" content="#2f6b3f" />
+		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#2f6b3f" />
+		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#2f6b3f" />
+		<style>
+			:root {
+				--surface-base: #f5f4ef;
+				--surface-raised: #ffffff;
+				--accent: #2f6b3f;
+				--gutter: 1rem;
+			}
+			/*
+			 * Fehlerprobe zu Regel 4, erster Fall: --accent fehlt im Dunkel-Block.
+			 * Die einseitige Prüfung der ersten Fassung zählte nur die Tokens im
+			 * Hell-Block und meldete "alles gut" — die Titelleiste wäre im dunklen
+			 * Modus ungefüllt geblieben.
+			 *
+			 * Dieselbe Probe deckt die zweite Richtung ab: --nur-im-dunkel-block
+			 * steht ausschliesslich unten und hätte im hellen Modus keinen Wert.
+			 */
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--surface-base: #12160f;
+					--surface-raised: #1a2018;
+					--nur-im-dunkel-block: #d99b4e;
+				}
+			}
+			body {
+				background-color: var(--surface-base);
+				border-color: var(--surface-raised);
+			}
+		</style>
+		%sveltekit.head%
+	</head>
+	<body>
+		%sveltekit.body%
+	</body>
+</html>
