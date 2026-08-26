@@ -2,7 +2,7 @@
 title: 'Story 1.1 — Gerüst und Gestaltungsrahmen'
 type: 'feature'
 created: '2026-08-26'
-status: 'in-progress'
+status: 'in-review'
 review_loop_iteration: 1
 baseline_commit: '6fb5bb1cf2115cbdf1c5558fd337d48724e0ea67'
 context:
