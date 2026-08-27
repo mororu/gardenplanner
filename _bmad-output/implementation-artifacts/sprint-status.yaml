@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-26-2026 13:20
-last_updated: 08-27-2026
+last_updated: 08-27-2026 17:14
 project: Gemeinschaftsgarten
 project_key: NOKEY
 tracking_system: file-system
@@ -42,7 +42,7 @@ development_status:
   1-4-offene-aufgaben-sehen-und-abhaken: done
   1-5-aufgabe-vor-ort-erfassen: done
   1-6-betrieb-und-deployment: done
-  epic-1-retrospective: optional
+  epic-1-retrospective: done
 
   epic-2: backlog
   2-1-monatsplan-in-einem-zug-ablegen: backlog
@@ -57,3 +57,94 @@ development_status:
   epic-4: backlog
   4-1-referenz-sheets-lesen-und-schreiben: backlog
   epic-4-retrospective: optional
+action_items:
+  - id: "epic-1-retro-item-1-imflug-freigabe-auf-und-verwaltung-in-tr"
+    epic: 1
+    action: "imFlug-Freigabe auf / und /verwaltung in try/finally fassen (B1)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
+  - id: "epic-1-retro-item-2-fehlersatz-in-verwaltung-page-svelte-imm"
+    epic: 1
+    action: "Fehlersatz in verwaltung/+page.svelte immer ins DOM mit role=alert und
+      aria-live (B2)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
+  - id: "epic-1-retro-item-3-namenspruefung-in-scripts-create-admin-t"
+    epic: 1
+    action: "Namenspruefung in scripts/create-admin.ts an die UI-Kette angleichen
+      (B3)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
+  - id: "epic-1-retro-item-4-entwicklerkommentar-aus-src-app-html-ent"
+    epic: 1
+    action: "Entwicklerkommentar aus src/app.html entfernen, Gate-Regel 12 weiter
+      fassen (B4)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
+  - id: "epic-1-retro-item-5-ad-12-und-stack-tabelle-auf-die-gebaute"
+    epic: 1
+    action: "AD-12 und Stack-Tabelle auf die gebaute Wirklichkeit umschreiben (B6)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
+  - id: "epic-1-retro-item-6-ad-13-von-beim-modulladen-auf-beim-start"
+    epic: 1
+    action: "AD-13 von beim Modulladen auf beim Start korrigieren, ORIGIN aufnehmen
+      (B7)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
+  - id: "epic-1-retro-item-7-entscheiden-pruefwerkzeug-in-die-archite"
+    epic: 1
+    action: "Entscheiden: Pruefwerkzeug in die Architektur aufnehmen oder zurueckbauen
+      (B8)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
+  - id: "epic-1-retro-item-8-restliche-plan-ist-abweichungen-in-einem"
+    epic: 1
+    action: "Restliche Plan-Ist-Abweichungen in einem Durchgang nachziehen (B9)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
+  - id: "epic-1-retro-item-9-geteilte-stile-nach-bedienelemente-css-z"
+    epic: 1
+    action: "Geteilte Stile nach bedienelemente.css ziehen, Gap-Drift aufloesen (B5)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
+  - id: "epic-1-retro-item-10-die-drei-abweisen-signaturen-auf-eine-fo"
+    epic: 1
+    action: "Die drei abweisen-Signaturen auf eine Form bringen (B5)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
+  - id: "epic-1-retro-item-11-die-30-eintraege-in-deferred-work-md-tri"
+    epic: 1
+    action: "Die 30 Eintraege in deferred-work.md triagieren, bevor Epic 2 beginnt"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
+  - id: "epic-1-retro-item-12-story-abschluss-um-einen-spec-abgleich-e"
+    epic: 1
+    action: "Story-Abschluss um einen Spec-Abgleich ergaenzen"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
+  - id: "epic-1-retro-item-13-entdeckte-gefahr-einer-story-loest-pruef"
+    epic: 1
+    action: "Entdeckte Gefahr einer Story loest Pruefung der frueheren Fundstellen
+      aus"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
+  - id: "epic-1-retro-item-14-stories-ueber-der-token-empfehlung-vor-d"
+    epic: 1
+    action: "Stories ueber der Token-Empfehlung vor dem Bau teilen oder Annahme abnehmen"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
