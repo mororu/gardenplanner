@@ -211,7 +211,7 @@
 								/>
 								<span class="haken" aria-hidden="true"></span>
 							</span>
-							<span class="nur-vorgelesen" id="verb-{aufgabe.id}">wieder öffnen</span>
+							<span class="nur-vorgelesen" id="verb-{aufgabe.id}">, wieder öffnen</span>
 						</form>
 					{:else}
 						<form
@@ -231,7 +231,7 @@
 								/>
 								<span class="haken" aria-hidden="true"></span>
 							</span>
-							<span class="nur-vorgelesen" id="verb-{aufgabe.id}">erledigen</span>
+							<span class="nur-vorgelesen" id="verb-{aufgabe.id}">, erledigen</span>
 						</form>
 					{/if}
 					<span class="zeile__text" id="aufgabe-{aufgabe.id}">{aufgabe.text}</span>

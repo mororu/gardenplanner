@@ -86,7 +86,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 213;
+const ERWARTETE_BEHAUPTUNGEN = 215;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -2035,6 +2035,32 @@ try {
 		'und hat die Aufgabentabelle nicht angefasst',
 		JSON.stringify(datenbank().select().from(tasks).all()),
 		aufgabenVorher
+	);
+
+	// -----------------------------------------------------------------------
+	// Sortierstabilität: zwei Aufgaben mit demselben created_at
+	// -----------------------------------------------------------------------
+	/*
+	 * Der Tiebreak asc(tasks.id) in offeneAufgabenAuflisten war bislang
+	 * ungetestet: created_at hat Sekundenauflösung, und die drei Aufgaben oben
+	 * liegen 100 Sekunden auseinander — nie gleich. Ohne zwei Aufgaben mit
+	 * demselben Wert bewies keine Probe, dass der zweite Ordnungsschlüssel
+	 * überhaupt etwas tut. Zwei Ladevorgänge hintereinander zeigen zugleich,
+	 * dass die Reihenfolge stabil bleibt und nicht zwischen zwei Aufrufen
+	 * wechselt.
+	 */
+	const geteilterZeitpunkt = jetzt - 500;
+	const zwillingEins = aufgabeSaen('Kompost wenden', geteilterZeitpunkt);
+	const zwillingZwei = aufgabeSaen('Laub rechen', geteilterZeitpunkt);
+	pruefenGleich(
+		'zwei Aufgaben mit demselben created_at stehen nach aufsteigender Id',
+		offeneReihenfolge(await routenausgang(() => startseite.load())),
+		`${zwillingEins} | ${zwillingZwei} | ${frueh} | ${mittel} | ${spaet}`
+	);
+	pruefenGleich(
+		'und die Reihenfolge bleibt über einen zweiten Ladevorgang stabil',
+		offeneReihenfolge(await routenausgang(() => startseite.load())),
+		`${zwillingEins} | ${zwillingZwei} | ${frueh} | ${mittel} | ${spaet}`
 	);
 
 	/*

@@ -129,6 +129,16 @@ Am Stand `4f89296` sondiert und belegt — nicht neu herleiten:
 - Given `prefers-reduced-motion: reduce`, when eine Aufgabe abgehakt wird, then wechselt der Zustand ohne Übergang
 - Given der ausgelieferte Quelltext von `/`, when darin nach den Namen aller Mitglieder und nach `completed` gesucht wird, then steht dort kein Hinweis darauf, wer etwas abgehakt hat
 
+### Review Findings
+
+- [x] [Review][Patch] Gate-Regel 1 erkennt kein rohes negatives Zeitliteral (z. B. `-140ms`) [scripts/gate.mjs:802]
+- [x] [Review][Patch] `aria-labelledby` erzeugt keinen Beistrich vor der Aktion — widerspricht Kommentar und README [src/routes/+page.svelte:192]
+- [x] [Review][Patch] Id-Tiebreak bei gleichem `created_at` in `offeneAufgabenAuflisten` ist durch keinen Test abgesichert [src/lib/server/db/queries/tasks.ts:62]
+- [x] [Review][Defer] Gate-Regel 1 Zeitregex ist case-sensitiv (`140MS` würde nicht erkannt) [scripts/gate.mjs:802] — deferred, pre-existing
+- [x] [Review][Defer] Gate-Regel 1 Zeitregex kann bei einer Custom Property wie `--transition-duration` falsch anschlagen [scripts/gate.mjs:797] — deferred, pre-existing
+- [x] [Review][Defer] `request.formData()` ohne try/catch in beiden actions — 500 statt 400 bei fehlerhaftem Body [src/routes/+page.server.ts:94,125] — deferred, pre-existing
+- [x] [Review][Defer] Numerische Randfälle von `idLesen` (0, Dezimalzahl, sehr grosse Zahl) nur gelesen, nicht smoke-geprüft [src/routes/+page.server.ts:49] — deferred, pre-existing
+
 ## Spec Change Log
 
 ## Design Notes

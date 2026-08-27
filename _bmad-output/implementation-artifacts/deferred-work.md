@@ -54,3 +54,18 @@
   summary: Die visuelle Prüfung von Story 1.4 ist offen — sie ist die einzige Prüfung, die Trefferfeld, Übergang, dunklen Modus und Screenreader-Ansage überhaupt sieht.
   evidence: Maschinell belegt sind: `npm run lint` und `npm run check` mit Exit 0, `npm run build` ohne gesetzte Umgebungsvariablen, und am **laufenden Bau** auf Port 4173 mit einer Wegwerf-Datenbank: `GET /` mit Cookie liefert 200, `grep -c completed` im ausgelieferten Quelltext ergibt 0, der Name der abhakenden Person kommt darin nicht vor, die vier Aufgaben stehen in der Ordnung nach `created_at`, `?/abhaken` antwortet mit `success`/`abgehakt`, ein zweites `?/abhaken` auf dieselbe Zeile mit `failure`/400 und dem einen Satz, `?/wiederOeffnen` mit `success` und ein zweites Mal mit `failure`/400, und bei leerer Liste steht `Nichts offen.` ohne `button-primary`. **Nicht** gesehen hat das jemand: 375px in Hell und Dunkel, die 22px sichtbar bei 44px Trefferfeld, die unveränderte Zeilenhöhe, der Fokusring, der Haken im gefüllten Kästchen, der 140ms-Übergang und sein Entfallen bei „Bewegung reduzieren", die Ansage der Live-Region und die Screenreader-Beschriftung „<Aufgabentext>, erledigen". Story 1.3 hat gezeigt, dass genau diese Prüfung Fehler findet, die die ganze Kette passieren.
   status: dem User vorzulegen
+
+## Deferred from: code review of spec-1-4-offene-aufgaben-sehen-und-abhaken (2026-08-27)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-offene-aufgaben-sehen-und-abhaken.md`
+  summary: Gate-Regel 1s neue Zeitregex ist case-sensitiv — ein rohes `140MS` würde nicht erkannt.
+  evidence: Deckungsgleich mit der bestehenden px/rem-Regel in derselben Funktion, die dieselbe Lücke schon vor dieser Story hatte. Kein aktueller Treffer im Baum; handgeschriebenes, von Prettier formatiertes CSS schreibt Einheiten praktisch nie gross. Ort: `scripts/gate.mjs:802`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-offene-aufgaben-sehen-und-abhaken.md`
+  summary: Gate-Regel 1s neue Zeitregex könnte bei einer Custom Property wie `--transition-duration: …` falsch anschlagen.
+  evidence: Der Eigenschaftsname wird nur über `\b(transition|animation)…` erkannt, ein `-` davor ist eine Wortgrenze — eine Custom Property mit demselben Suffix würde mitgelesen. Dieselbe Klasse latenter Grenzen wie das bereits dokumentierte Wortscanning-Problem bei `white-space`. Kein aktueller Treffer, keine solche Custom Property im Baum. Ort: `scripts/gate.mjs:797`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-offene-aufgaben-sehen-und-abhaken.md`
+  summary: `request.formData()` läuft in beiden neuen actions ohne try/catch — ein fehlerhafter Body ergäbe 500 statt der beabsichtigten 400.
+  evidence: Wortgleiches Muster wie in `src/routes/verwaltung/+page.server.ts`, also vorbestehend und nicht durch diese Story eingeführt. Über `use:enhance` sendet der Browser immer wohlgeformte Daten; erreichbar nur über einen direkten POST ausserhalb der Oberfläche. Ort: `src/routes/+page.server.ts:94` und `:125`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-offene-aufgaben-sehen-und-abhaken.md`
+  summary: Numerische Randfälle von `idLesen` (`'0'`, `'1.5'`, eine Zahl über `Number.MAX_SAFE_INTEGER`) sind nur durch Lesen des Codes, nicht durch `smoke` geprüft.
+  evidence: Die Logik ist korrekt (Regex lässt keine Dezimalpunkte zu, `id > 0` schliesst Null aus, `Number.isSafeInteger` schliesst zu grosse Werte aus), aber ungetestet — eine künftige Änderung an `idLesen` könnte einen dieser Fälle stillschweigend brechen. Ort: `src/routes/+page.server.ts:49`.

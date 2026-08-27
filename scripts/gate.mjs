@@ -792,6 +792,12 @@ const torPrüfen = (ziel) => {
 			 * Eine Null bleibt erlaubt, wie beim Massliteral: `0s` ist keine
 			 * Gestaltungsentscheidung, sondern deren Abwesenheit. Eine Null **ohne**
 			 * Einheit trifft der Regex ohnehin nicht.
+			 *
+			 * Ein Minus davor ist kein Schutz: `-140ms` ist ein ebenso rohes
+			 * Zeitliteral wie `140ms`, üblich für animation-delay, das eine
+			 * Animation absichtlich mitten im Ablauf beginnen lässt. Ohne das
+			 * Vorzeichen im Zahlenteil wäre genau diese Schreibweise von Anfang an
+			 * umgehbar gewesen — derselbe Fehler, den diese Regel selbst schliesst.
 			 */
 			for (const eigenschaft of ohneBedingungen.matchAll(
 				/\b(transition|animation)(?:-duration|-delay)?\s*:([^;{}]*)/g
@@ -799,7 +805,7 @@ const torPrüfen = (ziel) => {
 				const wert = eigenschaft[2];
 				// Versatz des Werts im Abschnitt, damit die Zeilennummer stimmt.
 				const wertAb = (eigenschaft.index ?? 0) + eigenschaft[0].length - wert.length;
-				for (const zeit of wert.matchAll(/(?<![\w.-])(\d+(?:\.\d+)?|\.\d+)(ms|s)\b/g)) {
+				for (const zeit of wert.matchAll(/(?<![\w.-])(-?\d+(?:\.\d+)?|-?\.\d+)(ms|s)\b/g)) {
 					if (Number(zeit[1]) === 0) continue;
 					melden(
 						1,
@@ -1313,14 +1319,15 @@ const proben = [
 	{
 		regel: 1,
 		verzeichnis: 'regel-1d-zeitwert',
-		erwartet: 4,
+		erwartet: 5,
 		begruendung:
-			'4 rohe Zeitwerte in Probe.svelte, einer je Schreibweise: 140ms in der ' +
+			'5 rohe Zeitwerte in Probe.svelte, einer je Schreibweise: 140ms in der ' +
 			'transition-Kurzform, 0.2s in transition-duration, 1.5s in der ' +
-			'animation-Kurzform und 500ms in animation-delay',
+			'animation-Kurzform, 500ms in animation-delay und -300ms als negatives ' +
+			'animation-delay — ein Vorzeichen ist kein Schutz vor der Regel',
 		art: 'Verstoss',
 		beschreibung:
-			'rohe ms/s-Werte in Bewegungs-Eigenschaften; der Massliteral-Regex prüfte nur px und rem',
+			'rohe ms/s-Werte in Bewegungs-Eigenschaften, positiv und negativ; der Massliteral-Regex prüfte nur px und rem',
 	},
 	{
 		regel: 1,
