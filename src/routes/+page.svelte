@@ -158,10 +158,22 @@
 			}
 			imFlug = true;
 			return async ({ update, result }) => {
-				// Beide Vorgaben ausdrücklich aus: siehe die Begründung an `erledigt`.
-				await update({ reset: false, invalidateAll: false });
+				/*
+					try/finally: bricht update() ab — ein abgerissenes Netz, ein Fehler
+					in applyAction —, bliebe imFlug sonst für immer true und **jedes**
+					Kästchen dieser Liste dauerhaft disabled. Auf der Seite, auf der die
+					Gemeinschaft abhakt, wäre nur ein Neuladen der Ausweg. Dieselbe
+					Absicherung wie in aufgabe/+page.svelte, wo sie zuerst entstand.
+
+					Beide Vorgaben an update() ausdrücklich aus: siehe die Begründung an
+					`erledigt`.
+				*/
+				try {
+					await update({ reset: false, invalidateAll: false });
+				} finally {
+					imFlug = false;
+				}
 				const gewechselt = zustandUebernehmen(result, id);
-				imFlug = false;
 				if (!gewechselt) kaestchenNachZustand(formElement, id);
 			};
 		};

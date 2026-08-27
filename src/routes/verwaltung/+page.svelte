@@ -151,8 +151,17 @@
 				Fehlschlag wird geschlossen — der Satz dazu steht oben auf der Seite.
 			*/
 			dialog?.close();
-			await update();
-			imFlug = false;
+			/*
+				try/finally: bricht update() ab, bliebe imFlug sonst für immer true und
+				alle drei Knöpfe dieser Seite dauerhaft disabled — Aufnehmen, Neu
+				ausstellen und Widerrufen zugleich. Dieselbe Absicherung wie in
+				aufgabe/+page.svelte, wo sie zuerst entstand.
+			*/
+			try {
+				await update();
+			} finally {
+				imFlug = false;
+			}
 			// Nach dem Rendern, sonst gibt es das Ziel noch nicht.
 			await tick();
 			fokusNach(result);
