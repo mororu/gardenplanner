@@ -58,7 +58,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import Database from 'better-sqlite3';
 import { eq } from 'drizzle-orm';
 import { isActionFailure, isHttpError, isRedirect, text } from '@sveltejs/kit';
-import type { Cookies, Handle, RequestEvent } from '@sveltejs/kit';
+import type { Cookies, Handle, RequestEvent, ServerLoadEvent } from '@sveltejs/kit';
 import {
 	sitzungAusstellen,
 	sitzungLoeschen,
@@ -86,7 +86,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 215;
+const ERWARTETE_BEHAUPTUNGEN = 261;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -293,7 +293,9 @@ class Ereignis {
 
 	/**
 	 * @param formular fehlt für ein GET; steht dafür, wird die Anfrage ein POST
-	 *   mit multipart-Formulardaten.
+	 *   mit multipart-Formulardaten. Ein Wert darf ein Blob sein: nur so lässt
+	 *   sich der Fall „das Feld ist da, ist aber kein String" überhaupt
+	 *   ausführen — ein Datei-Upload auf ein Textfeld.
 	 *
 	 * Ohne den dritten Parameter baute diese Attrappe nur `new Request(this.url)`
 	 * — ohne Methode und ohne Rumpf. Eine form action, die `await
@@ -301,7 +303,7 @@ class Ereignis {
 	 * von einer geprüft, sondern nur ausgeführt. Der Rumpf entsteht aus einem
 	 * echten FormData, damit ihn `request.formData()` auch wirklich parst.
 	 */
-	constructor(pfad: string, keks?: string, formular?: Record<string, string>) {
+	constructor(pfad: string, keks?: string, formular?: Record<string, string | Blob>) {
 		this.url = new URL(`${HERKUNFT}${pfad}`);
 		if (formular === undefined) {
 			this.request = new Request(this.url);
@@ -337,6 +339,17 @@ class Ereignis {
 
 	alsRequestEvent(): RequestEvent {
 		return this as unknown as RequestEvent;
+	}
+
+	/*
+	 * Derselbe Cast für die load-Funktionen, die ein ServerLoadEvent deklarieren.
+	 * Er geht ebenfalls über unknown, und die Aussage darin ist dieselbe: parent,
+	 * depends und untrack fehlen dieser Attrappe, und behauptet wird damit, dass
+	 * keine load sie braucht. Ruft eine sie je doch, bricht der Aufruf mit einem
+	 * TypeError, und der Rahmen unten macht daraus eine benannte Verletzung.
+	 */
+	alsServerLoadEvent(): ServerLoadEvent {
+		return this as unknown as ServerLoadEvent;
 	}
 
 	/** Alle aufgezeichneten Nebenwirkungen als eine sortierte Zeichenkette. */
@@ -516,16 +529,40 @@ async function mehrLaden(): Promise<MehrModul> {
 }
 
 /*
- * Die Startseite aus Story 1.4. Ihre load nimmt **kein** Ereignis: sie braucht
- * weder locals noch Adresse noch Cookies, und der Typ hier sagt das mit.
+ * Die Startseite aus Story 1.4. Ihre load nimmt seit Story 1.5 ein Ereignis und
+ * deklariert dafür ein ServerLoadEvent — der Typ hier sagt dasselbe, nicht ein
+ * RequestEvent, das eine andere Form hat.
+ *
+ * Dass sie daraus **allein die Adresse** liest, war bis Story 1.5 durch die
+ * Signatur belegt: sie nahm gar kein Ereignis. Dieser Beleg ist mit der
+ * Verbreiterung verlorengegangen und steht jetzt als eigene, ausgeführte
+ * Behauptung unten — mit einem Ereignis, dessen locals und cookies beim Lesen
+ * werfen.
  */
-type StartseitenModul = { load: () => unknown; actions: Record<string, Aktion> };
+type StartseitenModul = {
+	load: (ereignis: ServerLoadEvent) => unknown;
+	actions: Record<string, Aktion>;
+};
 let startseitenModul: StartseitenModul | null = null;
 
 async function startseiteLaden(): Promise<StartseitenModul> {
 	startseitenModul ??=
 		(await import('../src/routes/+page.server.ts')) as unknown as StartseitenModul;
 	return startseitenModul;
+}
+
+/*
+ * Die Erfassenseite aus Story 1.5. Sie hat **keine** load — die Seite zeigt ein
+ * leeres Feld und hat nichts zu laden —, und der Typ hier sagt das mit: fügt
+ * jemand eine load hinzu, ohne sie zu prüfen, fällt das hier auf.
+ */
+type AufgabeModul = { actions: Record<string, Aktion> };
+let aufgabeModul: AufgabeModul | null = null;
+
+async function aufgabeLaden(): Promise<AufgabeModul> {
+	aufgabeModul ??=
+		(await import('../src/routes/aufgabe/+page.server.ts')) as unknown as AufgabeModul;
+	return aufgabeModul;
 }
 
 /**
@@ -562,7 +599,7 @@ async function routenausgang(lauf: () => unknown): Promise<Routenausgang> {
 function alsMitglied(
 	pfad: string,
 	mitglied: AngemeldetesMitglied | null,
-	formular?: Record<string, string>
+	formular?: Record<string, string | Blob>
 ): Ereignis {
 	const ereignis = new Ereignis(pfad, undefined, formular);
 	ereignis.locals.mitglied = mitglied;
@@ -598,10 +635,10 @@ function zeileAbdruck(id: number): string {
 /**
  * Legt eine Aufgabe an — mit **ausdrücklichem** created_at.
  *
- * Direkt über Drizzle und nicht über eine Repository-Funktion: es gibt noch
- * keine, weil das Erfassen erst mit Story 1.5 kommt. Eine Funktion allein für
- * die Vorbereitung dieses Skripts wäre toter Produktionscode, und Gate-Regel 9
- * verbietet den direkten Zugriff nur unter src/routes/.
+ * Direkt über Drizzle und nicht über die Repository-Funktion aufgabeAnlegen,
+ * die es seit Story 1.5 gibt: die nimmt **kein** created_at entgegen, weil der
+ * Zeitstempel dort aus dem Schema kommt ($defaultFn). Genau das braucht diese
+ * Hilfe aber. Gate-Regel 9 verbietet den direkten Zugriff nur unter src/routes/.
  *
  * Der Zeitstempel steht hier statt aus $defaultFn zu kommen, damit die
  * Reihenfolge der Liste prüfbar ist: die drei Aufgaben werden **nicht** in der
@@ -1843,6 +1880,17 @@ try {
 	const startseite = await startseiteLaden();
 
 	/*
+	 * Die load von / an einer Adresse.
+	 *
+	 * Seit Story 1.5 nimmt sie ein Ereignis, und der Pfad trägt eine Aussage:
+	 * `?abgelegt` ist die Bestätigung, die eine Weiterleitung überlebt hat. Das
+	 * Ereignis trägt **kein** locals.mitglied — läse die load je Identität, bräche
+	 * sie hier statt still eine Zeile zu personalisieren.
+	 */
+	const startseiteLadenAn = (pfad: string) =>
+		routenausgang(() => startseite.load(new Ereignis(pfad).alsServerLoadEvent()));
+
+	/*
 	 * Drei Aufgaben, ausdrücklich **nicht** in der Reihenfolge ihres created_at
 	 * eingefügt: die Ids laufen spaet < frueh < mittel, die Liste muss trotzdem
 	 * frueh, mittel, spaet liefern. Eine Sortierung nach der Id wäre damit rot.
@@ -1852,16 +1900,41 @@ try {
 	const frueh = aufgabeSaen('Beet 25 Nüsslisalat jäten', jetzt - 300);
 	const mittel = aufgabeSaen('Tomaten ausgeizen, Beete 3 bis 7', jetzt - 200);
 
-	const erstesLaden = await routenausgang(() => startseite.load());
+	const erstesLaden = await startseiteLadenAn('/');
 	pruefenGleich(
 		'die load von / gibt die offenen Aufgaben, älteste zuerst',
 		offeneReihenfolge(erstesLaden),
 		`${frueh} | ${mittel} | ${spaet}`
 	);
+	/*
+	 * Ausgeführt statt behauptet: das Ereignis wirft, sobald jemand locals oder
+	 * cookies **anfasst** — schon das Destrukturieren von `{ locals, url }` löst
+	 * aus. Bis Story 1.5 trug die Signatur diesen Beleg (die load nahm gar kein
+	 * Ereignis); seit sie eines nimmt, trägt ihn diese Zeile.
+	 *
+	 * Die Zusage ist keine Kosmetik: läse diese load die Identität, entstünde ein
+	 * Weg, auf dem die Liste für zwei Personen verschieden aussähe — und der
+	 * namenlose Pool ist genau das Gegenteil (AD-2).
+	 */
+	const abtasten = new Ereignis('/');
+	for (const feld of ['locals', 'cookies'] as const) {
+		Object.defineProperty(abtasten, feld, {
+			configurable: true,
+			get() {
+				throw new Error(`die load hat ${feld} gelesen`);
+			},
+		});
+	}
+	let angefasst = '';
+	try {
+		startseite.load(abtasten.alsServerLoadEvent());
+	} catch (fehler) {
+		angefasst = fehler instanceof Error ? fehler.message : String(fehler);
+	}
 	pruefen(
-		'die load von / braucht kein Ereignis — sie liest weder locals noch Cookies',
-		erstesLaden.art === 'wert',
-		`Ausgang ${erstesLaden.art}`
+		'die load von / liest aus dem Ereignis nur die Adresse — weder locals noch Cookies',
+		angefasst === '' && erstesLaden.art === 'wert',
+		angefasst === '' ? `Ausgang ${erstesLaden.art}` : angefasst
 	);
 	pruefen(
 		'die Seitendaten tragen weder completed_by noch completed_at',
@@ -1904,7 +1977,7 @@ try {
 		JSON.stringify(mittelErledigt?.completedAt)
 	);
 
-	const nachAbhaken = await routenausgang(() => startseite.load());
+	const nachAbhaken = await startseiteLadenAn('/');
 	pruefenGleich(
 		'die abgehakte Zeile fehlt in einer frischen load — auch für alle anderen',
 		offeneReihenfolge(nachAbhaken),
@@ -1967,7 +2040,7 @@ try {
 	);
 	pruefenGleich(
 		'die Zeile steht danach wieder an ihrem Platz nach created_at',
-		offeneReihenfolge(await routenausgang(() => startseite.load())),
+		offeneReihenfolge(await startseiteLadenAn('/')),
 		`${frueh} | ${mittel} | ${spaet}`
 	);
 
@@ -2054,12 +2127,12 @@ try {
 	const zwillingZwei = aufgabeSaen('Laub rechen', geteilterZeitpunkt);
 	pruefenGleich(
 		'zwei Aufgaben mit demselben created_at stehen nach aufsteigender Id',
-		offeneReihenfolge(await routenausgang(() => startseite.load())),
+		offeneReihenfolge(await startseiteLadenAn('/')),
 		`${zwillingEins} | ${zwillingZwei} | ${frueh} | ${mittel} | ${spaet}`
 	);
 	pruefenGleich(
 		'und die Reihenfolge bleibt über einen zweiten Ladevorgang stabil',
-		offeneReihenfolge(await routenausgang(() => startseite.load())),
+		offeneReihenfolge(await startseiteLadenAn('/')),
 		`${zwillingEins} | ${zwillingZwei} | ${frueh} | ${mittel} | ${spaet}`
 	);
 
@@ -2101,6 +2174,520 @@ try {
 	pruefen(
 		'und die Startseite trägt kein <label> — der Aufgabentext bleibt toter Text',
 		!/<label\b/.test(startseitenCode)
+	);
+
+	// =======================================================================
+	// /aufgabe — Story 1.5: eine Aufgabe vor Ort erfassen.
+	//
+	// Ein Feld, ein Knopf, keine Wahl. Geprüft wird die Serverseite: die eine
+	// action, die Prüfkette davor, die Zeile danach und die Weiterleitung, mit
+	// der die Bestätigung auf / ankommt. Die action bekommt ein Ereignis
+	// **ohne** locals.mitglied — sie liest keine Identität, und es gibt keine
+	// Spalte, die einen Erfassenden hielte (AD-2, AD-5).
+	// =======================================================================
+	const aufgabe = await aufgabeLaden();
+
+	/*
+	 * Die Matrixzeile „Ohne Cookie": /aufgabe hat **keine** eigene Schranke, und
+	 * genau das ist zu belegen. Der Wächter ist pfadagnostisch — er schützt jeden
+	 * Pfad ausser /i/… —, aber „pfadagnostisch" ist eine Aussage über Code, die
+	 * erst dann eine Behauptung ist, wenn sie für diesen Pfad ausgeführt wurde.
+	 * Eine Route, die den Wächter je umginge, fiele in der Oberfläche nicht auf.
+	 */
+	abweisungOderRot('ohne Zugang: /aufgabe ohne Cookie', await aufrufen('/aufgabe'));
+
+	pruefen(
+		'/aufgabe bringt keine load mit — die Seite zeigt ein leeres Feld',
+		!('load' in aufgabe),
+		Object.keys(aufgabe).sort().join(', ')
+	);
+
+	/** Ein Versand an ?/ablegen, ohne jede Identität im Ereignis. */
+	const ablegenMit = (formular: Record<string, string | Blob>) =>
+		routenausgang(() =>
+			aufgabe.actions.ablegen(new Ereignis('/aufgabe', undefined, formular).alsRequestEvent())
+		);
+
+	/** Wie viele Zeilen in tasks stehen — die Zahl, die ein Fehlschlag nicht ändern darf. */
+	const aufgabenZaehlen = () => datenbank().select({ id: tasks.id }).from(tasks).all().length;
+
+	// -----------------------------------------------------------------------
+	// Ablegen: eine Zeile, gefalteter Text, 303 auf /?abgelegt
+	// -----------------------------------------------------------------------
+	/*
+	 * Der Text kommt mit Leerraum vorn, hinten und doppelt in der Mitte herein.
+	 * Gespeichert werden muss die **gefaltete** Fassung — dieselbe Kette wie beim
+	 * Mitgliedsnamen, und ohne diese Eingabe bewiese die Probe nur, dass ein
+	 * schon sauberer Text sauber ankommt.
+	 */
+	const vorAblage = aufgabenZaehlen();
+	const jetztAblage = Math.floor(Date.now() / 1000);
+	const abgelegtAusgang = await ablegenMit({ text: '  Tunnel 2   Blattläuse nachbehandeln  ' });
+	pruefen(
+		'ablegen leitet mit 303 auf /?abgelegt — die Meldung reist im Parameter',
+		abgelegtAusgang.art === 'weiter' &&
+			abgelegtAusgang.status === 303 &&
+			abgelegtAusgang.ort === '/?abgelegt',
+		abgelegtAusgang.art === 'weiter'
+			? `${abgelegtAusgang.status} auf ${abgelegtAusgang.ort}`
+			: `Ausgang ${abgelegtAusgang.art}`
+	);
+	pruefenGleich('und legt genau eine Zeile an', aufgabenZaehlen(), vorAblage + 1);
+
+	const neueAufgabe =
+		datenbank()
+			.select()
+			.from(tasks)
+			.where(eq(tasks.text, 'Tunnel 2 Blattläuse nachbehandeln'))
+			.get() ?? null;
+	pruefen(
+		'der Text steht getrimmt und mit einfachen Leerzeichen in der Zeile',
+		neueAufgabe !== null,
+		JSON.stringify(datenbank().select({ text: tasks.text }).from(tasks).all())
+	);
+	pruefen(
+		'created_at steht in Unix-Sekunden und kommt aus dem Schema, nicht aus der Route',
+		typeof neueAufgabe?.createdAt === 'number' &&
+			neueAufgabe.createdAt >= jetztAblage &&
+			neueAufgabe.createdAt < jetztAblage + 300,
+		JSON.stringify(neueAufgabe?.createdAt)
+	);
+	pruefen(
+		'completed_by und completed_at sind leer — eine neue Aufgabe ist offen und niemandes',
+		neueAufgabe?.completedBy === null && neueAufgabe?.completedAt === null,
+		JSON.stringify(neueAufgabe)
+	);
+
+	/*
+	 * Und sie steht in der Liste von / — als **jüngste zuletzt**, weil
+	 * offeneAufgabenAuflisten nach created_at aufsteigend sortiert und ihr
+	 * Zeitstempel der grösste ist.
+	 */
+	const nachAblage = await startseiteLadenAn('/?abgelegt');
+	pruefenGleich(
+		'die neue Aufgabe steht in der load von / — jüngste zuletzt',
+		offeneReihenfolge(nachAblage),
+		`${zwillingEins} | ${zwillingZwei} | ${frueh} | ${mittel} | ${spaet} | ${neueAufgabe?.id}`
+	);
+	pruefen(
+		'die Seitendaten der Erfassung tragen weder completed_by noch completed_at',
+		!nenntErledigt(wertVon(nachAblage)),
+		JSON.stringify(wertVon(nachAblage)).slice(0, 160)
+	);
+
+	// -----------------------------------------------------------------------
+	// Der Parameter: ein Wahrheitswert, kein Satz
+	// -----------------------------------------------------------------------
+	pruefenGleich(
+		'mit ?abgelegt gibt die load von / abgelegt: true',
+		wertVon(nachAblage).abgelegt,
+		true
+	);
+	pruefenGleich(
+		'ohne den Parameter gibt sie abgelegt: false',
+		wertVon(await startseiteLadenAn('/')).abgelegt,
+		false
+	);
+	pruefen(
+		'der Wahrheitswert trägt keinen Satz — der gehört zur Oberfläche',
+		!/[Aa]bgelegt\./.test(JSON.stringify(wertVon(nachAblage))),
+		JSON.stringify(wertVon(nachAblage)).slice(0, 160)
+	);
+
+	// -----------------------------------------------------------------------
+	// Abgewiesen: sechs Eingaben, ein Satz, keine Zeile
+	// -----------------------------------------------------------------------
+	/*
+	 * Nullbreiten-Zeichen sind für trim() kein Leerraum. Ein Aufgabentext aus
+	 * ihnen legte eine Zeile an, die im Pool als leere Zeile neben einem Kästchen
+	 * steht — ohne Aussage, was zu tun ist, und ohne Bearbeiten-Aktion, die das
+	 * richtigstellte. Abhaken wäre das Einzige, was bliebe.
+	 *
+	 * Der Blob ist der Fall „das Feld ist da, ist aber kein String": ein
+	 * Datei-Upload auf ein Textfeld. Er fällt auf denselben Satz wie ein leeres
+	 * Feld — jede Unterscheidung wäre eine Auskunft ohne Handlung.
+	 */
+	const ablageSaetze = new Set<string>();
+	for (const [wie, formular] of [
+		['leer', { text: '' }],
+		['nur Leerzeichen', { text: '   ' }],
+		['nur Nullbreiten-Zeichen', { text: '\u200B\u200C\u200D\u2060\uFEFF' }],
+		['aus Umbruch und Tabulator', { text: '\n\t' }],
+		['ohne das Feld', {}],
+		['kein String, sondern ein Blob', { text: new Blob(['Beet 25 jäten']) }],
+	] as const) {
+		const vorher = aufgabenZaehlen();
+		const ausgang = await ablegenMit({ ...formular });
+		pruefen(
+			`ablegen ${wie} ergibt 400 am Feld text`,
+			ausgang.art === 'fehlschlag' && ausgang.status === 400 && ausgang.daten.feld === 'text',
+			`Ausgang ${ausgang.art}`
+		);
+		pruefenGleich(`ablegen ${wie} legt keine Zeile an`, aufgabenZaehlen(), vorher);
+		ablageSaetze.add(textFeld(datenVon(ausgang), 'meldung'));
+	}
+	pruefen(
+		'alle sechs abgewiesenen Eingaben tragen denselben Satz',
+		ablageSaetze.size === 1,
+		`${ablageSaetze.size} verschiedene Sätze: ${JSON.stringify([...ablageSaetze])}`
+	);
+
+	const nurLeerzeichen = await ablegenMit({ text: '   ' });
+	pruefenGleich(
+		'die Eingabe kommt unverändert zum Feld zurück und bleibt dort stehen',
+		textFeld(datenVon(nurLeerzeichen), 'eingabe'),
+		'   '
+	);
+
+	// -----------------------------------------------------------------------
+	// Die Grenze: 200 Codepoints gehen durch, 201 nicht
+	// -----------------------------------------------------------------------
+	/*
+	 * Einschliessend, und beide Seiten der Kante werden ausgeführt. Gezählt wird
+	 * nach **Codepoints**: die 201 stehen als 200 Buchstaben plus ein Emoji da,
+	 * das in UTF-16 zwei Einheiten belegt — mit `.length` statt [...text] wäre
+	 * schon der gültige Text von 200 Zeichen plus Emoji abgewiesen worden.
+	 */
+	const vorGrenze = aufgabenZaehlen();
+	const genauZweihundert = await ablegenMit({ text: 'A'.repeat(200) });
+	pruefen(
+		'genau 200 Codepoints werden angelegt — die Grenze ist einschliessend',
+		genauZweihundert.art === 'weiter' && genauZweihundert.status === 303,
+		`Ausgang ${genauZweihundert.art}`
+	);
+	pruefenGleich('und die Zeile steht in der Tabelle', aufgabenZaehlen(), vorGrenze + 1);
+
+	const einsZuViel = await ablegenMit({ text: 'A'.repeat(201) });
+	pruefen(
+		'201 Codepoints werden mit 400 am Feld text abgewiesen',
+		einsZuViel.art === 'fehlschlag' &&
+			einsZuViel.status === 400 &&
+			einsZuViel.daten.feld === 'text',
+		`Ausgang ${einsZuViel.art}`
+	);
+	pruefenGleich('und legen keine Zeile an', aufgabenZaehlen(), vorGrenze + 1);
+	pruefen(
+		'der Satz zur Überlänge nennt die Grenze und ist ein anderer als der für fehlenden Text',
+		textFeld(datenVon(einsZuViel), 'meldung').includes('200') &&
+			!ablageSaetze.has(textFeld(datenVon(einsZuViel), 'meldung')),
+		JSON.stringify(textFeld(datenVon(einsZuViel), 'meldung'))
+	);
+
+	const knappDrueber = await ablegenMit({ text: `${'A'.repeat(200)}\u{1F33F}` });
+	pruefen(
+		'200 Buchstaben plus ein Emoji sind 201 Codepoints und werden abgewiesen',
+		knappDrueber.art === 'fehlschlag' && knappDrueber.status === 400,
+		`Ausgang ${knappDrueber.art}`
+	);
+
+	/*
+	 * Gegenprobe: ein Text **mit** einem Nullbreiten-Zeichen darin, der nach dem
+	 * Aussieben lesbar bleibt, muss durchgehen — sonst wäre die Prüfung zu breit
+	 * und wiese Texte ab, die aus einem Chat eingefügt wurden.
+	 */
+	const mitUnsichtbaremText = await ablegenMit({ text: 'Beet\u200B 25   jäten' });
+	pruefen(
+		'ein lesbarer Text mit einem Nullbreiten-Zeichen darin wird gesäubert und angenommen',
+		mitUnsichtbaremText.art === 'weiter' && mitUnsichtbaremText.status === 303,
+		`Ausgang ${mitUnsichtbaremText.art}`
+	);
+	pruefen(
+		'und steht gesäubert und gefaltet in der Tabelle',
+		datenbank().select().from(tasks).where(eq(tasks.text, 'Beet 25 jäten')).get() !== undefined,
+		JSON.stringify(datenbank().select({ text: tasks.text }).from(tasks).all())
+	);
+
+	/*
+	 * Die **Textprüfungen** dieser Story, ausdrücklich als solche benannt.
+	 *
+	 * Sie decken vier Zeilen der Matrix, die sonst gar nicht liefen — „Nach dem
+	 * Ablegen" (die Live-Region sagt `Abgelegt.` und nimmt einmalig den Fokus),
+	 * „Abhaken nach dem Ablegen" (die Rückmeldung des Abhakens ersetzt sie),
+	 * „Doppeltipp auf Ablegen" (genau eine Zeile entsteht) und „Leeres Feld"
+	 * insoweit, als der Satz auch **angesagt** werden muss — dazu die Zusagen des
+	 * eingefrorenen Blocks, die sonst nur am Augenschein hingen.
+	 *
+	 * **Warum Text und nicht ausgeführt.** Diese Zusagen leben im Browser: eine
+	 * Live-Region, ein Fokusgriff, eine Sperre über zwei Renderdurchgänge, die
+	 * Verdrahtung eines Formularfeldes an eine action. Die Svelte-Schicht deckt in
+	 * diesem Projekt kein ausgeführtes Werkzeug (es gibt bewusst keines, siehe
+	 * deferred-work.md), und ein Rendern von Hand wäre eine zweite Umsetzung
+	 * derselben Regel.
+	 *
+	 * **Warum die Vorrangregel nicht als reine Funktion herausgezogen ist.** Sie
+	 * ist eine Zeile in einem $derived.by, das zwei Komponenten-Eigenschaften
+	 * liest. Ein eigenes Modul dafür hätte genau einen Aufrufer — dieses Skript —
+	 * und wäre damit Produktionscode, den keine Route benutzt. Dieselbe Abwägung
+	 * steht in der Architektur hinter idLesen, das in zwei Routen wortgleich
+	 * dasteht, statt in einem geteilten Modul zu liegen.
+	 *
+	 * Der Preis ist benannt: eine Textprüfung belegt, dass die Stelle **dasteht**,
+	 * nicht, dass sie **wirkt**. Sie ist der Riegel gegen das stille Entfernen,
+	 * nicht der Nachweis des Verhaltens.
+	 *
+	 * Alle laufen auf der Datei **ohne Kommentare**, aus demselben Grund wie die
+	 * zwei Prüfungen der Startseite oben: die Komponenten erklären wörtlich, was
+	 * dort zu stehen hat, und auf dem Rohtext erfüllten sich die Behauptungen an
+	 * der eigenen Begründung.
+	 *
+	 * Und sie sind, wo immer es geht, gegen den **Umbruch** unempfindlich: der
+	 * geprüfte Ausschnitt wird vorher auf einfache Leerzeichen geglättet. Sonst
+	 * machte ein reiner Formatierungslauf von Prettier die Prüfliste rot, und die
+	 * nächste Person löste das, indem sie die Behauptung abschwächt.
+	 */
+	const kommentarfrei = (quelle: string) =>
+		quelle
+			.replace(/<!--[\s\S]*?-->/g, ' ')
+			.replace(/\/\*[\s\S]*?\*\//g, ' ')
+			.replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+	const erfassenCode = kommentarfrei(
+		readFileSync(join(wurzel, 'src', 'routes', 'aufgabe', '+page.svelte'), 'utf8')
+	);
+	const erfassenServer = kommentarfrei(
+		readFileSync(join(wurzel, 'src', 'routes', 'aufgabe', '+page.server.ts'), 'utf8')
+	);
+
+	/**
+	 * Der klammerbalancierte Rumpf des ersten `{…}`-Blocks ab `von`, auf einfache
+	 * Leerzeichen geglättet. Leer, wenn es keinen gibt.
+	 *
+	 * Balanciert und nicht `[^}]*`: ein Rumpf mit einer Zeichenkettenschablone
+	 * darin (`${form.meldung}`) trägt selbst Klammern, und eine Suche bis zur
+	 * ersten schliessenden schnitte mitten hinein.
+	 */
+	const glatterRumpf = (quelle: string, von: number): string => {
+		const auf = von < 0 ? -1 : quelle.indexOf('{', von);
+		if (auf < 0) return '';
+		let tiefe = 0;
+		for (let i = auf; i < quelle.length; i += 1) {
+			if (quelle[i] === '{') tiefe += 1;
+			else if (quelle[i] === '}') {
+				tiefe -= 1;
+				if (tiefe === 0)
+					return quelle
+						.slice(auf + 1, i)
+						.replace(/\s+/g, ' ')
+						.trim();
+			}
+		}
+		return '';
+	};
+
+	/** Die Namen der fehlenden Teile einer Liste aus [Name, gefunden]. */
+	const fehlendeTeile = (teile: readonly (readonly [string, boolean])[]) =>
+		teile.filter(([, gefunden]) => !gefunden).map(([name]) => name);
+
+	// -----------------------------------------------------------------------
+	// /aufgabe: die Verdrahtung des Formulars
+	// -----------------------------------------------------------------------
+	/*
+	 * Der teure Fehler, gegen den diese Behauptung steht: `name="text"` in
+	 * `name="aufgabentext"` umbenannt. `formular.get('text')` gibt dann immer
+	 * null, **jeder** Versand endet mit 400 „Ohne Text entsteht keine Aufgabe",
+	 * und die ganze Prüfliste bleibt grün — die Behauptungen oben bauen ihr
+	 * FormData selbst und kennen das Markup nicht. Dasselbe gilt für jedes andere
+	 * Glied der Kette: ohne `value={eingabe}` ist die Eingabe nach einem
+	 * Fehlschlag fort, ohne die id am Satz zeigt aria-describedby ins Leere, ohne
+	 * use:enhance greift die Doppelsperre nie.
+	 */
+	const verdrahtung = [
+		['name="text" am Feld', /<input\b[^>]*\bname="text"/.test(erfassenCode)],
+		['value={eingabe} am Feld', /<input\b[^>]*\bvalue=\{eingabe\}/.test(erfassenCode)],
+		[
+			"aria-describedby auf 'text-fehler'",
+			/<input\b[^>]*\baria-describedby=\{[^}]*'text-fehler'/.test(erfassenCode),
+		],
+		['id="text-fehler" am Fehlersatz', /<p\b[^>]*\bid="text-fehler"/.test(erfassenCode)],
+		['use:enhance={versand} am Formular', /<form\b[^>]*use:enhance=\{versand\}/.test(erfassenCode)],
+	] as const;
+	pruefen(
+		'das Formular auf /aufgabe ist vollständig verdrahtet',
+		fehlendeTeile(verdrahtung).length === 0,
+		`fehlt: ${fehlendeTeile(verdrahtung).join(', ')}`
+	);
+
+	// -----------------------------------------------------------------------
+	// /aufgabe: die Zusagen des eingefrorenen Blocks
+	// -----------------------------------------------------------------------
+	const zusagen = [
+		[
+			'sichtbare <label for="text"> mit Text',
+			/<label\b[^>]*\bfor="text"[^>]*>\s*\S[^<]*<\/label>/.test(erfassenCode),
+		],
+		['kein placeholder', !/\bplaceholder\b/.test(erfassenCode)],
+		['kein Zurück-Knopf und kein Zurück-Link', !/(<a\b|[Zz]ur[üu]ck)/.test(erfassenCode)],
+		['kein <textarea>', !/<textarea\b/.test(erfassenCode)],
+		['genau ein Eingabefeld', (erfassenCode.match(/<input\b/g) ?? []).length === 1],
+		['genau ein button-primary', (erfassenCode.match(/button-primary/g) ?? []).length === 1],
+	] as const;
+	pruefen(
+		'/aufgabe hält die Never-Zusagen: ein Feld, ein Knopf, keine Wahl',
+		fehlendeTeile(zusagen).length === 0,
+		`verletzt: ${fehlendeTeile(zusagen).join(', ')}`
+	);
+
+	/*
+	 * Der Fehlersatz steht **immer** im Markup, auch leer, und ist eine
+	 * Live-Region. Bedingt gerendert wäre er ein Element, das erst mit seinem Text
+	 * in den DOM kommt — und mit use:enhance gibt es keine Navigation, die den
+	 * Fehlschlag ansagte. Die Zusage der README, ein abgewiesener Versand sage
+	 * „zweierlei auf einmal", hängt an genau dieser Zeile.
+	 */
+	const fehlersatzTag = /<p\b[^>]*\bid="text-fehler"[^>]*>/.exec(erfassenCode)?.[0] ?? '';
+	pruefen(
+		'der Fehlersatz auf /aufgabe ist eine immer vorhandene Live-Region',
+		/class="fehler live"/.test(fehlersatzTag) &&
+			/aria-live=/.test(fehlersatzTag) &&
+			!/\{#if fehlerAmText/.test(erfassenCode),
+		fehlersatzTag === '' ? 'kein <p id="text-fehler"> gefunden' : fehlersatzTag
+	);
+
+	// -----------------------------------------------------------------------
+	// /aufgabe: die Doppelsperre und das Band zur Längengrenze
+	// -----------------------------------------------------------------------
+	const sperre = [
+		['let imFlug = $state(false)', /\blet imFlug = \$state\(false\);/.test(erfassenCode)],
+		['cancel() im Rückruf', /\bcancel\(\);/.test(erfassenCode)],
+		[
+			'disabled={imFlug} am Knopf',
+			/<button[^>]*class="button-primary"[^>]*disabled=\{imFlug\}/.test(erfassenCode),
+		],
+	] as const;
+	pruefen(
+		'/aufgabe trägt die Doppelsperre vollständig — die drei zusammen sind sie, einzeln nicht',
+		fehlendeTeile(sperre).length === 0,
+		`fehlt: ${fehlendeTeile(sperre).join(', ')}`
+	);
+
+	/*
+	 * Die 200 steht zweimal: als Konstante in der Route und als Attribut im
+	 * Markup. Ohne dieses Band bliebe das Attribut beim nächsten Ändern der Grenze
+	 * stehen — ein Feld, das bei 200 Zeichen abschneidet, während die Route 300
+	 * annähme, oder umgekehrt eine Route, die abweist, was das Feld noch zulässt.
+	 */
+	pruefenGleich(
+		'das maxlength am Feld hält die Grenze aus TEXT_HOECHSTLAENGE',
+		/<input\b[^>]*\bmaxlength="(\d+)"/.exec(erfassenCode)?.[1] ?? '(kein maxlength)',
+		/const TEXT_HOECHSTLAENGE = (\d+);/.exec(erfassenServer)?.[1] ?? '(keine Konstante)'
+	);
+
+	// -----------------------------------------------------------------------
+	// /aufgabe: keine Identität
+	// -----------------------------------------------------------------------
+	const identitaet = /\b(locals|mitglied|zustaendig|zuständig)/i;
+	const identitaetFund = [
+		identitaet.exec(erfassenCode)?.[0],
+		identitaet.exec(erfassenServer)?.[0],
+	].filter((treffer) => treffer !== undefined);
+	pruefen(
+		'auf /aufgabe kommt keine Identität vor — weder locals noch ein Mitglied',
+		identitaetFund.length === 0,
+		`gefunden: ${identitaetFund.join(', ')}`
+	);
+
+	// -----------------------------------------------------------------------
+	// /: der Erfassen-Knopf, die Meldung und der Fokusgriff
+	// -----------------------------------------------------------------------
+	/*
+	 * Verortet und nicht nur gezählt. Schöbe man den Anker in den {:else}-Zweig,
+	 * zählte weiter genau ein button-primary und die href-Regex träfe weiter —
+	 * und der leere Pool stünde wieder ohne Knopf da, also genau der Zustand, den
+	 * diese Story beseitigt. Der Bereich des {#if} wird klammerbalanciert
+	 * geschnitten, weil im {:else}-Zweig ein zweites {#if} steckt.
+	 */
+	const poolVon = startseitenCode.indexOf('{#if data.aufgaben.length === 0}');
+	let poolBis = -1;
+	for (let tiefe = 0, i = poolVon; poolVon >= 0 && i < startseitenCode.length;) {
+		const auf = startseitenCode.indexOf('{#if', i);
+		const zu = startseitenCode.indexOf('{/if}', i);
+		if (zu < 0) break;
+		if (auf >= 0 && auf < zu) {
+			tiefe += 1;
+			i = auf + 4;
+			continue;
+		}
+		tiefe -= 1;
+		i = zu + 5;
+		if (tiefe === 0) {
+			poolBis = zu;
+			break;
+		}
+	}
+	const imPool = poolVon < 0 || poolBis < 0 ? '' : startseitenCode.slice(poolVon, poolBis);
+	const nachPool = poolBis < 0 ? '' : startseitenCode.slice(poolBis);
+	pruefen(
+		'der Erfassen-Knopf steht hinter dem {#if} des Pools und damit in beiden Zuständen',
+		poolVon >= 0 &&
+			poolBis > poolVon &&
+			!imPool.includes('button-primary') &&
+			/<a[^>]*class="button-primary"[^>]*href=\{resolve\('\/aufgabe'\)\}/.test(nachPool),
+		poolBis < 0
+			? 'der {#if}-Block des Pools liess sich nicht schneiden'
+			: `im {#if}: ${imPool.includes('button-primary') ? 'ja' : 'nein'}, dahinter: ${
+					nachPool.includes('button-primary') ? 'ja' : 'nein'
+				}`
+	);
+	pruefenGleich(
+		'und / trägt genau einen button-primary',
+		(startseitenCode.match(/button-primary/g) ?? []).length,
+		1
+	);
+
+	/*
+	 * `tabindex="-1"` sieht an einem <p> wie ein Versehen aus. Ohne es ist
+	 * meldungKasten.focus() ein stiller Leerlauf: die Prüfung des $effect darunter
+	 * bliebe grün, und `Abgelegt.` würde nie angesagt. Es gehört darum mit
+	 * bind:this in **eine** Behauptung — die zwei sind zusammen der Fokusgriff.
+	 */
+	const meldungsTag = /<p\b[^>]*class="meldung live"[^>]*>/.exec(startseitenCode)?.[0] ?? '';
+	pruefen(
+		'die Meldungsregion auf / trägt tabindex="-1" und bind:this={meldungKasten}',
+		/tabindex="-1"/.test(meldungsTag) && /bind:this=\{meldungKasten\}/.test(meldungsTag),
+		meldungsTag === '' ? 'kein <p class="meldung live"> gefunden' : meldungsTag
+	);
+
+	const rueckmeldungRumpf = glatterRumpf(
+		startseitenCode,
+		startseitenCode.indexOf('const rueckmeldung')
+	);
+	pruefen(
+		'auf / hängt `Abgelegt.` an form === null **und** data.abgelegt',
+		/if \(\s*form === null\s*\) return data\.abgelegt \s*\? 'Abgelegt\.' \s*: '';/.test(
+			rueckmeldungRumpf
+		),
+		rueckmeldungRumpf === '' ? 'rueckmeldung nicht gefunden' : rueckmeldungRumpf
+	);
+	pruefen(
+		'und eine Rückmeldung des Abhakens gewinnt gegen den Parameter',
+		/if \(\s*form === null\s*\)[^;]*;\s*if \(\s*form\.art === 'abgehakt'/.test(rueckmeldungRumpf),
+		rueckmeldungRumpf === '' ? 'rueckmeldung nicht gefunden' : rueckmeldungRumpf
+	);
+
+	/*
+	 * Am Bezeichner verankert und nicht an der Position: `$effect` kommt in dieser
+	 * Datei heute einmal vor, und eine Prüfung, die den **ersten** nimmt, prüfte
+	 * beim zweiten still den falschen.
+	 */
+	let fokusEffekt = '';
+	for (const treffer of startseitenCode.matchAll(/\$effect\(/g)) {
+		const rumpf = glatterRumpf(startseitenCode, treffer.index ?? 0);
+		if (rumpf.includes('fokusGeholt')) {
+			fokusEffekt = rumpf;
+			break;
+		}
+	}
+	const fokusTeile = [
+		['nur mit dem Parameter', /!data\.abgelegt/.test(fokusEffekt)],
+		['nie nach einem Versand', /form !== null/.test(fokusEffekt)],
+		['nur mit gebundenem Element', /meldungKasten === null/.test(fokusEffekt)],
+		['und holt den Fokus', /meldungKasten\.focus\(\)/.test(fokusEffekt)],
+	] as const;
+	pruefen(
+		'der fokussierende $effect hängt an demselben Wahrheitswert und verbraucht das Flag nicht ins Leere',
+		fokusEffekt !== '' && fehlendeTeile(fokusTeile).length === 0,
+		fokusEffekt === ''
+			? 'kein $effect mit fokusGeholt gefunden'
+			: `fehlt: ${fehlendeTeile(fokusTeile).join(', ')} — Rumpf: ${fokusEffekt}`
 	);
 } catch (fehler) {
 	/*

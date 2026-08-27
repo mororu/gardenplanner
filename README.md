@@ -4,13 +4,13 @@ Aufgabenliste für einen Gemeinschaftsgarten: rund zwanzig Gärtner\*innen sehen
 dem Handy, was offen ist, und haken mit einem Griff ab. Serverseitig gerenderter
 SvelteKit-Monolith, eine SQLite-Datei, nur online.
 
-Dieser Stand ist Story 1.4: offene Aufgaben sehen und abhaken. Es gibt
+Dieser Stand ist Story 1.5: eine Aufgabe vor Ort erfassen. Es gibt
 Titelleiste, Navigationsleiste, das PWA-Manifest, die SQLite-Datenschicht mit
 `members` und `tasks`, den einzigen Zugangsweg (`GET /i/<token>` löst die
 Einladung ein, ein Wächter lässt ohne gültige Sitzung niemanden weiter), die
-Verwaltung unter `/verwaltung` — und auf `/` die Kernschleife: die offenen
-Aufgaben, abgehakt mit einem Griff. **Erfassen** kann man eine Aufgabe noch
-nicht; das bringt Story 1.5.
+Verwaltung unter `/verwaltung` — und auf `/` die ganze Schleife: die offenen
+Aufgaben, abgehakt mit einem Griff, und unter dem Pool der Knopf `+ Aufgabe`,
+der auf `/aufgabe` führt.
 
 Das Projekt ist an npm gebunden: `npm run db:generate` ruft
 `node_modules/drizzle-kit/bin.cjs` über einen festen Pfad, und der setzt npms
@@ -390,6 +390,65 @@ Prüfung. Beide laufen auf der Datei **ohne Kommentare**: die Komponente erklär
 an beiden Stellen wörtlich, was dort zu stehen hat, und auf dem Rohtext hätten
 sich die Behauptungen an der eigenen Begründung erfüllt. Gemessen.
 
+Seit Story 1.5 kommt `src/routes/aufgabe/+page.server.ts` dazu — die eine action
+`ablegen`, gefahren mit einem Ereignis **ohne** `locals.mitglied`, weil sie keine
+Identität liest. Belegt sind dort: ein Versand mit Leerraum vorn, hinten und
+doppelt in der Mitte legt genau **eine** Zeile mit gefaltetem Text an, deren
+`created_at` in Unix-Sekunden bei jetzt liegt und deren Erledigt-Spalten leer
+sind, und leitet mit `303` auf `/?abgelegt`; die neue Aufgabe steht danach als
+jüngste am Ende der `load` von `/`, die `abgelegt: true` **nur** mit dem
+Parameter gibt und keinen Satz mitliefert; ein leeres Feld, reiner Leerraum,
+reine Nullbreiten-Zeichen, Umbruch mit Tabulator, ein fehlendes Feld und ein
+**Blob statt eines Strings** ergeben alle `400` mit `feld: 'text'`, demselben Satz
+und unveränderter Zeilenzahl, während die Eingabe unverändert zurückkommt; genau
+200 Codepoints gehen durch, 201 nicht, und 200 Buchstaben plus ein Emoji sind
+201 — mit `.length` statt `[...text]` wäre diese Zeile grün geblieben; ein Text
+**mit** einem Nullbreiten-Zeichen darin, der lesbar bleibt, geht als Gegenprobe
+durch und steht gesäubert in der Tabelle.
+
+Elf weitere **Textprüfungen** stehen dort, aus demselben Grund wie die zwei der
+Startseite — die Svelte-Schicht deckt kein ausgeführtes Werkzeug, und diese
+Zusagen hängen an genau einer Textstelle:
+
+- **die Verdrahtung des Formulars** auf `/aufgabe`: `name="text"`,
+  `value={eingabe}`, `aria-describedby` auf `text-fehler`, das `id="text-fehler"`
+  am Satz und `use:enhance={versand}` am Formular. Benennt man das Feld um,
+  endet **jeder** Versand mit `400` — und ohne diese Zeile bliebe die ganze
+  Prüfliste grün, weil die Behauptungen ihr `FormData` selbst bauen.
+- **die Never-Zusagen** derselben Seite: sichtbare `<label for="text">` mit Text,
+  kein `placeholder`, kein Zurück-Knopf und kein Zurück-Link, kein `<textarea>`,
+  genau ein Eingabefeld, genau ein `button-primary`.
+- **der Fehlersatz ist eine immer vorhandene Live-Region** und nicht bedingt
+  gerendert.
+- **die Doppelsperre** ist vollständig: `imFlug`, `cancel()` und
+  `disabled={imFlug}` am Knopf — die drei zusammen sind die Sperre, einzeln
+  nicht.
+- **das `maxlength` am Feld** wird gegen `TEXT_HOECHSTLAENGE` aus der Route
+  gehalten. Die Zahl steht zweimal; ohne dieses Band bliebe das Attribut beim
+  nächsten Ändern der Grenze stehen.
+- **keine Identität** auf `/aufgabe` — weder in der Komponente noch in der
+  `+page.server.ts` kommt `locals`, ein Mitglied oder eine Zuständigkeit vor.
+- **der `+ Aufgabe`-Anker ist verortet**, nicht bloss gezählt: der `{#if}`-Block
+  des Pools wird klammerbalanciert geschnitten, und darin darf kein
+  `button-primary` stehen. Schöbe man den Anker in den `{:else}`-Zweig, zählte
+  weiter genau einer und der leere Pool stünde wieder ohne Knopf da.
+- **`/` trägt genau einen `button-primary`.** „Höchstens ein primärer Knopf pro
+  Seite" war bis hierher eine Prüfung von Hand, die kein Werkzeug kennt — auch
+  `gate` nicht.
+- **die Meldungsregion trägt `tabindex="-1"` und `bind:this`** in einer
+  Behauptung: ohne das erste ist `focus()` ein stiller Leerlauf.
+- **`Abgelegt.` hängt an `form === null` und `data.abgelegt`**, und der
+  `abgehakt`-Zweig steht dahinter — ein vorhandenes `form` gewinnt gegen den
+  Parameter.
+- **der fokussierende `$effect`** hängt an demselben Wahrheitswert, prüft das
+  gebundene Element, **bevor** er das Einmal-Flag verbraucht, und holt den Fokus.
+
+Die geprüften Ausschnitte werden vorher auf einfache Leerzeichen geglättet und
+der `$effect` wird am Bezeichner `fokusGeholt` gesucht statt an seiner Position:
+ein reiner Formatierungslauf von Prettier oder ein zweiter Effekt darf die
+Prüfliste nicht rot machen. Der Preis jeder Textprüfung ist benannt: sie belegt,
+dass die Stelle **dasteht**, nicht, dass sie **wirkt**.
+
 **Was die Vergleiche vergleichen.** Die Fehlerseiten kommen über SvelteKits
 **eigene** aus `src/error.html` erzeugte Vorlage (`svelte-kit sync` läuft dazu am
 Anfang). Der Abdruck eines Fehlerfalls besteht aus Status, allen Kopfzeilen, den
@@ -448,6 +507,14 @@ Der Grund für all das ist gemessen. Die Tabelle nennt nur Mutationen, die
 | `completed_at IS NULL` aus `aufgabeAbhaken` entfernt            | Story 1.4    | zweites `abhaken`, der erste Abhakende     |
 | `completed_by` in die Projektion der offenen Aufgaben           | Story 1.4    | zwei Seitendaten-Behauptungen, `check`     |
 | ein rohes `140ms` in einem Komponenten-`<style>`                | Story 1.4    | `gate`, Regel 1                            |
+| die Längenprüfung aus `ablegen` entfernt                        | Story 1.5    | `smoke`, 201 Codepoints                    |
+| `returning()` statt `returning(sichtbareSpalten)`               | Story 1.5    | `check`, die Annotation `NurSichtbar`      |
+| `action="?/ablegen"` verschrieben                               | Story 1.5    | `gate`, Regel 11                           |
+| `name="text"` am Feld in `name="aufgabentext"` umbenannt        | Story 1.5    | `smoke`, die Verdrahtung des Formulars     |
+| `+ Aufgabe` in den `{:else}`-Zweig geschoben                    | Story 1.5    | `smoke`, die Verortung des Ankers          |
+| `tabindex="-1"` an der Meldungsregion entfernt                  | Story 1.5    | `smoke`, tabindex und bind:this            |
+| `maxlength` am Feld von der Konstante abgekoppelt               | Story 1.5    | `smoke`, das Band zur Längengrenze         |
+| die `load` von `/` liest `locals`                               | Story 1.5    | `smoke`, das werfende Ereignis             |
 
 `\|\| !mitglied.isActive` aus dem **Wächter** entfernt steht bewusst **nicht** in
 der Tabelle: diese Mutation war schon vor Iteration 2 rot.
@@ -571,8 +638,63 @@ durchgestrichen, auch nicht eingeklappt.
   einzige Animation der Anwendung. Er steckt in
   `@media (prefers-reduced-motion: no-preference)`: keine Bewegung ist der
   Standardfall, Bewegung die ausdrücklich eingeschaltete Ausnahme.
-- **Erfassen kann man hier noch nichts.** Der leere Zustand sagt `Nichts offen.`
-  und trägt **keinen** Knopf; `+ Aufgabe` bringt Story 1.5.
+- **Unter dem Pool steht `+ Aufgabe`** — in **beiden** Zuständen, also auch
+  unter `Nichts offen.`. Der Knopf ist ein `<a>` und kein `<button>`: er
+  navigiert nur, er tut nichts. Er ist zugleich der einzige primäre Knopf dieser
+  Seite; die Kästchen sind Kästchen.
+
+## Eine Aufgabe erfassen
+
+`/aufgabe` ist **ein Feld und ein Knopf**. Kein Fälligkeitsdatum, keine
+Kategorie, kein Beet, keine Priorität, kein Zuständiger, kein zweites Feld: wer
+im Beet steht und Blattläuse entdeckt, tippt einen Satz und ist fertig. Ein
+einzeiliges `<input>` und kein `<textarea>` — eine Aufgabe ist ein Satz, kein
+Absatz, und die Eingabetaste legt sie ab. Es gibt keinen Zurück-Knopf: eine
+Formularseite schliesst mit ihrer Aktion, und die Systemgeste des Browsers
+genügt.
+
+- **Was geprüft wird, wird serverseitig geprüft**, in derselben Kette wie der
+  Mitgliedsname: Nullbreiten-Zeichen entfernen, jede Folge von Leerraum zu einem
+  Leerzeichen falten, trimmen, leer abweisen, Codepoints zählen. Gespeichert wird
+  die **gefaltete** Fassung — aus `  Beet   25   jäten  ` wird `Beet 25 jäten`.
+  Ein leeres Feld, reiner Leerraum, reine Nullbreiten-Zeichen, ein fehlendes Feld
+  und ein Datei-Upload statt eines Textes fallen alle auf denselben Satz und
+  legen **nichts** an. Das `maxlength` am Feld ist die Bequemlichkeit, die
+  Prüfung in der action die Regel: ein POST braucht kein Feld.
+- **Höchstens 200 Zeichen**, einschliessend gemeint und nach Codepoints gezählt
+  (ein Emoji ist ein Zeichen, nicht zwei). `Tunnel 2 Blattläuse nachbehandeln`
+  braucht 34; 200 lassen Raum für Ort und Zusatz und halten die Zeile in der
+  Liste lesbar. Die Grenze steht in der Route und **nicht** als CHECK in der
+  Datenbank: sie ist eine Auslegung von „eine Aufgabe ist ein Satz" und keine
+  Eigenschaft der Daten — in einer Migration liesse sie sich nur noch mit einer
+  Migration ändern.
+- **Ein abgewiesener Versand sagt zweierlei auf einmal.** Die Feldkante wird
+  breiter (`aria-invalid`), und darunter steht ein Satz, der über
+  `aria-describedby` am Feld hängt: der Zustand hängt nicht allein an der Farbe.
+  Die Kante ist ausdrücklich **nicht** rot — Rot ist in dieser Anwendung dem
+  zerstörenden Knopf vorbehalten. Die Eingabe bleibt im Feld stehen.
+- **Die Meldung reist als Query-Parameter.** Ein `redirect()` aus einer form
+  action verwirft deren Rückgabewert; `ablegen` leitet darum mit `303` auf
+  `/?abgelegt`, die `load` von `/` macht daraus einen **Wahrheitswert** (keinen
+  Satz), und die Oberfläche setzt `Abgelegt.` — der Knopf trägt das Verb, die
+  Meldung dasselbe Verb im Perfekt. Das ist das Flash-Muster dieser Anwendung:
+  kein zweites Cookie neben dem Sitzungs-Cookie, kein Store, kein
+  `+layout.server.ts`, und es funktioniert ohne JavaScript.
+- **Die Live-Region auf `/` nimmt beim Ankommen einmalig den Fokus.** Eine
+  Live-Region sagt nur _Änderungen_ an; nach dem Ablegen ist `/` frisch gemountet
+  und `Abgelegt.` stünde von Anfang an stumm da. Genau einmal, genau in diesem
+  Fall — und ausdrücklich **nicht** nach dem Abhaken, wo der Daumen auf dem
+  Kästchen bleiben soll.
+- **Ein Doppeltipp legt eine Zeile an, nicht zwei.** Dieselbe Sperre wie in den
+  Stories 1.3 und 1.4: `disabled` am Knopf ist der sichtbare und der für die
+  Tastatur wirksame Riegel, `cancel()` im `use:enhance`-Rückruf deckt das Fenster
+  davor ab.
+- **Niemandem zugeordnet.** Es gibt keine Spalte für einen vorab Zuständigen und
+  keine für einen Erfassenden — auch nicht „von mir erfasst". Die action liest
+  `locals` gar nicht.
+- **`created_at` kommt aus dem Schema** (`$defaultFn`, Unix-Sekunden), nie aus der
+  Einfügefunktion und nie aus der Route. `completed_by` und `completed_at`
+  bleiben leer: eine neue Aufgabe ist offen.
 
 ## Mitglieder aufnehmen und Zugang beenden
 
@@ -693,6 +815,38 @@ angenommen — nicht übersehen:
   Aufgabe. Ein Absenden-Knopf pro Zeile wäre der Gegenentwurf und kostet genau
   die Kernzusage, dass Abhaken eine Interaktion kostet. Die Anwendung ist
   ohnehin nur online.
+- **Die Ablege-Meldung steht in der Adresse und lässt sich herbeiführen.** Sie
+  reist als `?abgelegt` mit; ein Neuladen von `/?abgelegt` zeigt `Abgelegt.`
+  erneut, und wer die Adresse von Hand eintippt, sieht den Satz auch, ohne dass
+  etwas entstanden wäre. Der Gegenentwurf wäre ein Flash-Cookie: einmalig und mit
+  sauberer Adresse, aber ein zweites Cookie neben dem einen Sitzungs-Cookie, das
+  eine `load` schreibend wieder löschen müsste — ein Mechanismus, den danach jede
+  Story kennen muss. Bei einer Bestätigung ohne Folgen ist der sichtbare
+  Parameter der billigere Preis, und er ist von Hand nachvollziehbar. Angenommen.
+- **Ohne JavaScript wird `Abgelegt.` nicht angesagt.** Das Ablegen selbst
+  funktioniert vollständig ohne JavaScript — es ist ein gewöhnlicher POST mit
+  einer `303` —, und die Meldung steht danach sichtbar auf `/`. Nur der Griff,
+  der die Live-Region einmalig fokussiert, fällt aus; ein Screenreader liest den
+  Satz dann erst beim Durchgehen der Seite. Angenommen: die sichtbare Bestätigung
+  bleibt, und die Anwendung ist ohnehin nur online.
+- **Das `maxlength` am Erfassen-Feld zählt anders als die Prüfung dahinter.**
+  `maxlength="200"` zählt UTF-16-Einheiten, `textPruefen` zählt Codepoints. Ein
+  gültiger Text aus 200 Codepoints, in dem ein Emoji steckt, ist im Browser 201
+  Einheiten und lässt sich im Feld nicht zu Ende tippen — die **annehmende**
+  Richtung der Codepoint-Zählung ist über das echte Formular also gar nicht
+  erreichbar. Die abweisende Richtung stimmt: ein POST braucht kein Feld, und die
+  Route zählt richtig. Der Ausweg wäre ein Zähler in JavaScript; er kostet
+  Zustand auf einer Seite, die keinen hat, für einen Fall, den eine
+  Gartenaufgabe kaum erreicht. Angenommen.
+- **Ohne JavaScript greift die Doppelsperre nicht.** `imFlug` und `cancel()`
+  leben im `use:enhance`-Rückruf; ohne JavaScript ist das Ablegen ein
+  gewöhnlicher POST, und zwei schnelle Antippen erzeugen zwei gleichlautende
+  Aufgaben. Es gibt keine Löschen-Aktion, die eine davon wieder wegnähme —
+  abhaken ist das Einzige, was bleibt. Eine Entdopplungs-Schranke in der action
+  wäre der Gegenentwurf und müsste entscheiden, welche zwei Aufgaben „dieselbe"
+  sind; zwei Personen, die am selben Tag `Tunnel lüften` erfassen, meinen unter
+  Umständen zwei verschiedene Tunnel. Angenommen: die Anwendung ist ohnehin nur
+  online, und der Regelweg trägt die Sperre.
 - **Jedes Mitglied kann jede erledigte Aufgabe wieder öffnen** — auch eine
   fremde und eine alte. Es gibt keine Zeitschranke, keine Bindung an die
   abhakende Person und kein Protokoll darüber, wer geöffnet hat. Der Grund ist
@@ -703,10 +857,11 @@ angenommen — nicht übersehen:
 
 ## Was noch nicht hier ist
 
-- **Eine Aufgabe erfassen: Story 1.5.** `tasks` und die Kernschleife gibt es,
-  aber keinen Weg, aus der Oberfläche eine Aufgabe anzulegen — der leere Zustand
-  trägt darum noch keinen Knopf. Bis dahin entstehen Aufgaben nur von Hand in der
-  Datenbank.
+- **Eine Aufgabe bearbeiten oder löschen gibt es nicht.** Ein Tippfehler im
+  Aufgabentext bleibt stehen; abhaken ist das Einzige, was bleibt. In keiner
+  Story von Epic 1 vorgesehen.
+- Eine Massen-Eingabe (mehrere Aufgaben auf einmal, mehrzeiliges Feld):
+  **Epic 2**. `/aufgabe` legt genau eine Zeile je Versand an.
 - Fristen und Überfälligkeit (`due_at`, `seit N Wochen offen`): **Epic 2**. Die
   Spalte gibt es nicht, und `--overdue` ist ein noch unbenutztes Token.
 - Diensthinweis und freie Einzelaufgaben, also Block 1 und 2 auf `/`: **Epic 3**.

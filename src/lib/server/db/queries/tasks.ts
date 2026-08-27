@@ -1,6 +1,6 @@
 import { and, asc, eq, isNotNull, isNull } from 'drizzle-orm';
 import { datenbank } from '../index.ts';
-import { tasks, type SichtbareAufgabe } from '../schema.ts';
+import { tasks, type NewTask, type SichtbareAufgabe } from '../schema.ts';
 
 /*
  * Das Repository für tasks. Die Routen benutzen ausschliesslich diese benannten
@@ -9,10 +9,11 @@ import { tasks, type SichtbareAufgabe } from '../schema.ts';
  *
  * Alles synchron: better-sqlite3 gibt Werte direkt zurück.
  *
- * **Beide Mutationen tragen ihre Vorbedingung in der Abfrage**, nicht in der
- * Route. Der Grund ist derselbe wie bei mitgliedDeaktivieren in ./members.ts und
- * hier zusätzlich der einzige Grund, warum es keine Transaktion braucht: siehe
- * die Begründung an aufgabeAbhaken.
+ * **Beide Zustandswechsel tragen ihre Vorbedingung in der Abfrage**, nicht in
+ * der Route. Der Grund ist derselbe wie bei mitgliedDeaktivieren in ./members.ts
+ * und hier zusätzlich der einzige Grund, warum es keine Transaktion braucht:
+ * siehe die Begründung an aufgabeAbhaken. Das Anlegen hat keine Vorbedingung —
+ * eine neue Aufgabe kollidiert mit nichts.
  */
 
 /*
@@ -39,6 +40,66 @@ const sichtbareSpalten = {
 } satisfies Record<keyof SichtbareAufgabe, unknown>;
 
 /**
+ * SichtbareAufgabe — und die zwei Erledigt-Spalten ausdrücklich **verboten**.
+ *
+ * Die Rückgabeannotation `SichtbareAufgabe` allein trägt die Zusage nicht.
+ * TypeScript ist strukturell, und eine vollständige Task-Zeile hat alle Felder
+ * von SichtbareAufgabe **plus** zwei: sie ist damit zuweisbar. Ein `returning()`
+ * über alles fiel deshalb weder `npm run check` noch `npm run lint` auf —
+ * gemessen, nicht vermutet. Die Zusage hing am Augenschein.
+ *
+ * `Partial<Record<…, never>>` schliesst die Lücke von der anderen Seite: die
+ * zwei Felder dürfen fehlen (eine richtig projizierte Zeile hat sie nicht), aber
+ * kein Wert passt hinein. Eine Zeile mit `completedBy: number | null` ist damit
+ * nicht mehr zuweisbar, und der teure Fehler wird zum Typfehler.
+ *
+ * Der Typ steht als Rückgabeannotation an **allen** Abfragen dieser Datei, denn
+ * alle drei Ergebnisse landen in einer Antwort. Nach aussen bleibt er
+ * SichtbareAufgabe: die zwei verbotenen Felder sind optional und stehen keiner
+ * Zuweisung an SichtbareAufgabe im Weg.
+ */
+type NurSichtbar = SichtbareAufgabe & Partial<Record<'completedBy' | 'completedAt', never>>;
+
+/**
+ * Legt eine Aufgabe an und gibt die erzeugte Zeile zurück.
+ *
+ * Der Text kommt **fertig geprüft** herein: gefaltet, getrimmt, nicht leer und
+ * innerhalb der Längengrenze. Die Prüfkette steht in
+ * ../../../../routes/aufgabe/+page.server.ts, an derselben Stelle und mit
+ * derselben Begründung wie die 80 für Mitgliedsnamen — sie ist eine Auslegung
+ * von „eine Aufgabe ist ein Satz" und keine Eigenschaft der Daten. Diese
+ * Funktion nimmt hin, was sie bekommt: eine zweite Prüfstelle wäre eine zweite
+ * Wahrheit über dieselbe Regel.
+ *
+ * createdAt kommt aus dem Schema ($defaultFn, Unix-Sekunden), nicht von hier —
+ * derselbe Grund wie bei mitgliedAnlegen in ./members.ts. completedBy und
+ * completedAt bleiben leer: eine neue Aufgabe ist offen, und niemand hat sie
+ * abgehakt.
+ *
+ * `satisfies NewTask` auf dem Objektliteral, damit eine später ergänzte
+ * Pflichtspalte hier auffällt statt zur Laufzeit.
+ *
+ * `returning(sichtbareSpalten)` und **nicht** `returning()` — und der Grund ist
+ * hier ein **anderer** als bei den zwei Zustandswechseln darunter. Deren
+ * Rückgabewert landet über eine action wirklich in einer Antwort; dieser nicht:
+ * `ablegen` verwirft ihn und wirft danach den Redirect. Der Grund ist die
+ * Symmetrie der Datei. Jede Funktion hier gibt dieselbe Projektion zurück, und
+ * nur so ist „diese Datei reicht completed_by nie heraus" eine Eigenschaft des
+ * Moduls statt einer Aussage über die heutigen Aufrufer. Die erste Route, die
+ * den Rückgabewert **doch** anzeigt — eine Bestätigung mit dem Text der eben
+ * abgelegten Aufgabe wäre die naheliegende —, träfe sonst auf eine Ausnahme,
+ * die niemand erwartet. Die Rückgabeannotation NurSichtbar macht daraus einen
+ * Typfehler statt einer Prüfung von Hand.
+ */
+export function aufgabeAnlegen(text: string): NurSichtbar {
+	return datenbank()
+		.insert(tasks)
+		.values({ text } satisfies NewTask)
+		.returning(sichtbareSpalten)
+		.get();
+}
+
+/**
  * Die offenen Aufgaben, älteste zuerst.
  *
  * Nur `completed_at IS NULL`: eine erledigte Aufgabe erscheint in keiner
@@ -54,7 +115,7 @@ const sichtbareSpalten = {
  * hätten sonst keine festgelegte Reihenfolge: die Liste wechselte zwischen zwei
  * Aufrufen ihre Anordnung, ohne dass sich etwas geändert hat.
  */
-export function offeneAufgabenAuflisten(): SichtbareAufgabe[] {
+export function offeneAufgabenAuflisten(): NurSichtbar[] {
 	return datenbank()
 		.select(sichtbareSpalten)
 		.from(tasks)
@@ -83,7 +144,7 @@ export function offeneAufgabenAuflisten(): SichtbareAufgabe[] {
  * Unix-Sekunden hier und nicht als $defaultFn im Schema: er entsteht beim
  * Abhaken, nicht beim Anlegen.
  */
-export function aufgabeAbhaken(id: number, mitgliedId: number): SichtbareAufgabe | null {
+export function aufgabeAbhaken(id: number, mitgliedId: number): NurSichtbar | null {
 	const zeile = datenbank()
 		.update(tasks)
 		.set({ completedBy: mitgliedId, completedAt: Math.floor(Date.now() / 1000) })
@@ -110,7 +171,7 @@ export function aufgabeAbhaken(id: number, mitgliedId: number): SichtbareAufgabe
  * mitgliedId nimmt diese Funktion nicht, und das ist Absicht: es gibt keine
  * Spalte, die einen Wieder-Öffnenden hielte, und es soll keine geben.
  */
-export function aufgabeWiederOeffnen(id: number): SichtbareAufgabe | null {
+export function aufgabeWiederOeffnen(id: number): NurSichtbar | null {
 	const zeile = datenbank()
 		.update(tasks)
 		.set({ completedBy: null, completedAt: null })

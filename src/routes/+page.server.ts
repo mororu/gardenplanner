@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import type { Actions, RequestEvent } from '@sveltejs/kit';
+import type { Actions, RequestEvent, ServerLoadEvent } from '@sveltejs/kit';
 import {
 	aufgabeAbhaken,
 	aufgabeWiederOeffnen,
@@ -58,17 +58,33 @@ function idLesen(roh: unknown): number | null {
 }
 
 /**
- * Die offenen Aufgaben, älteste zuerst.
+ * Die offenen Aufgaben, älteste zuerst — und ob gerade etwas abgelegt wurde.
  *
- * Die Funktion nimmt **kein** Ereignis: sie braucht weder locals noch Adresse
- * noch Cookies. Wer hier ist, ist angemeldet, und alle sehen dieselbe Liste.
+ * Aus dem Ereignis liest die Funktion **allein die Adresse**: weder locals noch
+ * Cookies. Wer hier ist, ist angemeldet, und alle sehen dieselbe Liste. Belegt
+ * ist das ausgeführt, nicht behauptet: scripts/smoke-zugang.ts ruft diese load
+ * mit einem Ereignis, dessen locals und cookies beim Lesen werfen.
  *
  * offeneAufgabenAuflisten projiziert schon in der Datenbank ohne completed_by
  * und completed_at — der Abhakende kann diesen Rückgabewert nicht verlassen,
  * weil das Feld nicht existiert (AD-5).
+ *
+ * `abgelegt` ist die Meldung, die eine Weiterleitung überlebt hat. Ein
+ * redirect() aus einer form action verwirft deren Rückgabewert; /aufgabe legt
+ * die Bestätigung darum als Query-Parameter in die Adresse (`/?abgelegt`), und
+ * diese load macht daraus einen **Wahrheitswert, keinen Satz**. Der Satz gehört
+ * zur Oberfläche, und eine spätere Massen-Eingabe kann den Parameter mit einer
+ * Zahl belegen, ohne die Form dieses Feldes zu ändern.
+ *
+ * Der Preis ist benannt und abgenommen: die Adresse trägt `?abgelegt` sichtbar,
+ * ein Neuladen wiederholt die Meldung, und wer die Adresse von Hand eintippt,
+ * sieht sie auch. Eine Bestätigung ohne Folgen verträgt das.
  */
-export function load(): { aufgaben: SichtbareAufgabe[] } {
-	return { aufgaben: offeneAufgabenAuflisten() };
+export function load({ url }: ServerLoadEvent): {
+	aufgaben: SichtbareAufgabe[];
+	abgelegt: boolean;
+} {
+	return { aufgaben: offeneAufgabenAuflisten(), abgelegt: url.searchParams.has('abgelegt') };
 }
 
 export const actions = {

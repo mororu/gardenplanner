@@ -3,6 +3,7 @@
 	// SubmitFunction kommt aus @sveltejs/kit, nicht aus $app/forms: dort ist nur
 	// enhance selbst ausgeführt, der Typ liegt im Hauptmodul.
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
+	import { resolve } from '$app/paths';
 	import type { PageProps } from './$types';
 
 	const { data, form }: PageProps = $props();
@@ -41,9 +42,16 @@
 	*/
 	let imFlug = $state(false);
 
-	/** Die Rückmeldung im Perfekt desselben Verbs, für die höfliche Live-Region. */
+	/**
+	 * Die Rückmeldung im Perfekt desselben Verbs, für die höfliche Live-Region.
+	 *
+	 * Zwei Quellen, eine Region. Ein Ausgang aus `form` gewinnt, weil er der
+	 * jüngere ist: wer nach dem Ablegen abhakt, liest `Abgehakt. …` und nicht
+	 * mehr die Bestätigung des Ablegens — die Adresse trägt `?abgelegt` dann zwar
+	 * noch, aber sie beschreibt nicht mehr das Letzte, was geschehen ist.
+	 */
 	const rueckmeldung = $derived.by(() => {
-		if (form === null) return '';
+		if (form === null) return data.abgelegt ? 'Abgelegt.' : '';
 		if (form.art === 'abgehakt' || form.art === 'wiederGeoeffnet') {
 			return `${form.meldung} ${form.text}`;
 		}
@@ -52,6 +60,39 @@
 
 	/** Der eine Satz für alle vier nicht ansprechbaren Zustände. */
 	const fehlerOben = $derived(form !== null && form.art === 'fehler' ? form.meldung : '');
+
+	let meldungKasten = $state<HTMLElement | null>(null);
+
+	/*
+		Der Fokus wird **genau einmal** geholt, und dieses Flag ist der Grund, dass
+		es dabei bleibt. Es ist bewusst kein $state: gelesen wird es untracked,
+		und es soll kein Rendern auslösen.
+	*/
+	let fokusGeholt = false;
+
+	/**
+	 * Beim Ankommen mit `?abgelegt` nimmt die Live-Region einmalig den Fokus.
+	 *
+	 * Eine Live-Region sagt nur **Änderungen** an. Nach dem Ablegen ist `/` eine
+	 * frisch gemountete Route: `Abgelegt.` steht von Anfang an im Markup und
+	 * bliebe ohne diesen Griff stumm. Das ist derselbe Grund, aus dem Story 1.3
+	 * nach `aufnehmen` den Fokus setzt.
+	 *
+	 * Und ausdrücklich **nicht** nach dem Abhaken: dort bleibt der Daumen auf dem
+	 * Kästchen, und ein Sprung liesse den nächsten Griff die falsche Zeile
+	 * treffen. `form !== null` ist genau diese Grenze — nach einem Versand ist
+	 * die Eigenschaft gesetzt, beim Ankommen ist sie null.
+	 *
+	 * `meldungKasten === null` steht **vor** dem Setzen des Flags und nicht als
+	 * `?.` danach: ein Durchlauf ohne gebundenes Element verbrauchte sonst das
+	 * Einmal-Flag, der Fokus würde nie geholt, und `Abgelegt.` bliebe stumm —
+	 * ein stiller Ausfall, den niemand sieht.
+	 */
+	$effect(() => {
+		if (fokusGeholt || !data.abgelegt || form !== null || meldungKasten === null) return;
+		fokusGeholt = true;
+		meldungKasten.focus();
+	});
 
 	/**
 	 * Der `art`-Diskriminator eines Ausgangs.
@@ -147,10 +188,23 @@
 		das erst mit seinem Text in den DOM kommt, liest ein Screenreader in der
 		Regel nicht vor. Leer nehmen beide keinen Platz ein — die :empty-Regel
 		unten nimmt sie aus dem Fluss, statt sie mit display: none aus dem Baum zu
-		werfen. Anders als in Story 1.3 tragen sie **kein** tabindex und holen den
-		Fokus nicht: hier bleibt er am Kästchen.
+		werfen.
+
+		Der Fokus wird hier in **einem** Fall geholt und in allen anderen nicht:
+
+		  - beim Ankommen von /aufgabe mit `?abgelegt`, weil die Seite dann frisch
+		    gemountet ist und eine Live-Region nur Änderungen ansagt — darum trägt
+		    die Meldungsregion ein tabindex="-1" (siehe den Effekt oben);
+		  - **nicht** nach dem Abhaken und nicht nach dem Wieder-Öffnen: dort
+		    bleibt der Daumen auf dem Kästchen, und ein Sprung liesse den nächsten
+		    Griff die falsche Zeile treffen.
+
+		Die Fehlerregion holt den Fokus nie: sie meldet einen Ausgang eines
+		Versands, und der Daumen soll auch dann bleiben, wo er ist.
 	-->
-	<p class="meldung live" role="status" aria-live="polite">{rueckmeldung}</p>
+	<p class="meldung live" role="status" aria-live="polite" tabindex="-1" bind:this={meldungKasten}>
+		{rueckmeldung}
+	</p>
 	<p class="fehler live" role="alert" aria-live="assertive">{fehlerOben}</p>
 
 	<!--
@@ -170,7 +224,8 @@
 
 	<h2 class="marke" id="offen-marke">Offen</h2>
 	{#if data.aufgaben.length === 0}
-		<!-- Leerer Zustand ohne Erfassen-Knopf; der kommt mit Story 1.5 -->
+		<!-- Der leere Zustand sagt, was gilt — der Erfassen-Knopf steht unter dem
+		     {#if}, also auch hier darunter. -->
 		<p class="leer">Nichts offen.</p>
 	{:else}
 		<ul class="liste" aria-labelledby="offen-marke">
@@ -239,6 +294,20 @@
 			{/each}
 		</ul>
 	{/if}
+
+	<!--
+		Der Erfassen-Knopf steht **hinter** dem {#if}/{:else} und damit in beiden
+		Zuständen unter dem Pool — auch unter `Nichts offen.`.
+
+		Ein <a> und kein <button>: er navigiert nur, er tut nichts. .button-primary
+		trägt text-decoration: none und appearance: none und wirkt darum auch auf
+		einem Anker. resolve() ist für interne Ziele Pflicht
+		(svelte/no-navigation-without-resolve).
+
+		Der einzige primäre Knopf dieser Seite: die Kästchen sind Kästchen, und es
+		gibt daneben keinen zweiten Knopf.
+	-->
+	<a class="button-primary" href={resolve('/aufgabe')}>+ Aufgabe</a>
 </div>
 
 <style>
