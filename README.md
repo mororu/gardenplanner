@@ -4,11 +4,13 @@ Aufgabenliste für einen Gemeinschaftsgarten: rund zwanzig Gärtner\*innen sehen
 dem Handy, was offen ist, und haken mit einem Griff ab. Serverseitig gerenderter
 SvelteKit-Monolith, eine SQLite-Datei, nur online.
 
-Dieser Stand ist Story 1.2: Einladungslink einlösen und angemeldet bleiben. Es
-gibt Titelleiste, Navigationsleiste, den leeren Zustand auf `/`, das
-PWA-Manifest, die SQLite-Datenschicht mit `members` und den einzigen Zugangsweg:
-`GET /i/<token>` löst die Einladung ein, ein Wächter lässt ohne gültige Sitzung
-niemanden weiter. Noch keine Aufgaben und keine Verwaltungsoberfläche.
+Dieser Stand ist Story 1.4: offene Aufgaben sehen und abhaken. Es gibt
+Titelleiste, Navigationsleiste, das PWA-Manifest, die SQLite-Datenschicht mit
+`members` und `tasks`, den einzigen Zugangsweg (`GET /i/<token>` löst die
+Einladung ein, ein Wächter lässt ohne gültige Sitzung niemanden weiter), die
+Verwaltung unter `/verwaltung` — und auf `/` die Kernschleife: die offenen
+Aufgaben, abgehakt mit einem Griff. **Erfassen** kann man eine Aufgabe noch
+nicht; das bringt Story 1.5.
 
 Das Projekt ist an npm gebunden: `npm run db:generate` ruft
 `node_modules/drizzle-kit/bin.cjs` über einen festen Pfad, und der setzt npms
@@ -55,7 +57,7 @@ npm run create-admin -- Anna
 ```
 
 Es startet die Datenschicht, lässt die Migrationen laufen (auf einer leeren
-Datei legt es Tabelle und Migrationskette selbst an), erzeugt ein Token, speichert
+Datei legt es die Tabellen und die Migrationskette selbst an), erzeugt ein Token, speichert
 dessen SHA-256-Hash und gibt den Klartext-Link **genau einmal** aus:
 
 ```
@@ -215,11 +217,17 @@ Bei Widerspruch gewinnt diese Datei.
 ### Was `npm run gate` prüft
 
 `scripts/gate.mjs` liest jede Datei als Ganzes, nie zeilenweise, und blendet
-CSS-Kommentare vorher aus. Neun Regeln:
+CSS-Kommentare vorher aus. Zwölf Regeln:
 
 1. In `.svelte` und `.css` unter `src/` kein Farbliteral — weder Hex noch
-   `rgb(`, `rgba(`, `hsl(`, `hsla(`, `oklch(`, `color(` noch ein CSS-Farbname —
-   und kein rohes `px`/`rem`-Literal ausser `0`. In `.html` unter `src/` gilt
+   `rgb(`, `rgba(`, `hsl(`, `hsla(`, `oklch(`, `color(` noch ein CSS-Farbname —,
+   kein rohes `px`/`rem`-Literal ausser `0` und **kein rohes `ms`/`s`-Literal
+   ausser `0`** im Wert von `transition`, `animation` und deren
+   `-duration`/`-delay`-Langformen. Der Zeitteil kam mit Story 1.4 dazu: die
+   Anwendung hat genau **eine** Animation (140ms, der Übergang der
+   Aufgabenzeile), und der Massteil prüfte nur `px` und `rem` — ein hartes
+   `140ms` wäre durchgekommen und `--duration-quick` von seinem ersten Tag an
+   umgehbar gewesen. In `.html` unter `src/` gilt
    der Farbteil der Regel: `src/error.html` trägt Gestaltungswerte, die vorher
    keine Regel gelesen hat, und ihre Masse müssen dort als Zahl stehen, weil die
    Seite keinen Zugriff auf den Token-Block hat. **Systemfarben** (`Canvas`,
@@ -262,6 +270,22 @@ CSS-Kommentare vorher aus. Neun Regeln:
    **ausgenommen**: TypeScript löscht die Anweisung beim Bauen, es entsteht kein
    Modulaufruf, und eine Route darf einen Zeilentyp benennen. Eine Gegenprobe
    hält diese Richtung fest.
+10. Jede `.css` unter `src/lib/styles/` wird von mindestens einer Datei unter
+    `src/routes/` importiert. Ein Stilblatt, das niemand einbindet, ist für
+    eslint, svelte-check und vite build vollständig unsichtbar: die Datei ist
+    gültig, sie wird nur nie geladen. Belegt hat das die gelöschte Importzeile
+    von `bedienelemente.css` — gate blieb grün, während alle 44px-Trefferfelder
+    aus der Auslieferung fielen.
+11. Jedes `action="?/name"` im Markup unter `src/routes/` hat einen
+    gleichnamigen Eintrag in der `actions` der Nachbar-`+page.server.ts`. Ein
+    verschriebener Name passiert `check`, `eslint` und `smoke` grün, und der
+    Knopf tut am laufenden Server nichts. Die Form `action="/pfad?/name"` deutet
+    die Regel bewusst nicht.
+12. In keinem HTML-Kommentar unter `src/` steht eine SvelteKit-Marke wie
+    `%sveltekit.head%`. Die Ersetzung fragt nicht, wo die Marke steht; der
+    eingesetzte Kopfbereich bringt eigene Kommentarmarken mit, und deren Ende
+    schliesst den umgebenden Kommentar vorzeitig. Gefunden hat das kein
+    Werkzeug, sondern das Auge des Users.
 
 Kommentare werden vor jeder Auswertung ausgeblendet: Block- und
 HTML-Kommentare überall, **Zeilenkommentare nur dort, wo `//` wirklich ein
@@ -289,8 +313,12 @@ der Regel 9.
 Dazu kommen **Gegenproben**, die beweisen, dass die Regeln nicht zu weit
 greifen: erlaubte Importe unter `src/routes/` (Abfragefunktion über Alias und
 über relativen Pfad, dazu ein reines `import type`) müssen null Treffer geben;
-`Canvas` und `CanvasText` in `src/error.html` dürfen nicht fallen; und ein
-Farbliteral hinter einer `//`-Adresse in derselben Zeile muss weiterhin fallen.
+`Canvas` und `CanvasText` in `src/error.html` dürfen nicht fallen; ein
+Farbliteral hinter einer `//`-Adresse in derselben Zeile muss weiterhin fallen;
+und im Zeitteil der Regel 1 dürfen `var(--duration-quick)`, eine Null mit
+Einheit, eine Zahl **ohne** Einheit im Wert einer Bewegungs-Eigenschaft (die
+Wiederholungszahl einer Animation), `transition-property` und `cubic-bezier`
+nicht fallen.
 Eine zu breite Regel bliebe ohne sie im Selbsttest grün und fiele erst als
 rätselhafter Verstoss im echten Baum auf.
 
@@ -336,6 +364,31 @@ nichts; und eine fehlende, nicht numerische, unbekannte oder schon beendete
 `mitgliedId` ergibt in beiden actions denselben Satz, ohne die Tabelle
 anzufassen. Zuletzt wird jeder Token-Hash aus `members` im Rückgabewert beider
 `load`-Funktionen gesucht — gefunden wird keiner.
+
+Seit Story 1.4 fährt es zusätzlich `src/routes/+page.server.ts` — `load` und
+beide actions. Belegt sind dort: die `load` gibt genau die offenen Aufgaben,
+**älteste zuerst** (die drei Vorbereitungszeilen werden ausdrücklich nicht in der
+Reihenfolge ihres `created_at` eingefügt, sonst wäre eine Sortierung nach der Id
+grün); in den Seitendaten steht weder ein `completed`-Feldname noch der
+Zeitstempel eines Erledigten; `abhaken` gelingt auch für ein Mitglied **ohne**
+Adminrechte, setzt `completed_by` auf dessen Id und `completed_at` auf jetzt, und
+die Zeile fehlt danach in einer frischen `load`; ein **zweites** `abhaken` auf
+dieselbe Zeile ergibt `400` und lässt den ersten Abhakenden unverändert — das ist
+das Wettrennen zweier gleichzeitiger Abhaker, entschieden in der `where`-Klausel;
+`wiederOeffnen` leert beide Spalten, auch für jemanden, der nicht abgehakt hat,
+und die Zeile steht danach wieder an ihrem Platz nach `created_at`; und eine
+fehlende, nicht numerische, unbekannte `aufgabeId` sowie der falsche
+Erledigt-Zustand ergeben in **beiden** actions denselben Satz, ohne die Tabelle
+anzufassen.
+
+Zwei Behauptungen dort sind ausdrücklich **Textprüfungen** und kein ausgeführter
+Nachweis: dass der `use:enhance`-Rückruf in `src/routes/+page.svelte`
+`update({ reset: false, invalidateAll: false })` ruft, und dass die Seite kein
+`<label>` trägt. Beide Zusagen hängen an genau einer Textstelle und wären sonst
+still zu brechen — die Svelte-Schicht deckt in diesem Projekt keine ausgeführte
+Prüfung. Beide laufen auf der Datei **ohne Kommentare**: die Komponente erklärt
+an beiden Stellen wörtlich, was dort zu stehen hat, und auf dem Rohtext hätten
+sich die Behauptungen an der eigenen Begründung erfüllt. Gemessen.
 
 **Was die Vergleiche vergleichen.** Die Fehlerseiten kommen über SvelteKits
 **eigene** aus `src/error.html` erzeugte Vorlage (`svelte-kit sync` läuft dazu am
@@ -390,6 +443,11 @@ Der Grund für all das ist gemessen. Die Tabelle nennt nur Mutationen, die
 | `?? './data/dev.sqlite'` statt Fail-Fast in `drizzle.config.ts` | Iteration 3  | `db:check`, Prüfung Fail-Fast              |
 | ein Befund in `db:check` zur Warnung gemacht                    | Iteration 3  | `db:check:selftest`, zwei von drei Proben  |
 | Zeilenkommentare wieder in **jeder** Datei ausgeblendet         | Iteration 3  | `gate:selftest`, Probe `regel-1b`          |
+| `invalidateAll: false` aus dem Rückruf auf `/` entfernt         | Story 1.4    | die Textprüfung an `+page.svelte`          |
+| ein `<label>` um den Aufgabentext                               | Story 1.4    | die Textprüfung an `+page.svelte`          |
+| `completed_at IS NULL` aus `aufgabeAbhaken` entfernt            | Story 1.4    | zweites `abhaken`, der erste Abhakende     |
+| `completed_by` in die Projektion der offenen Aufgaben           | Story 1.4    | zwei Seitendaten-Behauptungen, `check`     |
+| ein rohes `140ms` in einem Komponenten-`<style>`                | Story 1.4    | `gate`, Regel 1                            |
 
 `\|\| !mitglied.isActive` aus dem **Wächter** entfernt steht bewusst **nicht** in
 der Tabelle: diese Mutation war schon vor Iteration 2 rot.
@@ -459,6 +517,63 @@ Es gibt kein Passwort, kein Login-Formular und keinen Registrierungsvorgang.
   `<meta name="referrer" content="no-referrer">`, und die Seite verweist auf
   nichts von draussen.
 
+## Aufgaben sehen und abhaken
+
+`/` ist die ganze Anwendung in einem Bild. Die Seite führt genau drei Blöcke in
+dieser Reihenfolge — Diensthinweis, freie Einzelaufgaben, offener Pool. Die
+ersten zwei kommen mit Epic 3 und rendern in diesem Stand nichts; die Reihenfolge
+steht trotzdem schon, weil sie eine Entscheidung über die Aufmerksamkeit im
+Garten ist und nicht eine Folge davon, in welcher Reihenfolge gebaut wurde.
+
+Der dritte Block trägt unter der Marke `OFFEN` alle offenen Aufgaben, **älteste
+zuerst**, vollständig und ohne Nachladen. Erledigte erscheinen nicht — auch nicht
+durchgestrichen, auch nicht eingeklappt.
+
+- **Ein Antippen erledigt.** Kein Formular, kein Statusfeld, kein Pflichtkommentar,
+  kein Bestätigungsdialog, kein zweiter Knopf. Es ist das einzige
+  Interaktionsmuster, das jede Person kennen muss.
+- **Nur das Kästchen ist antippbar**, nicht die Zeile und nicht der Text. Sichtbar
+  22px, Trefferfeld 44px über Innenabstand — ein Trefferfeld über die ganze Zeile
+  würde im Beet, mit Handschuhen, versehentlich Aufgaben erledigen. Der
+  Aufgabentext ist toter Text.
+- **Das Kästchen ist ein echtes `<input type="checkbox">`** in einem Formular, kein
+  `<div>` mit Klick-Handler. Seine Beschriftung entsteht über `aria-labelledby`
+  aus dem sichtbaren Aufgabentext **und** einem verborgenen Verb: ein Screenreader
+  liest `Beet 25 Nüsslisalat jäten, erledigen` mit der Rolle Kontrollkästchen.
+  Bewusst **kein** `<label for>` — ein Label schaltet sein Bedienelement, und
+  damit wäre der Text wieder antippbar.
+- **Die Zeile bleibt an ihrem Platz stehen**, durchgestrichen und gedämpft,
+  Kästchen gefüllt mit Haken. Sie verschwindet erst beim nächsten Laden — dann
+  auch für alle anderen. So ist ein Fehlgriff sofort sichtbar. Der Preis dieser
+  Entscheidung ist benannt: die Liste ist nach dem Antippen nicht mehr frisch, und
+  das Abhaken ist die eine Mutation der Anwendung, die **kein** `invalidateAll()`
+  auslöst.
+- **Nochmaliges Antippen öffnet die Aufgabe wieder** und setzt `completed_by` und
+  `completed_at` zurück auf leer.
+- **Niemand sieht, wer abgehakt hat.** Nicht im Text, nicht als Titel-Attribut,
+  nicht in einem `data-`Attribut und nicht in den Seitendaten. `completed_by` und
+  `completed_at` werden trotzdem gesetzt. Das ist keine Zusage der Oberfläche,
+  sondern eine Eigenschaft des Typs: `SichtbareAufgabe` in
+  `src/lib/server/db/schema.ts` hat die zwei Spalten nicht, und jede Abfrage in
+  `queries/tasks.ts` projiziert schon in der Datenbank ohne sie. Die Seite
+  **kann** den Abhakenden nicht ausliefern, weil das Feld nicht existiert.
+- **Aufgaben sind namenlos und haben keine Zuständigkeit im Voraus.** `tasks` trägt
+  keine Spalte dafür, und jedes Mitglied darf jede Aufgabe abhaken. Namen an
+  allem macht das Werkzeug zum Dienstplan und vertreibt die spontan Kommenden.
+- **Ein Satz für vier Zustände.** Eine fehlende, eine nicht numerische, eine
+  unbekannte `aufgabeId` und der falsche Erledigt-Zustand ergeben alle `400` mit
+  demselben Satz. Der letzte Fall ist zugleich der Ausgang des Wettrennens: haken
+  zwei Personen dieselbe Aufgabe im selben Moment ab, trifft das zweite `UPDATE`
+  keine Zeile — die Vorbedingung `completed_at IS NULL` steht in der
+  `where`-Klausel und nicht in der Route. Der erste Abhakende bleibt gespeichert,
+  und der zweite erfährt nicht, welcher der Fälle vorlag.
+- **Der Übergang in den durchgestrichenen Zustand dauert 140ms** und ist die
+  einzige Animation der Anwendung. Er steckt in
+  `@media (prefers-reduced-motion: no-preference)`: keine Bewegung ist der
+  Standardfall, Bewegung die ausdrücklich eingeschaltete Ausnahme.
+- **Erfassen kann man hier noch nichts.** Der leere Zustand sagt `Nichts offen.`
+  und trägt **keinen** Knopf; `+ Aufgabe` bringt Story 1.5.
+
 ## Mitglieder aufnehmen und Zugang beenden
 
 Alles Seltene liegt unter `/mehr`. Für eine Adminperson steht dort der Eintrag
@@ -519,8 +634,9 @@ Nicht-Admins fehlt der Knopf, ein POST braucht aber keinen.
 
 ### Benannt akzeptierte Risiken
 
-Ein Zugang, der allein an einem Link im Pfad hängt, hat Kanten. Sie sind
-gesehen, gewogen und angenommen — nicht übersehen:
+Diese Anwendung hat Kanten: der Zugang hängt allein an einem Link im Pfad, und
+das Abhaken ist bewusst ohne Netz gebaut. Sie sind gesehen, gewogen und
+angenommen — nicht übersehen:
 
 - **Das Klartext-Token steht im Pfad.** Damit landet es in jedem Protokoll, das
   Pfade mitschreibt. **Für Story 1.6 festhalten:** `/i/` gehört aus dem
@@ -570,11 +686,31 @@ gesehen, gewogen und angenommen — nicht übersehen:
   niemand wiederherstellen kann. `navigator.clipboard` gibt es ohnehin nur auf
   einer sicheren Herkunft; ohne die fällt die Oberfläche auf „Feld antippen,
   Inhalt ist markiert" zurück.
+- **Ohne JavaScript hakt nichts ab.** Das Kästchen schickt sein Formular über
+  einen `change`-Handler ab; es gibt daneben keinen Knopf, der es ohne
+  JavaScript täte. Ein Antippen tut dann **nichts** — und das ist die richtige
+  Ausfallrichtung: lieber keine Wirkung als eine versehentlich erledigte
+  Aufgabe. Ein Absenden-Knopf pro Zeile wäre der Gegenentwurf und kostet genau
+  die Kernzusage, dass Abhaken eine Interaktion kostet. Die Anwendung ist
+  ohnehin nur online.
+- **Jedes Mitglied kann jede erledigte Aufgabe wieder öffnen** — auch eine
+  fremde und eine alte. Es gibt keine Zeitschranke, keine Bindung an die
+  abhakende Person und kein Protokoll darüber, wer geöffnet hat. Der Grund ist
+  derselbe wie beim namenlosen Pool: eine Prüfung „darf ich das" bräuchte die
+  Zuordnung, die AD-2 und AD-5 gerade nicht wollen. In einer Gruppe von zwanzig
+  Leuten, die sich kennen, ist das kein Missbrauchsrisiko, sondern der Gegenzug
+  zum Fehlgriff mit dem Handschuh.
 
 ## Was noch nicht hier ist
 
-- Aufgaben sehen, abhaken und erfassen: Stories 1.4 und 1.5. `tasks` gibt es
-  noch nicht.
+- **Eine Aufgabe erfassen: Story 1.5.** `tasks` und die Kernschleife gibt es,
+  aber keinen Weg, aus der Oberfläche eine Aufgabe anzulegen — der leere Zustand
+  trägt darum noch keinen Knopf. Bis dahin entstehen Aufgaben nur von Hand in der
+  Datenbank.
+- Fristen und Überfälligkeit (`due_at`, `seit N Wochen offen`): **Epic 2**. Die
+  Spalte gibt es nicht, und `--overdue` ist ein noch unbenutztes Token.
+- Diensthinweis und freie Einzelaufgaben, also Block 1 und 2 auf `/`: **Epic 3**.
+  Die Reihenfolge ist angelegt, die Blöcke rendern nichts.
 - Docker Compose, nginx als TLS-Terminierung, certbot, Backup-Skript und
   Runbook: **Story 1.6**. In diesem Stand gibt es davon nichts.
 - Es gibt bewusst keinen Service Worker: `static/manifest.webmanifest` und die

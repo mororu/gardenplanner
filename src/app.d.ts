@@ -5,9 +5,12 @@
 // kennt nur das erste.
 import type { AngemeldetesMitglied } from './lib/server/db/schema';
 
-// PageData, PageState und Platform füllen die Stories 1.4 und 1.5, sobald es
-// Aufgaben gibt. App.Error bleibt bei der Vorgabe { message: string } — mehr
-// braucht keine der beiden Fehlerhüllen.
+// PageData, PageState und Platform bleiben leer, und das ist die Entscheidung
+// und nicht die Restschuld: SvelteKit erzeugt für jede Route in ./$types einen
+// genauen Datentyp aus dem Rückgabewert ihrer load. Ein globales App.PageData
+// wäre dessen unscharfe Obermenge und liesse eine Seite Felder lesen, die ihre
+// load nicht liefert. App.Error bleibt bei der Vorgabe { message: string } —
+// mehr braucht keine der beiden Fehlerhüllen.
 declare global {
 	namespace App {
 		// interface Error {}

@@ -149,6 +149,14 @@
 				--gutter: 1rem;
 				--measure: 37.5rem;
 				--touch: 2.75rem;
+				/* Die **sichtbare** Grösse des Kästchens der Aufgabenzeile, 22px.
+				   Sichtbare Grösse und Trefferfeld sind zwei verschiedene Dinge
+				   (DESIGN.md, task-box): nur das Trefferfeld muss --touch erreichen,
+				   und es entsteht über Innenabstand. Der Abstand zwischen beiden ist
+				   gerechnet und steht nirgends als Zahl:
+				   calc((var(--touch) - var(--task-box)) / -2) zieht das Trefferfeld
+				   über die Zeile hinaus, ohne die Zeilenhöhe aufzublähen. */
+				--task-box: 1.375rem;
 				/* Eigene Höhe der Navigationsleiste, nicht --touch: die Leiste ist ein
 				   Layoutmass, das der Inhalt unten freihalten muss. 48px, damit jedes
 				   Ziel über dem 44px-Boden liegt. */
@@ -158,6 +166,20 @@
 				--border-hairline: 0.0625rem;
 				--border-active: 0.125rem;
 				--border-marker: 0.1875rem;
+
+				/*
+				   Zeiten — genau eine, weil es genau eine Animation gibt.
+
+				   Der Übergang der Aufgabenzeile in den durchgestrichenen Zustand
+				   (DESIGN.md: 140ms; EXPERIENCE.md: „unter 150 ms" — kein
+				   Widerspruch, die konkrete Zahl gilt). Sie steht hier und nicht als
+				   140ms in der Komponente, weil sonst die nächste Animation ihre
+				   eigene Zahl mitbrächte; Gate-Regel 1 weist ein rohes ms/s in einer
+				   Bewegungs-Eigenschaft ab, damit diese Deklaration nicht umgehbar
+				   ist. Kein Farbwert, also ohne Dunkel-Pendant — Regel 4 verlangt
+				   eines nur für Farben.
+				 */
+				--duration-quick: 140ms;
 			}
 
 			/* Der dunkle Modus ist gleichrangig gestaltet: eigene Werte, keine Invertierung,

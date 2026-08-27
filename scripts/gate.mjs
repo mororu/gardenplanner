@@ -16,8 +16,10 @@
  *
  * Die zwölf Regeln:
  *   1. In .svelte und .css unter src/ kein Farbliteral (Hex, rgb(), rgba(),
- *      hsl(), hsla(), oklch(), color() …, CSS-Farbname) und kein rohes
- *      px/rem-Literal ausser 0. Farbliteral heisst auch **Systemfarbe**
+ *      hsl(), hsla(), oklch(), color() …, CSS-Farbname), kein rohes
+ *      px/rem-Literal ausser 0 und **kein rohes ms/s-Literal ausser 0** im Wert
+ *      von transition, animation und deren -duration-/-delay-Langformen.
+ *      Farbliteral heisst auch **Systemfarbe**
  *      (Canvas, GrayText …): in einer Komponente ist sie immer falsch, in .html
  *      ist nur die Auswahl aus systemfarbenErlaubt zugelassen. In .html unter
  *      src/ ausser app.html gilt der Farbteil der Regel — src/error.html trägt
@@ -768,6 +770,45 @@ const torPrüfen = (ziel) => {
 					`rohes Mass ${treffer[0]} — jede Grösse kommt aus einem Token in src/app.html`
 				);
 			}
+
+			/*
+			 * Rohe Zeitwerte in den Bewegungs-Eigenschaften.
+			 *
+			 * Der Massliteral-Regex darüber prüft nur px und rem. Ein hartes 140ms
+			 * kam damit durch, und das Zeit-Token in src/app.html war von seinem
+			 * ersten Tag an umgehbar: die Anwendung hat genau **eine** Animation,
+			 * und wäre ihre Dauer als Zahl in der Komponente gelandet, hätte die
+			 * zweite ihre eigene Zahl mitgebracht.
+			 *
+			 * Geprüft wird nur der **Wert** von transition, animation und ihren
+			 * -duration-/-delay-Langformen, nicht die ganze Datei: eine Zeitangabe
+			 * ist nur dort eine Gestaltungsentscheidung. -delay steht mit dabei,
+			 * obwohl die Spezifikation nur die Dauern nennt — eine Verzögerung ist
+			 * dasselbe rohe Zeitliteral aus demselben Grund, und die Lücke wäre
+			 * genau so gross wie die geschlossene. Nicht getroffen sind
+			 * transition-property und transition-timing-function: dort steht keine
+			 * Zeit.
+			 *
+			 * Eine Null bleibt erlaubt, wie beim Massliteral: `0s` ist keine
+			 * Gestaltungsentscheidung, sondern deren Abwesenheit. Eine Null **ohne**
+			 * Einheit trifft der Regex ohnehin nicht.
+			 */
+			for (const eigenschaft of ohneBedingungen.matchAll(
+				/\b(transition|animation)(?:-duration|-delay)?\s*:([^;{}]*)/g
+			)) {
+				const wert = eigenschaft[2];
+				// Versatz des Werts im Abschnitt, damit die Zeilennummer stimmt.
+				const wertAb = (eigenschaft.index ?? 0) + eigenschaft[0].length - wert.length;
+				for (const zeit of wert.matchAll(/(?<![\w.-])(\d+(?:\.\d+)?|\.\d+)(ms|s)\b/g)) {
+					if (Number(zeit[1]) === 0) continue;
+					melden(
+						1,
+						datei,
+						zeileAb(wertAb + (zeit.index ?? 0)),
+						`rohe Zeit ${zeit[0]} in ${eigenschaft[1]} — jede Dauer kommt aus einem Token in src/app.html`
+					);
+				}
+			}
 		}
 	}
 
@@ -1268,6 +1309,31 @@ const proben = [
 		art: 'Verstoss',
 		beschreibung:
 			'Systemfarbe ausserhalb der erlaubten Auswahl und Systemfarbe in einer Komponente',
+	},
+	{
+		regel: 1,
+		verzeichnis: 'regel-1d-zeitwert',
+		erwartet: 4,
+		begruendung:
+			'4 rohe Zeitwerte in Probe.svelte, einer je Schreibweise: 140ms in der ' +
+			'transition-Kurzform, 0.2s in transition-duration, 1.5s in der ' +
+			'animation-Kurzform und 500ms in animation-delay',
+		art: 'Verstoss',
+		beschreibung:
+			'rohe ms/s-Werte in Bewegungs-Eigenschaften; der Massliteral-Regex prüfte nur px und rem',
+	},
+	{
+		regel: 1,
+		verzeichnis: 'regel-1e-zeitwert-erlaubt',
+		erwartet: 0,
+		begruendung:
+			'Gegenprobe: var(--duration-quick) als vorgeschriebener Weg, eine Null mit Einheit ' +
+			'(0s), eine Zahl ohne Einheit im Wert einer Bewegungs-Eigenschaft (die ' +
+			'Wiederholungszahl 3), transition-property und cubic-bezier — nichts davon darf ' +
+			'fallen, also null Treffer',
+		art: 'Verstoss',
+		beschreibung:
+			'Zeit-Token, Null, Wiederholungszahl und Beschleunigungskurve dürfen nicht fallen',
 	},
 	{
 		regel: 2,

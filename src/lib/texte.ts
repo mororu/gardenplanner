@@ -78,3 +78,28 @@ export const EIGENER_ZUGANG_GESCHUETZT =
  */
 export const MITGLIED_NICHT_ANSPRECHBAR =
 	'Dieses Mitglied lässt sich nicht ansprechen. Lade die Liste neu.';
+
+/**
+ * Die nicht ansprechbare Aufgabe. **Zwei** Wurfstellen — die actions `abhaken`
+ * und `wiederOeffnen` in src/routes/+page.server.ts — und dort **ein** Satz für
+ * vier Zustände:
+ *
+ *   1. aufgabeId fehlt im Formular
+ *   2. aufgabeId ist nicht numerisch
+ *   3. es gibt keine Aufgabe mit dieser Id
+ *   4. die Aufgabe ist im falschen Erledigt-Zustand: schon abgehakt beim
+ *      Abhaken, noch offen beim Wieder-Öffnen
+ *
+ * Ein Satz, ein Statuscode, keine Verzweigung — aus demselben Grund wie bei
+ * MITGLIED_NICHT_ANSPRECHBAR. Der vierte Zustand trägt hier zusätzlich Gewicht:
+ * er ist der Ausgang des Wettrennens zweier gleichzeitiger Abhaker, und die
+ * Person, die zu spät kommt, soll erfahren, dass ihr Griff nichts geändert hat,
+ * nicht wer schneller war (AD-5).
+ *
+ * Der Satz sagt, was zu tun ist, statt zu erklären, was schiefging: alle vier
+ * Fälle entstehen praktisch nur, wenn die angezeigte Liste veraltet ist — und
+ * genau das ist auf dieser Seite der Normalfall, weil das Abhaken die Liste
+ * bewusst nicht neu lädt.
+ */
+export const AUFGABE_NICHT_ANSPRECHBAR =
+	'Diese Aufgabe lässt sich nicht ansprechen. Lade die Liste neu.';

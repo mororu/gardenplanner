@@ -8,6 +8,13 @@
       "when": 1787771726390,
       "tag": "0000_flashy_eternity",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1787821464612,
+      "tag": "0001_lumpy_genesis",
+      "breakpoints": true
     }
   ]
 }

@@ -65,11 +65,12 @@ import {
 	sitzungsgeheimnisPruefen,
 } from '../src/lib/server/auth.ts';
 import { datenbank, datenschichtStarten } from '../src/lib/server/db/index.ts';
-import { members, ohneTokenHash } from '../src/lib/server/db/schema.ts';
-import type { AngemeldetesMitglied } from '../src/lib/server/db/schema.ts';
+import { members, ohneTokenHash, tasks } from '../src/lib/server/db/schema.ts';
+import type { AngemeldetesMitglied, NewTask } from '../src/lib/server/db/schema.ts';
 import { mitgliedAnlegen, mitgliederZaehlen } from '../src/lib/server/db/queries/members.ts';
 import { tokenErzeugen, tokenHashen } from '../src/lib/server/token.ts';
 import {
+	AUFGABE_NICHT_ANSPRECHBAR,
 	EIGENER_ZUGANG_GESCHUETZT,
 	KEIN_ZUGANG,
 	MITGLIED_NICHT_ANSPRECHBAR,
@@ -85,7 +86,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 185;
+const ERWARTETE_BEHAUPTUNGEN = 213;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -514,6 +515,19 @@ async function mehrLaden(): Promise<MehrModul> {
 	return mehrModul;
 }
 
+/*
+ * Die Startseite aus Story 1.4. Ihre load nimmt **kein** Ereignis: sie braucht
+ * weder locals noch Adresse noch Cookies, und der Typ hier sagt das mit.
+ */
+type StartseitenModul = { load: () => unknown; actions: Record<string, Aktion> };
+let startseitenModul: StartseitenModul | null = null;
+
+async function startseiteLaden(): Promise<StartseitenModul> {
+	startseitenModul ??=
+		(await import('../src/routes/+page.server.ts')) as unknown as StartseitenModul;
+	return startseitenModul;
+}
+
 /**
  * Die drei Ausgänge, die eine load oder eine action nehmen kann.
  *
@@ -579,6 +593,57 @@ function abgewiesen(name: string, ausgang: Routenausgang, satz: string): void {
 function zeileAbdruck(id: number): string {
 	const zeile = datenbank().select().from(members).where(eq(members.id, id)).get();
 	return JSON.stringify(zeile ?? null);
+}
+
+/**
+ * Legt eine Aufgabe an — mit **ausdrücklichem** created_at.
+ *
+ * Direkt über Drizzle und nicht über eine Repository-Funktion: es gibt noch
+ * keine, weil das Erfassen erst mit Story 1.5 kommt. Eine Funktion allein für
+ * die Vorbereitung dieses Skripts wäre toter Produktionscode, und Gate-Regel 9
+ * verbietet den direkten Zugriff nur unter src/routes/.
+ *
+ * Der Zeitstempel steht hier statt aus $defaultFn zu kommen, damit die
+ * Reihenfolge der Liste prüfbar ist: die drei Aufgaben werden **nicht** in der
+ * Reihenfolge ihres created_at eingefügt. Ohne das liesse sich „älteste zuerst"
+ * nicht von „nach Id" unterscheiden, und eine Sortierung nach der Id wäre grün.
+ */
+function aufgabeSaen(text: string, createdAt: number): number {
+	return datenbank()
+		.insert(tasks)
+		.values({ text, createdAt } satisfies NewTask)
+		.returning({ id: tasks.id })
+		.get().id;
+}
+
+/** Die vollständige Aufgabenzeile als Zeichenkette — samt Erledigt-Spalten. */
+function aufgabenAbdruck(id: number): string {
+	const zeile = datenbank().select().from(tasks).where(eq(tasks.id, id)).get();
+	return JSON.stringify(zeile ?? null);
+}
+
+/** Die vollständige Aufgabe zu einer Id, oder null. */
+function aufgabeLesen(id: number) {
+	return datenbank().select().from(tasks).where(eq(tasks.id, id)).get() ?? null;
+}
+
+/**
+ * Steht in diesen Daten irgendwo eine Erledigt-Spalte?
+ *
+ * Gesucht wird nach dem **Feldnamen**, nicht nach einem Wert: completed_by ist
+ * bei einer offenen Aufgabe null, und eine Projektion, die das Feld aufnimmt,
+ * fiele bei einer Wertsuche nicht auf — sie würde erst dann auffallen, wenn
+ * wirklich jemand abgehakt hat und die Zeile trotzdem noch in der Liste steht.
+ * AD-5 verbietet die Zuordnung und nicht bloss ihren sichtbaren Wert.
+ */
+function nenntErledigt(daten: unknown): boolean {
+	return /completed/i.test(JSON.stringify(daten));
+}
+
+/** Die Ids der offenen Aufgaben in der Reihenfolge, in der die load sie liefert. */
+function offeneReihenfolge(ausgang: Routenausgang): string {
+	const zeilen = (wertVon(ausgang).aufgaben ?? []) as { id: number }[];
+	return zeilen.map((zeile) => zeile.id).join(' | ');
 }
 
 /** Der Rückgabewert einer geglückten load oder action, oder ein leeres Objekt. */
@@ -1764,6 +1829,253 @@ try {
 			`${JSON.stringify(mehrAlsAdmin)}${JSON.stringify(mehrAlsNicht)}`.includes(hash)
 		)
 	);
+
+	// =======================================================================
+	// / — Story 1.4: offene Aufgaben sehen und abhaken.
+	//
+	// Die Kernschleife, ausgeführt gegen dieselbe Datenbank. Geprüft wird die
+	// Serverseite: load, beide actions und die Spalten danach. Was allein im
+	// Browser lebt — die stehenbleibende Zeile, der Übergang, die Live-Region —
+	// deckt keine Prüfung dieses Projekts; der Posten steht in
+	// deferred-work.md. Die zwei Textprüfungen am Ende sind der schmale Ersatz
+	// für die eine Zusage, die sonst nur an einem Argument hinge.
+	// =======================================================================
+	const startseite = await startseiteLaden();
+
+	/*
+	 * Drei Aufgaben, ausdrücklich **nicht** in der Reihenfolge ihres created_at
+	 * eingefügt: die Ids laufen spaet < frueh < mittel, die Liste muss trotzdem
+	 * frueh, mittel, spaet liefern. Eine Sortierung nach der Id wäre damit rot.
+	 */
+	const jetzt = Math.floor(Date.now() / 1000);
+	const spaet = aufgabeSaen('Randen ernten, Beet 12', jetzt - 100);
+	const frueh = aufgabeSaen('Beet 25 Nüsslisalat jäten', jetzt - 300);
+	const mittel = aufgabeSaen('Tomaten ausgeizen, Beete 3 bis 7', jetzt - 200);
+
+	const erstesLaden = await routenausgang(() => startseite.load());
+	pruefenGleich(
+		'die load von / gibt die offenen Aufgaben, älteste zuerst',
+		offeneReihenfolge(erstesLaden),
+		`${frueh} | ${mittel} | ${spaet}`
+	);
+	pruefen(
+		'die load von / braucht kein Ereignis — sie liest weder locals noch Cookies',
+		erstesLaden.art === 'wert',
+		`Ausgang ${erstesLaden.art}`
+	);
+	pruefen(
+		'die Seitendaten tragen weder completed_by noch completed_at',
+		!nenntErledigt(wertVon(erstesLaden)),
+		JSON.stringify(wertVon(erstesLaden)).slice(0, 160)
+	);
+
+	// -----------------------------------------------------------------------
+	// Abhaken: jedes Mitglied darf jede Aufgabe (AD-2)
+	// -----------------------------------------------------------------------
+	/*
+	 * Nico hakt ab, und Nico ist **kein** Admin. Das ist keine Beiläufigkeit:
+	 * eine Adminschranke, die versehentlich auf dieser Seite landete, fiele in
+	 * der Oberfläche nicht auf, weil dort für alle dasselbe Kästchen steht.
+	 */
+	const abgehakt = await routenausgang(() =>
+		startseite.actions.abhaken(
+			alsMitglied('/', nicoLocals, { aufgabeId: String(mittel) }).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'abhaken gelingt für ein Mitglied ohne Adminrechte und nennt den Aufgabentext',
+		abgehakt.art === 'wert' &&
+			textFeld(wertVon(abgehakt), 'text') === 'Tomaten ausgeizen, Beete 3 bis 7',
+		`Ausgang ${abgehakt.art}`
+	);
+	pruefen(
+		'der Rückgabewert von abhaken trägt keine Erledigt-Spalte',
+		!nenntErledigt(wertVon(abgehakt)),
+		JSON.stringify(wertVon(abgehakt))
+	);
+
+	const mittelErledigt = aufgabeLesen(mittel);
+	pruefenGleich('completed_by trägt die Id des Abhakenden', mittelErledigt?.completedBy, nico.id);
+	pruefen(
+		'completed_at steht in Unix-Sekunden und liegt bei jetzt',
+		typeof mittelErledigt?.completedAt === 'number' &&
+			mittelErledigt.completedAt >= jetzt &&
+			mittelErledigt.completedAt < jetzt + 300,
+		JSON.stringify(mittelErledigt?.completedAt)
+	);
+
+	const nachAbhaken = await routenausgang(() => startseite.load());
+	pruefenGleich(
+		'die abgehakte Zeile fehlt in einer frischen load — auch für alle anderen',
+		offeneReihenfolge(nachAbhaken),
+		`${frueh} | ${spaet}`
+	);
+	/*
+	 * Und die Seitendaten nennen den Abhakenden auch danach nicht: weder als
+	 * Feldnamen noch als Zeitstempel. Der Zeitstempel ist prüfbar, weil die drei
+	 * created_at ausdrücklich in der Vergangenheit liegen und sich von
+	 * completed_at unterscheiden — dasselbe Muster wie die Suche nach den
+	 * Token-Hashes in der Liste von /verwaltung.
+	 */
+	pruefen(
+		'auch nach dem Abhaken steht in den Seitendaten kein Erledigt-Wert',
+		!nenntErledigt(wertVon(nachAbhaken)) &&
+			!JSON.stringify(wertVon(nachAbhaken)).includes(String(mittelErledigt?.completedAt)),
+		JSON.stringify(wertVon(nachAbhaken))
+	);
+
+	// -----------------------------------------------------------------------
+	// Das Wettrennen: der erste gewinnt und bleibt gespeichert
+	// -----------------------------------------------------------------------
+	const aufgabenSaetze = new Set<string>();
+	const mittelVorZweitem = aufgabenAbdruck(mittel);
+	const zweitesAbhaken = await routenausgang(() =>
+		startseite.actions.abhaken(
+			alsMitglied('/', veraLocals, { aufgabeId: String(mittel) }).alsRequestEvent()
+		)
+	);
+	abgewiesen(
+		'ein zweites abhaken auf dieselbe Zeile wird abgewiesen',
+		zweitesAbhaken,
+		AUFGABE_NICHT_ANSPRECHBAR
+	);
+	aufgabenSaetze.add(textFeld(datenVon(zweitesAbhaken), 'meldung'));
+	pruefenGleich(
+		'und lässt den ersten Abhakenden unverändert',
+		aufgabenAbdruck(mittel),
+		mittelVorZweitem
+	);
+
+	// -----------------------------------------------------------------------
+	// Wieder öffnen: auch eine fremde Zeile, ohne Zeitschranke
+	// -----------------------------------------------------------------------
+	const wiederGeoeffnet = await routenausgang(() =>
+		startseite.actions.wiederOeffnen(
+			alsMitglied('/', veraLocals, { aufgabeId: String(mittel) }).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'wiederOeffnen gelingt — auch für jemanden, der nicht abgehakt hat',
+		wiederGeoeffnet.art === 'wert',
+		`Ausgang ${wiederGeoeffnet.art}`
+	);
+	const mittelWiederOffen = aufgabeLesen(mittel);
+	pruefen(
+		'completed_by und completed_at sind wieder leer',
+		mittelWiederOffen?.completedBy === null && mittelWiederOffen?.completedAt === null,
+		JSON.stringify(mittelWiederOffen)
+	);
+	pruefenGleich(
+		'die Zeile steht danach wieder an ihrem Platz nach created_at',
+		offeneReihenfolge(await routenausgang(() => startseite.load())),
+		`${frueh} | ${mittel} | ${spaet}`
+	);
+
+	const fruehVorher = aufgabenAbdruck(frueh);
+	const offeneGeoeffnet = await routenausgang(() =>
+		startseite.actions.wiederOeffnen(
+			alsMitglied('/', veraLocals, { aufgabeId: String(frueh) }).alsRequestEvent()
+		)
+	);
+	abgewiesen(
+		'wiederOeffnen auf eine offene Aufgabe wird abgewiesen',
+		offeneGeoeffnet,
+		AUFGABE_NICHT_ANSPRECHBAR
+	);
+	aufgabenSaetze.add(textFeld(datenVon(offeneGeoeffnet), 'meldung'));
+	pruefenGleich('und ändert nichts', aufgabenAbdruck(frueh), fruehVorher);
+
+	// -----------------------------------------------------------------------
+	// Nicht ansprechbar: vier Zustände, ein Satz
+	// -----------------------------------------------------------------------
+	const aufgabenVorher = JSON.stringify(datenbank().select().from(tasks).all());
+	for (const [wie, formular] of [
+		['unbekannt', { aufgabeId: '999999' }],
+		['fehlend', {}],
+		['nicht numerisch', { aufgabeId: 'abc' }],
+	] as const) {
+		for (const aktion of ['abhaken', 'wiederOeffnen'] as const) {
+			const ausgang = await routenausgang(() =>
+				startseite.actions[aktion](alsMitglied('/', veraLocals, { ...formular }).alsRequestEvent())
+			);
+			abgewiesen(`${aktion}, aufgabeId ${wie}`, ausgang, AUFGABE_NICHT_ANSPRECHBAR);
+			aufgabenSaetze.add(textFeld(datenVon(ausgang), 'meldung'));
+		}
+	}
+	pruefen(
+		'alle vier Zustände und beide actions tragen denselben Satz',
+		aufgabenSaetze.size === 1,
+		`${aufgabenSaetze.size} verschiedene Sätze: ${JSON.stringify([...aufgabenSaetze])}`
+	);
+	pruefenGleich(
+		'und keiner von ihnen hat die Aufgabentabelle angefasst',
+		JSON.stringify(datenbank().select().from(tasks).all()),
+		aufgabenVorher
+	);
+
+	/*
+	 * Ohne Mitglied in locals: derselbe Satz, und nichts geändert.
+	 *
+	 * Auf dem gewachten Pfad unerreichbar — der Wächter hat vorher mit 403
+	 * abgewiesen —, aber der Typ lässt null zu, und ein `!` in der action wäre
+	 * eine Annahme über eine andere Datei. Diese zwei Behauptungen sind das
+	 * Einzige, was diesen Zweig überhaupt ausführt.
+	 */
+	const ohneMitglied = await routenausgang(() =>
+		startseite.actions.abhaken(
+			alsMitglied('/', null, { aufgabeId: String(frueh) }).alsRequestEvent()
+		)
+	);
+	abgewiesen(
+		'abhaken ohne Mitglied in locals wird abgewiesen',
+		ohneMitglied,
+		AUFGABE_NICHT_ANSPRECHBAR
+	);
+	pruefenGleich(
+		'und hat die Aufgabentabelle nicht angefasst',
+		JSON.stringify(datenbank().select().from(tasks).all()),
+		aufgabenVorher
+	);
+
+	/*
+	 * Zwei **Textprüfungen** an src/routes/+page.svelte — und sie sind
+	 * ausdrücklich als solche benannt, nicht als ausgeführter Nachweis.
+	 *
+	 * Die Svelte-Schicht ist von keiner Prüfung dieses Projekts gedeckt (es gibt
+	 * bewusst kein Komponenten-Testwerkzeug, siehe deferred-work.md). Zwei
+	 * Zusagen dieser Story hängen aber an genau einer Textstelle und wären ohne
+	 * diese zwei Zeilen still zu brechen:
+	 *
+	 *   - update({ reset: false, invalidateAll: false }) — beide Vorgaben von
+	 *     use:enhance sind true, und beide nehmen die abgehakte Zeile weg. Wer
+	 *     das Argument beim nächsten Anfassen als Rauschen entfernt, bricht das
+	 *     Akzeptanzkriterium „die Zeile bleibt an ihrem Platz", und alles bleibt
+	 *     grün.
+	 *   - kein <label> — ein Label schaltet sein Bedienelement, und damit wäre
+	 *     der Aufgabentext antippbar. Das ist im eingefrorenen Block ein Never.
+	 */
+	/*
+	 * Beide Prüfungen laufen auf der Datei **ohne Kommentare**, und das ist
+	 * keine Kosmetik: die Komponente erklärt an beiden Stellen ausführlich, was
+	 * dort zu stehen hat und was nicht — sie nennt das Argument und die
+	 * verbotene Label-Form wörtlich. Auf dem Rohtext hätten sich beide
+	 * Behauptungen also an der eigenen Begründung erfüllt und wären grün
+	 * geblieben, während der Code sie bricht. Gemessen: die Mutation
+	 * `update({ reset: false })` liess einen Lauf auf dem Rohtext durchgehen.
+	 */
+	const startseitenCode = readFileSync(join(wurzel, 'src', 'routes', '+page.svelte'), 'utf8')
+		.replace(/<!--[\s\S]*?-->/g, ' ')
+		.replace(/\/\*[\s\S]*?\*\//g, ' ')
+		.replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+	pruefen(
+		'der Rückruf in +page.svelte ruft update({ reset: false, invalidateAll: false })',
+		/update\(\{\s*reset:\s*false,\s*invalidateAll:\s*false\s*\}\)/.test(startseitenCode),
+		'die Zusage „die Zeile bleibt stehen" hängt an diesem Argument'
+	);
+	pruefen(
+		'und die Startseite trägt kein <label> — der Aufgabentext bleibt toter Text',
+		!/<label\b/.test(startseitenCode)
+	);
 } catch (fehler) {
 	/*
 	 * Ein unerwarteter Wurf ist ein Befund wie jeder andere und wird benannt.
@@ -1807,4 +2119,6 @@ if (gescheitert > 0) {
 	console.error(`\nsmoke: ${gescheitert} von ${gelaufen} Behauptung(en) nicht erfüllt.`);
 	process.exit(1);
 }
-console.log(`\nsmoke: ${gelaufen} Behauptungen der Zugangsschicht ausgeführt belegt.`);
+console.log(
+	`\nsmoke: ${gelaufen} Behauptungen der Zugangs- und Aufgabenschicht ausgeführt belegt.`
+);
