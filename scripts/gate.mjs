@@ -14,7 +14,7 @@
  *   node scripts/gate.mjs [zielverzeichnis]   prüft ein Projekt (Vorgabe: dieses)
  *   node scripts/gate.mjs --selftest          prüft das Tor gegen die Fehlerproben
  *
- * Die elf Regeln:
+ * Die zwölf Regeln:
  *   1. In .svelte und .css unter src/ kein Farbliteral (Hex, rgb(), rgba(),
  *      hsl(), hsla(), oklch(), color() …, CSS-Farbname) und kein rohes
  *      px/rem-Literal ausser 0. Farbliteral heisst auch **Systemfarbe**
@@ -57,6 +57,14 @@
  *      und der Knopf tut am laufenden Server nichts. Das Prüfskript ruft die
  *      actions über den Namensindex und umgeht SvelteKits Auflösung, kann diese
  *      Klasse also grundsätzlich nicht fangen.
+ *  12. In keinem HTML-Kommentar unter src/ steht eine SvelteKit-Marke wie
+ *      %sveltekit.head%. Die Ersetzung fragt nicht, wo die Marke steht; der
+ *      eingesetzte Kopfbereich bringt eigene Kommentarmarken mit, und deren
+ *      Ende schliesst den umgebenden Kommentar vorzeitig. Belegt am 2026-08-27:
+ *      ein Kommentar in app.html erklärte, warum dort kein title-Element steht,
+ *      nannte die Marke wörtlich, und die halbe Erklärung stand danach als
+ *      sichtbarer Text über der Titelleiste. Gefunden hat das kein Werkzeug,
+ *      sondern das Auge des Users.
  *
  * Zwei Eigenschaften der Umsetzung sind nicht verhandelbar, weil frühere
  * Fassungen genau daran vorbeigeschaut haben:
@@ -1125,6 +1133,47 @@ const torPrüfen = (ziel) => {
 	}
 
 	// -------------------------------------------------------------------
+	// Regel 12: kein SvelteKit-Platzhalter innerhalb eines HTML-Kommentars
+	// -------------------------------------------------------------------
+	/*
+	 * SvelteKit ersetzt %sveltekit.head% und %sveltekit.body% durch Text, ohne zu
+	 * fragen, wo die Marke steht — auch innerhalb eines Kommentars. Der eingesetzte
+	 * Kopfbereich enthält selbst Kommentarmarken, und deren Ende schliesst den
+	 * umgebenden Kommentar vorzeitig: der Rest der Erklärung steht danach als
+	 * sichtbarer Text über der Titelleiste.
+	 *
+	 * Am 2026-08-27 genau so passiert. Ein Kommentar in app.html erklärte, warum
+	 * dort kein title-Element steht, und nannte die Marke wörtlich. Weder check
+	 * noch lint noch eine der elf anderen Regeln sahen es; aufgefallen ist es am
+	 * laufenden Server, mit dem Auge — und das ist der teuerste Weg.
+	 *
+	 * Geprüft wird mit der Regel des Browsers: das erste --> nach einem <!--
+	 * schliesst den Kommentar, ein nicht geschlossener Kommentar reicht bis zum
+	 * Dateiende.
+	 */
+	for (const datei of dateien) {
+		if (!datei.endsWith('.html')) continue;
+		const roh = lesen(datei, 12);
+		if (roh === null) continue;
+		let von = roh.indexOf('<!--');
+		while (von !== -1) {
+			const bis = roh.indexOf('-->', von + 4);
+			const block = roh.slice(von, bis === -1 ? roh.length : bis);
+			for (const marke of block.matchAll(/%sveltekit\.\w+%/g)) {
+				melden(
+					12,
+					datei,
+					zeileVon(roh, von + (marke.index ?? 0)),
+					`${marke[0]} steht in einem HTML-Kommentar — SvelteKit ersetzt die Marke auch dort, ` +
+						'und die Kommentarmarken im eingesetzten Text schliessen den Kommentar vorzeitig, ' +
+						'sodass der Rest der Erklärung sichtbar auf der Seite steht'
+				);
+			}
+			von = bis === -1 ? -1 : roh.indexOf('<!--', bis + 3);
+		}
+	}
+
+	// -------------------------------------------------------------------
 	// Regel 8: unbenutzte Tokens sind ein Hinweis, kein Fehler
 	// -------------------------------------------------------------------
 	for (const name of hellTokens.keys()) {
@@ -1164,7 +1213,7 @@ const berichten = (ergebnis, ziel) => {
 	}
 	console.log(
 		`gate (${wo}): ${ergebnis.dateien} Dateien und ${ergebnis.tokens} Tokens geprüft, ` +
-			`${ergebnis.hinweise.length} Hinweis(e), elf Regeln erfüllt.`
+			`${ergebnis.hinweise.length} Hinweis(e), zwölf Regeln erfüllt.`
 	);
 	return 0;
 };
@@ -1372,6 +1421,27 @@ const proben = [
 		beschreibung: 'aufgelöste Aktionsnamen, Standard-action und fremdes Ziel dürfen nicht fallen',
 	},
 	{
+		regel: 12,
+		verzeichnis: 'regel-12-marke-im-kommentar',
+		erwartet: 1,
+		begruendung:
+			'1 %sveltekit.head% in einem Kommentar; die echte Marke ausserhalb und ein ' +
+			'%sveltekit.body% nach dem Kommentarende dürfen nicht mitzählen',
+		art: 'Verstoss',
+		beschreibung: 'SvelteKit-Marke in einem Kommentar — sie bricht den Kommentar beim Ersetzen auf',
+	},
+	{
+		regel: 12,
+		verzeichnis: 'regel-12-marke-ausserhalb',
+		erwartet: 0,
+		begruendung:
+			'Gegenprobe: beide echten Marken ausserhalb, ein Kommentar der das Wort sveltekit ' +
+			'ohne Prozentzeichen nennt, und ein unmittelbar davor geschlossener Kommentar — ' +
+			'nichts davon darf fallen, also null Treffer',
+		art: 'Verstoss',
+		beschreibung: 'Marken ausserhalb von Kommentaren und Prosa ohne Marke dürfen nicht fallen',
+	},
+	{
 		regel: 9,
 		verzeichnis: 'regel-9d-relativer-pfad',
 		erwartet: 1,
@@ -1385,7 +1455,7 @@ const proben = [
 const selbsttest = () => {
 	let fehlt = 0;
 	console.log(
-		`gate --selftest: ${proben.length} Fehlerproben gegen die elf Regeln ` +
+		`gate --selftest: ${proben.length} Fehlerproben gegen die zwölf Regeln ` +
 			`(erwartet: ${erwarteteSvelteRegeln} svelte/*- und ${erwarteteTsRegeln} @typescript-eslint/*-Regeln je Komponente)\n`
 	);
 
@@ -1433,7 +1503,7 @@ const selbsttest = () => {
 	}
 	console.log(
 		`\ngate --selftest: alle ${proben.length} Fehlerproben in erwarteter Zahl gefunden, ` +
-			'jede der elf Regeln beisst nachweislich.'
+			'jede der zwölf Regeln beisst nachweislich.'
 	);
 	return 0;
 };
