@@ -1,0 +1,69 @@
+<script lang="ts">
+	import { page } from '$app/state';
+	import { KEIN_ZUGANG, NICHT_GEFUNDEN, UNERWARTETER_FEHLER } from '$lib/texte';
+
+	/*
+		Diese Hülle greift für Fehler innerhalb des Routings — etwa einen
+		unbekannten Pfad bei gültiger Sitzung. Dort ist der Rahmen sichtbar, weil
+		+layout.svelte darüber liegt.
+
+		Die 403 dieser Story kommt hier nie an: sowohl der Wurf aus handle in
+		src/hooks.server.ts als auch der aus der Einlöseroute verlässt SvelteKit
+		über handle_fatal_error und wird mit src/error.html beantwortet. Gemessen
+		an 2.70.3.
+
+		Darum hängt die Auswahl an der **Meldung** und nicht am nackten Status 403.
+		Story 1.3 bringt eigene 403-Fälle mit (Verwaltung ohne Adminrechte); ein
+		`page.status === 403 ? KEIN_ZUGANG : …` würde dort fälschlich
+		"Dieser Link gilt nicht mehr" zeigen, obwohl der Link tadellos gilt. Die
+		Meldung aus dem Wurf ist immer die genauere Auskunft; die Statuszweige
+		darunter greifen nur, wenn gar keine da ist — eine leere Meldung fällt auf
+		einen Satz zurück und nie auf ein leeres <h1>.
+	*/
+	const satz = $derived.by(() => {
+		const meldung = page.error?.message.trim();
+		if (meldung !== undefined && meldung !== '') return meldung;
+		if (page.status === 404) return NICHT_GEFUNDEN;
+		if (page.status === 403) return KEIN_ZUGANG;
+		return UNERWARTETER_FEHLER;
+	});
+</script>
+
+<svelte:head>
+	<title>{satz}</title>
+</svelte:head>
+
+<div class="abweisung">
+	<h1 class="seitentitel">{satz}</h1>
+	<!-- Der Status steht als Zahl da, nie als Farbe: kein Zustand hängt an einem Farbwert. -->
+	<p class="status">Fehler {page.status}</p>
+</div>
+
+<style>
+	.abweisung {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+		max-width: var(--measure);
+	}
+
+	/* Genau ein h1 pro Seite, und nur dieses trägt die display-Rolle */
+	.seitentitel {
+		margin: 0;
+		color: var(--ink-primary);
+		font-family: var(--display-font);
+		font-size: var(--display-size);
+		font-weight: var(--display-weight);
+		line-height: var(--display-line);
+		letter-spacing: var(--display-tracking);
+	}
+
+	.status {
+		margin: 0;
+		color: var(--ink-secondary);
+		font-family: var(--body-font);
+		font-size: var(--body-size);
+		font-weight: var(--body-weight);
+		line-height: var(--body-line);
+	}
+</style>

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="de">
+	<head>
+		<meta charset="utf-8" />
+		<title>Fehlerprobe</title>
+		<!--
+			Fehlerprobe und Gegenprobe in einer Datei.
+
+			Diese Datei hat keinen Zugriff auf den Token-Block, Systemfarben sind
+			hier also der richtige Weg — aber nur die erlaubte Auswahl. Canvas und
+			CanvasText dürfen nicht fallen; GrayText muss fallen, denn das ist die
+			Farbe für Deaktiviertes und wird absichtlich kontrastarm gerendert.
+
+			Genau eine Verletzung: GrayText.
+		-->
+		<style>
+			body {
+				background-color: Canvas;
+				color: CanvasText;
+			}
+
+			.status {
+				color: GrayText;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Fehlerprobe</h1>
+	</body>
+</html>

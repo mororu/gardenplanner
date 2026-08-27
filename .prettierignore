@@ -14,3 +14,13 @@ node_modules/
 # nicht parsen kann, und einen bewusst umbrochenen var()-Fallback, den Prettier
 # wieder zusammenziehen würde — damit wäre genau die Probe zerstört.
 scripts/gate-fixtures/
+
+# Fehlerproben für db:check. Sie enthalten absichtlich eine Konfiguration ohne
+# Fail-Fast und ein Schema, das seiner Migrationskette vorausläuft; ihre
+# Migrationen sollen Zeichen für Zeichen bleiben, was der Generator schrieb.
+scripts/db-check-fixtures/
+
+# Migrationen. Sie sollen Zeichen für Zeichen das bleiben, was
+# npm run db:generate geschrieben hat — Prettier hat drizzle/meta/*.json schon
+# einmal umformatiert. Von Hand wird hier nie etwas geändert.
+drizzle/

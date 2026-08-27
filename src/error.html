@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="de">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<!--
+			Die Rückfallhülle. SvelteKit rendert diese Vorlage für jeden Fehler, den
+			handle wirft — also für die 403 des Wächters: der Wurf verlässt das
+			Framework über handle_fatal_error und erreicht +error.svelte nie.
+
+			Darum trägt diese Seite keinen Rahmen. Das ist Absicht: eine
+			Navigationsleiste mit vier Zielen, die alle auf dieselbe Abweisung
+			führen, hilft niemandem.
+
+			Kein Verweis nach draussen — keine Schrift, kein Stilblatt, kein Bild.
+			Diese Antwort muss auch dann stehen, wenn nichts anderes mehr steht.
+			Zusammen mit dem meta referrer bleibt damit auch der Pfad, in dem ein
+			Token stehen kann, in dieser Seite: es gibt nichts nachzuladen.
+		-->
+		<meta name="referrer" content="no-referrer" />
+		<title>%sveltekit.error.message%</title>
+		<style>
+			/*
+				Systemfarben statt wiederholter Gestaltungswerte: der Token-Block aus
+				src/app.html steht hier nicht zur Verfügung, und ein zweiter Satz
+				Farbwerte wäre ein zweiter Ort, an dem er veraltet.
+
+				Canvas und CanvasText folgen dem Schema des Systems und halten in
+				beiden Modi den Kontrast. GrayText kommt ausdrücklich nicht vor: das
+				ist die Farbe für Deaktiviertes und wird absichtlich kontrastarm
+				gerendert. Kein Rot — die Abweisung ist kein Alarm.
+			*/
+			:root {
+				color-scheme: light dark;
+			}
+
+			body {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				min-height: 100vh;
+				margin: 0;
+				padding: 1.5rem;
+				background-color: Canvas;
+				color: CanvasText;
+				font-family: system-ui, sans-serif;
+				line-height: 1.5;
+			}
+
+			.abweisung {
+				max-width: 34rem;
+			}
+
+			h1 {
+				margin: 0 0 0.75rem;
+				font-size: 1.5rem;
+				font-weight: 700;
+				line-height: 1.25;
+			}
+
+			.status {
+				margin: 0;
+				font-size: 0.875rem;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="abweisung">
+			<h1>%sveltekit.error.message%</h1>
+			<p class="status">Fehler %sveltekit.status%</p>
+		</div>
+	</body>
+</html>

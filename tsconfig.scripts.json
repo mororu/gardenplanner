@@ -1,0 +1,33 @@
+{
+	// Zweites Typprüf-Programm, von npm run check mitgerufen.
+	//
+	// .svelte-kit/tsconfig.json deckt ausschliesslich src/**; scripts/create-admin.ts
+	// und drizzle.config.ts lägen damit aussen. Die Folge wäre still und teuer: ein
+	// Umbenennen eines Feldes in queries/members.ts fiele nicht auf, und der erste
+	// Admin entstünde ohne Adminrechte, weil ein unbekanntes Feld auf den
+	// SQL-Vorgabewert false zurückfällt.
+	//
+	// src/app.d.ts steht mit in include, weil src/hooks.server.ts über die Skripte
+	// in dieses Programm gezogen wird und dort App.Locals.mitglied kennen muss.
+	// Ohne die Datei gilt die leere Locals-Vorgabe aus den Typen von SvelteKit.
+	"compilerOptions": {
+		"allowImportingTsExtensions": true,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"isolatedModules": true,
+		"lib": ["esnext"],
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"noEmit": true,
+		"resolveJsonModule": true,
+		"skipLibCheck": true,
+		"strict": true,
+		"target": "esnext",
+		"types": ["node"],
+		"verbatimModuleSyntax": true
+	},
+	"include": ["scripts/**/*.ts", "drizzle.config.ts", "src/app.d.ts"],
+	// Die Fehlerproben sind absichtlich kaputt: sie importieren Module, die es in
+	// der Probe nicht gibt. Das ist der Zweck der Probe, kein Typfehler.
+	"exclude": ["scripts/gate-fixtures/**", "scripts/db-check-fixtures/**"]
+}

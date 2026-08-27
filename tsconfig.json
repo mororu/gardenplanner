@@ -8,9 +8,20 @@
 		"resolveJsonModule": true,
 		"skipLibCheck": true,
 		"sourceMap": true,
-		"strict": true
+		"strict": true,
+		// Importe unter src/lib/server/ und in src/hooks.server.ts tragen die
+		// Endung .ts, weil dieselben Dateien aus scripts/ von nacktem Node
+		// geladen werden: Node löst ./schema.js nicht auf eine .ts-Datei auf
+		// (ENOENT), ./schema.ts schon. Vite und svelte-check verkraften beides.
+		// Der Schalter überschreibt nichts aus .svelte-kit/tsconfig.json — dort
+		// steht bereits noEmit, was er voraussetzt.
+		"allowImportingTsExtensions": true
 	}
 	// Pfad-Aliasse stehen in svelte.config.js, nicht hier.
 	// moduleResolution, module, target, include und exclude kommen bereits aus
 	// .svelte-kit/tsconfig.json und werden hier absichtlich nicht überschrieben.
+	//
+	// Dieses Programm deckt nur src/**. scripts/** und drizzle.config.ts liegen
+	// aussen und haben ein eigenes Programm: tsconfig.scripts.json, von
+	// npm run check mitgerufen.
 }

@@ -14,11 +14,16 @@
  *   node scripts/gate.mjs [zielverzeichnis]   prüft ein Projekt (Vorgabe: dieses)
  *   node scripts/gate.mjs --selftest          prüft das Tor gegen die Fehlerproben
  *
- * Die acht Regeln:
+ * Die neun Regeln:
  *   1. In .svelte und .css unter src/ kein Farbliteral (Hex, rgb(), rgba(),
  *      hsl(), hsla(), oklch(), color() …, CSS-Farbname) und kein rohes
- *      px/rem-Literal ausser 0. Ausgenommen ist allein der Token-Block in
- *      app.html.
+ *      px/rem-Literal ausser 0. Farbliteral heisst auch **Systemfarbe**
+ *      (Canvas, GrayText …): in einer Komponente ist sie immer falsch, in .html
+ *      ist nur die Auswahl aus systemfarbenErlaubt zugelassen. In .html unter
+ *      src/ ausser app.html gilt der Farbteil der Regel — src/error.html trägt
+ *      Gestaltungswerte und wurde vorher von keiner Regel gelesen, und sie ist
+ *      ausschliesslich in Systemfarben gestaltet. Ausgenommen ist allein der
+ *      Token-Block in app.html.
  *   2. Kein var() mit Fallback-Wert — der Fallback verdeckt genau Regel 3.
  *   3. Jedes in src/ benutzte var(--x) ist im :root-Block von app.html
  *      deklariert.
@@ -32,6 +37,13 @@
  *      viele svelte/*- und @typescript-eslint/*-Regeln, wie die Plugins in
  *      ihren recommended-Arrays führen.
  *   8. Tokens, die nirgends benutzt werden, sind ein Hinweis, kein Fehler.
+ *   9. Unter src/routes/ kein Import von drizzle-orm, kein Import von
+ *      better-sqlite3 und kein Import des Datenbank-Handles — weder als
+ *      $lib/server/db noch als $lib/server/db/index noch über einen relativen
+ *      Pfad auf db/index.ts. Ein reines `import type` ist ausgenommen —
+ *      TypeScript löscht die Anweisung beim Bauen.
+ *      Datenzugriff läuft ausschliesslich über die benannten Funktionen aus
+ *      src/lib/server/db/queries/*.ts.
  *
  * Zwei Eigenschaften der Umsetzung sind nicht verhandelbar, weil frühere
  * Fassungen genau daran vorbeigeschaut haben:
@@ -43,7 +55,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import sveltePlugin from 'eslint-plugin-svelte';
@@ -91,9 +103,63 @@ const farbnamen = new Set(
 /** @param {string} treffer */
 const ausgeblendet = (treffer) => treffer.replace(/[^\n]/g, ' ');
 
-/** @param {string} text */
+/**
+ * Blendet Blockkommentare und HTML-Kommentare aus. Diese zwei Formen sind in
+ * jeder hier geprüften Dateiart wirklich Kommentare, also darf das überall
+ * laufen.
+ * @param {string} text
+ */
 const ohneKommentare = (text) =>
 	text.replace(/\/\*[\s\S]*?\*\//g, ausgeblendet).replace(/<!--[\s\S]*?-->/g, ausgeblendet);
+
+/**
+ * Blendet **Zeilenkommentare** aus — aber nur dort, wo `//` wirklich ein
+ * Kommentar sein kann, also niemals in CSS.
+ *
+ * Die Fassung ohne diese Einschränkung war eine Regression und ist gemessen:
+ * `url(//cdn.example.com/x.png); color: #ff0000;` in einer Zeile liess Regel 1
+ * schweigen, weil der Zeilenrest samt Farbliteral geleert wurde. In CSS ist `//`
+ * kein Kommentar, sondern der Anfang einer schemarelativen Adresse.
+ *
+ * Gebraucht wird die Ausblendung trotzdem: ohne sie gäbe ein auskommentierter
+ * Import unter src/routes/ einen falschen Verstoss zu Regel 9 — und wer einen
+ * falschen Verstoss wegdiskutiert, diskutiert bald auch einen echten weg.
+ *
+ * Darum: in .css gar nicht, in .svelte und .html überall ausser in den
+ * CSS-Abschnitten, in .ts und .js überall. Die Rückschau (?<![:\\]) hält
+ * zusätzlich Adressen in Zeichenketten heraus.
+ *
+ * scripts/gate-fixtures/regel-1b-doppelschraegstrich-in-url belegt beide
+ * Richtungen: die Regel greift in CSS weiterhin, und der auskommentierte Import
+ * in regel-9d zählt weiterhin nicht.
+ *
+ * @param {string} datei
+ * @param {string} text bereits ohne Block- und HTML-Kommentare
+ */
+const ohneZeilenkommentare = (datei, text) => {
+	if (datei.endsWith('.css')) return text;
+
+	const abschnitte = cssAbschnitte(datei, text);
+	if (abschnitte.length === 0) return text.replace(/(?<![:\\])\/\/[^\n]*/g, ausgeblendet);
+
+	// Nur ausserhalb der CSS-Abschnitte ersetzen. Die Abschnitte bleiben Zeichen
+	// für Zeichen stehen, damit Regel 1 dort dieselben Offsets sieht.
+	const geschützt = abschnitte
+		.map(({ inhalt, versatz }) => ({ von: versatz, bis: versatz + inhalt.length }))
+		.sort((a, b) => a.von - b.von);
+
+	let ergebnis = '';
+	let stelle = 0;
+	for (const { von, bis } of geschützt) {
+		if (von > stelle) {
+			ergebnis += text.slice(stelle, von).replace(/(?<![:\\])\/\/[^\n]*/g, ausgeblendet);
+		}
+		ergebnis += text.slice(Math.max(stelle, von), bis);
+		stelle = Math.max(stelle, bis);
+	}
+	ergebnis += text.slice(stelle).replace(/(?<![:\\])\/\/[^\n]*/g, ausgeblendet);
+	return ergebnis;
+};
 
 /** Bedingungen von @media, @supports und @container tragen keine Tokens.
  * @param {string} text */
@@ -108,16 +174,16 @@ const zeileVon = (text, index) => text.slice(0, Math.max(index, 0)).split('\n').
 
 /**
  * Die CSS-Abschnitte einer Datei mit ihrem Versatz im Originaltext.
- * Für .css ist das die ganze Datei, für .svelte die <style>-Blöcke und die
- * style-Attribute im Markup. Regel 1 gilt nur für CSS, nicht für Markup oder
- * Skript — dort ist ein `#` eine Sprungmarke und keine Farbe.
+ * Für .css ist das die ganze Datei, für .svelte und .html die <style>-Blöcke
+ * und die style-Attribute im Markup. Regel 1 gilt nur für CSS, nicht für Markup
+ * oder Skript — dort ist ein `#` eine Sprungmarke und keine Farbe.
  * @param {string} datei
  * @param {string} text
  * @returns {{ inhalt: string, versatz: number }[]}
  */
 const cssAbschnitte = (datei, text) => {
 	if (datei.endsWith('.css')) return [{ inhalt: text, versatz: 0 }];
-	if (!datei.endsWith('.svelte')) return [];
+	if (!datei.endsWith('.svelte') && !datei.endsWith('.html')) return [];
 
 	/** @type {{ inhalt: string, versatz: number }[]} */
 	const abschnitte = [];
@@ -189,6 +255,32 @@ const normalisierteFarbe = (wert) => {
 };
 
 /**
+ * Die CSS-Systemfarben. Sie sind Farbwerte wie jeder Hex-Wert, tragen aber
+ * keinen Gestaltungswert des Projekts, sondern den des Betriebssystems.
+ *
+ * Sie stehen hier, weil die eine Datei, für die Regel 1 auf .html erweitert
+ * wurde — src/error.html —, **ausschliesslich** in Systemfarben gestaltet ist.
+ * Die Regel hätte sie sonst auf eine Wertform geprüft, die sie nicht benutzt.
+ */
+const systemfarben = new Set(
+	`accentcolor accentcolortext activetext buttonborder buttonface buttontext canvas
+	canvastext field fieldtext graytext highlight highlighttext linktext mark marktext
+	selecteditem selecteditemtext visitedtext`
+		.split(/\s+/)
+		.filter(Boolean)
+);
+
+/**
+ * Die erlaubte Auswahl. Canvas und CanvasText folgen dem Schema des Systems und
+ * halten in beiden Modi den Kontrast; alles andere ist entweder eine Rolle, die
+ * diese Seite nicht hat, oder — wie GrayText — absichtlich kontrastarm.
+ *
+ * Eine Auswahl statt einer Einzelfallprüfung im Skript: wer eine weitere
+ * Systemfarbe braucht, trägt sie hier ein und begründet sie an einer Stelle.
+ */
+const systemfarbenErlaubt = new Set(['canvas', 'canvastext']);
+
+/**
  * Ein Token gilt als Farb-Token, wenn sein Wert im :root-Block eine Farbe ist.
  * Damit leitet Regel 4 ihre Menge aus den Werten ab und nicht aus einer im
  * Skript gepflegten Namensliste, die beim nächsten neuen Token veralten würde.
@@ -197,8 +289,67 @@ const normalisierteFarbe = (wert) => {
 const istFarbwert = (wert) => {
 	const gekürzt = wert.trim().toLowerCase().replace(/;$/, '');
 	if (farbnamen.has(gekürzt)) return true;
+	if (systemfarben.has(gekürzt)) return true;
 	if (/^#[0-9a-f]{3,8}$/.test(gekürzt)) return true;
 	return /^(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color|color-mix)\s*\(/.test(gekürzt);
+};
+
+/**
+ * Jeder Modul-Spezifizierer einer Datei mit seinem Versatz. Bewusst rein
+ * textuell: das Tor darf keinen Parser für vier Dateiformen mitbringen, und ein
+ * Import, der nur in einem Kommentar steht, ist vorher schon ausgeblendet.
+ *
+ * `nurTyp` markiert eine Anweisung, die mit `import type` oder `export type`
+ * beginnt. TypeScript löscht sie beim Bauen; sie ist kein Modulaufruf.
+ * @param {string} text
+ * @returns {{ spez: string, index: number, nurTyp: boolean }[]}
+ */
+const importStellen = (text) => {
+	/** @type {{ spez: string, index: number, nurTyp: boolean }[]} */
+	const gefunden = [];
+	const muster = [
+		/\bfrom\s*['"]([^'"]+)['"]/g,
+		/\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+		/\bimport\s+['"]([^'"]+)['"]/g,
+		/\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+	];
+	for (const muster_ of muster) {
+		for (const treffer of text.matchAll(muster_)) {
+			const index = treffer.index ?? 0;
+			// Rückwärts bis zum Anfang der Anweisung schauen. 400 Zeichen reichen
+			// für jede von Prettier umbrochene Importliste, und ein Semikolon oder
+			// eine schliessende Klammer dazwischen beendet die Suche.
+			const davor = text.slice(Math.max(0, index - 400), index);
+			const nurTyp = /\b(?:import|export)\s+type\b[^;)]*$/.test(davor);
+			gefunden.push({ spez: treffer[1], index, nurTyp });
+		}
+	}
+	return gefunden;
+};
+
+/**
+ * Führt einen Spezifizierer auf einen projektrelativen Modulpfad ohne Endung
+ * und ohne /index zurück. Damit fallen $lib/server/db, $lib/server/db/index und
+ * ein relativer Pfad auf db/index.ts auf dieselbe Form zusammen — jede von
+ * ihnen einzeln zu suchen hiesse, die vierte zu vergessen.
+ * @param {string} ziel Wurzel des geprüften Projekts
+ * @param {string} datei absoluter Pfad der importierenden Datei
+ * @param {string} spez
+ * @returns {string | null}
+ */
+const modulBasis = (ziel, datei, spez) => {
+	/** @type {string} */
+	let pfad;
+	if (spez === '$lib') pfad = join('src', 'lib');
+	else if (spez.startsWith('$lib/')) pfad = join('src', 'lib', spez.slice('$lib/'.length));
+	else if (spez.startsWith('.')) pfad = relative(ziel, resolve(dirname(datei), spez));
+	else return null;
+
+	return pfad
+		.split(sep)
+		.join('/')
+		.replace(/\.(?:ts|mts|cts|js|mjs|cjs)$/, '')
+		.replace(/\/index$/, '');
 };
 
 /**
@@ -269,6 +420,7 @@ const torPrüfen = (ziel) => {
 	};
 
 	const quelle = join(ziel, 'src');
+	const routenWurzel = join(quelle, 'routes') + sep;
 	const shell = join(quelle, 'app.html');
 	const statisch = join(ziel, 'static');
 	const manifestPfad = join(statisch, 'manifest.webmanifest');
@@ -441,7 +593,16 @@ const torPrüfen = (ziel) => {
 	for (const datei of dateien) {
 		const roh = lesen(datei, 0);
 		if (roh === null) continue;
-		const text = ohneKommentare(roh);
+		// **Eine** Textfassung für alle Regeln, und die Kommentarbehandlung steckt
+		// vollständig in den zwei Funktionen darüber.
+		//
+		// Zwei Fassungen zu halten — eine für Regel 1, eine für die übrigen — wäre
+		// bequem, hätte aber zwei voneinander unabhängige Sicherungen für dieselbe
+		// Eigenschaft ergeben. Gemessen: mit zwei Fassungen bleibt der Selbsttest
+		// grün, obwohl die Ausblendung wieder zu weit greift, weil Regel 1 die
+		// betroffene Fassung gar nicht liest. Eine Sicherung, die niemand prüfen
+		// kann, ist keine.
+		const text = ohneZeilenkommentare(datei, ohneKommentare(roh));
 
 		// ----- Regel 2: var() mit Fallback, über den gesamten Dateitext -----
 		for (const treffer of text.matchAll(/var\(\s*(--[\w-]+)\s*,/g)) {
@@ -465,9 +626,46 @@ const torPrüfen = (ziel) => {
 			);
 		}
 
+		// ----- Regel 9: kein Datenzugriff unter src/routes/ -----
+		if (datei.startsWith(routenWurzel)) {
+			for (const { spez, index, nurTyp } of importStellen(text)) {
+				const basis = modulBasis(ziel, datei, spez);
+				// better-sqlite3 gehört dazu: der Treiber umgeht Drizzle **und** das
+				// Repository in einem Schritt. Eine Route, die ihn selbst öffnet, hat
+				// eine zweite Verbindung ohne WAL, ohne busy_timeout und ohne
+				// Migrationsstand — schlimmer als ein Drizzle-Aufruf, nicht besser.
+				const form = /^drizzle-orm(?:\/|$)/.test(spez)
+					? 'drizzle-orm'
+					: /^better-sqlite3(?:\/|$)/.test(spez)
+						? 'der SQLite-Treiber better-sqlite3'
+						: basis !== null && /(?:^|\/)server\/db$/.test(basis)
+							? 'das Datenbank-Handle'
+							: null;
+				if (form === null) continue;
+				// Ein reines `import type { … }` ist kein Datenzugriff: TypeScript
+				// löscht die Anweisung beim Bauen, es entsteht kein Modulaufruf und
+				// keine zweite Verbindung. Eine Route darf einen Zeilentyp benennen.
+				// Der Inline-Modifikator (`import { type A }`) fällt bewusst nicht
+				// darunter: dort steht eine Wertanweisung, die bleiben kann.
+				if (nurTyp) continue;
+				melden(
+					9,
+					datei,
+					zeileVon(text, index),
+					`${form} über '${spez}' importiert — unter src/routes/ läuft Datenzugriff ` +
+						'ausschliesslich über die benannten Funktionen aus src/lib/server/db/queries/*.ts'
+				);
+			}
+		}
+
 		// ----- Regel 1: Farb- und Massliterale in CSS -----
 		// app.html trägt den Token-Block und ist die einzige Ausnahme.
 		if (datei === shell) continue;
+
+		// In .html gilt nur der Farbteil: src/error.html ist eine eigenständige
+		// Minimalseite ohne Zugriff auf den Token-Block, ihre Masse stehen dort
+		// notwendigerweise als Zahl.
+		const nurFarben = datei.endsWith('.html');
 
 		for (const { inhalt, versatz } of cssAbschnitte(datei, text)) {
 			const zeileAb = (/** @type {number} */ index) => zeileVon(text, versatz + index);
@@ -499,14 +697,44 @@ const torPrüfen = (ziel) => {
 			const ohneBedingungen = ohneAtBedingungen(inhalt);
 
 			for (const treffer of ohneBedingungen.matchAll(/[a-zA-Z][a-zA-Z0-9]*/g)) {
-				if (!farbnamen.has(treffer[0].toLowerCase())) continue;
+				const wort = treffer[0].toLowerCase();
+
+				if (farbnamen.has(wort)) {
+					melden(
+						1,
+						datei,
+						zeileAb(treffer.index ?? 0),
+						`CSS-Farbname ${treffer[0]} — der Wert gehört in den Token-Block von src/app.html`
+					);
+					continue;
+				}
+
+				if (!systemfarben.has(wort)) continue;
+
+				// Systemfarben sind der einzige erlaubte Weg für eine .html-Datei, die
+				// keinen Zugriff auf den Token-Block hat — und dort nur die Auswahl
+				// aus systemfarbenErlaubt. In einer Komponente sind sie immer falsch:
+				// dort gibt es Tokens, und beide Modi sind gestaltet.
+				if (!nurFarben) {
+					melden(
+						1,
+						datei,
+						zeileAb(treffer.index ?? 0),
+						`Systemfarbe ${treffer[0]} — in einer Komponente kommt jede Farbe aus einem Token in src/app.html`
+					);
+					continue;
+				}
+				if (systemfarbenErlaubt.has(wort)) continue;
 				melden(
 					1,
 					datei,
 					zeileAb(treffer.index ?? 0),
-					`CSS-Farbname ${treffer[0]} — der Wert gehört in den Token-Block von src/app.html`
+					`Systemfarbe ${treffer[0]} steht nicht in der erlaubten Auswahl (${[...systemfarbenErlaubt].join(', ')}) — ` +
+						'GrayText etwa ist die Farbe für Deaktiviertes und wird absichtlich kontrastarm gerendert'
 				);
 			}
+
+			if (nurFarben) continue;
 
 			for (const treffer of ohneBedingungen.matchAll(
 				/(?<![\w.-])(\d+(?:\.\d+)?|\.\d+)(px|rem)\b/g
@@ -788,7 +1016,7 @@ const berichten = (ergebnis, ziel) => {
 	}
 	console.log(
 		`gate (${wo}): ${ergebnis.dateien} Dateien und ${ergebnis.tokens} Tokens geprüft, ` +
-			`${ergebnis.hinweise.length} Hinweis(e), acht Regeln erfüllt.`
+			`${ergebnis.hinweise.length} Hinweis(e), neun Regeln erfüllt.`
 	);
 	return 0;
 };
@@ -797,72 +1025,180 @@ const berichten = (ergebnis, ziel) => {
 // Selbsttest: je eine Fehlerprobe pro Regel
 // ---------------------------------------------------------------------------
 
-/** @type {{ regel: number, verzeichnis: string, art: 'Verstoss' | 'Hinweis', beschreibung: string }[]} */
+/*
+ * Je eine Fehlerprobe pro verbotener Form, und je Probe eine Erwartung — nicht
+ * "mindestens einer". In Iteration 1 hing Regel 9 an einem einzigen Treffer je
+ * Probe: die Hälfte der Regel hätte still wegfallen können, während
+ * `gate:selftest` weiter "jede Regel beisst" meldete. Eine Zahl statt eines
+ * "irgendwas gefunden" macht genau das sichtbar.
+ *
+ * Jede Zahl trägt darum ihre `begruendung`: sie zählt auf, welche Verletzungen
+ * sie zusammensetzen. Eine nackte Zahl liesse sich beim nächsten roten Lauf
+ * bequem hochsetzen, statt zu fragen, woher der zusätzliche Treffer kommt. Der
+ * Selbsttest gibt die Begründung neben der Zahl aus, damit beides zusammen
+ * gelesen wird.
+ */
+/** @type {{ regel: number, verzeichnis: string, art: 'Verstoss' | 'Hinweis', erwartet: number, begruendung: string, beschreibung: string }[]} */
 const proben = [
 	{
 		regel: 1,
 		verzeichnis: 'regel-1-farbliteral-und-mass',
+		erwartet: 6,
+		begruendung:
+			'4 in Probe.svelte (rgb(), rebeccapurple, 0.0625rem, 13px) + 1 Hex in probe.css + 1 Hex in error.html',
 		art: 'Verstoss',
-		beschreibung: 'rgb(), CSS-Farbname und padding: 13px in einer Komponente, Hex in einer .css',
+		beschreibung:
+			'rgb(), CSS-Farbname und padding: 13px in einer Komponente, Hex in einer .css ' +
+			'und ein Hex in src/error.html — dort las Regel 1 vorher nichts',
+	},
+	{
+		regel: 1,
+		verzeichnis: 'regel-1b-doppelschraegstrich-in-url',
+		erwartet: 3,
+		begruendung:
+			'je 1 Farbliteral hinter einer //-Adresse in derselben Zeile, in Probe.svelte, ' +
+			'probe.css und error.html — die Gegenprobe zur Zeilenkommentar-Ausblendung',
+		art: 'Verstoss',
+		beschreibung: 'Farbliteral hinter url(//…) in einer Zeile; in CSS ist // kein Kommentar',
+	},
+	{
+		regel: 1,
+		verzeichnis: 'regel-1c-systemfarbe',
+		erwartet: 2,
+		begruendung:
+			'1 GrayText in error.html (nicht in der erlaubten Auswahl) + 1 Canvas in einer ' +
+			'Komponente; Canvas und CanvasText in error.html dürfen nicht fallen',
+		art: 'Verstoss',
+		beschreibung:
+			'Systemfarbe ausserhalb der erlaubten Auswahl und Systemfarbe in einer Komponente',
 	},
 	{
 		regel: 2,
 		verzeichnis: 'regel-2-var-fallback',
+		erwartet: 1,
+		begruendung: '1 var() mit Fallback in Probe.svelte',
 		art: 'Verstoss',
 		beschreibung: 'von Prettier über drei Zeilen umbrochenes var() mit Fallback',
 	},
 	{
 		regel: 3,
 		verzeichnis: 'regel-3-token-nicht-deklariert',
+		erwartet: 2,
+		begruendung: '1 Token nur im Kommentar erwähnt + 1 Token in einem Nicht-:root-Selektor',
 		art: 'Verstoss',
 		beschreibung: 'Token nur in einem Kommentar erwähnt und Token in einem Nicht-:root-Selektor',
 	},
 	{
 		regel: 4,
 		verzeichnis: 'regel-4a-farbe-nur-hell',
+		erwartet: 2,
+		begruendung: '2 Farb-Token des Hell-Blocks ohne Wert im Dunkel-Block',
 		art: 'Verstoss',
 		beschreibung: 'Farb-Token nur im Hell-Block, kein Wert im Dunkel-Block',
 	},
 	{
 		regel: 4,
 		verzeichnis: 'regel-4b-dunkel-block-kaputt',
+		erwartet: 5,
+		begruendung:
+			'1 unbalancierter Dunkel-Block + 4 Farb-Token, die dadurch keinen Dunkelwert haben',
 		art: 'Verstoss',
 		beschreibung: 'unbalancierter Dunkel-Block',
 	},
 	{
 		regel: 5,
 		verzeichnis: 'regel-5-manifest-farbe',
+		erwartet: 1,
+		begruendung: '1 abweichendes theme_color im Manifest',
 		art: 'Verstoss',
 		beschreibung: 'theme_color im Manifest weicht von --accent ab',
 	},
 	{
 		regel: 6,
 		verzeichnis: 'regel-6-icon-pfad',
+		erwartet: 1,
+		begruendung: '1 Icon-Pfad im Manifest ohne Datei unter static/',
 		art: 'Verstoss',
 		beschreibung: 'Manifest verweist auf ein Icon, das es nicht gibt',
 	},
 	{
 		regel: 7,
 		verzeichnis: 'regel-7-eslint-regelsatz',
+		erwartet: 2,
+		begruendung:
+			'1 Komponente × 2 Regelsätze (svelte/* und @typescript-eslint/*), die beide nicht hängen',
 		art: 'Verstoss',
 		beschreibung: 'eslint.config.js mit dem No-op ...configs.recommended.rules',
 	},
 	{
 		regel: 8,
 		verzeichnis: 'regel-8-token-unbenutzt',
+		erwartet: 1,
+		begruendung: '1 Token, das keine Komponente liest',
 		art: 'Hinweis',
 		beschreibung: 'Token, das keine Komponente benutzt',
+	},
+	{
+		regel: 9,
+		verzeichnis: 'regel-9a-drizzle-orm',
+		erwartet: 1,
+		begruendung: '1 Import von drizzle-orm in einer Routendatei',
+		art: 'Verstoss',
+		beschreibung: 'Routendatei importiert drizzle-orm und baut die Abfrage selbst',
+	},
+	{
+		regel: 9,
+		verzeichnis: 'regel-9b-lib-server-db',
+		erwartet: 1,
+		begruendung: '1 Import des Handles als $lib/server/db',
+		art: 'Verstoss',
+		beschreibung: 'Datenbank-Handle als $lib/server/db, also ohne /index',
+	},
+	{
+		regel: 9,
+		verzeichnis: 'regel-9c-lib-server-db-index',
+		erwartet: 1,
+		begruendung: '1 Import des Handles als $lib/server/db/index',
+		art: 'Verstoss',
+		beschreibung: 'Datenbank-Handle als $lib/server/db/index, die Form aus dem Akzeptanzkriterium',
+	},
+	{
+		regel: 9,
+		verzeichnis: 'regel-9e-better-sqlite3',
+		erwartet: 1,
+		begruendung: '1 direkter Import des SQLite-Treibers in einer Routendatei',
+		art: 'Verstoss',
+		beschreibung: 'Routendatei öffnet die Datenbank selbst über better-sqlite3',
+	},
+	{
+		regel: 9,
+		verzeichnis: 'regel-9f-erlaubter-import',
+		erwartet: 0,
+		begruendung:
+			'Gegenprobe: Abfragefunktion über Alias und über relativen Pfad sowie ein reines ' +
+			'import type aus drizzle-orm — alle drei erlaubt, also null Treffer',
+		art: 'Verstoss',
+		beschreibung: 'erlaubte Importe unter src/routes/ dürfen nicht fallen',
+	},
+	{
+		regel: 9,
+		verzeichnis: 'regel-9d-relativer-pfad',
+		erwartet: 1,
+		begruendung:
+			'1 relativer Import auf db/index.ts; der auskommentierte Import daneben zählt nicht mit und belegt, dass ohneZeilenkommentare greift',
+		art: 'Verstoss',
+		beschreibung: 'Datenbank-Handle über einen relativen Pfad auf db/index.ts',
 	},
 ];
 
 const selbsttest = () => {
 	let fehlt = 0;
 	console.log(
-		`gate --selftest: ${proben.length} Fehlerproben gegen die acht Regeln ` +
+		`gate --selftest: ${proben.length} Fehlerproben gegen die neun Regeln ` +
 			`(erwartet: ${erwarteteSvelteRegeln} svelte/*- und ${erwarteteTsRegeln} @typescript-eslint/*-Regeln je Komponente)\n`
 	);
 
-	for (const { regel, verzeichnis, art, beschreibung } of proben) {
+	for (const { regel, verzeichnis, art, erwartet, begruendung, beschreibung } of proben) {
 		const ziel = join(probenWurzel, verzeichnis);
 		if (!existsSync(ziel)) {
 			console.error(`FEHLT   regel ${regel}  ${verzeichnis} — Fehlerprobe nicht vorhanden`);
@@ -872,15 +1208,29 @@ const selbsttest = () => {
 		const ergebnis = torPrüfen(ziel);
 		const befunde = art === 'Hinweis' ? ergebnis.hinweise : ergebnis.verstösse;
 		const treffer = befunde.filter((befund) => befund.regel === regel);
-		if (treffer.length === 0) {
+		if (treffer.length !== erwartet) {
 			console.error(
-				`FEHLT   regel ${regel}  ${verzeichnis} — kein ${art} zu Regel ${regel} gefunden ` +
-					`(${beschreibung}). Das Tor hat die Verletzung durchgelassen.`
+				`FEHLT   regel ${regel}  ${verzeichnis} — ${treffer.length} statt ${erwartet} ` +
+					`${art}/${art}e zu Regel ${regel} (${beschreibung}). ` +
+					`Erwartet sind ${erwartet}: ${begruendung}. ` +
+					(treffer.length < erwartet
+						? 'Das Tor hat eine Verletzung durchgelassen.'
+						: 'Das Tor meldet mehr als die Probe enthält — die Probe oder die Regel ist verrutscht.')
 			);
 			fehlt += 1;
 			continue;
 		}
-		console.log(`bissig  regel ${regel}  ${verzeichnis} — ${treffer[0].meldung}`);
+		if (erwartet === 0) {
+			// Gegenprobe: hier ist Schweigen der Nachweis. Eine zu breite Regel
+			// bliebe sonst im Selbsttest grün und fiele erst als rätselhafter
+			// Verstoss im echten Baum auf.
+			console.log(`still   regel ${regel}  ${verzeichnis} — 0/0 (${begruendung})`);
+			continue;
+		}
+		console.log(
+			`bissig  regel ${regel}  ${verzeichnis} — ${treffer.length}/${erwartet} ` +
+				`(${begruendung}): ${treffer[0].meldung}`
+		);
 	}
 
 	if (fehlt > 0) {
@@ -891,7 +1241,8 @@ const selbsttest = () => {
 		return 1;
 	}
 	console.log(
-		`\ngate --selftest: alle ${proben.length} Fehlerproben gefunden, jede der acht Regeln beisst nachweislich.`
+		`\ngate --selftest: alle ${proben.length} Fehlerproben in erwarteter Zahl gefunden, ` +
+			'jede der neun Regeln beisst nachweislich.'
 	);
 	return 0;
 };

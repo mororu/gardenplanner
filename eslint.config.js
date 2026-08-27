@@ -92,6 +92,7 @@ export default [
 			'.svelte-kit/',
 			'node_modules/',
 			'scripts/gate-fixtures/',
+			'scripts/db-check-fixtures/',
 		],
 	},
 ];

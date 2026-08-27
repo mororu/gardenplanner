@@ -1,0 +1,5 @@
+/*
+ * Dasselbe in einer .css-Datei: Adresse und Farbliteral in einer Zeile.
+ */
+/* Adresse und Farbliteral in EINER Zeile. */
+.hex-hinter-einer-adresse { background: url(//cdn.example.com/z.png); border-color: #00ff00; }

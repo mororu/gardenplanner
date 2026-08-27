@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="de">
+	<head>
+		<meta charset="utf-8" />
+		<title>Fehlerprobe</title>
+		<!--
+			Fehlerprobe zu Regel 1, zweiter Teil: die Rückfallhülle trägt
+			Gestaltungswerte, wurde aber von keiner Regel gelesen — Regel 1 galt nur
+			für .svelte und .css. Ein Hex-Wert oder ein Rot wäre hier ungehindert
+			durchgekommen.
+
+			Die Masse darunter dürfen dagegen nicht fallen: src/error.html hat keinen
+			Zugriff auf den Token-Block, ihre Grössen stehen dort notwendigerweise als
+			Zahl.
+		-->
+		<style>
+			body {
+				margin: 0;
+				padding: 1.5rem;
+				background-color: #ff0000;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Fehlerprobe</h1>
+	</body>
+</html>
