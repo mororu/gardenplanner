@@ -2,7 +2,7 @@
 title: 'Story 1.4 — Offene Aufgaben sehen und abhaken'
 type: 'feature'
 created: '2026-08-27'
-status: 'in-progress'
+status: 'done'
 review_loop_iteration: 0
 baseline_commit: '4f89296adc1362ec092fad128995a973b078ec7f'
 context:
