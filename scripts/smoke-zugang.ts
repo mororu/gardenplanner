@@ -64,11 +64,23 @@ import {
 	sitzungLoeschen,
 	sitzungsgeheimnisPruefen,
 } from '../src/lib/server/auth.ts';
+import { PLAN_HOECHSTZAHL } from '../src/lib/aufgabentext.ts';
 import { datenbank, datenschichtStarten } from '../src/lib/server/db/index.ts';
 import { members, ohneTokenHash, tasks } from '../src/lib/server/db/schema.ts';
 import type { AngemeldetesMitglied, NewTask } from '../src/lib/server/db/schema.ts';
 import { mitgliedAnlegen, mitgliederZaehlen } from '../src/lib/server/db/queries/members.ts';
+import { aufgabenStapelAnlegen } from '../src/lib/server/db/queries/tasks.ts';
 import { tokenErzeugen, tokenHashen } from '../src/lib/server/token.ts';
+import { monatsendeAlsFeldwert, tagesendeInUnixSekunden } from '../src/lib/zeit.ts';
+/*
+ * zeilenErkennen kommt als **Wert** herein und nicht nur als Text: die Zahl
+ * unter dem Textfeld auf /monatsplan ist eine Zusage der Akzeptanzkriterien
+ * (`24 Aufgaben erkannt` bei 27 Zeilen, davon drei leeren), und die einzige
+ * Stelle, an der sie ohne einen Browser ausführbar zu belegen ist, ist die
+ * Funktion selbst. Textlich geprüft wird daneben, dass Zähler und action
+ * wirklich diese Funktion rufen.
+ */
+import { zeilenErkennen } from '../src/lib/aufgabentext.ts';
 import {
 	AUFGABE_NICHT_ANSPRECHBAR,
 	EIGENER_ZUGANG_GESCHUETZT,
@@ -86,7 +98,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 262;
+const ERWARTETE_BEHAUPTUNGEN = 349;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -565,6 +577,30 @@ async function aufgabeLaden(): Promise<AufgabeModul> {
 	return aufgabeModul;
 }
 
+/*
+ * Die Massen-Eingabe aus Story 2.1. Anders als /aufgabe bringt sie eine load
+ * mit — sie gibt die Vorbelegung des Datumsfeldes —, und die nimmt **kein**
+ * Ereignis: sie liest weder locals noch cookies noch die Adresse.
+ *
+ * Der Typ hier belegt das **nicht**. `as unknown as MonatsplanModul` löscht jede
+ * Beziehung zum echten Modul; er beschreibt, wie dieses Skript das Modul
+ * benutzt, und nicht, wie das Modul aussieht. Was trägt, ist der Aufruf weiter
+ * unten: `monatsplan.load()` fährt **ohne Argument**. Fordert die load je ein
+ * Ereignis, greift sie auf `undefined` zu und wirft — und der Rahmen unten macht
+ * daraus eine benannte Verletzung statt eines stillen Durchlaufs.
+ */
+type MonatsplanModul = {
+	load: () => unknown;
+	actions: Record<string, Aktion>;
+};
+let monatsplanModul: MonatsplanModul | null = null;
+
+async function monatsplanLaden(): Promise<MonatsplanModul> {
+	monatsplanModul ??=
+		(await import('../src/routes/monatsplan/+page.server.ts')) as unknown as MonatsplanModul;
+	return monatsplanModul;
+}
+
 /**
  * Die drei Ausgänge, die eine load oder eine action nehmen kann.
  *
@@ -644,11 +680,15 @@ function zeileAbdruck(id: number): string {
  * Reihenfolge der Liste prüfbar ist: die drei Aufgaben werden **nicht** in der
  * Reihenfolge ihres created_at eingefügt. Ohne das liesse sich „älteste zuerst"
  * nicht von „nach Id" unterscheiden, und eine Sortierung nach der Id wäre grün.
+ *
+ * `dueAt` ist optional, weil eine vor Ort erfasste Aufgabe keine Frist hat —
+ * genau die Lücke, die Story 2.2 mit COALESCE(due_at, created_at) abfängt. Wer
+ * eine Planaufgabe säen will, gibt den dritten Wert mit.
  */
-function aufgabeSaen(text: string, createdAt: number): number {
+function aufgabeSaen(text: string, createdAt: number, dueAt?: number): number {
 	return datenbank()
 		.insert(tasks)
-		.values({ text, createdAt } satisfies NewTask)
+		.values({ text, createdAt, dueAt } satisfies NewTask)
 		.returning({ id: tasks.id })
 		.get().id;
 }
@@ -2320,20 +2360,44 @@ try {
 	);
 
 	// -----------------------------------------------------------------------
-	// Der Parameter: ein Wahrheitswert, kein Satz
+	// Der Parameter: eine Zahl, kein Satz
 	// -----------------------------------------------------------------------
+	/*
+	 * Seit Story 2.1 ist `abgelegt` eine Zahl oder null. Das bare `?abgelegt`,
+	 * das /aufgabe schickt, bleibt gültig und bedeutet 1 — der Satz `Abgelegt.`
+	 * auf / hängt daran. Ein unlesbarer Wert fällt auf dieselbe 1: die Adresse ist
+	 * von Hand veränderbar, und eine Fehlerseite für eine verunstaltete
+	 * Bestätigung wäre lauter als der Anlass.
+	 */
 	pruefenGleich(
-		'mit ?abgelegt gibt die load von / abgelegt: true',
+		'mit barem ?abgelegt gibt die load von / abgelegt: 1',
 		wertVon(nachAblage).abgelegt,
-		true
+		1
 	);
 	pruefenGleich(
-		'ohne den Parameter gibt sie abgelegt: false',
+		'ohne den Parameter gibt sie abgelegt: null',
 		wertVon(await startseiteLadenAn('/')).abgelegt,
-		false
+		null
 	);
+	pruefenGleich(
+		'mit ?abgelegt=22 gibt sie die Zahl 22',
+		wertVon(await startseiteLadenAn('/?abgelegt=22')).abgelegt,
+		22
+	);
+	for (const [wie, adresse] of [
+		['ein Wort', '/?abgelegt=viele'],
+		['eine Null', '/?abgelegt=0'],
+		['eine negative Zahl', '/?abgelegt=-3'],
+		['eine Kommazahl', '/?abgelegt=2.5'],
+	] as const) {
+		pruefenGleich(
+			`mit ?abgelegt als ${wie} fällt die load auf 1 zurück`,
+			wertVon(await startseiteLadenAn(adresse)).abgelegt,
+			1
+		);
+	}
 	pruefen(
-		'der Wahrheitswert trägt keinen Satz — der gehört zur Oberfläche',
+		'die Zahl trägt keinen Satz — der gehört zur Oberfläche',
 		!/[Aa]bgelegt\./.test(JSON.stringify(wertVon(nachAblage))),
 		JSON.stringify(wertVon(nachAblage)).slice(0, 160)
 	);
@@ -2490,6 +2554,10 @@ try {
 	const erfassenServer = kommentarfrei(
 		readFileSync(join(wurzel, 'src', 'routes', 'aufgabe', '+page.server.ts'), 'utf8')
 	);
+	// Das geteilte Modul, in dem die Textregel seit Story 2.1 steht.
+	const aufgabentextModul = kommentarfrei(
+		readFileSync(join(wurzel, 'src', 'lib', 'aufgabentext.ts'), 'utf8')
+	);
 
 	/**
 	 * Der klammerbalancierte Rumpf des ersten `{…}`-Blocks ab `von`, auf einfache
@@ -2604,15 +2672,21 @@ try {
 	);
 
 	/*
-	 * Die 200 steht zweimal: als Konstante in der Route und als Attribut im
-	 * Markup. Ohne dieses Band bliebe das Attribut beim nächsten Ändern der Grenze
-	 * stehen — ein Feld, das bei 200 Zeichen abschneidet, während die Route 300
-	 * annähme, oder umgekehrt eine Route, die abweist, was das Feld noch zulässt.
+	 * Die 200 steht zweimal: als Konstante und als Attribut im Markup. Ohne dieses
+	 * Band bliebe das Attribut beim nächsten Ändern der Grenze stehen — ein Feld,
+	 * das bei 200 Zeichen abschneidet, während die Route 300 annähme, oder
+	 * umgekehrt eine Route, die abweist, was das Feld noch zulässt.
+	 *
+	 * Die Konstante liegt seit Story 2.1 nicht mehr in der Routendatei, sondern
+	 * als AUFGABE_HOECHSTLAENGE in src/lib/aufgabentext.ts: /monatsplan wirft
+	 * dieselbe Grenze für jede Zeile seines Stapels, und zwei Zahlen wären zwei
+	 * Wahrheiten über dieselbe Regel. Diese Regex zeigt darum auf das geteilte
+	 * Modul.
 	 */
 	pruefenGleich(
-		'das maxlength am Feld hält die Grenze aus TEXT_HOECHSTLAENGE',
+		'das maxlength am Feld hält die Grenze aus AUFGABE_HOECHSTLAENGE',
 		/<input\b[^>]*\bmaxlength="(\d+)"/.exec(erfassenCode)?.[1] ?? '(kein maxlength)',
-		/const TEXT_HOECHSTLAENGE = (\d+);/.exec(erfassenServer)?.[1] ?? '(keine Konstante)'
+		/const AUFGABE_HOECHSTLAENGE = (\d+);/.exec(aufgabentextModul)?.[1] ?? '(keine Konstante)'
 	);
 
 	// -----------------------------------------------------------------------
@@ -2695,15 +2769,17 @@ try {
 		startseitenCode.indexOf('const rueckmeldung')
 	);
 	pruefen(
-		'auf / hängt `Abgelegt.` an form === null **und** data.abgelegt',
-		/if \(\s*form === null\s*\) return data\.abgelegt \s*\? 'Abgelegt\.' \s*: '';/.test(
+		'auf / entstehen beide Sätze aus der Zahl: 1 ergibt `Abgelegt.`, sonst `N Aufgaben abgelegt.`',
+		/if \(\s*data\.abgelegt === null\s*\) return '';\s*return data\.abgelegt === 1 \s*\? 'Abgelegt\.' \s*: `\$\{data\.abgelegt\} Aufgaben abgelegt\.`;/.test(
 			rueckmeldungRumpf
 		),
 		rueckmeldungRumpf === '' ? 'rueckmeldung nicht gefunden' : rueckmeldungRumpf
 	);
 	pruefen(
 		'und eine Rückmeldung des Abhakens gewinnt gegen den Parameter',
-		/if \(\s*form === null\s*\)[^;]*;\s*if \(\s*form\.art === 'abgehakt'/.test(rueckmeldungRumpf),
+		/if \(\s*form === null\s*\) \{[\s\S]*?\}\s*if \(\s*form\.art === 'abgehakt'/.test(
+			rueckmeldungRumpf
+		),
 		rueckmeldungRumpf === '' ? 'rueckmeldung nicht gefunden' : rueckmeldungRumpf
 	);
 
@@ -2721,7 +2797,7 @@ try {
 		}
 	}
 	const fokusTeile = [
-		['nur mit dem Parameter', /!data\.abgelegt/.test(fokusEffekt)],
+		['nur mit dem Parameter', /data\.abgelegt === null/.test(fokusEffekt)],
 		['nie nach einem Versand', /form !== null/.test(fokusEffekt)],
 		['nur mit gebundenem Element', /meldungKasten === null/.test(fokusEffekt)],
 		['und holt den Fokus', /meldungKasten\.focus\(\)/.test(fokusEffekt)],
@@ -2732,6 +2808,949 @@ try {
 		fokusEffekt === ''
 			? 'kein $effect mit fokusGeholt gefunden'
 			: `fehlt: ${fehlendeTeile(fokusTeile).join(', ')} — Rumpf: ${fokusEffekt}`
+	);
+	// =======================================================================
+	// /monatsplan — Story 2.1: den Monatsplan in einem Zug ablegen.
+	//
+	// Geprüft wird die Serverseite: die load mit der Vorbelegung, die eine
+	// action, ihre vier Prüfungen in ihrer Reihenfolge und der Stapel danach.
+	// Die action bekommt ein Ereignis **ohne** locals.mitglied — sie liest keine
+	// Identität, und es gibt keine Spalte, die einen Erfassenden hielte (AD-2,
+	// AD-5). Ein Monatsplan ist namenlos wie der Rest des Pools.
+	// =======================================================================
+	const monatsplan = await monatsplanLaden();
+
+	/*
+	 * Die Matrixzeile „Ohne Cookie": /monatsplan hat **keine** eigene Schranke,
+	 * und genau das ist zu belegen. Der Wächter ist pfadagnostisch, aber
+	 * „pfadagnostisch" ist eine Aussage über Code, die erst dann eine Behauptung
+	 * ist, wenn sie für diesen Pfad ausgeführt wurde. Es gibt keine zentrale
+	 * Liste geschützter Pfade — jede Route bringt ihre eigene Zeile mit.
+	 */
+	abweisungOderRot('ohne Zugang: /monatsplan ohne Cookie', await aufrufen('/monatsplan'));
+
+	// -----------------------------------------------------------------------
+	// Die load: nur die Vorbelegung, und die ist das Monatsende
+	// -----------------------------------------------------------------------
+	/*
+	 * Das Monatsende wird hier **unabhängig** gerechnet und nicht über
+	 * monatsendeAlsFeldwert: eine Behauptung, die dieselbe Funktion ruft, die sie
+	 * prüft, liest nur ihre eigene Vorbereitung. Der laufende Monat kommt aus Intl
+	 * mit der Zone, der letzte Tag aus dem Tag-0-Trick des Folgemonats.
+	 */
+	const monatsendeUnabhaengig = (unixSekunden: number): string => {
+		const inZone = new Intl.DateTimeFormat('en-CA', {
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			timeZone: 'Europe/Zurich',
+		}).format(new Date(unixSekunden * 1000));
+		const [jahr, monat] = inZone.split('-').map(Number);
+		const letzter = new Date(Date.UTC(jahr, monat, 0)).getUTCDate();
+		return `${jahr}-${String(monat).padStart(2, '0')}-${String(letzter).padStart(2, '0')}`;
+	};
+
+	/*
+	 * Vor **und** nach der load gemessen, und beide Werte gelten.
+	 *
+	 * Eine einzige Messung daneben wäre eine Behauptung mit einem Zeitfenster: am
+	 * letzten Tag eines Monats um 23:59:59 kann die load noch im alten Monat
+	 * laufen und die Vergleichsrechnung schon im neuen. Der Lauf wäre dann einmal
+	 * im Jahr zufällig rot, und die nächste Person schwächte die Behauptung ab,
+	 * statt sie zu lesen.
+	 */
+	const vorLoad = Math.floor(Date.now() / 1000);
+	const planDaten = wertVon(await routenausgang(() => monatsplan.load()));
+	const nachLoad = Math.floor(Date.now() / 1000);
+	pruefenGleich(
+		'die load von /monatsplan gibt genau ein Feld',
+		Object.keys(planDaten).sort().join(', '),
+		'faelligBisVorgabe'
+	);
+	const erlaubteVorgaben = [monatsendeUnabhaengig(vorLoad), monatsendeUnabhaengig(nachLoad)];
+	pruefen(
+		'und die Vorgabe ist der letzte Tag des laufenden Monats als JJJJ-MM-TT',
+		erlaubteVorgaben.includes(textFeld(planDaten, 'faelligBisVorgabe')),
+		`war ${JSON.stringify(textFeld(planDaten, 'faelligBisVorgabe'))}, erwartet ${JSON.stringify(erlaubteVorgaben)}`
+	);
+
+	// -----------------------------------------------------------------------
+	// src/lib/zeit.ts, ausgeführt an festen Zeitpunkten
+	// -----------------------------------------------------------------------
+	/*
+	 * Die subtilste Logik dieser Story, und die einzige, die eine laufende Uhr
+	 * braucht. Gemessen, nicht vermutet: ersetzt man die zweistufige
+	 * Versatzrechnung durch ein hartes `annahme - 7200`, bleibt die **ganze**
+	 * Prüfliste grün — jedes gefahrene Datum oben (2026-09-30) liegt in der
+	 * Sommerzeit. Zwischen Ende Oktober und Ende März wiese /monatsplan dann
+	 * jeden Plan mit 400 ab, und niemand merkte es vor dem Winter.
+	 *
+	 * Die Erwartungswerte stehen darum als `Date.UTC(…)` da und kommen nicht aus
+	 * der geprüften Funktion. Gefahren werden beide Zonen, **beide**
+	 * Umstellungstage (der Wechsel liegt um 02:00 beziehungsweise 03:00 Ortszeit,
+	 * nie um 23:59 — genau das begründet die eine Runde), ein Schaltjahr und die
+	 * Gegenprobe dazu.
+	 */
+	for (const [wie, feldwert, soll] of [
+		['Sommerzeit', '2026-09-30', Date.UTC(2026, 8, 30, 21, 59, 59)],
+		['Winterzeit', '2026-11-30', Date.UTC(2026, 10, 30, 22, 59, 59)],
+		['am Tag der Umstellung auf Sommerzeit', '2026-03-29', Date.UTC(2026, 2, 29, 21, 59, 59)],
+		['am Tag der Umstellung auf Winterzeit', '2026-10-25', Date.UTC(2026, 9, 25, 22, 59, 59)],
+		['am Schalttag', '2028-02-29', Date.UTC(2028, 1, 29, 22, 59, 59)],
+	] as const) {
+		pruefenGleich(
+			`tagesendeInUnixSekunden trifft das Tagesende in Europe/Zurich ${wie}`,
+			tagesendeInUnixSekunden(feldwert),
+			Math.floor(soll / 1000)
+		);
+	}
+	pruefenGleich(
+		'und gibt null für den 29. Februar eines Nicht-Schaltjahrs',
+		tagesendeInUnixSekunden('2027-02-29'),
+		null
+	);
+
+	/*
+	 * monatsendeAlsFeldwert an **festen** Bezugszeitpunkten.
+	 *
+	 * Der dritte ist der eigentliche Prüfgegenstand: 31. August 2026, 22:30 UTC
+	 * ist in Europe/Zurich schon der 1. September. Wer den laufenden Monat aus UTC
+	 * läse, bekäme `2026-08-31` und damit eine Vorgabe in der Vergangenheit. Das
+	 * Fenster, in dem sich Zone und UTC überhaupt unterscheiden, ist rund zwei
+	 * Stunden im Monat — ohne festen Zeitpunkt liefe diese Behauptung praktisch
+	 * nie in den Fall hinein, den sie prüft.
+	 */
+	for (const [wie, bezug, soll] of [
+		['im Schaltjahr-Februar', Date.UTC(2024, 1, 10, 12), '2024-02-29'],
+		['im Dezember', Date.UTC(2026, 11, 1, 12), '2026-12-31'],
+		['wenn die Zone schon im Folgemonat steht', Date.UTC(2026, 7, 31, 22, 30), '2026-09-30'],
+	] as const) {
+		pruefenGleich(
+			`monatsendeAlsFeldwert trifft das Monatsende ${wie}`,
+			monatsendeAlsFeldwert(Math.floor(bezug / 1000)),
+			soll
+		);
+	}
+
+	/*
+	 * Die Höchstzahl, die der Browser sperrt, ist **dieselbe**, die diese
+	 * Prüfliste unten mit 100 und 101 Zeilen ausfährt. Ohne diese Zeile stünde die
+	 * geteilte Konstante neben zwei Literalen, die zufällig übereinstimmen.
+	 */
+	pruefenGleich('PLAN_HOECHSTZAHL ist die Zahl, die unten ausgefahren wird', PLAN_HOECHSTZAHL, 100);
+
+	/** Ein Versand an ?/ablegen auf /monatsplan, ohne jede Identität im Ereignis. */
+	const planAblegenMit = (formular: Record<string, string | Blob>) =>
+		routenausgang(() =>
+			monatsplan.actions.ablegen(new Ereignis('/monatsplan', undefined, formular).alsRequestEvent())
+		);
+
+	/*
+	 * Das erwartete due_at, ebenfalls **unabhängig** gerechnet: der 30. September
+	 * 2026 liegt in der Sommerzeit (UTC+2), sein Tagesende 23:59:59 Ortszeit ist
+	 * also 21:59:59 UTC. Über tagesendeInUnixSekunden gerechnet läse diese
+	 * Behauptung nur ihre eigene Vorbereitung.
+	 */
+	const TAGESENDE_30_09_2026 = Math.floor(Date.UTC(2026, 8, 30, 21, 59, 59) / 1000);
+	const MITTERNACHT_30_09_2026 = Math.floor(Date.UTC(2026, 8, 30, 0, 0, 0) / 1000);
+
+	// -----------------------------------------------------------------------
+	// Ein Stapel von drei Zeilen: ein due_at, gefaltete Texte, 303 mit Zahl
+	// -----------------------------------------------------------------------
+	/*
+	 * Der Text kommt so herein, wie er beim Einfügen aus einer Notiz aussieht:
+	 * Leerraum vorn und hinten, doppelte Leerzeichen in der Mitte, Leerzeilen
+	 * dazwischen, eine Zeile aus reinen Nullbreiten-Zeichen und ein
+	 * Nullbreiten-Zeichen mitten in einem Wort. Ohne diese Eingabe bewiese die
+	 * Probe nur, dass ein schon sauberer Plan sauber ankommt.
+	 */
+	const vorStapel = aufgabenZaehlen();
+	const jetztStapel = Math.floor(Date.now() / 1000);
+	const stapel = await planAblegenMit({
+		faelligBis: '2026-09-30',
+		zeilen:
+			'  Nüsslisalat   säen, Beete 24 und 25  \n' +
+			'\n' +
+			'   \n' +
+			'Tomaten\u200B abräumen, Tunnel 1\n' +
+			'\u200B\u200C\u200D\u2060\uFEFF\n' +
+			'Wintersalat pflanzen, Beet 30\n',
+	});
+	pruefen(
+		'ein Stapel leitet mit 303 auf /?abgelegt=3 — die Zahl reist im Parameter',
+		stapel.art === 'weiter' && stapel.status === 303 && stapel.ort === '/?abgelegt=3',
+		stapel.art === 'weiter' ? `${stapel.status} auf ${stapel.ort}` : `Ausgang ${stapel.art}`
+	);
+	pruefenGleich('und legt genau drei Zeilen an', aufgabenZaehlen(), vorStapel + 3);
+
+	/*
+	 * Gesucht wird über den **Text** und nicht über das due_at: eine Suche über
+	 * die Spalte, deren Wert gleich danach behauptet wird, läse nur ihre eigene
+	 * Vorbereitung — sie fände bei einem falschen due_at schlicht null Zeilen,
+	 * und `every` über eine leere Menge ist wahr.
+	 */
+	const stapelTexte = [
+		'Nüsslisalat säen, Beete 24 und 25',
+		'Tomaten abräumen, Tunnel 1',
+		'Wintersalat pflanzen, Beet 30',
+	];
+	const stapelZeilen = datenbank()
+		.select()
+		.from(tasks)
+		.all()
+		.filter((zeile) => stapelTexte.includes(zeile.text));
+	pruefenGleich(
+		'die drei Texte stehen gefaltet und gesäubert in der Tabelle, leere Zeilen fielen weg',
+		stapelZeilen.length,
+		3
+	);
+	pruefenGleich(
+		'alle drei tragen **denselben** due_at — ein Monatsplan hat eine Frist, nicht drei',
+		new Set(stapelZeilen.map((zeile) => zeile.dueAt)).size,
+		1
+	);
+	pruefen(
+		'und der liegt auf dem Tagesende in Europe/Zurich, nicht auf Mitternacht UTC',
+		stapelZeilen.length === 3 &&
+			stapelZeilen.every((zeile) => zeile.dueAt === TAGESENDE_30_09_2026) &&
+			TAGESENDE_30_09_2026 !== MITTERNACHT_30_09_2026,
+		JSON.stringify(stapelZeilen.map((zeile) => zeile.dueAt))
+	);
+	pruefen(
+		'die Erledigt-Spalten sind leer — eine neue Aufgabe ist offen und niemandes',
+		stapelZeilen.every((zeile) => zeile.completedBy === null && zeile.completedAt === null),
+		JSON.stringify(stapelZeilen)
+	);
+	pruefen(
+		'created_at kommt aus dem Schema, nicht aus dem Stapel — und ist nicht das due_at',
+		stapelZeilen.every(
+			(zeile) =>
+				zeile.createdAt >= jetztStapel &&
+				zeile.createdAt < jetztStapel + 300 &&
+				zeile.createdAt !== zeile.dueAt
+		),
+		JSON.stringify(stapelZeilen.map((zeile) => zeile.createdAt))
+	);
+
+	/*
+	 * Die eine Vorbedingung, die aufgabenStapelAnlegen **selbst** prüft, direkt
+	 * gefahren — die action erreicht sie nie, weil sie den leeren Stapel schon
+	 * abfängt, und genau darum hing sie an nichts.
+	 *
+	 * `values([])` erzeugt ein INSERT ohne VALUES-Klausel und wirft. Ein Wurf aus
+	 * der Datenschicht wäre für die aufrufende Person eine Fehlerseite statt eines
+	 * Satzes; nimmt jemand die Wache heraus, wird diese Zeile rot, statt dass es
+	 * erst der nächste Aufrufer merkt. Gate-Regel 9 verbietet den direkten Zugriff
+	 * nur unter src/routes/.
+	 */
+	const vorLeerstapel = aufgabenZaehlen();
+	pruefenGleich(
+		'aufgabenStapelAnlegen gibt für einen leeren Stapel die leere Liste zurück, statt zu werfen',
+		JSON.stringify(aufgabenStapelAnlegen([], TAGESENDE_30_09_2026)),
+		'[]'
+	);
+	pruefenGleich('und legt dabei keine Zeile an', aufgabenZaehlen(), vorLeerstapel);
+
+	// -----------------------------------------------------------------------
+	// due_at steht ab jetzt in den Seitendaten — Story 2.2 rechnet darauf
+	// -----------------------------------------------------------------------
+	const planaufgabeId = aufgabeSaen('Knoblauch stecken, Beet 8', jetztStapel, TAGESENDE_30_09_2026);
+	const mitFrist = await startseiteLadenAn('/');
+	const gesaeteZeile = (
+		(wertVon(mitFrist).aufgaben ?? []) as { id: number; dueAt?: unknown }[]
+	).find((zeile) => zeile.id === planaufgabeId);
+	pruefenGleich(
+		'die load von / reicht due_at heraus — Story 2.2 rechnet darauf',
+		gesaeteZeile?.dueAt,
+		TAGESENDE_30_09_2026
+	);
+	pruefen(
+		'und trägt trotzdem weder completed_by noch completed_at',
+		!nenntErledigt(wertVon(mitFrist)),
+		JSON.stringify(wertVon(mitFrist)).slice(0, 160)
+	);
+
+	// -----------------------------------------------------------------------
+	// Abgewiesen: zwölf Eingaben, das richtige Feld, keine einzige Zeile
+	// -----------------------------------------------------------------------
+	/*
+	 * Die Reihenfolge der Prüfungen ist Teil der Zusage: erst das Datum, dann ob
+	 * Zeilen da sind, dann die Höchstzahl, dann die Zeilenlänge. Darum steht in
+	 * jeder Zeile, welches Feld die Meldung trägt — ein Vertauschen der Prüfungen
+	 * macht die Zeile „ohne das Feld faelligBis" rot, obwohl der Status derselbe
+	 * bliebe.
+	 *
+	 * Der Blob ist der Fall „das Feld ist da, ist aber kein String": ein
+	 * Datei-Upload auf ein Textfeld.
+	 */
+	const zweiZuLang = `Beet 25 jäten\n${'A'.repeat(201)}\n${'B'.repeat(201)}`;
+	const hundertEins = Array.from({ length: 101 }, (_, i) => `Aufgabe ${i + 1}`).join('\n');
+	const planAbweisungen = [
+		['ohne Zeilen', { faelligBis: '2026-09-30', zeilen: '' }, 'zeilen'],
+		['mit reinem Leerraum', { faelligBis: '2026-09-30', zeilen: '   \n\t\n  ' }, 'zeilen'],
+		[
+			'mit reinen Nullbreiten-Zeichen',
+			{ faelligBis: '2026-09-30', zeilen: '\u200B\u200C\u200D\u2060\uFEFF' },
+			'zeilen',
+		],
+		['ohne das Feld zeilen', { faelligBis: '2026-09-30' }, 'zeilen'],
+		[
+			'mit einem Blob statt Zeilen',
+			{ faelligBis: '2026-09-30', zeilen: new Blob(['Beet 25 jäten']) },
+			'zeilen',
+		],
+		['ohne das Feld faelligBis', { zeilen: 'Beet 25 jäten' }, 'datum'],
+		['mit leerem faelligBis', { faelligBis: '', zeilen: 'Beet 25 jäten' }, 'datum'],
+		[
+			'mit faelligBis als 30.09.2026',
+			{ faelligBis: '30.09.2026', zeilen: 'Beet 25 jäten' },
+			'datum',
+		],
+		[
+			'mit dem unmöglichen 2026-02-31',
+			{ faelligBis: '2026-02-31', zeilen: 'Beet 25 jäten' },
+			'datum',
+		],
+		[
+			'mit einem Blob statt eines Datums',
+			{ faelligBis: new Blob(['2026-09-30']), zeilen: 'Beet 25 jäten' },
+			'datum',
+		],
+		[
+			'mit zwei Zeilen zu 201 Codepoints',
+			{ faelligBis: '2026-09-30', zeilen: zweiZuLang },
+			'zeilen',
+		],
+		['mit 101 Zeilen', { faelligBis: '2026-09-30', zeilen: hundertEins }, 'zeilen'],
+	] as const;
+	const planSaetze = new Map<string, string>();
+	for (const [wie, formular, feld] of planAbweisungen) {
+		const vorher = aufgabenZaehlen();
+		const ausgang = await planAblegenMit({ ...formular });
+		pruefen(
+			`ablegen ${wie} ergibt 400 am Feld ${feld}`,
+			ausgang.art === 'fehlschlag' && ausgang.status === 400 && ausgang.daten.feld === feld,
+			ausgang.art === 'fehlschlag'
+				? `${ausgang.status} am Feld ${JSON.stringify(ausgang.daten.feld)}`
+				: `Ausgang ${ausgang.art}`
+		);
+		pruefenGleich(`ablegen ${wie} legt keine Zeile an`, aufgabenZaehlen(), vorher);
+		planSaetze.set(wie, textFeld(datenVon(ausgang), 'meldung'));
+	}
+	pruefen(
+		'alle fünf Datums-Abweisungen tragen denselben Satz — jede Unterscheidung wäre ein Kanal',
+		new Set(
+			planAbweisungen
+				.filter(([, , feld]) => feld === 'datum')
+				.map(([wie]) => planSaetze.get(wie) ?? '')
+		).size === 1,
+		JSON.stringify([...planSaetze])
+	);
+	pruefen(
+		'der Satz zur Überlänge nennt die Zahl der zu langen Zeilen und die Grenze 200',
+		(planSaetze.get('mit zwei Zeilen zu 201 Codepoints') ?? '').includes('2 Zeilen') &&
+			(planSaetze.get('mit zwei Zeilen zu 201 Codepoints') ?? '').includes('200'),
+		JSON.stringify(planSaetze.get('mit zwei Zeilen zu 201 Codepoints'))
+	);
+	pruefen(
+		'der Satz zur Höchstzahl nennt die 100',
+		(planSaetze.get('mit 101 Zeilen') ?? '').includes('100'),
+		JSON.stringify(planSaetze.get('mit 101 Zeilen'))
+	);
+
+	// -----------------------------------------------------------------------
+	// Die zwei Grenzen sind einschliessend: 200 Codepoints und 100 Zeilen
+	// -----------------------------------------------------------------------
+	const vorGenau = aufgabenZaehlen();
+	const genauZweihundertJeZeile = await planAblegenMit({
+		faelligBis: '2026-09-30',
+		zeilen: `${'A'.repeat(200)}\n${'B'.repeat(200)}`,
+	});
+	pruefen(
+		'zwei Zeilen zu genau 200 Codepoints gehen durch — die Grenze ist einschliessend',
+		genauZweihundertJeZeile.art === 'weiter' &&
+			genauZweihundertJeZeile.status === 303 &&
+			genauZweihundertJeZeile.ort === '/?abgelegt=2',
+		genauZweihundertJeZeile.art === 'weiter'
+			? `${genauZweihundertJeZeile.status} auf ${genauZweihundertJeZeile.ort}`
+			: `Ausgang ${genauZweihundertJeZeile.art}`
+	);
+	pruefenGleich('und stehen beide in der Tabelle', aufgabenZaehlen(), vorGenau + 2);
+
+	const vorHundert = aufgabenZaehlen();
+	const genauHundert = await planAblegenMit({
+		faelligBis: '2026-09-30',
+		zeilen: Array.from({ length: 100 }, (_, i) => `Hundertplan ${i + 1}`).join('\n'),
+	});
+	pruefen(
+		'genau 100 Zeilen gehen durch und melden die 100 im Parameter',
+		genauHundert.art === 'weiter' &&
+			genauHundert.status === 303 &&
+			genauHundert.ort === '/?abgelegt=100',
+		genauHundert.art === 'weiter'
+			? `${genauHundert.status} auf ${genauHundert.ort}`
+			: `Ausgang ${genauHundert.art}`
+	);
+	pruefenGleich('und alle hundert stehen in der Tabelle', aufgabenZaehlen(), vorHundert + 100);
+
+	// -----------------------------------------------------------------------
+	// Eine Zeile, und zwei gleiche Zeilen
+	// -----------------------------------------------------------------------
+	const vorEinzeln = aufgabenZaehlen();
+	const einzeln = await planAblegenMit({ faelligBis: '2026-09-30', zeilen: 'Etiketten erneuern' });
+	pruefen(
+		'genau eine Zeile leitet auf /?abgelegt=1 — auf / steht dann `Abgelegt.`',
+		einzeln.art === 'weiter' && einzeln.status === 303 && einzeln.ort === '/?abgelegt=1',
+		einzeln.art === 'weiter' ? `${einzeln.status} auf ${einzeln.ort}` : `Ausgang ${einzeln.art}`
+	);
+	pruefenGleich('und legt genau eine Zeile an', aufgabenZaehlen(), vorEinzeln + 1);
+
+	/*
+	 * Zwei Mal derselbe Satz sind zwei Aufgaben: es gibt zwei Tunnel, und die
+	 * planende Person meint womöglich beide. Eine Entdopplung müsste entscheiden,
+	 * welche zwei Zeilen „dieselbe" sind — dieselbe Abwägung wie beim Doppeltipp
+	 * auf /aufgabe, und dieselbe Antwort.
+	 */
+	const vorDoppelt = aufgabenZaehlen();
+	const doppelt = await planAblegenMit({
+		faelligBis: '2026-09-30',
+		zeilen: 'Tunnel lüften\nTunnel lüften',
+	});
+	pruefen(
+		'zwei wortgleiche Zeilen ergeben zwei Aufgaben — es wird nicht entdoppelt',
+		doppelt.art === 'weiter' && doppelt.ort === '/?abgelegt=2',
+		doppelt.art === 'weiter' ? `auf ${doppelt.ort}` : `Ausgang ${doppelt.art}`
+	);
+	pruefenGleich('und beide stehen in der Tabelle', aufgabenZaehlen(), vorDoppelt + 2);
+	pruefenGleich(
+		'beide tragen denselben Text',
+		datenbank().select().from(tasks).where(eq(tasks.text, 'Tunnel lüften')).all().length,
+		2
+	);
+
+	/*
+	 * /aufgabe bleibt unangetastet: dieselbe action, dasselbe bare `?abgelegt`,
+	 * und **kein** Datumsfeld. Ohne diese Zeile liesse sich das gemeinsame Modul
+	 * so umbauen, dass die eine Route mitwandert und niemand es merkt.
+	 */
+	const aufgabeNachStory = await ablegenMit({ text: 'Giesskannen einwintern' });
+	pruefen(
+		'/aufgabe leitet weiterhin auf das bare /?abgelegt',
+		aufgabeNachStory.art === 'weiter' && aufgabeNachStory.ort === '/?abgelegt',
+		aufgabeNachStory.art === 'weiter'
+			? `auf ${aufgabeNachStory.ort}`
+			: `Ausgang ${aufgabeNachStory.art}`
+	);
+	pruefen(
+		'und die so erfasste Aufgabe hat **keine** Frist',
+		datenbank().select().from(tasks).where(eq(tasks.text, 'Giesskannen einwintern')).get()
+			?.dueAt === null,
+		JSON.stringify(
+			datenbank().select().from(tasks).where(eq(tasks.text, 'Giesskannen einwintern')).get()
+		)
+	);
+
+	// -----------------------------------------------------------------------
+	// /monatsplan: die Textprüfungen
+	// -----------------------------------------------------------------------
+	/*
+	 * Aus demselben Grund wie auf /aufgabe und /: die zwei Schritte, der Zähler,
+	 * der Fokusgriff und die Doppelsperre leben im Browser, und die Svelte-Schicht
+	 * deckt in diesem Projekt kein ausgeführtes Werkzeug. Jede dieser Zusagen
+	 * hängt an genau einer Textstelle. Der Preis ist benannt: eine Textprüfung
+	 * belegt, dass die Stelle **dasteht**, nicht, dass sie **wirkt**.
+	 */
+	const planCode = kommentarfrei(
+		readFileSync(join(wurzel, 'src', 'routes', 'monatsplan', '+page.svelte'), 'utf8')
+	);
+	const planServer = kommentarfrei(
+		readFileSync(join(wurzel, 'src', 'routes', 'monatsplan', '+page.server.ts'), 'utf8')
+	);
+
+	/*
+	 * Die zwei Schritte liegen im selben {#if}. Geschnitten wird am {:else},
+	 * damit „genau ein primärer Knopf" **je Schritt** prüfbar ist: über die ganze
+	 * Datei gezählt sind es zwei, und eine reine Zählung liesse zwei Knöpfe in
+	 * einem Schritt durchgehen.
+	 */
+	const schrittGrenze = planCode.indexOf('{:else}');
+	const schrittEins = schrittGrenze < 0 ? '' : planCode.slice(0, schrittGrenze);
+	const schrittZwei = schrittGrenze < 0 ? '' : planCode.slice(schrittGrenze);
+	pruefen(
+		'je Schritt genau ein button-primary — Weiter im ersten, das Verb mit der Zahl im zweiten',
+		schrittGrenze > 0 &&
+			(schrittEins.match(/button-primary/g) ?? []).length === 1 &&
+			(schrittZwei.match(/button-primary/g) ?? []).length === 1 &&
+			/>Weiter</.test(schrittEins) &&
+			/\{ablegenText\}/.test(schrittZwei),
+		schrittGrenze < 0
+			? 'kein {:else} gefunden — die zwei Schritte liegen nicht mehr in einem {#if}'
+			: `Schritt 1: ${(schrittEins.match(/button-primary/g) ?? []).length}, Schritt 2: ${
+					(schrittZwei.match(/button-primary/g) ?? []).length
+				}`
+	);
+
+	const planVerdrahtung = [
+		[
+			'literales action="?/ablegen" am Formular',
+			/<form\b[^>]*action="\?\/ablegen"/.test(schrittZwei),
+		],
+		['use:enhance={versand} am Formular', /<form\b[^>]*use:enhance=\{versand\}/.test(schrittZwei)],
+		[
+			'verstecktes Feld name="faelligBis"',
+			/<input\b[^>]*type="hidden"[^>]*\bname="faelligBis"[^>]*\bvalue=\{faelligBis\}/.test(
+				schrittZwei
+			),
+		],
+		[
+			'verstecktes Feld name="zeilen"',
+			/<input\b[^>]*type="hidden"[^>]*\bname="zeilen"[^>]*\bvalue=\{zeilenFeldwert\}/.test(
+				schrittZwei
+			),
+		],
+	] as const;
+	pruefen(
+		'das Formular auf /monatsplan ist vollständig verdrahtet',
+		fehlendeTeile(planVerdrahtung).length === 0,
+		`fehlt: ${fehlendeTeile(planVerdrahtung).join(', ')}`
+	);
+
+	const planZusagen = [
+		['kein placeholder', !/\bplaceholder\b/.test(planCode)],
+		[
+			'sichtbare Beschriftung `Fällig bis`',
+			/<label\b[^>]*\bfor="faellig-bis"[^>]*>\s*Fällig bis\s*<\/label>/.test(planCode),
+		],
+		[
+			'sichtbare Beschriftung `Eine Aufgabe pro Zeile`',
+			/<label\b[^>]*\bfor="plan-zeilen"[^>]*>\s*Eine Aufgabe pro Zeile\s*<\/label>/.test(planCode),
+		],
+		['genau ein Textfeld für den ganzen Plan', (planCode.match(/<textarea\b/g) ?? []).length === 1],
+		['kein Eingabefeld je Zeile im Prüfschritt', !/<textarea\b/.test(schrittZwei)],
+		[
+			'im Prüfschritt stehen nur die zwei versteckten Felder',
+			(schrittZwei.match(/<input\b/g) ?? []).length === 2,
+		],
+		['kein Zurück-Link und kein Anker', !/<a\b/.test(planCode)],
+		['kein dynamisches action={…}', !/action=\{/.test(planCode)],
+		['kein Rot', !/danger/.test(planCode)],
+	] as const;
+	pruefen(
+		'/monatsplan hält die Never-Zusagen: ein Textfeld, kein Editor je Zeile, kein Rot',
+		fehlendeTeile(planZusagen).length === 0,
+		`verletzt: ${fehlendeTeile(planZusagen).join(', ')}`
+	);
+
+	/*
+	 * Das `×` ist ein echtes <button type="button"> und kein <span> mit
+	 * Klick-Handler: nur ein Knopf ist mit der Tastatur erreichbar und meldet sich
+	 * einem Screenreader als Knopf. Sein zugänglicher Name entsteht über
+	 * aria-labelledby aus dem sichtbaren Zeilentext **und** einem verborgenen
+	 * Verb — dasselbe Muster wie das Kästchen auf `/`.
+	 */
+	const kreuzTeile = [
+		[
+			'<button type="button"> und kein <span>',
+			/<button\b[^>]*class="entfernen"[^>]*type="button"/.test(schrittZwei),
+		],
+		[
+			'Name aus Zeilentext plus verborgenem Verb',
+			/aria-labelledby="plan-zeile-\{zeile\.id\} plan-verb-\{zeile\.id\}"/.test(schrittZwei),
+		],
+		[
+			'das verborgene Verb heisst `, entfernen`',
+			/<span class="nur-vorgelesen" id="plan-verb-\{zeile\.id\}">, entfernen<\/span>/.test(
+				schrittZwei
+			),
+		],
+		[
+			'eine eigene Kennung am Knopf — daran hängt der Fokusgriff beim Entfernen',
+			/<button[^>]*\bid="plan-entfernen-\{zeile\.id\}"/.test(schrittZwei),
+		],
+		['kein onclick an einem <span>', !/<span\b[^>]*onclick/.test(planCode)],
+	] as const;
+	pruefen(
+		'das × ist ein echter Knopf mit zugänglichem Namen',
+		fehlendeTeile(kreuzTeile).length === 0,
+		`fehlt: ${fehlendeTeile(kreuzTeile).join(', ')}`
+	);
+
+	/*
+	 * Der Zähler ist ausdrücklich **keine** Live-Region: er ändert sich bei jedem
+	 * Tastendruck, und ein Screenreader spräche dann bei jedem Buchstaben. Der
+	 * Fehlersatz dagegen **ist** eine, und er steht immer im Markup.
+	 */
+	const zaehlerTag = /<p\b[^>]*class="zaehler"[^>]*>/.exec(planCode)?.[0] ?? '';
+	const zaehlerTeile = [
+		['ein <p class="zaehler"> mit eigener Kennung', /\bid="plan-zaehler"/.test(zaehlerTag)],
+		['keine Live-Region', zaehlerTag !== '' && !/aria-live=/.test(zaehlerTag)],
+		['keine status-Rolle', !/role="status"/.test(zaehlerTag)],
+		[
+			'dieselbe Zerlegung wie der Server',
+			/zeilenErkennen\(planText\)/.test(planCode) && /zeilenErkennen/.test(planServer),
+		],
+		[
+			'er sagt die Höchstzahl, statt nur den Knopf zu sperren',
+			/höchstens \$\{PLAN_HOECHSTZAHL\} Aufgaben auf einmal\./.test(planCode),
+		],
+	] as const;
+	pruefen(
+		'der Zähler ist keine Live-Region, liest dieselbe Funktion wie der Server und nennt die Grenze',
+		fehlendeTeile(zaehlerTeile).length === 0,
+		`fehlt: ${fehlendeTeile(zaehlerTeile).join(', ')} — Tag: ${zaehlerTag}`
+	);
+
+	/*
+	 * **Beide Felder sind beschrieben und markiert.**
+	 *
+	 * Der Zähler ist die eine Zahl, die ein Akzeptanzkriterium wörtlich nennt;
+	 * ohne das aria-describedby am Textfeld begegnete ihr, wer mit einem
+	 * Screenreader durch das Formular geht, nirgends. Und ohne die
+	 * aria-invalid-Verdrahtung markierte eine Abweisung mit `feld: 'zeilen'`
+	 * **nichts** — der Rückruf springt bei jeder Abweisung nach Schritt 1 zurück,
+	 * dort ist das Feld sichtbar, und die Kante ist der Hinweis, wo.
+	 *
+	 * Am Datumsfeld dasselbe, plus sein eigener Satz: das `required` dort ist
+	 * wirkungslos, weil Schritt 1 kein `<form>` ist (die Behauptung darüber sagt
+	 * das ausdrücklich), und ohne den Satz käme ein geleertes Feld bis in den
+	 * Prüfschritt.
+	 */
+	const feldTeile = [
+		[
+			'das Textfeld beschreibt sich über den Zähler',
+			/<textarea[\s\S]*?aria-describedby=\{zeilenBeschreibung\}/.test(planCode) &&
+				/const zeilenBeschreibung = \$derived\(\s*fehlerAnZeilen \? 'plan-zaehler plan-fehler' : 'plan-zaehler'\s*\);/.test(
+					planCode
+				),
+		],
+		[
+			'und markiert sich bei einer Abweisung an den Zeilen',
+			/<textarea[\s\S]*?aria-invalid=\{fehlerAnZeilen \? 'true' : undefined\}/.test(planCode),
+		],
+		[
+			'das Datumsfeld trägt seinen eigenen Satz',
+			/<p class="hinweis live" id="plan-datum-hinweis">\{datumHinweis\}<\/p>/.test(planCode) &&
+				/aria-describedby=\{datumBeschreibung === '' \? undefined : datumBeschreibung\}/.test(
+					planCode
+				),
+		],
+		[
+			'und markiert sich, solange das Datum nicht taugt',
+			/aria-invalid=\{fehlerAmDatum \|\| faelligAm === null \? 'true' : undefined\}/.test(planCode),
+		],
+	] as const;
+	pruefen(
+		'beide Felder auf /monatsplan sind beschrieben und markieren sich bei einer Abweisung',
+		fehlendeTeile(feldTeile).length === 0,
+		`fehlt: ${fehlendeTeile(feldTeile).join(', ')}`
+	);
+
+	/*
+	 * Und die Zahl selbst, **ausgeführt**: 27 Zeilen, davon drei leere, ergeben
+	 * 24. Das ist die eine Zahl, die ein Akzeptanzkriterium wörtlich nennt, und
+	 * die Behauptung darüber hing bis hierher an der Textprüfung oben — die sagt
+	 * nur, dass beide Seiten dieselbe Funktion rufen, nicht was sie zählt.
+	 *
+	 * Die drei leeren Zeilen sind absichtlich verschieden leer: eine ganz leere,
+	 * eine aus Leerraum und eine aus einem Nullbreiten-Zeichen. Mit nur einer
+	 * ganz leeren bliebe die Zeile grün, wenn die Faltung aus zeilenErkennen
+	 * fiele.
+	 */
+	const siebenundzwanzig = [
+		...Array.from({ length: 12 }, (_, nummer) => `Beet ${nummer + 1} jäten`),
+		'',
+		...Array.from({ length: 12 }, (_, nummer) => `Tunnel ${nummer + 1} lüften`),
+		'   \t ',
+		'​​',
+	];
+	const erkannteZeilen = zeilenErkennen(siebenundzwanzig.join('\n'));
+	pruefenGleich(
+		'27 Zeilen, davon drei leere, ergeben 24 erkannte Aufgaben',
+		String(erkannteZeilen.length),
+		'24'
+	);
+	pruefen(
+		'und die Faltung greift auch hier — kein doppelter Leerraum überlebt',
+		erkannteZeilen.every((zeile) => zeile === zeile.trim() && !/\s\s/.test(zeile)),
+		erkannteZeilen.find((zeile) => zeile !== zeile.trim() || /\s\s/.test(zeile)) ?? '(keine)'
+	);
+
+	const planFehlersatzTag = /<p\b[^>]*\bid="plan-fehler"[^>]*>/.exec(planCode)?.[0] ?? '';
+	pruefen(
+		'der Fehlersatz auf /monatsplan ist eine immer vorhandene Live-Region',
+		/class="fehler live"/.test(planFehlersatzTag) &&
+			/aria-live=/.test(planFehlersatzTag) &&
+			!/\{#if fehler/.test(planCode),
+		planFehlersatzTag === '' ? 'kein <p id="plan-fehler"> gefunden' : planFehlersatzTag
+	);
+
+	/*
+	 * Der Fokusgriff auf die Überschrift. Das `tabindex="-1"` sieht an einem <h1>
+	 * wie ein Versehen aus: ohne es ist focus() ein stiller Leerlauf, und der
+	 * Schrittwechsel bliebe für einen Screenreader stumm. Es gehört darum mit
+	 * bind:this und dem Aufruf in **eine** Behauptung.
+	 */
+	const planTitelTag = /<h1\b[^>]*class="seitentitel"[^>]*>/.exec(planCode)?.[0] ?? '';
+	pruefen(
+		'die Überschrift trägt tabindex="-1" und bind:this, und der Schrittwechsel holt den Fokus',
+		/tabindex="-1"/.test(planTitelTag) &&
+			/bind:this=\{titelKasten\}/.test(planTitelTag) &&
+			/titelKasten\?\.focus\(\)/.test(planCode) &&
+			/'Prüfen'/.test(planCode),
+		planTitelTag === '' ? 'kein <h1 class="seitentitel"> gefunden' : planTitelTag
+	);
+
+	const planSperre = [
+		['let imFlug = $state(false)', /\blet imFlug = \$state\(false\);/.test(planCode)],
+		['cancel() im Rückruf', /\bcancel\(\);/.test(planCode)],
+		[
+			'disabled am primären Knopf',
+			/<button[^>]*class="button-primary"[^>]*disabled=\{imFlug/.test(schrittZwei),
+		],
+		['try/finally um update()', /try \{\s*await update\(/.test(planCode)],
+	] as const;
+	pruefen(
+		'/monatsplan trägt die Doppelsperre vollständig — die drei zusammen sind sie, einzeln nicht',
+		fehlendeTeile(planSperre).length === 0,
+		`fehlt: ${fehlendeTeile(planSperre).join(', ')}`
+	);
+
+	/*
+	 * `Weiter` ist ein type="button" ohne Formular: ohne JavaScript tut er nichts,
+	 * und es entsteht **nichts** — die richtige Ausfallrichtung, benannt
+	 * akzeptiert. Ein type="submit" hier wäre eine stille Teil-Anlage.
+	 *
+	 * Gesperrt aus **drei** Gründen, und alle drei stehen in einer Behauptung:
+	 * keine Zeile, mehr Zeilen als PLAN_HOECHSTZAHL, kein brauchbares Datum.
+	 * Fiele einer davon, käme die Person bis in den Prüfschritt und erst der POST
+	 * wiese ab — bei den Zeilen mit einer Liste von 500 Einträgen vor sich, beim
+	 * Datum mit einem Satz, der mitten in einer Präposition endet.
+	 */
+	const weiterTeile = [
+		[
+			'type="button" ohne Formular',
+			/<button class="button-primary" type="button" disabled=\{weiterGesperrt\}/.test(
+				schrittEins
+			) && !/<form\b/.test(schrittEins),
+		],
+		[
+			'gesperrt ohne Zeile, über der Höchstzahl und ohne Datum',
+			/const weiterGesperrt = \$derived\(\s*erkannt\.length === 0 \|\| zuVieleZeilen \|\| faelligAm === null\s*\);/.test(
+				planCode
+			),
+		],
+		[
+			'die Höchstzahl kommt aus dem geteilten Modul und nicht als Zahl',
+			/import \{[^}]*PLAN_HOECHSTZAHL[^}]*\} from '\$lib\/aufgabentext';/.test(planCode) &&
+				/erkannt\.length > PLAN_HOECHSTZAHL/.test(planCode),
+		],
+	] as const;
+	pruefen(
+		'`Weiter` steht ausserhalb jedes Formulars und sperrt aus allen drei Gründen',
+		fehlendeTeile(weiterTeile).length === 0,
+		`fehlt: ${fehlendeTeile(weiterTeile).join(', ')}`
+	);
+
+	/*
+	 * Der primäre Knopf des Prüfschritts sperrt bei **null** verbliebenen Zeilen.
+	 *
+	 * Die Doppelsperre-Behauptung oben liest nur `disabled={imFlug` und bliebe
+	 * grün, wenn der zweite Teil der Bedingung fiele. Dann trüge der Knopf
+	 * `0 Aufgaben ablegen` und schickte einen Stapel ohne Zeilen — die action
+	 * wiese ihn ab, aber die Person liefe erst in einen Fehlersatz, wo der Knopf
+	 * gar nichts hätte anbieten dürfen.
+	 */
+	pruefen(
+		'der primäre Knopf des Prüfschritts sperrt, wenn alle Zeilen entfernt sind',
+		/<button[^>]*class="button-primary"[^>]*disabled=\{imFlug \|\| zeilenListe\.length === 0\}/.test(
+			schrittZwei
+		),
+		schrittZwei.slice(Math.max(0, schrittZwei.indexOf('button-primary') - 40), 200)
+	);
+
+	/*
+	 * `Zurück zum Text` und die Zusage, die daran hängt: das Textfeld bleibt
+	 * unverändert, und die entfernten Zeilen sind wieder da.
+	 *
+	 * Getragen wird sie von zwei Stellen zugleich, darum stehen sie in **einer**
+	 * Behauptung: `zurueck` wechselt nur den Schritt und rührt weder `planText`
+	 * noch `zeilenListe` an, und `weiter` baut die Prüfliste bei jedem Hingang
+	 * **neu** aus dem Textfeld. Fiele eine der beiden, käme die Person mit einer
+	 * gestutzten Liste zurück, ohne dass ihr Text sich geändert hätte — und
+	 * hätte keinen Weg mehr, die entfernte Zeile wiederzubekommen.
+	 *
+	 * Ein `type="button"` und `button-quiet`: der Knopf verlässt die Seite nicht
+	 * und ist nicht der primäre dieses Schritts.
+	 */
+	const zurueckTeile = [
+		[
+			'der Knopf mit onclick={zurueck}',
+			/<button class="button-quiet" type="button" disabled=\{imFlug\} onclick=\{zurueck\}/.test(
+				schrittZwei
+			) && />Zurück zum Text</.test(schrittZwei),
+		],
+		[
+			'zurueck quittiert den alten Ausgang und wechselt sonst nur den Schritt',
+			/function zurueck\(\): void \{\s*quittieren\(\);\s*void schrittWechseln\(1\);\s*\}/.test(
+				planCode
+			),
+		],
+		[
+			'weiter baut die Prüfliste neu aus dem Textfeld',
+			/zeilenListe = erkannt\.map\(/.test(planCode),
+		],
+	] as const;
+	pruefen(
+		'`Zurück zum Text` lässt den Text stehen und bringt die entfernten Zeilen zurück',
+		fehlendeTeile(zurueckTeile).length === 0,
+		`fehlt: ${fehlendeTeile(zurueckTeile).join(', ')}`
+	);
+
+	/*
+	 * **Der Fehlersatz wird quittiert.**
+	 *
+	 * `form` ist eine Eigenschaft und lässt sich nicht zurücksetzen; ohne das Flag
+	 * wäre der Satz unlöschbar und stünde als `role="alert"` über einem Inhalt,
+	 * den die Person längst korrigiert hat: abweisen lassen, zurückgehen, Zeile
+	 * kürzen, `Weiter` — und der alte Satz steht immer noch da.
+	 *
+	 * Die vier Teile tragen die Zusage zusammen: das Flag, die Ableitung durch
+	 * das Flag hindurch, die zwei Felder, die bei jeder Eingabe quittieren, und
+	 * das Zurücksetzen vor dem nächsten Versand. Fiele das letzte, bliebe ein
+	 * wortgleicher zweiter Fehlschlag stumm.
+	 */
+	const quittungTeile = [
+		['let quittiert = $state(false)', /\blet quittiert = \$state\(false\);/.test(planCode)],
+		[
+			'der Satz hängt am Flag',
+			/const fehlschlag = \$derived\(\s*!quittiert && form !== null && form\.art === 'fehler' \? form : null\s*\);/.test(
+				planCode
+			),
+		],
+		[
+			'beide Felder quittieren bei einer Eingabe',
+			(planCode.match(/oninput=\{quittieren\}/g) ?? []).length === 2,
+		],
+		[
+			'weiter quittiert vor dem Wechsel',
+			/function weiter\(\): void \{\s*quittieren\(\);/.test(planCode),
+		],
+		[
+			'und vor dem Versand geht das Flag zurück',
+			/imFlug = true;\s*quittiert = false;/.test(planCode),
+		],
+	] as const;
+	pruefen(
+		'der Fehlersatz auf /monatsplan wird quittiert und steht nicht über korrigiertem Inhalt',
+		fehlendeTeile(quittungTeile).length === 0,
+		`fehlt: ${fehlendeTeile(quittungTeile).join(', ')}`
+	);
+
+	/*
+	 * **Das Entfernen der letzten Zeile lässt den Fokus nicht fallen**, und der
+	 * Prüfschritt hat einen leeren Zustand.
+	 *
+	 * Das `×` zerstört sich beim Drücken selbst; ohne den Griff fiele der Fokus
+	 * auf den Seitenrumpf, und wer vier Zeilen hintereinander entfernen will,
+	 * hangelt sich jedes Mal neu durch die Seite. Derselbe Stolperer, den
+	 * schrittWechseln für den Schrittwechsel schon abfängt.
+	 *
+	 * Und bei null verbliebenen Zeilen sagt ein Satz, wo der Weg hinaus ist —
+	 * sonst stünde dort ein gesperrter Knopf über einer leeren Liste.
+	 */
+	const entfernenTeile = [
+		[
+			'der Nachfolger an derselben Stelle bekommt den Fokus',
+			/const nachfolger = zeilenListe\[stelle\] \?\? zeilenListe\[stelle - 1\];/.test(planCode) &&
+				/document\.getElementById\(`plan-entfernen-\$\{nachfolger\.id\}`\)\?\.focus\(\)/.test(
+					planCode
+				),
+		],
+		[
+			'und die Überschrift, wenn keine Zeile mehr übrig ist',
+			/if \(nachfolger === undefined\) \{\s*titelKasten\?\.focus\(\);/.test(planCode),
+		],
+		[
+			'der leere Zustand nennt den Weg hinaus',
+			/\{#if zeilenListe\.length === 0\}\s*<p class="leer">[^<]*Zurück zum Text[^<]*<\/p>/.test(
+				schrittZwei
+			),
+		],
+		[
+			'und der Zwischentext endet nie in einer Präposition',
+			/if \(zeilenListe\.length === 0\) return 'Keine Aufgabe mehr übrig\.';/.test(planCode) &&
+				/faelligLang === ''\s*\?\s*`\$\{anzahl\}, noch ohne Frist`/.test(planCode),
+		],
+	] as const;
+	pruefen(
+		'das Entfernen lässt den Fokus nicht fallen, und der leere Prüfschritt sagt, wie es weitergeht',
+		fehlendeTeile(entfernenTeile).length === 0,
+		`fehlt: ${fehlendeTeile(entfernenTeile).join(', ')}`
+	);
+
+	/*
+	 * **Die Seite sagt, dass sie JavaScript braucht.**
+	 *
+	 * Die sichere Hälfte der Zusage ist gebaut — `Weiter` ist ein `type="button"`
+	 * ohne Formular, es entsteht **nichts** —, aber /mehr bietet den Eintrag seit
+	 * dieser Story allen an. Ohne diesen Satz tippte jemand vierzig Zeilen und
+	 * drückte einen Knopf, der nichts tut. Das `<noscript>` ist das einzige im
+	 * ganzen Baum; die Behauptung nagelt es an dieser Seite fest.
+	 */
+	const noscriptTeile = [
+		['ein <noscript> auf dieser Seite', /<noscript>/.test(planCode)],
+		['es sagt, dass JavaScript fehlt', /Diese Seite braucht JavaScript\./.test(planCode)],
+		['und nennt den Weg, der ohne geht', /\+ Aufgabe/.test(planCode)],
+	] as const;
+	pruefen(
+		'/monatsplan sagt ohne JavaScript, was gilt und was stattdessen geht',
+		fehlendeTeile(noscriptTeile).length === 0,
+		`fehlt: ${fehlendeTeile(noscriptTeile).join(', ')}`
+	);
+
+	// -----------------------------------------------------------------------
+	// /monatsplan: keine Identität, keine Zuständigkeit
+	// -----------------------------------------------------------------------
+	const planIdentitaet = /\b(locals|mitglied|zustaendig|zuständig)/i;
+	const planIdentitaetFund = [
+		planIdentitaet.exec(planCode)?.[0],
+		planIdentitaet.exec(planServer)?.[0],
+	].filter((treffer) => treffer !== undefined);
+	pruefen(
+		'auf /monatsplan kommt keine Identität vor — ein Monatsplan ist namenlos',
+		planIdentitaetFund.length === 0,
+		`gefunden: ${planIdentitaetFund.join(', ')}`
+	);
+
+	// -----------------------------------------------------------------------
+	// /mehr: der Eintrag gilt allen, und der leere Zustand ist fort
+	// -----------------------------------------------------------------------
+	const mehrCode = kommentarfrei(
+		readFileSync(join(wurzel, 'src', 'routes', 'mehr', '+page.svelte'), 'utf8')
+	);
+	const verwaltungsVon = mehrCode.indexOf('{#if data.istAdmin}');
+	pruefen(
+		'`Monatsplan ablegen` steht auf /mehr vor dem {#if data.istAdmin} und gilt damit allen',
+		verwaltungsVon > 0 &&
+			/<a class="eintrag" href=\{resolve\('\/monatsplan'\)\}>Monatsplan ablegen<\/a>/.test(
+				mehrCode.slice(0, verwaltungsVon)
+			) &&
+			/<a class="eintrag" href=\{resolve\('\/verwaltung'\)\}>Verwaltung<\/a>/.test(
+				mehrCode.slice(verwaltungsVon)
+			),
+		verwaltungsVon < 0 ? 'kein {#if data.istAdmin} gefunden' : mehrCode.slice(0, verwaltungsVon)
+	);
+	/*
+	 * Festgenagelt wird der **leere Zustand**, nicht die Syntax. Eine frühere
+	 * Fassung verbot zusätzlich jeden `{:else}`-Zweig auf /mehr — auch einen, der
+	 * mit dem leeren Zustand nichts zu tun hätte. Eine Behauptung, die mehr
+	 * verbietet, als sie zusagt, wird beim nächsten roten Lauf abgeschwächt statt
+	 * gelesen.
+	 */
+	pruefen(
+		'und `Nichts zu verwalten.` ist fort — die Liste ist nie mehr leer',
+		!/Nichts zu verwalten/.test(mehrCode) && !/class="leer"/.test(mehrCode),
+		mehrCode.slice(verwaltungsVon < 0 ? 0 : verwaltungsVon, 400)
 	);
 } catch (fehler) {
 	/*

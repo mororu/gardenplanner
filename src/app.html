@@ -157,6 +157,16 @@
 				   calc((var(--touch) - var(--task-box)) / -2) zieht das Trefferfeld
 				   über die Zeile hinaus, ohne die Zeilenhöhe aufzublähen. */
 				--task-box: 1.375rem;
+				/* Mindesthöhe des Textfelds der Massen-Eingabe auf /monatsplan
+				   (DESIGN.md, components.textarea-bulk.minHeight): 16em, damit man
+				   beim Schreiben einer Monatsliste nicht in einem Schlitz tippt.
+				   In em und nicht in rem, weil die Höhe an der Schriftgrösse des
+				   Feldes hängen soll und nicht an der der Wurzel — wächst der Text,
+				   wächst das Feld mit. Der Wert steht hier und nicht als 16em in
+				   der Komponente: Gate-Regel 1 liest nur px und rem, ein rohes em
+				   liefe an ihr vorbei, und die nächste Grösse brächte ihre eigene
+				   Zahl mit. Kein Farbwert, also ohne Dunkel-Pendant. */
+				--textarea-bulk-min-height: 16em;
 				/* Eigene Höhe der Navigationsleiste, nicht --touch: die Leiste ist ein
 				   Layoutmass, das der Inhalt unten freihalten muss. 48px, damit jedes
 				   Ziel über dem 44px-Boden liegt. */

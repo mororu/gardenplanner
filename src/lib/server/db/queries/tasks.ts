@@ -36,6 +36,7 @@ import { tasks, type NewTask, type SichtbareAufgabe } from '../schema.ts';
 const sichtbareSpalten = {
 	id: tasks.id,
 	text: tasks.text,
+	dueAt: tasks.dueAt,
 	createdAt: tasks.createdAt,
 } satisfies Record<keyof SichtbareAufgabe, unknown>;
 
@@ -97,6 +98,69 @@ export function aufgabeAnlegen(text: string): NurSichtbar {
 		.values({ text } satisfies NewTask)
 		.returning(sichtbareSpalten)
 		.get();
+}
+
+/**
+ * Legt einen **ganzen Stapel** Aufgaben mit demselben Fälligkeitsdatum an und
+ * gibt die erzeugten Zeilen zurück.
+ *
+ * Das ist der Monatsplan: die planende Person überträgt 20 bis 40 Zeilen in
+ * einem Zug, und alle tragen dasselbe due_at — ein Monatsplan hat **ein**
+ * Fälligkeitsdatum, nicht eines pro Zeile.
+ *
+ * **Ein Aufruf, ein INSERT, keine Transaktion.** `values([…])` erzeugt ein
+ * einziges mehrzeiliges INSERT, und ein einzelnes Statement ist in SQLite von
+ * sich aus atomar: entweder stehen alle Zeilen da oder keine. Eine Transaktion
+ * darum herum umschlösse genau eine Anweisung und wäre eine Zusage, die schon
+ * gilt. Eine Schleife mit einem INSERT je Zeile wäre der Gegenentwurf und
+ * bräuchte die Transaktion dann wirklich — sie ist der teurere Weg zu demselben
+ * Ergebnis.
+ *
+ * **Diese Bauform trägt nur, weil PLAN_HOECHSTZAHL bei 100 steht**, und diese
+ * Kopplung steht sonst nirgends: ein mehrzeiliges INSERT bindet zwei Parameter
+ * je Zeile (text, due_at), bei 100 Zeilen also 200. SQLite lässt je nach Build
+ * 999 oder 32 766 Parameter je Anweisung zu — 200 liegen unter **beiden**
+ * Schranken. Wer die Höchstzahl in ../../../aufgabentext.ts je über 499 hebt,
+ * muss diese Funktion mitanfassen: sie bräuchte dann eine Zerlegung in Blöcke
+ * und damit doch eine Transaktion, weil aus einer Anweisung mehrere würden.
+ *
+ * Die Texte kommen **fertig geprüft** herein: gefaltet, nicht leer, jeder
+ * innerhalb der Längengrenze, und ihre Zahl innerhalb der Höchstzahl. Die
+ * Prüfkette steht in ../../../../routes/monatsplan/+page.server.ts, aus
+ * demselben Grund wie bei aufgabeAnlegen darüber: eine zweite Prüfstelle wäre
+ * eine zweite Wahrheit über dieselbe Regel. Diese Funktion nimmt hin, was sie
+ * bekommt.
+ *
+ * **Eine** Vorbedingung prüft sie trotzdem selbst, und zwar die, deren Bruch
+ * nicht in einer falschen Zeile endete, sondern in ungültigem SQL: `values([])`
+ * erzeugt ein INSERT ohne VALUES-Klausel und wirft. Die Route fängt den leeren
+ * Stapel schon ab, aber nichts verband die zwei Stellen — und ein Wurf aus der
+ * Datenschicht wäre für die aufrufende Person eine Fehlerseite statt eines
+ * Satzes. Ein leerer Stapel legt hier darum nichts an und gibt die leere Liste
+ * zurück: das ist die wahrheitsgemässe Antwort auf „lege keine Zeile an".
+ *
+ * `faelligAm` ist das **Tagesende** in Europe/Zurich in Unix-Sekunden; die
+ * Umrechnung macht tagesendeInUnixSekunden in ../../../zeit.ts, nicht diese
+ * Funktion. Sie steht als **eine** Zahl im Parameter und nicht je Zeile, weil
+ * genau das die Zusage ist, die geprüft werden soll.
+ *
+ * createdAt kommt aus dem Schema ($defaultFn), completedBy und completedAt
+ * bleiben leer: eine neue Aufgabe ist offen und niemandes. `satisfies NewTask[]`
+ * auf den Zeilenobjekten, damit eine später ergänzte Pflichtspalte hier auffällt
+ * statt zur Laufzeit.
+ *
+ * `returning(sichtbareSpalten)` wie jede Funktion dieser Datei — auch hier
+ * verwirft die action den Rückgabewert und wirft den Redirect. Der Grund ist
+ * die Symmetrie: „diese Datei reicht completed_by nie heraus" soll eine
+ * Eigenschaft des Moduls sein und keine Aussage über die heutigen Aufrufer.
+ */
+export function aufgabenStapelAnlegen(texte: string[], faelligAm: number): NurSichtbar[] {
+	if (texte.length === 0) return [];
+	return datenbank()
+		.insert(tasks)
+		.values(texte.map((text) => ({ text, dueAt: faelligAm })) satisfies NewTask[])
+		.returning(sichtbareSpalten)
+		.all();
 }
 
 /**

@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, RequestEvent } from '@sveltejs/kit';
+import { AUFGABE_HOECHSTLAENGE, aufgabentextFalten } from '../../lib/aufgabentext.ts';
 import { aufgabeAnlegen } from '../../lib/server/db/queries/tasks.ts';
 
 /*
@@ -29,77 +30,41 @@ import { aufgabeAnlegen } from '../../lib/server/db/queries/tasks.ts';
 const TEXT_FEHLT = 'Ohne Text entsteht keine Aufgabe. Schreib in einem Satz, was zu tun ist.';
 
 /**
- * Die Längengrenze des Aufgabentexts, serverseitig durchgesetzt.
+ * Der Text für die Überlänge. Eine Wurfstelle.
  *
- * 200 Codepoints: `Tunnel 2 Blattläuse nachbehandeln` braucht 34, und 200 lassen
- * Raum für Ort und Zusatz, ohne dass die Zeile in der Liste zum Absatz wird. Die
- * Grenze ist eine Auslegung von „eine Aufgabe ist ein Satz" und keine
- * Eigenschaft der Daten — darum steht sie hier und nicht als CHECK in einer
- * Migration, die man zum Ändern erst schreiben müsste. Das `maxlength` am Feld
- * ist die Bequemlichkeit, diese Konstante die Regel: ein POST braucht kein Feld.
+ * Die Grenze selbst steht nicht mehr hier, sondern als AUFGABE_HOECHSTLAENGE in
+ * ../../lib/aufgabentext.ts. Der Kommentar an dieser Stelle begründete die
+ * lokale Konstante bis Story 2.1 mit „genau eine Wurfstelle"; seit /monatsplan
+ * dieselbe Grenze für jede Zeile seines Stapels wirft, sind es **zwei
+ * Wurfstellen, darum geteilt**. Eine zweite Zahl in der zweiten Route wäre eine
+ * zweite Wahrheit über dieselbe Regel — und der Zähler auf /monatsplan
+ * verspräche eine Zahl, die der Server nicht einlöst.
  *
- * **Die zwei zählen nicht dasselbe, und das ist benannt.** `maxlength` zählt
- * UTF-16-Einheiten, diese Prüfung zählt Codepoints. Ein gültiger Text aus 200
- * Codepoints, in dem ein Emoji steckt, ist im Browser 201 Einheiten und lässt
- * sich im Feld nicht zu Ende tippen — die annehmende Richtung der
- * Codepoint-Zählung ist über das echte Formular also gar nicht erreichbar. Der
- * Weg wäre ein Zähler in JavaScript; er kostet Zustand auf einer Seite, die
- * keinen hat, für einen Fall, den eine Gartenaufgabe kaum erreicht. Angenommen
- * und in README.md unter den benannt akzeptierten Risiken festgehalten.
- *
- * Die Zahl steht zweimal — hier und als Attribut im Markup. Ein Band zwischen
- * beiden zieht scripts/smoke-zugang.ts: es liest diese Konstante aus der Datei
- * und hält das `maxlength` daneben. Ohne das bliebe das Attribut beim nächsten
- * Ändern der Grenze stehen, und niemand merkte es.
- *
- * Als lokale Konstante und nicht in ../../lib/texte.ts, weil es genau eine
- * Wurfstelle gibt — dieselbe Begründung wie bei der 80 für Mitgliedsnamen.
+ * Der Satz bleibt lokal: er nennt ein Feld und ist die Auslegung dieser Seite.
+ * scripts/smoke-zugang.ts hält das `maxlength` im Markup gegen die Konstante im
+ * geteilten Modul.
  */
-const TEXT_HOECHSTLAENGE = 200;
-
-/** Der Text für die Überlänge. Eine Wurfstelle. */
-const TEXT_ZU_LANG = `Das ist zu lang für eine Aufgabe. Höchstens ${TEXT_HOECHSTLAENGE} Zeichen.`;
-
-/**
- * Nullbreiten-Zeichen. Sie sind unsichtbar, haben keine Breite und `trim()`
- * hält sie **nicht** für Leerraum.
- *
- * Ohne dieses Aussieben besteht ein Aufgabentext aus reinen Nullbreiten-Zeichen
- * jede Prüfung und legt eine Zeile an, die im Pool als leere Zeile mit einem
- * Kästchen daneben erscheint — ohne Aussage, was zu tun ist, und ohne
- * Bearbeiten-Aktion, die sie richtigstellen könnte. Abhaken ist dann das
- * Einzige, was bleibt.
- *
- * Wortgleich mit NULLBREITE in ../verwaltung/+page.server.ts, und die
- * Verdopplung ist billiger als eine gemeinsame Stelle: es ist eine Zeile ohne
- * Domänenwissen, und ein geteiltes Modul dafür hiesse, dass eine Änderung an der
- * einen Seite still die andere trifft.
- *
- * U+200B ZERO WIDTH SPACE, U+200C ZERO WIDTH NON-JOINER,
- * U+200D ZERO WIDTH JOINER, U+2060 WORD JOINER, U+FEFF ZERO WIDTH NO-BREAK
- * SPACE (die Form, in der eine Byte-Order-Mark beim Einfügen aus einer Datei
- * mitkommt).
- */
-const NULLBREITE = /[\u200B-\u200D\u2060\uFEFF]/g;
+const TEXT_ZU_LANG = `Das ist zu lang für eine Aufgabe. Höchstens ${AUFGABE_HOECHSTLAENGE} Zeichen.`;
 
 /**
  * Der Aufgabentext, wie er in die Datenbank geht — oder null, wenn er nicht
  * taugt.
  *
- * Dieselbe Kette und dieselbe Reihenfolge wie namePruefen in
- * ../verwaltung/+page.server.ts, mit Absicht: erst die Nullbreiten-Zeichen weg,
- * dann Leerraum zusammenziehen, dann trimmen. Umgekehrt bliebe `\u200B \u200B` nach
- * dem Trimmen ein nichtleerer „Text".
- *
+ * Gefaltet wird in aufgabentextFalten in ../../lib/aufgabentext.ts: erst die
+ * Nullbreiten-Zeichen weg, dann Leerraum zusammenziehen, dann trimmen.
  * Gespeichert wird die **gefaltete** Fassung: `  Beet   25   jäten  ` wird zu
  * `Beet 25 jäten`.
+ *
+ * Was hier bleibt, ist die **Deutung**: leer und zu lang ergeben die zwei Sätze
+ * dieser Seite. Auf /monatsplan macht dieselbe Faltung andere Sätze — dort geht
+ * es um die Zahl der zu langen Zeilen eines Stapels, nicht um das eine Feld.
  */
 function textPruefen(eingabe: string): { text: string } | { fehler: string } {
-	const text = eingabe.replace(NULLBREITE, '').replace(/\s+/g, ' ').trim();
+	const text = aufgabentextFalten(eingabe);
 	if (text === '') return { fehler: TEXT_FEHLT };
 	// Nach Codepoints gezählt, nicht nach UTF-16-Einheiten: ein Emoji im Text
 	// ist kein zweites Zeichen. [...text] zerlegt in Codepoints.
-	if ([...text].length > TEXT_HOECHSTLAENGE) return { fehler: TEXT_ZU_LANG };
+	if ([...text].length > AUFGABE_HOECHSTLAENGE) return { fehler: TEXT_ZU_LANG };
 	return { text };
 }
 
@@ -132,13 +97,19 @@ export const actions = {
 	/**
 	 * Legt eine Aufgabe ab und leitet auf die Liste zurück.
 	 *
-	 * **Ohne Zuständigen, ohne Frist.** Es gibt keine Spalte dafür und es soll
-	 * keine geben; wer im Beet steht, tippt einen Satz und ist fertig.
+	 * **Ohne Zuständigen, ohne Frist.** Für einen Zuständigen gibt es keine Spalte
+	 * und es soll keine geben (AD-2, AD-5). Für eine Frist gibt es seit Story 2.1
+	 * eine — `due_at`, gesetzt vom Monatsplan für den ganzen Stapel —, und diese
+	 * action lässt sie ausdrücklich **leer**: wer im Beet steht, tippt einen Satz
+	 * und ist fertig, und diese Seite bekommt darum kein Datumsfeld. Genau die
+	 * Lücke fängt Story 2.2 mit COALESCE(due_at, created_at) ab.
 	 *
 	 * Die Meldung reist als **Query-Parameter** über die Weiterleitung: ein
 	 * redirect() verwirft den Rückgabewert der action, und die Bestätigung
-	 * braucht einen Träger. `?abgelegt` ist ein Wahrheitswert ohne Satz — den
-	 * Satz setzt die Oberfläche auf /. Der Preis ist benannt und abgenommen: die
+	 * braucht einen Träger. `?abgelegt` steht ohne Wert und ohne Satz — die load
+	 * von / liest daraus die Zahl 1 (seit Story 2.1 trägt der Parameter eine
+	 * Zahl, weil /monatsplan einen ganzen Stapel meldet), und den Satz
+	 * `Abgelegt.` setzt die Oberfläche. Der Preis ist benannt und abgenommen: die
 	 * Adresse trägt den Parameter sichtbar, ein Neuladen wiederholt die Meldung,
 	 * und wer die Adresse von Hand eintippt, sieht sie auch. Ein Flash-Cookie
 	 * wäre der Gegenentwurf und führte ein zweites Cookie neben dem

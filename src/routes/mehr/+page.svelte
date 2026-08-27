@@ -10,25 +10,37 @@
 </svelte:head>
 
 <!--
-	Mehr — die seltenen Handlungen. In diesem Stand steht darunter genau ein
-	Eintrag, und nur für Adminpersonen.
+	Mehr — die seltenen Handlungen. Seit Story 2.1 steht darunter **immer**
+	mindestens ein Eintrag: `Monatsplan ablegen` gilt allen, denn die planende
+	Person wechselt monatlich und ist nicht die Adminperson. `Verwaltung` kommt
+	für Adminpersonen darunter.
+
+	Damit ist die Liste nie mehr leer, und der frühere {:else}-Zweig mit
+	`Nichts zu verwalten.` ist weggefallen — ein toter Zweig, der beim nächsten
+	Lesen erklärt werden müsste.
 -->
 <div class="seite">
 	<h1 class="seitentitel">Mehr</h1>
 	<p class="angemeldet">Angemeldet als {data.name}</p>
 
-	{#if data.istAdmin}
-		<ul class="eintraege">
+	<ul class="eintraege">
+		<li>
+			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+			<a class="eintrag" href={resolve('/monatsplan')}>Monatsplan ablegen</a>
+		</li>
+		{#if data.istAdmin}
 			<li>
-				<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+				<!--
+					Für Nicht-Admins fehlt dieser Eintrag **ganz**: kein ausgegrauter
+					Punkt, keine Erklärung, warum er nicht anklickbar ist. Für jemanden
+					ohne Adminrechte soll die Verwaltung nicht existieren, nicht verboten
+					sein — und `Monatsplan ablegen` darüber verrät nicht, dass es mehr
+					gäbe.
+				-->
 				<a class="eintrag" href={resolve('/verwaltung')}>Verwaltung</a>
 			</li>
-		</ul>
-	{:else}
-		<!-- Leerer Zustand im Ton von `Nichts offen.`: er sagt, was gilt, und
-		     verrät nicht, dass es woanders mehr gäbe. -->
-		<p class="leer">Nichts zu verwalten.</p>
-	{/if}
+		{/if}
+	</ul>
 </div>
 
 <style>
@@ -59,6 +71,10 @@
 	}
 
 	.eintraege {
+		display: flex;
+		flex-direction: column;
+		/* Abstand zwischen Geschwistern über gap, nie über Aussenabstände */
+		gap: var(--space-2);
 		margin: 0;
 		padding: 0;
 		list-style: none;
@@ -83,14 +99,5 @@
 		font-weight: var(--action-weight);
 		line-height: var(--action-line);
 		text-decoration: none;
-	}
-
-	.leer {
-		margin: 0;
-		color: var(--ink-secondary);
-		font-family: var(--body-font);
-		font-size: var(--body-size);
-		font-weight: var(--body-weight);
-		line-height: var(--body-line);
 	}
 </style>

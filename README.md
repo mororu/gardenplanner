@@ -4,14 +4,16 @@ Aufgabenliste für einen Gemeinschaftsgarten: rund zwanzig Gärtner\*innen sehen
 dem Handy, was offen ist, und haken mit einem Griff ab. Serverseitig gerenderter
 SvelteKit-Monolith, eine SQLite-Datei, nur online.
 
-Dieser Stand ist Story 1.6: Betrieb und Deployment. Es gibt
+Dieser Stand ist Story 2.1: Monatsplan in einem Zug ablegen. Es gibt
 Titelleiste, Navigationsleiste, das PWA-Manifest, die SQLite-Datenschicht mit
-`members` und `tasks`, den einzigen Zugangsweg (`GET /i/<token>` löst die
-Einladung ein, ein Wächter lässt ohne gültige Sitzung niemanden weiter), die
-Verwaltung unter `/verwaltung`, auf `/` die ganze Schleife (die offenen
-Aufgaben, abgehakt mit einem Griff, und unter dem Pool der Knopf `+ Aufgabe`,
-der auf `/aufgabe` führt) — und den Compose-Stapel, der das alles auf einen
-Server bringt: siehe [Betrieb und Runbook](#betrieb-und-runbook).
+`members` und `tasks` (letztere seit dieser Story mit `due_at`), den einzigen
+Zugangsweg (`GET /i/<token>` löst die Einladung ein, ein Wächter lässt ohne
+gültige Sitzung niemanden weiter), die Verwaltung unter `/verwaltung`, auf `/`
+die ganze Schleife (die offenen Aufgaben, abgehakt mit einem Griff, und unter
+dem Pool der Knopf `+ Aufgabe`, der auf `/aufgabe` führt), unter `/mehr` den
+Einstieg zu `/monatsplan`, wo die planende Person ihren ganzen Monatsplan in
+einem Zug ablegt — und den Compose-Stapel, der das alles auf einen Server
+bringt: siehe [Betrieb und Runbook](#betrieb-und-runbook).
 
 Das Projekt ist an npm gebunden: `npm run db:generate` ruft
 `node_modules/drizzle-kit/bin.cjs` über einen festen Pfad, und der setzt npms
@@ -1008,6 +1010,98 @@ Zusagen hängen an genau einer Textstelle:
 - **der fokussierende `$effect`** hängt an demselben Wahrheitswert, prüft das
   gebundene Element, **bevor** er das Einmal-Flag verbraucht, und holt den Fokus.
 
+Seit Story 2.1 kommt `src/routes/monatsplan/+page.server.ts` dazu — die `load`
+und die eine action `ablegen`, ebenfalls mit einem Ereignis **ohne**
+`locals.mitglied`. Belegt sind dort: `/monatsplan` ohne Cookie endet am Wächter
+mit `403` (es gibt keine zentrale Liste geschützter Pfade, jede Route bringt
+ihre eigene Zeile mit); die `load` gibt **genau ein** Feld, und die Vorgabe ist
+der letzte Tag des laufenden Monats als `JJJJ-MM-TT`, unabhängig nachgerechnet
+statt über dieselbe Funktion; ein Stapel aus drei Zeilen — eingefügt mit
+Leerraum, Leerzeilen, einer Zeile aus reinen Nullbreiten-Zeichen und einem
+Nullbreiten-Zeichen mitten im Wort — legt genau drei Zeilen mit **gefalteten**
+Texten und **einem** gemeinsamen `due_at` an, das auf dem Tagesende in
+Europe/Zurich liegt und nicht auf Mitternacht UTC, mit leeren Erledigt-Spalten
+und einem `created_at` aus dem Schema, und leitet mit `303` auf `/?abgelegt=3`;
+die `load` von `/` reicht `due_at` heraus, ohne dabei eine `completed`-Spalte
+mitzunehmen; zwölf Eingaben ergeben `400` **am richtigen Feld** und lassen die
+Zeilenzahl unverändert (fehlende, leere, nur aus Leerraum oder Nullbreiten
+bestehende Zeilen, ein fehlendes Feld, ein Blob statt eines Strings — und für
+das Datum: fehlend, leer, `30.09.2026`, das unmögliche `2026-02-31`, ein Blob),
+wobei alle fünf Datums-Abweisungen denselben Satz tragen; zwei Zeilen zu 201
+Codepoints weisen den **ganzen** Stapel ab und der Satz nennt die Zahl der zu
+langen Zeilen und die Grenze; 101 Zeilen ergeben `400` mit der `100` im Satz;
+genau 200 Codepoints je Zeile und genau 100 Zeilen gehen durch; eine einzelne
+Zeile leitet auf `/?abgelegt=1`; zwei wortgleiche Zeilen ergeben zwei Aufgaben;
+und `/aufgabe` leitet unverändert auf das bare `/?abgelegt` und legt weiterhin
+eine Zeile **ohne** Frist an. Dazu prüft `smoke` den Parameter selbst: `?abgelegt`
+ohne Wert ergibt `1`, `?abgelegt=22` ergibt `22`, und ein Wort, eine Null, eine
+negative Zahl oder eine Kommazahl fallen auf `1` zurück.
+
+Die Zahl unter dem Textfeld ist **ausgeführt** belegt und nicht nur textlich:
+`zeilenErkennen` kommt als Wert in das Skript, und 27 Zeilen — davon eine ganz
+leere, eine aus Leerraum und eine aus einem Nullbreiten-Zeichen — ergeben 24.
+Die drei leeren Zeilen sind absichtlich verschieden leer: mit nur einer ganz
+leeren bliebe die Behauptung grün, wenn die Faltung aus `zeilenErkennen` fiele.
+Das ist die eine Zahl, die ein Akzeptanzkriterium wörtlich nennt; die
+Textprüfung daneben sagt nur, dass Zähler und action dieselbe Funktion rufen,
+nicht was sie zählt.
+
+Zwei Behauptungen fahren `aufgabenStapelAnlegen` **direkt** aus der
+Repository-Schicht: ein leerer Stapel gibt die leere Liste zurück und legt nichts
+an. Die action erreicht diesen Zweig nie — sie fängt den leeren Stapel schon ab —,
+und genau darum hing die Wache an nichts; ohne sie bricht die Prüfliste heute mit
+einem benannten Wurf ab (`values() must be called with at least one value`).
+Gate-Regel 9 verbietet den direkten Zugriff nur unter `src/routes/`.
+
+`src/lib/zeit.ts` ist ausserdem **ausgeführt** gedeckt, und das ist keine
+Zierde: ersetzt man die zweistufige Versatzrechnung durch ein hartes
+`annahme - 7200`, bleibt jede andere Behauptung grün — jedes sonst gefahrene
+Datum liegt in der Sommerzeit, und `/monatsplan` wiese erst zwischen Ende
+Oktober und Ende März jeden Plan mit `400` ab. Gefahren werden darum beide
+Zonen, **beide** Umstellungstage, ein Schalttag und die Gegenprobe
+(`2027-02-29` → `null`), jeweils gegen unabhängig gerechnete
+`Date.UTC(…)`-Werte; `monatsendeAlsFeldwert` läuft an **festen**
+Bezugszeitpunkten, darunter dem, an dem Zone und UTC in verschiedenen Monaten
+stehen (31. August 2026, 22:30 UTC → `2026-09-30`). Die Behauptung über die
+Vorbelegung misst zusätzlich **vor und nach** der `load` und lässt beide Werte
+gelten — sonst wäre sie am letzten Tag eines Monats um 23:59:59 zufällig rot.
+
+Achtzehn weitere **Textprüfungen** decken die Browserseite von `/monatsplan` und
+`/mehr`, aus
+demselben Grund wie die auf `/aufgabe` und `/`: je Schritt genau ein
+`button-primary` (über die ganze Datei gezählt wären es zwei, und eine reine
+Zählung liesse zwei Knöpfe in **einem** Schritt durchgehen — geschnitten wird
+darum am `{:else}`); die Verdrahtung des Formulars mit literalem
+`action="?/ablegen"`, `use:enhance` und den zwei versteckten Feldern
+`faelligBis` und `zeilen`; die Never-Zusagen (kein `placeholder`, zwei sichtbare
+Beschriftungen, genau ein `<textarea>`, kein Eingabefeld je Zeile, kein Anker,
+kein dynamisches `action={…}`, kein Rot); das `×` ist ein echtes
+`<button type="button">` mit einem Namen aus Zeilentext plus verborgenem
+`, entfernen` und einer eigenen Kennung, an der der Fokusgriff hängt; der Zähler
+ist **keine** Live-Region, liest dieselbe Funktion wie der Server und nennt die
+Höchstzahl, statt nur den Knopf zu sperren; beide Felder sind über
+`aria-describedby` beschrieben — das Textfeld über den Zähler — und markieren
+sich über `aria-invalid`, wenn die Abweisung ihnen gilt; der Fehlersatz **ist**
+eine Live-Region, steht immer im Markup **und wird quittiert**, sobald die
+Person den Schritt wechselt oder eines der Felder anfasst (ohne das stünde ein
+`role="alert"` über längst korrigiertem Inhalt); die Überschrift trägt
+`tabindex="-1"` und `bind:this`, und der Schrittwechsel holt den Fokus; das
+Entfernen der letzten Zeile lässt den Fokus **nicht** fallen, sondern gibt ihn an
+das nachgerückte `×` oder an die Überschrift, unter der dann der leere Zustand
+mit dem Weg hinaus steht; die Doppelsperre ist vollständig samt `try/finally`;
+`Weiter` steht ausserhalb jedes Formulars und sperrt aus **allen drei** Gründen
+(keine Zeile, mehr als `PLAN_HOECHSTZAHL`, kein brauchbares Datum); ein
+`<noscript>` sagt, dass die Seite JavaScript braucht und was stattdessen geht;
+der primäre Knopf des Prüfschritts
+sperrt zusätzlich bei **null** verbliebenen Zeilen (die Doppelsperre-Behauptung
+liest nur `disabled={imFlug` und bliebe grün, wenn der zweite Teil fiele — der
+Knopf böte dann `0 Aufgaben ablegen` an); `Zurück zum Text` lässt den Text
+stehen und bringt die entfernten Zeilen zurück, getragen von zwei Stellen
+zugleich (`zurueck` wechselt nur den Schritt, `weiter` baut die Prüfliste jedes
+Mal neu aus dem Textfeld); auf der ganzen Seite kommt keine
+Identität vor; und auf `/mehr` steht `Monatsplan ablegen` **vor** dem
+`{#if data.istAdmin}` — `Nichts zu verwalten.` ist fort.
+
 Die geprüften Ausschnitte werden vorher auf einfache Leerzeichen geglättet und
 der `$effect` wird am Bezeichner `fokusGeholt` gesucht statt an seiner Position:
 ein reiner Formatierungslauf von Prettier oder ein zweiter Effekt darf die
@@ -1055,31 +1149,49 @@ Der Grund für all das ist gemessen. Die Tabelle nennt nur Mutationen, die
 **vorher grün** blieben — eine Mutation, die schon vorher rot war, beweist nichts
 über die Prüfung, die dazukam:
 
-| Mutation                                                        | War grün bis | Wird heute rot in                          |
-| --------------------------------------------------------------- | ------------ | ------------------------------------------ |
-| `\|\| !mitglied.isActive` aus der **Einlöseroute** entfernt     | Iteration 2  | widerrufenes gespeichertes Token           |
-| `httpOnly: true` aus den Cookie-Optionen entfernt               | Iteration 2  | drei Cookie-Attribut-Behauptungen          |
-| Wächter schlägt jedes Mitglied nur einmal pro Prozess nach      | Iteration 2  | Widerruf einer lebenden Sitzung            |
-| `secure: false` in den Cookie-Optionen                          | Iteration 3  | drei Cookie-Attribut-Behauptungen          |
-| die beiden Konstanten in `handleError` getauscht                | Iteration 3  | zwei `handleError`-Behauptungen            |
-| ein Aufruf in `startPruefen` in ein schluckendes `catch`        | Iteration 3  | `startPruefen` und der `init`-Unterprozess |
-| `setHeaders` an **einer** der beiden 403-Wurfstellen            | Iteration 3  | Kopfzeilen-Behauptung und beide Abdrücke   |
-| `?? './data/dev.sqlite'` statt Fail-Fast in `drizzle.config.ts` | Iteration 3  | `db:check`, Prüfung Fail-Fast              |
-| ein Befund in `db:check` zur Warnung gemacht                    | Iteration 3  | `db:check:selftest`, zwei von drei Proben  |
-| Zeilenkommentare wieder in **jeder** Datei ausgeblendet         | Iteration 3  | `gate:selftest`, Probe `regel-1b`          |
-| `invalidateAll: false` aus dem Rückruf auf `/` entfernt         | Story 1.4    | die Textprüfung an `+page.svelte`          |
-| ein `<label>` um den Aufgabentext                               | Story 1.4    | die Textprüfung an `+page.svelte`          |
-| `completed_at IS NULL` aus `aufgabeAbhaken` entfernt            | Story 1.4    | zweites `abhaken`, der erste Abhakende     |
-| `completed_by` in die Projektion der offenen Aufgaben           | Story 1.4    | zwei Seitendaten-Behauptungen, `check`     |
-| ein rohes `140ms` in einem Komponenten-`<style>`                | Story 1.4    | `gate`, Regel 1                            |
-| die Längenprüfung aus `ablegen` entfernt                        | Story 1.5    | `smoke`, 201 Codepoints                    |
-| `returning()` statt `returning(sichtbareSpalten)`               | Story 1.5    | `check`, die Annotation `NurSichtbar`      |
-| `action="?/ablegen"` verschrieben                               | Story 1.5    | `gate`, Regel 11                           |
-| `name="text"` am Feld in `name="aufgabentext"` umbenannt        | Story 1.5    | `smoke`, die Verdrahtung des Formulars     |
-| `+ Aufgabe` in den `{:else}`-Zweig geschoben                    | Story 1.5    | `smoke`, die Verortung des Ankers          |
-| `tabindex="-1"` an der Meldungsregion entfernt                  | Story 1.5    | `smoke`, tabindex und bind:this            |
-| `maxlength` am Feld von der Konstante abgekoppelt               | Story 1.5    | `smoke`, das Band zur Längengrenze         |
-| die `load` von `/` liest `locals`                               | Story 1.5    | `smoke`, das werfende Ereignis             |
+| Mutation                                                        | War grün bis | Wird heute rot in                             |
+| --------------------------------------------------------------- | ------------ | --------------------------------------------- |
+| `\|\| !mitglied.isActive` aus der **Einlöseroute** entfernt     | Iteration 2  | widerrufenes gespeichertes Token              |
+| `httpOnly: true` aus den Cookie-Optionen entfernt               | Iteration 2  | drei Cookie-Attribut-Behauptungen             |
+| Wächter schlägt jedes Mitglied nur einmal pro Prozess nach      | Iteration 2  | Widerruf einer lebenden Sitzung               |
+| `secure: false` in den Cookie-Optionen                          | Iteration 3  | drei Cookie-Attribut-Behauptungen             |
+| die beiden Konstanten in `handleError` getauscht                | Iteration 3  | zwei `handleError`-Behauptungen               |
+| ein Aufruf in `startPruefen` in ein schluckendes `catch`        | Iteration 3  | `startPruefen` und der `init`-Unterprozess    |
+| `setHeaders` an **einer** der beiden 403-Wurfstellen            | Iteration 3  | Kopfzeilen-Behauptung und beide Abdrücke      |
+| `?? './data/dev.sqlite'` statt Fail-Fast in `drizzle.config.ts` | Iteration 3  | `db:check`, Prüfung Fail-Fast                 |
+| ein Befund in `db:check` zur Warnung gemacht                    | Iteration 3  | `db:check:selftest`, zwei von drei Proben     |
+| Zeilenkommentare wieder in **jeder** Datei ausgeblendet         | Iteration 3  | `gate:selftest`, Probe `regel-1b`             |
+| `invalidateAll: false` aus dem Rückruf auf `/` entfernt         | Story 1.4    | die Textprüfung an `+page.svelte`             |
+| ein `<label>` um den Aufgabentext                               | Story 1.4    | die Textprüfung an `+page.svelte`             |
+| `completed_at IS NULL` aus `aufgabeAbhaken` entfernt            | Story 1.4    | zweites `abhaken`, der erste Abhakende        |
+| `completed_by` in die Projektion der offenen Aufgaben           | Story 1.4    | zwei Seitendaten-Behauptungen, `check`        |
+| ein rohes `140ms` in einem Komponenten-`<style>`                | Story 1.4    | `gate`, Regel 1                               |
+| die Längenprüfung aus `ablegen` entfernt                        | Story 1.5    | `smoke`, 201 Codepoints                       |
+| `returning()` statt `returning(sichtbareSpalten)`               | Story 1.5    | `check`, die Annotation `NurSichtbar`         |
+| `action="?/ablegen"` verschrieben                               | Story 1.5    | `gate`, Regel 11                              |
+| `name="text"` am Feld in `name="aufgabentext"` umbenannt        | Story 1.5    | `smoke`, die Verdrahtung des Formulars        |
+| `+ Aufgabe` in den `{:else}`-Zweig geschoben                    | Story 1.5    | `smoke`, die Verortung des Ankers             |
+| `tabindex="-1"` an der Meldungsregion entfernt                  | Story 1.5    | `smoke`, tabindex und bind:this               |
+| `maxlength` am Feld von der Konstante abgekoppelt               | Story 1.5    | `smoke`, das Band zur Längengrenze            |
+| die `load` von `/` liest `locals`                               | Story 1.5    | `smoke`, das werfende Ereignis                |
+| `dueAt` aus `sichtbareSpalten` entfernt                         | Story 2.1    | `check`, `satisfies` auf der Spaltenauswahl   |
+| `action="?/ablegen"` auf `/monatsplan` verschrieben             | Story 2.1    | `gate`, Regel 11                              |
+| Tagesende durch Mitternacht UTC ersetzt                         | Story 2.1    | `smoke`, das gemeinsame `due_at`              |
+| `due_at` je Zeile um eins erhöht                                | Story 2.1    | `smoke`, das gemeinsame `due_at`              |
+| die Zeilenlängen-Prüfung aus `ablegen` entfernt                 | Story 2.1    | `smoke`, zwei Zeilen zu 201 Codepoints        |
+| `use:enhance` am Monatsplan-Formular entfernt                   | Story 2.1    | `smoke`, die Verdrahtung des Formulars        |
+| das `×` als `<span role="button">` statt als `<button>`         | Story 2.1    | `smoke`, das × ist ein echter Knopf           |
+| `zeilenListe.length === 0` aus dem Ablegen-Knopf entfernt       | Story 2.1    | `smoke`, der Knopf sperrt bei null Zeilen     |
+| `zurueck` setzt das Textfeld zusätzlich zurück                  | Story 2.1    | `smoke`, `Zurück zum Text`                    |
+| leere Zeilen fallen in `zeilenErkennen` nicht mehr weg          | Story 2.1    | `smoke`, die 24 aus 27 Zeilen                 |
+| die Versatzrechnung in `zeit.ts` durch `annahme - 7200` ersetzt | Story 2.1    | `smoke`, Winterzeit und beide Umstellungstage |
+| `PLAN_HOECHSTZAHL` zurück in die Route statt ins geteilte Modul | Story 2.1    | `check`, der Import in der Komponente         |
+| die Datumssperre aus `weiterGesperrt` entfernt                  | Story 2.1    | `smoke`, `Weiter` sperrt aus drei Gründen     |
+| `quittiert = false` vor dem Versand entfernt                    | Story 2.1    | `smoke`, der Fehlersatz wird quittiert        |
+| der Fokusgriff in `entfernen` entfernt                          | Story 2.1    | `smoke`, das Entfernen lässt den Fokus stehen |
+| das `<noscript>` entfernt                                       | Story 2.1    | `smoke`, /monatsplan sagt es ohne JavaScript  |
+| die Leerheits-Wache aus `aufgabenStapelAnlegen` entfernt        | Story 2.1    | `smoke`, unerwarteter Wurf aus `values([])`   |
+| `aria-describedby` vom Zähler am Textfeld entfernt              | Story 2.1    | `smoke`, beide Felder sind beschrieben        |
 
 `\|\| !mitglied.isActive` aus dem **Wächter** entfernt steht bewusst **nicht** in
 der Tabelle: diese Mutation war schon vor Iteration 2 rot.
@@ -1261,14 +1373,118 @@ genügt.
   Einfügefunktion und nie aus der Route. `completed_by` und `completed_at`
   bleiben leer: eine neue Aufgabe ist offen.
 
+## Den Monatsplan ablegen
+
+`/monatsplan` ist die Massen-Eingabe: die monatlich wechselnde planende Person
+überträgt ihre 20 bis 40 Aufgaben in **einem** Zug in den Pool, statt sie auf
+Papier zu schreiben oder in den Gruppenchat zu stellen. Erreichbar über `/mehr`,
+und ausdrücklich **nicht** über die Navigationsleiste: vier Ziele, und das hier
+tut man einmal im Monat.
+
+Die Messlatte ist eine einzige — wenn das Ablegen mehr Aufwand kostet als die
+Papierliste, tut es die rotierende Person nicht. Deshalb gibt es **ein Textfeld
+für den ganzen Plan und kein Feld pro Aufgabe**, keinen „Zeile hinzufügen"-Knopf
+und keinen Editor pro Zeile.
+
+**Zwei Schritte, eine Route.**
+
+1. **Schreiben.** Oben `Fällig bis`, vorbelegt mit dem Ende des laufenden Monats,
+   darunter ein mehrzeiliges Feld ab `16em` — eine Aufgabe pro Zeile, einfügbar
+   aus einer Notiz oder aus dem Chat. Darunter läuft die Zählung mit
+   (`24 Aufgaben erkannt`); leere Zeilen zählen nicht. Ein Knopf: `Weiter`,
+   gesperrt, solange nichts erkannt ist.
+2. **Prüfen und ablegen.** Die erkannten Zeilen als Liste, jede mit einem `×` zum
+   Entfernen — **kein Bearbeiten pro Zeile**; wer ändern will, geht mit
+   `Zurück zum Text` an die eine Stelle, an der das geht. Der Schritt existiert,
+   weil beim Einfügen aus einem Chat Zeilen mitkommen, die keine Aufgaben sind.
+   Der primäre Knopf trägt Verb und Zahl: `24 Aufgaben ablegen`.
+
+Danach `303` auf `/` mit der Meldung im Perfekt desselben Verbs:
+`22 Aufgaben abgelegt.`
+
+- **Der Prüfschritt ist kein Server-Rundgang.** AD-9 bindet jede Änderung an
+  _Domänendaten_ an eine form action; Schritt 1 → 2 ändert nichts, er zerlegt
+  einen Text, den die Person gerade selbst getippt hat. Ein Rundgang dafür
+  kostete eine Roundtrip-Latenz pro `×`, brauchte eine zweite action oder eine
+  zweite Route, und der Server müsste den Zwischenstand halten. Der Zähler muss
+  ohnehin bei jedem Tastendruck stimmen — damit ist die Zerlegung im Browser
+  gesetzt, und der Prüfschritt bekommt sie geschenkt. Der Server bleibt trotzdem
+  die Instanz: er zerlegt die übergebenen Zeilen mit **derselben** Funktion noch
+  einmal, bevor etwas entsteht.
+- **Was eine Zeile ist, steht genau einmal.** `src/lib/aufgabentext.ts` hält
+  `zeilenErkennen`, `aufgabentextFalten` und die `200` — gelesen vom Zähler im
+  Browser **und** von beiden actions. Zwei Fassungen derselben Regel liefen
+  auseinander, und der Knopf `24 Aufgaben ablegen` legte dann 23 an. Die
+  Faltung ist dieselbe wie auf `/aufgabe`: Nullbreiten-Zeichen weg, `\s+` zu
+  einem Leerzeichen, trimmen, leere Zeilen fallen weg.
+- **Ein `due_at` für den ganzen Stapel**, nicht eines pro Zeile — ein Monatsplan
+  hat ein Fälligkeitsdatum. `Fällig bis` ist **Pflicht**: eine Planaufgabe ohne
+  Frist wäre von einer vor Ort erfassten nicht mehr zu unterscheiden. Die Spalte
+  ist trotzdem nullbar, weil `/aufgabe` keine Frist setzt.
+- **`Fällig bis` bezeichnet das Ende des Tages in Europe/Zurich**, nicht
+  Mitternacht UTC. `Fällig bis 31. August` heisst umgangssprachlich „bis der 31.
+  vorbei ist"; Mitternacht UTC läge in der Sommerzeit zwei Stunden **vor** dem
+  Beginn des gemeinten Tages, und eine am 31. erledigte Aufgabe wäre
+  zwischendurch überfällig gewesen. Die Zone steht genau einmal, in
+  `src/lib/zeit.ts`, und wird von der Formatierung und von der Umrechnung
+  gelesen.
+- **Ein Aufruf, ein INSERT, keine Transaktion.** `aufgabenStapelAnlegen` setzt
+  alle Zeilen in einem mehrzeiligen `INSERT` — ein einzelnes Statement ist in
+  SQLite von sich aus atomar. Eine Schleife mit einem INSERT je Zeile bräuchte
+  die Transaktion dann wirklich; sie ist der teurere Weg zu demselben Ergebnis.
+  Diese Bauform trägt nur, weil `PLAN_HOECHSTZAHL` bei 100 steht: zwei gebundene
+  Parameter je Zeile ergeben 200, und die liegen unter **beiden** Schranken, die
+  SQLite je nach Build zieht (999 oder 32 766). Wer die Höchstzahl über 499 hebt,
+  muss die Funktion mitanfassen — der Docblock dort sagt es. Einen leeren Stapel
+  fängt sie selbst ab: `values([])` wäre ungültiges SQL und eine Fehlerseite
+  statt eines Satzes.
+- **Zwei Grenzen, beide einschliessend, beide auch im Browser.** Höchstens `200`
+  Codepoints je Zeile (dieselbe Zahl wie auf `/aufgabe`) und höchstens `100`
+  Zeilen je Stapel. Ein realer Monatsplan hat 20 bis 40 Aufgaben; die 100 fangen
+  den einen teuren Fall ab, nämlich einen versehentlich eingefügten ganzen
+  Chatverlauf, den keine Löschen-Aktion wieder aufräumte. `PLAN_HOECHSTZAHL`
+  steht darum **neben** `AUFGABE_HOECHSTLAENGE` im geteilten Modul: solange sie
+  allein in der Route lag, sagte der Zähler `500 Aufgaben erkannt`, `Weiter`
+  blieb frei, der Prüfschritt zeigte 500 Zeilen — und erst der POST wies ab. Der
+  Server bleibt die Instanz, der Browser sagt es nur früher.
+- **Eine zu lange Zeile weist den ganzen Stapel ab.** Still zu kürzen erzeugte
+  eine Aufgabe, die niemand so geschrieben hat; still zu überspringen bräche die
+  Zusage, die der Knopf trägt. Der Satz nennt darum die Zahl der zu langen
+  Zeilen, und `Zurück zum Text` führt an die Stelle, an der sich das beheben
+  lässt.
+- **Nichts wird entdoppelt.** Zwei Mal `Tunnel lüften` sind zwei Aufgaben — es
+  gibt zwei Tunnel.
+- **Namenlos wie der Rest des Pools.** Es gibt keine Spalte für einen vorab
+  Zuständigen und keine für einen Erfassenden; die action liest `locals` gar
+  nicht. Die planende Person wechselt monatlich und ist nicht die Adminperson —
+  darum gilt der Eintrag auf `/mehr` allen und hängt an keiner Adminschranke.
+- **`Weiter` sperrt aus drei Gründen, und jeder trägt seinen Satz:** keine Zeile
+  erkannt, mehr Zeilen als erlaubt, kein brauchbares Datum. Ein gesperrter Knopf
+  ohne Satz wäre eine Sackgasse ohne Auskunft. Das `required` am Datumsfeld ist
+  wirkungslos — Schritt 1 ist kein `<form>` —, was trägt, ist die Sperre.
+- **Der Fehlersatz wird quittiert.** Er verschwindet, sobald die Person den
+  Schritt wechselt oder eines der Felder anfasst. Sonst stünde ein
+  `role="alert"` über einem Inhalt, den sie längst korrigiert hat, und der
+  nächste Alarm hätte seine Glaubwürdigkeit verloren.
+- **Der Fokus fällt nie auf den Seitenrumpf.** Das `×` zerstört sich beim
+  Drücken selbst; der Fokus geht an das nachgerückte `×`, bei der letzten Zeile
+  an die Überschrift — und darunter steht dann der leere Zustand mit dem
+  einzigen Weg hinaus, `Zurück zum Text`.
+- **Die Meldung reist als Query-Parameter mit Zahl** (`/?abgelegt=22`). Die
+  `load` von `/` macht daraus eine **Zahl**, die Oberfläche den Satz. Das bare
+  `?abgelegt` von `/aufgabe` bleibt gültig und bedeutet weiterhin `Abgelegt.`
+
 ## Mitglieder aufnehmen und Zugang beenden
 
-Alles Seltene liegt unter `/mehr`. Für eine Adminperson steht dort der Eintrag
-`Verwaltung`; für alle anderen fehlt er **ganz** — kein ausgegrauter Punkt, keine
-Erklärung. Ein Direktaufruf von `/verwaltung` ohne Adminrechte endet mit
-`303` auf `/`, nicht mit einer Fehlerseite: für jemanden ohne Adminrechte soll
-die Verwaltung nicht existieren, nicht verboten sein. Eine Fehlerseite wäre die
-Auskunft, dass es dort etwas gibt.
+Alles Seltene liegt unter `/mehr`. Dort stehen zwei Einträge:
+`Monatsplan ablegen` für **alle** — die planende Person wechselt monatlich und
+ist nicht die Adminperson — und darunter `Verwaltung` nur für eine Adminperson.
+Für alle anderen fehlt der zweite **ganz** — kein ausgegrauter Punkt, keine
+Erklärung, und seit der Monatsplan-Eintrag da ist auch kein leerer Zustand mehr,
+der verriete, dass es woanders mehr gäbe. Ein Direktaufruf von `/verwaltung`
+ohne Adminrechte endet mit `303` auf `/`, nicht mit einer Fehlerseite: für
+jemanden ohne Adminrechte soll die Verwaltung nicht existieren, nicht verboten
+sein. Eine Fehlerseite wäre die Auskunft, dass es dort etwas gibt.
 
 Die Schranke sitzt in **einer** Funktion (`src/lib/server/adminschranke.ts`) und
 greift in der `load` **und** in jeder der drei form actions. Eine action ohne
@@ -1402,7 +1618,8 @@ nodelay`); im Anwendungscode gibt es bewusst keine. Siehe
   Satz dann erst beim Durchgehen der Seite. Angenommen: die sichtbare Bestätigung
   bleibt, und die Anwendung ist ohnehin nur online.
 - **Das `maxlength` am Erfassen-Feld zählt anders als die Prüfung dahinter.**
-  `maxlength="200"` zählt UTF-16-Einheiten, `textPruefen` zählt Codepoints. Ein
+  `maxlength="200"` zählt UTF-16-Einheiten, `AUFGABE_HOECHSTLAENGE` zählt
+  Codepoints — auf `/aufgabe` wie auf `/monatsplan`. Ein
   gültiger Text aus 200 Codepoints, in dem ein Emoji steckt, ist im Browser 201
   Einheiten und lässt sich im Feld nicht zu Ende tippen — die **annehmende**
   Richtung der Codepoint-Zählung ist über das echte Formular also gar nicht
@@ -1419,6 +1636,20 @@ nodelay`); im Anwendungscode gibt es bewusst keine. Siehe
   sind; zwei Personen, die am selben Tag `Tunnel lüften` erfassen, meinen unter
   Umständen zwei verschiedene Tunnel. Angenommen: die Anwendung ist ohnehin nur
   online, und der Regelweg trägt die Sperre.
+- **`/monatsplan` braucht JavaScript.** Der mitlaufende Zähler ist eine Zusage
+  der Akzeptanzkriterien, und eine mitlaufende Zahl gibt es ohne JavaScript
+  nicht. Die Ausfallrichtung ist die richtige: ohne JavaScript ist `Weiter` ein
+  `type="button"` ohne Wirkung, es entsteht **nichts**, und die Person merkt es
+  sofort — anders als bei einer stillen Teil-Anlage. Der Weg über `/aufgabe`,
+  der vollständig ohne JavaScript funktioniert, bleibt daneben offen.
+  Angenommen: die Anwendung ist ohnehin nur online.
+- **Ein abgelegter Stapel lässt sich nicht rückgängig machen.** Es gibt keine
+  Löschen-Aktion und kein „Stapel zurücknehmen"; wer versehentlich einen ganzen
+  Chatverlauf einfügt und ablegt, hakt die Zeilen einzeln ab. Der Prüfschritt
+  mit dem `×` ist der Ort, an dem das aufzufangen ist, und die Höchstzahl von
+  `100` Zeilen die Notbremse dahinter. Eine Rücknahme bräuchte eine Kennung des
+  Stapels in `tasks` — eine Spalte, die es nicht gibt und die nichts anderes
+  brauchte. Angenommen.
 - **Jedes Mitglied kann jede erledigte Aufgabe wieder öffnen** — auch eine
   fremde und eine alte. Es gibt keine Zeitschranke, keine Bindung an die
   abhakende Person und kein Protokoll darüber, wer geöffnet hat. Der Grund ist
@@ -1432,10 +1663,13 @@ nodelay`); im Anwendungscode gibt es bewusst keine. Siehe
 - **Eine Aufgabe bearbeiten oder löschen gibt es nicht.** Ein Tippfehler im
   Aufgabentext bleibt stehen; abhaken ist das Einzige, was bleibt. In keiner
   Story von Epic 1 vorgesehen.
-- Eine Massen-Eingabe (mehrere Aufgaben auf einmal, mehrzeiliges Feld):
-  **Epic 2**. `/aufgabe` legt genau eine Zeile je Versand an.
-- Fristen und Überfälligkeit (`due_at`, `seit N Wochen offen`): **Epic 2**. Die
-  Spalte gibt es nicht, und `--overdue` ist ein noch unbenutztes Token.
+- Die **Kennzeichnung** überfälliger Aufgaben (`seit N Wochen offen`):
+  **Story 2.2**. Die Spalte `due_at` gibt es seit Story 2.1 und sie steht in den
+  Seitendaten von `/`, aber gerechnet wird noch nichts, die Liste sieht
+  unverändert aus, und `--overdue` ist ein noch unbenutztes Token.
+- Eine Aufgabe **nachträglich** mit einer Frist versehen gibt es nicht: `due_at`
+  entsteht beim Ablegen des Stapels und sonst nirgends. `/aufgabe` bekommt kein
+  Datumsfeld.
 - Diensthinweis und freie Einzelaufgaben, also Block 1 und 2 auf `/`: **Epic 3**.
   Die Reihenfolge ist angelegt, die Blöcke rendern nichts.
 - Es gibt bewusst keinen Service Worker: `static/manifest.webmanifest` und die

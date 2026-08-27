@@ -49,9 +49,19 @@
 	 * jüngere ist: wer nach dem Ablegen abhakt, liest `Abgehakt. …` und nicht
 	 * mehr die Bestätigung des Ablegens — die Adresse trägt `?abgelegt` dann zwar
 	 * noch, aber sie beschreibt nicht mehr das Letzte, was geschehen ist.
+	 *
+	 * `data.abgelegt` ist seit Story 2.1 eine **Zahl oder null** und kein
+	 * Wahrheitswert mehr: /aufgabe legt eine Zeile ab und schickt das bare
+	 * `?abgelegt`, das die load als 1 liest; /monatsplan legt einen Stapel ab und
+	 * schickt `?abgelegt=22`. Der Satz entsteht hier und nicht dort — die eine
+	 * Zeile bleibt `Abgelegt.`, weil `1 Aufgabe abgelegt.` neben einem Griff, der
+	 * genau eine Aufgabe erfasst, wie eine Zählung klänge.
 	 */
 	const rueckmeldung = $derived.by(() => {
-		if (form === null) return data.abgelegt ? 'Abgelegt.' : '';
+		if (form === null) {
+			if (data.abgelegt === null) return '';
+			return data.abgelegt === 1 ? 'Abgelegt.' : `${data.abgelegt} Aufgaben abgelegt.`;
+		}
 		if (form.art === 'abgehakt' || form.art === 'wiederGeoeffnet') {
 			return `${form.meldung} ${form.text}`;
 		}
@@ -83,13 +93,18 @@
 	 * treffen. `form !== null` ist genau diese Grenze — nach einem Versand ist
 	 * die Eigenschaft gesetzt, beim Ankommen ist sie null.
 	 *
+	 * `data.abgelegt === null` und nicht `!data.abgelegt`: der Wert ist seit
+	 * Story 2.1 eine Zahl, und eine 0 wäre mit der Kurzform ununterscheidbar von
+	 * „kein Parameter". Die load gibt zwar nie 0 — ein unlesbarer Wert fällt dort
+	 * auf 1 —, aber die Bedingung soll nicht von dieser Zusage abhängen.
+	 *
 	 * `meldungKasten === null` steht **vor** dem Setzen des Flags und nicht als
 	 * `?.` danach: ein Durchlauf ohne gebundenes Element verbrauchte sonst das
 	 * Einmal-Flag, der Fokus würde nie geholt, und `Abgelegt.` bliebe stumm —
 	 * ein stiller Ausfall, den niemand sieht.
 	 */
 	$effect(() => {
-		if (fokusGeholt || !data.abgelegt || form !== null || meldungKasten === null) return;
+		if (fokusGeholt || data.abgelegt === null || form !== null || meldungKasten === null) return;
 		fokusGeholt = true;
 		meldungKasten.focus();
 	});

@@ -58,6 +58,21 @@ function idLesen(roh: unknown): number | null {
 }
 
 /**
+ * Die Zahl hinter `?abgelegt`, oder null, wenn der Parameter fehlt.
+ *
+ * Die Deutung steht als eigene Funktion und nicht als Ausdruck in der load,
+ * weil sie drei Fälle hat und jeder eine Begründung trägt — siehe den Docblock
+ * der load darunter.
+ */
+function abgelegtLesen(url: URL): number | null {
+	if (!url.searchParams.has('abgelegt')) return null;
+	const roh = (url.searchParams.get('abgelegt') ?? '').trim();
+	if (!/^[0-9]+$/.test(roh)) return 1;
+	const anzahl = Number(roh);
+	return Number.isSafeInteger(anzahl) && anzahl > 0 ? anzahl : 1;
+}
+
+/**
  * Die offenen Aufgaben, älteste zuerst — und ob gerade etwas abgelegt wurde.
  *
  * Aus dem Ereignis liest die Funktion **allein die Adresse**: weder locals noch
@@ -70,21 +85,33 @@ function idLesen(roh: unknown): number | null {
  * weil das Feld nicht existiert (AD-5).
  *
  * `abgelegt` ist die Meldung, die eine Weiterleitung überlebt hat. Ein
- * redirect() aus einer form action verwirft deren Rückgabewert; /aufgabe legt
- * die Bestätigung darum als Query-Parameter in die Adresse (`/?abgelegt`), und
- * diese load macht daraus einen **Wahrheitswert, keinen Satz**. Der Satz gehört
- * zur Oberfläche, und eine spätere Massen-Eingabe kann den Parameter mit einer
- * Zahl belegen, ohne die Form dieses Feldes zu ändern.
+ * redirect() aus einer form action verwirft deren Rückgabewert; /aufgabe und
+ * /monatsplan legen die Bestätigung darum als Query-Parameter in die Adresse,
+ * und diese load macht daraus eine **Zahl, keinen Satz**. Der Satz gehört zur
+ * Oberfläche: sie macht aus der 1 `Abgelegt.` und aus jeder grösseren Zahl
+ * `N Aufgaben abgelegt.`
  *
- * Der Preis ist benannt und abgenommen: die Adresse trägt `?abgelegt` sichtbar,
- * ein Neuladen wiederholt die Meldung, und wer die Adresse von Hand eintippt,
- * sieht sie auch. Eine Bestätigung ohne Folgen verträgt das.
+ * Drei Fälle, und keiner davon ist ein Fehlschlag:
+ *
+ *   - kein Parameter                        → null, es wurde nichts abgelegt;
+ *   - `?abgelegt` ohne Wert                 → 1, die Form, die /aufgabe seit
+ *     Story 1.5 schickt und die gültig bleibt;
+ *   - `?abgelegt=22` mit positiver Ganzzahl → 22, der Stapel aus /monatsplan.
+ *
+ * Ein unlesbarer Wert (`?abgelegt=viele`, `?abgelegt=-3`, `?abgelegt=0`) fällt
+ * auf dieselbe 1 wie der bare Parameter. Das ist Absicht: die Adresse ist von
+ * Hand veränderbar, die Meldung hat keine Folgen, und eine Fehlerseite für eine
+ * verunstaltete Bestätigung wäre lauter als der Anlass.
+ *
+ * Der Preis ist benannt und abgenommen: die Adresse trägt den Parameter
+ * sichtbar, ein Neuladen wiederholt die Meldung, und wer die Adresse von Hand
+ * eintippt, sieht sie auch. Eine Bestätigung ohne Folgen verträgt das.
  */
 export function load({ url }: ServerLoadEvent): {
 	aufgaben: SichtbareAufgabe[];
-	abgelegt: boolean;
+	abgelegt: number | null;
 } {
-	return { aufgaben: offeneAufgabenAuflisten(), abgelegt: url.searchParams.has('abgelegt') };
+	return { aufgaben: offeneAufgabenAuflisten(), abgelegt: abgelegtLesen(url) };
 }
 
 export const actions = {

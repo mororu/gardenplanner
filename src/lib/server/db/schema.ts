@@ -9,9 +9,9 @@ import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
  * Date-Objekte.
  *
  * In diesem Stand gibt es zwei Tabellen: members aus Story 1.2 und tasks aus
- * Story 1.4. duty_weeks und signup_tasks kommen mit Epic 3. Drei getrennte
- * Tabellen ohne gemeinsame Zuständigkeitsspalte, keine Basistabelle und keine
- * Typspalte darüber (AD-3).
+ * Story 1.4, letztere seit Story 2.1 um due_at erweitert. duty_weeks und
+ * signup_tasks kommen mit Epic 3. Drei getrennte Tabellen ohne gemeinsame
+ * Zuständigkeitsspalte, keine Basistabelle und keine Typspalte darüber (AD-3).
  */
 export const members = sqliteTable('members', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
@@ -92,8 +92,11 @@ export function ohneTokenHash(mitglied: Member): AngemeldetesMitglied {
  * dem Pool seinen Zweck. Wer eine Zuständigkeit braucht, baut sie in
  * signup_tasks (Epic 3), nicht hier.
  *
- * Ebenfalls nicht hier: due_at und jede Frist- oder Überfälligkeitslogik. Das
- * ist Epic 2, das diese Tabelle ausdrücklich noch einmal anfasst.
+ * due_at steht seit Story 2.1 hier — der Monatsplan setzt es einmal für den
+ * ganzen Stapel. Eine Überfälligkeits**spalte** gibt es weiterhin nicht und
+ * soll es nicht geben: Story 2.2 rechnet die Überfälligkeit zur Anzeigezeit aus
+ * COALESCE(due_at, created_at), ohne Cron und ohne Hintergrundjob. Zwei
+ * Wahrheiten liefen auseinander, sobald ein Job einmal nicht läuft.
  */
 export const tasks = sqliteTable('tasks', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
@@ -127,6 +130,28 @@ export const tasks = sqliteTable('tasks', {
 	 * Abhaken, und dort setzt ihn aufgabeAbhaken.
 	 */
 	completedAt: integer('completed_at'),
+	/*
+	 * Bis wann die Aufgabe erledigt sein soll, in Unix-Sekunden — und zwar auf
+	 * dem **Ende** des gewählten Tages in Europe/Zurich (src/lib/zeit.ts), nicht
+	 * auf Mitternacht UTC: `Fällig bis 31. August` heisst umgangssprachlich „bis
+	 * der 31. vorbei ist".
+	 *
+	 * Gesetzt vom Monatsplan, und zwar **einmal für den ganzen Stapel** — ein
+	 * Monatsplan hat ein Fälligkeitsdatum, nicht eines pro Zeile.
+	 *
+	 * nullable und ohne $defaultFn, weil eine vor Ort über /aufgabe erfasste
+	 * Aufgabe keine Frist hat: sie entsteht nicht beim Anlegen, sondern kommt vom
+	 * Stapel. Genau diese Lücke fängt Story 2.2 mit COALESCE(due_at, created_at)
+	 * ab — die Frist zählt ab Fälligkeit, ersatzweise ab Anlage.
+	 *
+	 * **Kein Index**, und das ist eine Entscheidung und keine Auslassung: Story
+	 * 2.2 rechnet die Überfälligkeit über COALESCE, worauf ein Index auf einer
+	 * der beiden Spalten ohnehin nicht griffe, und die Liste ist ein voller
+	 * Durchlauf ohne Blättern. Zwanzig Leute und eine Handvoll Aufgaben je Woche
+	 * ergeben eine Tabelle, die auf Jahre in eine Speicherseite passt; ein Index
+	 * kostete dort mehr Schreibarbeit, als er an Lesearbeit spart.
+	 */
+	dueAt: integer('due_at'),
 	/*
 	 * Wie bei members über $defaultFn im Schema und nicht in der
 	 * Einfügefunktion. Zugleich die Sortierung der Liste: älteste zuerst.
