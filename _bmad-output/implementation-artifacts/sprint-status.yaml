@@ -41,7 +41,7 @@ development_status:
   1-3-mitglieder-aufnehmen-und-zugang-beenden: done
   1-4-offene-aufgaben-sehen-und-abhaken: done
   1-5-aufgabe-vor-ort-erfassen: done
-  1-6-betrieb-und-deployment: backlog
+  1-6-betrieb-und-deployment: review
   epic-1-retrospective: optional
 
   epic-2: backlog

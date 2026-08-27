@@ -1,0 +1,156 @@
+# Die beiden Server-Blöcke.
+#
+# ABWEICHUNG vom Architekturpfad nginx/conf.d/app.conf
+# (ARCHITECTURE-SPINE.md:274-279): Die Datei liegt unter nginx/templates/ und
+# heisst .template, weil im offiziellen nginx-Image ausschliesslich
+# /etc/nginx/templates/*.template die envsubst-Ersetzung des Einstiegsskripts
+# durchlaufen (20-envsubst-on-templates.sh). Gerendert landet sie genau dort,
+# wo die Architektur sie hinlegt: /etc/nginx/conf.d/app.conf. Läge sie direkt
+# in conf.d/, stünde der echte Hostname fest im Repository — und genau das soll
+# er nicht.
+#
+# Ersetzt wird ausschliesslich ${DOMAIN}: NGINX_ENVSUBST_FILTER in
+# docker-compose.yml ist auf ^DOMAIN$ begrenzt. Ohne diese Begrenzung leerte
+# envsubst jede nginx-Variable — $host, $binary_remote_addr, $remote_addr, alle.
+# Nach dem ersten Start prüfen:
+#   docker compose exec nginx cat /etc/nginx/conf.d/app.conf
+
+server {
+	listen 80;
+	listen [::]:80;
+	server_name ${DOMAIN};
+
+	# Der ACME-Block steht VOR der Umleitung — aber nicht aus dem Grund, den man
+	# zuerst vermutet: http-01 folgt Umleitungen sehr wohl, auch auf https, und
+	# ignoriert dabei sogar Zertifikatsfehler. Die zwei echten Gründe sind:
+	#
+	#   1. Der 443-Block reicht alles an die Anwendung weiter, und die kennt
+	#      keinen ACME-Pfad — eine Umleitung landete also auf einem 403 des
+	#      Wächters, nicht im Webroot.
+	#   2. Dieser Block trägt, bevor überhaupt ein Zertifikat existiert. Genau
+	#      dann wird er gebraucht: beim ersten Holen auf einer frischen Maschine.
+	#
+	# Fehlt die Prüfdatei, antwortet nginx mit 404 — das ist der richtige Ausgang.
+	location /.well-known/acme-challenge/ {
+		root /var/www/certbot;
+	}
+
+	# Auch die Umleitung schweigt über /i/: wer einen Einladungslink ohne https
+	# öffnet, trüge sein Klartext-Token sonst über diesen Umweg ins
+	# Zugriffsprotokoll. Siehe den Kommentar am 443-Block.
+	location ^~ /i/ {
+		access_log off;
+
+		# Dieselbe Bremse wie auf 443, sonst wäre die Ratenbegrenzung schlicht
+		# über http:// zu umgehen.
+		#
+		# WARUM HIER KEIN `return` STEHT — gemessen, nicht vermutet: nginx
+		# arbeitet Phasen ab, und `return` gehört zum rewrite-Modul, das VOR
+		# der preaccess-Phase läuft, in der limit_req sitzt. Ein
+		# `limit_req` neben einem `return` ist toter Text: 40 Abrufe auf
+		# http://…/i/x ergaben 40 × 301 und keine einzige 429.
+		#
+		# `try_files` läuft in der precontent-Phase, also NACH preaccess. Der
+		# Umweg über eine Datei, die es nie gibt, und eine benannte location
+		# bringt die Umleitung damit hinter die Bremse. Das ist der Grund für
+		# diese drei Zeilen; kürzer geht es nicht, ohne die Bremse zu verlieren.
+		limit_req_log_level info;
+		limit_req zone=einloesen burst=10 nodelay;
+		limit_req_status 429;
+		root /var/www/certbot;
+		try_files /diese-datei-gibt-es-nie @einloesen_nach_https;
+	}
+
+	location @einloesen_nach_https {
+		access_log off;
+		return 301 https://${DOMAIN}$request_uri;
+	}
+
+	location / {
+		return 301 https://${DOMAIN}$request_uri;
+	}
+}
+
+server {
+	listen 443 ssl;
+	listen [::]:443 ssl;
+	http2 on;
+	server_name ${DOMAIN};
+
+	ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+	ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+
+	# Nur TLS 1.2 und 1.3. Ein Handschlag mit 1.1 wird abgelehnt.
+	ssl_protocols TLSv1.2 TLSv1.3;
+	ssl_prefer_server_ciphers off;
+	ssl_session_cache shared:TLS:10m;
+	ssl_session_timeout 1d;
+	ssl_session_tickets off;
+
+	# Die Anwendung setzt genau eine Kopfzeile: Referrer-Policy: no-referrer
+	# (src/hooks.server.ts). Kein HSTS, kein X-Frame-Options,
+	# kein X-Content-Type-Options — die gehören hierher.
+	#
+	# `always` ist nicht Zierde: die zwei 403-Antworten des Wächters entstehen
+	# auf dem Fatal-Pfad und tragen nicht einmal die Referrer-Policy der
+	# Anwendung. Mit `always` trägt nginx sie dort mit.
+	#
+	# ACHTUNG, Vererbungsfalle von nginx: add_header wird NICHT gemischt. Sobald
+	# ein location-Block ein eigenes add_header setzt, gelten in ihm
+	# ausschliesslich seine eigenen — diese vier fallen dort ersatzlos weg. Wer
+	# unten in `location ^~ /i/` eine Kopfzeile ergänzt, nimmt genau dem Pfad
+	# mit dem Klartext-Token seinen HSTS- und Frame-Schutz. Die vier sind darum
+	# hier zu ergänzen, nie in einem location-Block.
+	#
+	# Keine Content-Security-Policy: bewusste Auslassung dieser Story, benannt
+	# unter "Benannte Kosten" in README.md.
+	add_header Strict-Transport-Security "max-age=31536000" always;
+	add_header X-Frame-Options "DENY" always;
+	add_header X-Content-Type-Options "nosniff" always;
+	add_header Referrer-Policy "no-referrer" always;
+
+	# Auf Server-Ebene, damit beide location-Blöcke sie erben.
+	proxy_http_version 1.1;
+	proxy_set_header Host $host;
+	proxy_set_header X-Real-IP $remote_addr;
+	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+	proxy_set_header X-Forwarded-Proto $scheme;
+	proxy_set_header Upgrade $http_upgrade;
+	proxy_set_header Connection $connection_upgrade;
+
+	# Die Anwendung wertet diese Kopfzeilen nicht aus: weil ORIGIN gesetzt ist,
+	# liest adapter-node keinen Proxy-Header für die Herkunft, und
+	# getClientAddress() ruft kein einziger Pfad. Sie stehen hier für den
+	# Menschen, der ins Protokoll der Anwendung schaut, nicht für den Code.
+
+	# Kein try_files und keine statische Auslieferung: adapter-node liefert
+	# build/client selbst aus, vorkomprimiert. Ein zweiter Ausliefernder wäre
+	# eine zweite Wahrheit.
+	location / {
+		proxy_pass http://app:3000;
+	}
+
+	# Der Einlösepfad. ^~ schlägt jede reguläre location, damit hier nichts
+	# durchrutscht.
+	location ^~ /i/ {
+		# BINDENDE ZUSAGE (README.md, "Benannt akzeptierte Risiken"): Das
+		# Klartext-Token steht im Pfad. Ohne access_log off läge jedes Token in
+		# access.log — und dort liest es sich leichter als aus der Datenbank,
+		# in der nur der SHA-256-Hash steht.
+		access_log off;
+
+		# Und derselbe Grund noch einmal für das Fehlerprotokoll: limit_req
+		# schreibt bei jedem Bremsen den vollen Request mit, standardmässig auf
+		# error-Ebene. Auf `info` fällt die Zeile unter die Schwelle von
+		# error_log … notice und entsteht gar nicht erst. Was bleibt, ist
+		# benannt: ein Upstream-Fehler auf /i/ landet weiterhin mit Pfad im
+		# error_log. Siehe README.md.
+		limit_req_log_level info;
+
+		# Begründung des Werts: nginx.conf, bei limit_req_zone.
+		limit_req zone=einloesen burst=10 nodelay;
+		limit_req_status 429;
+
+		proxy_pass http://app:3000;
+	}
+}

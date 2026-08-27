@@ -4,13 +4,14 @@ Aufgabenliste für einen Gemeinschaftsgarten: rund zwanzig Gärtner\*innen sehen
 dem Handy, was offen ist, und haken mit einem Griff ab. Serverseitig gerenderter
 SvelteKit-Monolith, eine SQLite-Datei, nur online.
 
-Dieser Stand ist Story 1.5: eine Aufgabe vor Ort erfassen. Es gibt
+Dieser Stand ist Story 1.6: Betrieb und Deployment. Es gibt
 Titelleiste, Navigationsleiste, das PWA-Manifest, die SQLite-Datenschicht mit
 `members` und `tasks`, den einzigen Zugangsweg (`GET /i/<token>` löst die
 Einladung ein, ein Wächter lässt ohne gültige Sitzung niemanden weiter), die
-Verwaltung unter `/verwaltung` — und auf `/` die ganze Schleife: die offenen
+Verwaltung unter `/verwaltung`, auf `/` die ganze Schleife (die offenen
 Aufgaben, abgehakt mit einem Griff, und unter dem Pool der Knopf `+ Aufgabe`,
-der auf `/aufgabe` führt.
+der auf `/aufgabe` führt) — und den Compose-Stapel, der das alles auf einen
+Server bringt: siehe [Betrieb und Runbook](#betrieb-und-runbook).
 
 Das Projekt ist an npm gebunden: `npm run db:generate` ruft
 `node_modules/drizzle-kit/bin.cjs` über einen festen Pfad, und der setzt npms
@@ -107,8 +108,10 @@ Repository ohne `.env` baut durch.
 **`drizzle/` muss beim Produktionsstart neben `build/` liegen.** Der Ordner
 landet nicht im Bau — `build/` enthält keine einzige `.sql`-Datei —, und
 `migrationsFolder` ist arbeitsverzeichnisrelativ. Fehlt er, endet der Start mit
-einer benannten Meldung statt mit einer halb migrierten Datenbank. Für Story 1.6
-heisst das: das Verzeichnis gehört ins Image kopiert.
+einer benannten Meldung statt mit einer halb migrierten Datenbank. Das
+`Dockerfile` kopiert das Verzeichnis darum neben `build/` ins Laufzeit-Image —
+samt `drizzle/meta/`, sonst scheitert die Migration erst auf der ersten leeren
+Datenbank.
 
 `npm run preview` ist etwas anderes: das ist Vites eigene Vorschau des Baus für
 einen schnellen Blick von Hand, nicht der Produktionsstart.
@@ -119,7 +122,8 @@ einen schnellen Blick von Hand, nicht der Produktionsstart.
 > beziehungsweise `http://localhost:3000` verwirft der Browser ein
 > `Secure`-Cookie — das Einlösen antwortet mit 303 und `set-cookie`, aber das
 > Cookie kommt nie zurück, und `/` weist danach mit 403 ab. Das ist kein Fehler,
-> sondern der Grund für den Schalter: im Betrieb steht nginx mit TLS davor.
+> sondern der Grund für den Schalter: im Betrieb steht nginx mit TLS davor —
+> seit Story 1.6 tatsächlich, siehe [Betrieb und Runbook](#betrieb-und-runbook).
 > Wer die gebaute Anwendung von Hand durchklicken will, nimmt `npm run dev` oder
 > stellt einen TLS-Endpunkt davor. Ein `Secure`-Cookie über HTTP zuzulassen wäre
 > der falsche Ausweg: dann liegt die Sitzung im Betrieb einmal im Klartext auf
@@ -138,11 +142,19 @@ Stacktrace, kein Fallback-Pfad, kein erfundenes Geheimnis. Geprüft wird im
 
 | Variable         | Bedeutung                                                                                                                                                                                                                                                                                                                                               |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_PATH`  | **Pflicht.** Pfad zur SQLite-Datei. Lokal etwa `./data/dev.sqlite`, im Container `/data/db.sqlite`. Das Verzeichnis muss existieren.                                                                                                                                                                                                                    |
+| `DATABASE_PATH`  | **Pflicht.** Pfad zur SQLite-Datei. Lokal etwa `./data/dev.sqlite`, im Container `/data/db/db.sqlite` — eine Ebene unter dem Mountpunkt des Volumes, absichtlich, siehe [Betrieb und Runbook](#betrieb-und-runbook). Das Verzeichnis muss existieren.                                                                                                   |
 | `SESSION_SECRET` | **Pflicht.** Geheimnis für die Signatur des Sitzungs-Cookies (`openssl rand -base64 32`). Mindestens 32 Zeichen und mindestens acht verschiedene — `aaaa…` besteht die Prüfung nicht.                                                                                                                                                                   |
 | `ORIGIN`         | **Pflicht**, für den Server und für `create-admin`. Reine Herkunft als absolute `http(s)`-Adresse — Schema, Host, höchstens ein Port, etwa `https://garten.example.ch`. Ein Pfad oder Abfrageteil wird abgewiesen, weil der Einladungslink sonst unklickbar wäre. Ohne `ORIGIN` weist `adapter-node` jeden POST einer form action als CSRF-Verstoss ab. |
 | `PORT`           | Optional — die einzige Variable mit Vorgabewert: ohne sie nimmt `adapter-node` `3000`. Der Vite-Dev-Server nutzt unabhängig davon `5173`.                                                                                                                                                                                                               |
 | `NODE_ENV`       | Optional, aber wirksam: steuert das `Secure`-Flag des Sitzungs-Cookies und damit das einzige Zugangsmittel. Nur bei `development` fehlt `Secure`; `vite dev` setzt den Wert selbst. Siehe die Warnung oben.                                                                                                                                             |
+| `DOMAIN`         | **Pflicht im Betrieb**, sonst ungenutzt. Öffentlicher Hostname ohne Schema, etwa `garten.example.ch`. nginx setzt ihn über `envsubst` in `server_name` und in beide Zertifikatspfade ein; `docker-compose.yml` bildet daraus `ORIGIN=https://<DOMAIN>`. Im Repository steht kein echter Hostname.                                                       |
+| `CERTBOT_EMAIL`  | **Pflicht im Betrieb**, sonst ungenutzt. Adresse, an die Let's Encrypt warnt, wenn eine Erneuerung ausbleibt. Wird nur beim einmaligen Holen des ersten Zertifikats gebraucht.                                                                                                                                                                          |
+| `BACKUP_DIR`     | **Pflicht im Betrieb**, sonst ungenutzt. Absoluter Pfad auf dem Host, in den `scripts/backup.sh` schreibt. `docker-compose.yml` hängt ihn als Bind-Mount unter `/sicherungen` in den `app`-Container; er muss existieren und der UID 1000 gehören.                                                                                                      |
+
+Die letzten drei Zeilen betreffen ausschliesslich den Compose-Stapel. Lokal
+bleiben sie leer — `npm run dev` liest keine davon. Umgekehrt wird `ORIGIN` im
+Stapel **nicht** aus `.env` gelesen: `docker-compose.yml` bildet den Wert aus
+`DOMAIN`, damit Herkunft und Zertifikatsname nicht auseinanderlaufen können.
 
 Ein Wert aus der Aufrufzeile gewinnt gegen `.env`. Damit lässt sich eine
 Fehlkonfiguration von Hand prüfen:
@@ -154,6 +166,554 @@ Fehlkonfiguration von Hand prüfen:
 Produktionsstart erwartet die Werte in der Umgebung. Lokal heisst das
 `DATABASE_PATH=… SESSION_SECRET=… ORIGIN=… npm start`, sonst bricht der Start
 mit der benannten Meldung ab.
+
+## Betrieb und Runbook
+
+Im Betrieb läuft die Anwendung als Docker-Compose-Stapel aus **drei Diensten**
+auf einem Infomaniak VPS light. Zwei Umgebungen, kein Staging: lokal
+`npm run dev`, produktiv `docker compose up -d`. Eine dritte Umgebung wäre bei
+dieser Grösse Aufwand ohne Gegenwert.
+
+| Dienst    | Image               | Aufgabe                                                                                                                                                                                    |
+| --------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `app`     | aus `Dockerfile`    | Die Anwendung, `node build/index.js`. **Veröffentlicht keinen Port** — nur über das interne Bridge-Netz `intern` als `app:3000` erreichbar. Läuft als `node` (UID 1000), nicht als `root`. |
+| `nginx`   | `nginx:1.29-alpine` | TLS-Terminierung auf 80 und 443, Umleitung auf HTTPS, Sicherheits-Kopfzeilen, Ratenbegrenzung auf `/i/`. Reicht alles an `app:3000` weiter.                                                |
+| `certbot` | `certbot/certbot`   | Erneuerungsschleife: alle zwölf Stunden `certbot renew` über das geteilte Webroot. Das **erste** Zertifikat holt der Mensch einmal je Maschine, siehe Runbook.                             |
+
+Drei Named Volumes: `daten` (die SQLite-Datei unter `/data/db/`), `letsencrypt`
+(Zertifikate und certbots Zustand) und `acme` (das geteilte Webroot für die
+ACME-Prüfung). Dazu ein Bind-Mount von `BACKUP_DIR` nach `/sicherungen` im
+`app`-Container.
+
+Die Dateien: `Dockerfile`, `.dockerignore`, `docker-compose.yml`,
+`nginx/nginx.conf`, `nginx/templates/app.conf.template`, `scripts/backup.sh`.
+Jede trägt ihre Begründungen als Kommentar; hier steht nur, was man beim
+Bedienen wissen muss.
+
+### Sechs Entscheidungen, die beim Lesen sonst überraschen
+
+- **`app` hat keinen `ports`-Eintrag.** Das ist Absicht, keine Auslassung. Wer
+  ihn hinzufügt, stellt einen Server ohne TLS ins Netz, dessen Sitzungs-Cookie
+  `Secure` trägt — er wäre erreichbar und unbenutzbar zugleich.
+- **Der Healthcheck hält `403` für gesund.** Es gibt bewusst keinen
+  Health-Endpunkt: jeder Pfad ausser `/i/<token>` läuft durch den Wächter und
+  antwortet ohne Cookie mit `403`. Genau das beweist mehr als ein `200` auf
+  einer freien Route — der Prozess hört, und der `init`-Hook ist ohne
+  `process.exit(1)` durchgelaufen, also stehen Datenbank, Sitzungsgeheimnis und
+  Herkunft. Der Preis ist benannt: ändert sich der Statuscode des Wächters je,
+  meldet der Healthcheck den Container als krank.
+- **`/i/` steht in keinem Zugriffsprotokoll.** `access_log off` in beiden
+  `/i/`-Blöcken, dazu `limit_req_log_level info`, damit auch das Bremsen der
+  Ratenbegrenzung den Pfad nicht ins Fehlerprotokoll schreibt. Das
+  Klartext-Token steht im Pfad; in `access.log` läge es leichter lesbar als in
+  der Datenbank, die nur den Hash kennt.
+- **nginx liefert keine einzige Datei selbst aus.** Kein `try_files`, kein
+  `gzip`, kein Cache-Header. `adapter-node` liefert `build/client` mit
+  `precompress` aus, also liegen `.br` und `.gz` schon vor. Ein zweiter
+  Ausliefernder wäre eine zweite Wahrheit.
+- **Die Server-Blöcke liegen unter `nginx/templates/` und heissen `.template`.**
+  Nur diese Dateien durchlaufen im offiziellen Image die
+  `envsubst`-Ersetzung — sonst stünde der echte Hostname fest im Repository.
+  Gerendert landen sie unter `/etc/nginx/conf.d/app.conf`.
+- **Die Datenbank liegt unter `/data/db/db.sqlite`, nicht unter
+  `/data/db.sqlite`.** Das Image legt `/data` bewusst **nicht** an. Docker
+  befüllt ein frisches Named Volume aus dem gleichnamigen Verzeichnis des
+  Images: gäbe es `/data` dort, entstünde es nach jedem Volume-Verlust sofort
+  wieder, und die Anwendung startete still mit einer leeren Datenbank — die
+  Gemeinschaft sähe `Nichts offen.` ohne jeden Hinweis und schriebe in die
+  frische Datei hinein. So aber ist ein verlorenes Volume ein leerer,
+  root-eigener Mountpunkt ohne `/data/db`, und der Start endet mit
+  `Das Verzeichnis für die Datenbank fehlt: /data/db`. `/data/db` wird genau
+  einmal je Maschine von Hand angelegt (Schritt 7) — das ist die einzige
+  Stelle, an der ein leerer Datenbestand bewusst entsteht, und genau die
+  Unterscheidung zwischen „erster Start" und „Volume verloren". Ein
+  Automatismus dafür wäre derselbe stille Datenverlust in bequem.
+
+### Runbook: von der leeren Maschine zur laufenden Anwendung
+
+Alle Befehle laufen als Benutzer mit `sudo`-Recht auf einem frischen
+Debian- oder Ubuntu-VPS. `garten.example.ch` steht überall stellvertretend für
+deinen Hostnamen — abzutippen ist er allerdings nur ein einziges Mal, in
+Schritt 5.
+
+**1. Docker installieren und prüfen.**
+
+```sh
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker "$USER" && newgrp docker
+docker compose version
+```
+
+**2. DNS prüfen, bevor irgendetwas anderes passiert.** Ohne einen A-Eintrag,
+der auf diesen Server zeigt, scheitert Schritt 9 und Let's Encrypt zählt den
+Fehlversuch gegen das Kontingent.
+
+```sh
+dig +short A    garten.example.ch
+dig +short AAAA garten.example.ch
+curl -s  https://api.ipify.org
+curl -s6 https://api6.ipify.org || echo 'kein IPv6 auf dieser Maschine'
+```
+
+Der A-Eintrag muss auf die IPv4-Adresse des Servers zeigen. **Und der
+AAAA-Eintrag muss entweder fehlen oder stimmen** — nginx hört auf beiden
+Familien, aber Let's Encrypt bevorzugt IPv6, wenn ein AAAA-Eintrag da ist. Ein
+verwaister AAAA-Eintrag lässt Schritt 9 scheitern, obwohl über IPv4 alles
+richtig steht, und schickt zugleich jeden Browser mit IPv6 ins Leere.
+
+**3. Repository holen.**
+
+```sh
+sudo mkdir -p /opt/gartenplaner && sudo chown "$USER" /opt/gartenplaner
+git clone <URL-des-Repositorys> /opt/gartenplaner
+cd /opt/gartenplaner
+```
+
+Der Verzeichnisname bestimmt den Compose-Projektnamen und damit die
+Volume-Namen (`gartenplaner_daten` und so weiter). Alle folgenden Befehle
+laufen aus diesem Verzeichnis.
+
+**4. Sicherungsverzeichnis anlegen.** Es gehört der UID 1000, weil der
+`app`-Container als `node` schreibt.
+
+```sh
+sudo mkdir -p /var/backups/gartenplaner
+sudo chown 1000:1000 /var/backups/gartenplaner
+```
+
+**5. `.env` füllen.** Das `<<ENV` steht bewusst **ohne** Anführungszeichen: nur
+so ersetzt die Shell `$(openssl …)` und in `.env` landet ein echtes Geheimnis.
+
+```sh
+cat > .env <<ENV
+DATABASE_PATH=/data/db/db.sqlite
+SESSION_SECRET=$(openssl rand -base64 32)
+DOMAIN=garten.example.ch
+CERTBOT_EMAIL=garten@example.ch
+BACKUP_DIR=/var/backups/gartenplaner
+ENV
+chmod 600 .env
+```
+
+**`ORIGIN` steht hier bewusst nicht.** `docker-compose.yml` bildet den Wert aus
+`DOMAIN`, damit Herkunft und Zertifikatsname nicht auseinanderlaufen können; ein
+Eintrag hier wäre tot und beim nächsten Umzug eine zweite, veraltete Wahrheit.
+Für die lokale Entwicklung ist `ORIGIN` weiterhin Pflicht — dort gibt es kein
+Compose.
+
+**`DOMAIN` prüfen, bevor irgendetwas darauf baut.** Der Wert wandert in
+`server_name`, in beide Zertifikatspfade und in `ORIGIN`; ein Schema, ein Pfad,
+ein Port oder ein Schrägstrich am Ende macht alle drei falsch, und zwar
+unterschiedlich falsch:
+
+```sh
+grep -qE '^DOMAIN=[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$' .env \
+  && echo 'DOMAIN sieht gut aus.' \
+  || echo 'DOMAIN ist keine nackte Domain: kein https://, kein Pfad, kein :Port, kein / am Ende.'
+```
+
+Für die folgenden Schritte den Wert einmal in die Shell holen — damit kommt der
+Rest des Runbooks ohne einen einzigen abgetippten Hostnamen aus. Nach einer
+neuen Anmeldung ist die Zeile zu wiederholen:
+
+```sh
+DOMAIN=$(sed -n 's/^DOMAIN=//p' .env)
+echo "$DOMAIN"
+```
+
+**6. Attrappen-Zertifikat legen.** nginx startet nicht, wenn die in
+`ssl_certificate` genannte Datei fehlt; certbot kommt aber nur an die
+ACME-Prüfung, wenn nginx läuft. Diesen Ring löst kein Compose-Kunstgriff
+sauber auf, darum ist er hier ein ausdrücklicher Schritt: ein selbstsigniertes
+Zertifikat hinlegen, hochfahren, das echte holen, neu laden.
+
+Der Hostname steht in keinem dieser Befehle: der `certbot`-Dienst bekommt
+`DOMAIN` und `CERTBOT_EMAIL` aus `.env` in seine Umgebung gereicht, und die
+einfachen Anführungszeichen sorgen dafür, dass `$DOMAIN` erst **im Container**
+eingesetzt wird. Nichts ist abzutippen.
+
+```sh
+docker compose run --rm --no-deps --entrypoint sh certbot -c '
+  apk add --no-cache openssl >/dev/null &&
+  mkdir -p "/etc/letsencrypt/live/$DOMAIN" &&
+  openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+    -keyout "/etc/letsencrypt/live/$DOMAIN/privkey.pem" \
+    -out    "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" \
+    -subj   "/CN=$DOMAIN"'
+```
+
+**7. Das Datenverzeichnis im Volume anlegen.** Der einzige Schritt, der von
+Hand geschieht, obwohl ein Skript ihn könnte — und er geschieht von Hand,
+**weil** ein Skript ihn könnte. Er ist die einzige Stelle, an der ein leerer
+Datenbestand bewusst entsteht, und damit die Grenze zwischen „erster Start" und
+„Volume verloren"; die Begründung steht oben bei den sechs Entscheidungen.
+
+```sh
+docker compose run --rm --build --no-deps --user root --entrypoint sh app \
+  -c 'mkdir -p /data/db && chown node:node /data/db'
+```
+
+Läuft dieser Schritt ein zweites Mal auf einem befüllten Volume, tut er nichts
+— `mkdir -p` und `chown` auf ein vorhandenes, richtig gehörendes Verzeichnis
+sind folgenlos.
+
+**8. Bauen und hochfahren.** Das Image entsteht auf dem Server.
+
+```sh
+docker compose up -d --build
+docker compose ps
+```
+
+Erwartet: drei Dienste auf `running`, `app` auf `healthy`. `nginx` startet erst,
+wenn `app` gesund ist — das dauert beim ersten Mal einige Sekunden.
+
+**9. Echtes Zertifikat holen.** Erst die Attrappe wegräumen: certbot legt sonst
+keine Kette über ein Verzeichnis, das es nicht selbst angelegt hat. Das
+laufende nginx hält seine Dateien offen und liefert währenddessen weiter aus.
+
+```sh
+docker compose run --rm --no-deps --entrypoint sh certbot -c '
+  rm -rf "/etc/letsencrypt/live/$DOMAIN" \
+         "/etc/letsencrypt/archive/$DOMAIN" \
+         "/etc/letsencrypt/renewal/$DOMAIN.conf"'
+
+docker compose run --rm --no-deps --entrypoint sh certbot -c '
+  certbot certonly --webroot --webroot-path /var/www/certbot \
+    -d "$DOMAIN" --email "$CERTBOT_EMAIL" --agree-tos --no-eff-email'
+```
+
+Auch hier kommen Hostname und Adresse aus `.env`, nicht aus der Zwischenablage.
+`CERTBOT_EMAIL` ist die Adresse, an die Let's Encrypt warnt, wenn eine
+Erneuerung ausbleibt — die einzige Stelle, an der sie gebraucht wird.
+
+**10. nginx neu laden.** Erst jetzt liegt die echte Kette in den Dateien, die
+nginx beim Start gelesen hat.
+
+```sh
+docker compose exec nginx nginx -t
+docker compose exec nginx nginx -s reload
+curl -sI "https://$DOMAIN/" | head -1
+```
+
+Erwartet: `syntax is ok`, `test is successful`, dann `HTTP/2 403`. **Das `403`
+ist richtig** — ohne Einladungslink kommt niemand herein, auch der Mensch nicht,
+der das gerade aufgesetzt hat.
+
+**11. Erstes Admin-Mitglied anlegen.** `scripts/create-admin.ts` liegt bewusst
+**nicht** im Laufzeit-Image; es braucht `src/`, und das Laufzeit-Image trägt nur
+`build/`. Der Weg führt darum einmalig über die Builder-Stufe.
+
+```sh
+docker build --target bauer -t gartenplaner-werkzeug .
+docker run --rm --user node \
+  --volumes-from "$(docker compose ps -q app)" \
+  -e DATABASE_PATH=/data/db/db.sqlite \
+  -e ORIGIN="https://$DOMAIN" \
+  gartenplaner-werkzeug node scripts/create-admin.ts "Anna Meier"
+docker image rm gartenplaner-werkzeug
+```
+
+Die letzte Zeile der Ausgabe ist der Einladungslink. **Er erscheint genau
+einmal** und ist nicht wiederherstellbar — in der Datenbank steht nur sein
+SHA-256-Hash. Kopiere ihn, bevor du das Terminal schliesst. Alle weiteren
+Mitglieder nimmt diese Person danach unter `/verwaltung` auf.
+
+**12. Cron eintragen.** Zwei Zeilen: die nächtliche Sicherung und ein
+wöchentliches Neuladen von nginx, damit ein erneuertes Zertifikat auch wirksam
+wird (siehe [Erneuerung](#erneuerung)).
+
+Das Log liegt im Heimatverzeichnis, **nicht** unter `/var/log/`. Der Benutzer
+aus Schritt 1 ist nicht root und darf dort nichts anlegen: die Umleitung
+scheiterte, bevor `backup.sh` überhaupt startete — und weil das Log der einzige
+Kanal dieses Skripts ist, fiele genau das nie auf. Wer die Datei doch unter
+`/var/log/` will, legt sie einmalig an und übereignet sie:
+`sudo install -o "$USER" -m 600 /dev/null /var/log/gartenplaner-backup.log`.
+
+```sh
+(
+  crontab -l 2>/dev/null
+  echo '0 2 * * * cd /opt/gartenplaner && /bin/sh scripts/backup.sh >> "$HOME/gartenplaner-backup.log" 2>&1'
+  echo '30 4 * * 1 cd /opt/gartenplaner && docker compose exec -T nginx nginx -s reload'
+) | crontab -
+crontab -l
+```
+
+Am nächsten Morgen einmal nachsehen, ob die Nacht funktioniert hat — danach
+sieht niemand mehr hin, und das ist eine benannte Kosten dieser Story:
+
+```sh
+tail -5 "$HOME/gartenplaner-backup.log"
+ls -lt /var/backups/gartenplaner | head -3
+```
+
+**13. Die Wiederherstellung einmal proben — jetzt, nicht im Ernstfall.** Von
+allen Wegen dieser Story ist das der am wenigsten geübte und der einzige, den
+man unter Zeitdruck geht. Er lässt sich gefahrlos üben, solange die Anwendung
+noch leer ist: eine Sicherung ziehen, sie zurückspielen, nachsehen, dass der
+Stapel wieder gesund ist.
+
+```sh
+sh scripts/backup.sh
+SICHERUNG=$(ls -t /var/backups/gartenplaner/db-*.sqlite | head -1 | xargs basename)
+echo "$SICHERUNG"
+```
+
+Dann den Ablauf aus [Wiederherstellung](#wiederherstellung) einmal ganz
+durchgehen und am Ende prüfen:
+
+```sh
+docker compose ps                       # app healthy
+curl -sI "https://$DOMAIN/" | head -1   # HTTP/2 403
+```
+
+Wer diesen Schritt überspringt, liest die Wiederherstellung zum ersten Mal an
+dem Abend, an dem sie gebraucht wird.
+
+**14. Einmal von Hand durchprüfen.**
+
+```sh
+curl -sI "http://$DOMAIN/" | head -2             # 301 auf https
+docker compose exec app id -u                    # 1000, nicht 0
+docker compose exec nginx cat /etc/nginx/conf.d/app.conf | grep -nE 'server_name|[$]host|[$]binary_remote_addr'
+sh scripts/backup.sh                             # legt eine Datei an und meldet ok
+```
+
+In der gerenderten `app.conf` muss der echte Hostname stehen — **und** jede
+nginx-eigene Variable unversehrt: `$host` in `proxy_set_header Host $host`,
+`$binary_remote_addr` im Kopfkommentar. Steht dort `proxy_set_header Host ;`,
+war `NGINX_ENVSUBST_FILTER` nicht auf `^DOMAIN$` begrenzt und `envsubst` hat
+alles geleert, was mit `$` beginnt — die Ratenbegrenzung in `nginx.conf`
+durchläuft `envsubst` nicht und bliebe davon unberührt, der Proxy wäre aber
+kaputt.
+
+### Sicherung
+
+`scripts/backup.sh` läuft auf dem **Host** und braucht dort nur `docker` und
+eine POSIX-Shell mit `sed` und `date`. `sqlite3` **und** `find` laufen im
+Container. Der Ablauf:
+
+1. Eine Sperre (`mkdir .backup.lock`) gegen zwei gleichzeitige Läufe. Sie
+   teilten sich sonst dieselbe feste Temporärdatei im Volume.
+2. Fail-Fast: läuft `app`, und gibt es `/data/db/db.sqlite` überhaupt? Das
+   zweite ist nicht Zierde — `sqlite3 fehlt.sqlite ".backup '…'"` endet mit
+   **0** und legt eine gültige, leere 4-KB-Datenbank an, deren
+   `integrity_check` brav `ok` meldet. Ohne die Prüfung füllte sich das
+   Verzeichnis mit Attrappen, und die Rotation löschte 31 Tage später die
+   letzte echte Kopie.
+3. `sqlite3 /data/db/db.sqlite ".backup '/data/db/backup.tmp'"` im Container.
+   `.backup` statt `cp`, weil die Datenbank im WAL-Modus läuft: eine kopierte
+   Datei ohne ihre `-wal`-Datei ist unvollständig, und zwar lautlos.
+4. Kopie nach `/sicherungen/db-JJJJ-MM-TT-hhmmss.sqlite.teil`, also in
+   `BACKUP_DIR` auf dem Host. **Erst unter `.teil`**: bricht der Lauf danach
+   ab, liegt draussen nichts, was beim nächsten Wiederherstellen für eine
+   vollständige Kopie gehalten würde. Sekunden im Namen, damit eine Sicherung
+   von Hand nicht mit dem Cron-Lauf derselben Minute kollidiert.
+5. `PRAGMA integrity_check` auf die Kopie — **und** ein Fingerabdruck aus drei
+   Zahlen (Objekte im Schema, Mitglieder, Aufgaben), verglichen zwischen Quelle
+   und Kopie. `integrity_check` allein genügt nicht: eine leere Datenbank ist
+   strukturell einwandfrei.
+6. Erst danach das `mv` auf den endgültigen Namen — innerhalb desselben
+   Dateisystems atomar.
+7. Rotation, im Container: `find /sicherungen -name 'db-*.sqlite*' -mtime +30
+-delete`. Das Muster endet auf `*`, damit es auch `-wal`- und
+   `-shm`-Beiwagen und eine liegen gebliebene `.teil`-Datei erwischt. Eine 31
+   Tage alte Datei geht, eine 29 Tage alte bleibt.
+
+**Warum die Rotation im Container läuft und nicht auf dem Host:** die Dateien
+gehören der UID 1000, mit der der Container schreibt. Ein Cron-Benutzer mit
+anderer UID scheiterte an `-delete` — und zwar erst _nach_ einer erfolgreichen
+Sicherung, die `set -e` dann rot beendete. Ein rotes Skript nach getaner Arbeit
+ist die unangenehmste Sorte Fehlalarm.
+
+Die temporäre Datei liegt im Volume und nicht im Sicherungsverzeichnis, und
+zwar in `/data/db/` und nicht in `/data/` — `/data` ist der Mountpunkt und
+gehört `root`, der Container schreibt als `node`. Bricht der Lauf an irgendeiner
+Stelle ab, räumt ein Trap Temporärdatei, `.teil`-Kopie und Sperre weg. Läuft
+`app` nicht, endet das Skript sofort mit Meldung und ohne Sicherungsdatei.
+
+Von Hand anstossen und nachsehen:
+
+```sh
+sh scripts/backup.sh
+ls -lt /var/backups/gartenplaner | head
+```
+
+### Wiederherstellung
+
+Den Namen der Sicherung zuerst in eine Variable, dann wird er genau einmal
+getippt:
+
+```sh
+SICHERUNG=db-2026-08-27-020001.sqlite
+ls -lt /var/backups/gartenplaner | head -3        # welche gibt es?
+```
+
+**Die Reihenfolge ist Absicht: erst prüfen, dann kopieren, zuletzt ersetzen.**
+Eine Fassung, die mit `rm` beginnt, löscht bei einem Tippfehler im Dateinamen
+die laufende Datenbank und schreibt nichts zurück — aus einem Bedienfehler
+würde ein Totalverlust.
+
+```sh
+docker compose stop app
+docker compose run --rm --no-deps --entrypoint sh -e SICHERUNG="$SICHERUNG" app -c '
+  test -f "/sicherungen/$SICHERUNG" || { echo "Es gibt keine Sicherung $SICHERUNG."; exit 1; }
+  sqlite3 "/sicherungen/$SICHERUNG" "PRAGMA integrity_check;" | grep -qx ok ||
+    { echo "$SICHERUNG besteht den integrity_check nicht."; exit 1; }
+  cp "/sicherungen/$SICHERUNG" /data/db/db.sqlite.neu &&
+  chown node:node /data/db/db.sqlite.neu &&
+  rm -f /data/db/db.sqlite /data/db/db.sqlite-wal /data/db/db.sqlite-shm &&
+  mv /data/db/db.sqlite.neu /data/db/db.sqlite'
+docker compose start app
+docker compose ps
+```
+
+Schlägt eine der beiden Prüfungen an, endet der Container mit einer Meldung und
+die alte Datenbank steht unberührt da — `docker compose start app` bringt dann
+den Stand von vorher zurück. Nach einem erfolgreichen Lauf laufen die
+Migrationen erneut über die wiederhergestellte Datei; das ist gewollt und
+folgenlos, wenn die Sicherung denselben Stand der Migrationskette trägt.
+
+**Ist das Volume ganz weg** (etwa nach `docker compose down -v`), legt Docker es
+beim nächsten `up -d` leer neu an — und **`app` startet dann nicht**. Das ist
+Absicht: das leere Volume ist ein root-eigener Mountpunkt ohne `/data/db`, und
+`docker compose logs app` zeigt
+
+```text
+Das Verzeichnis für die Datenbank fehlt: /data/db
+SQLite legt Verzeichnisse nicht selbst an. Erstelle es einmal, zum Beispiel
+  mkdir -p /data/db
+```
+
+`docker compose ps` führt `app` als `Restarting`, und `nginx` startet gar nicht
+erst, weil sein `depends_on` auf `service_healthy` steht. Der Ausfall ist damit
+laut und sofort sichtbar, statt sich als leere Aufgabenliste zu tarnen.
+
+Der Weg zurück, mit der Sicherung in der Hand:
+
+```sh
+SICHERUNG=db-2026-08-27-020001.sqlite
+docker compose stop app
+docker compose run --rm --no-deps --user root --entrypoint sh app -c '
+  mkdir -p /data/db && chown node:node /data/db'
+docker compose run --rm --no-deps --entrypoint sh -e SICHERUNG="$SICHERUNG" app -c '
+  test -f "/sicherungen/$SICHERUNG" || { echo "Es gibt keine Sicherung $SICHERUNG."; exit 1; }
+  cp "/sicherungen/$SICHERUNG" /data/db/db.sqlite &&
+  chown node:node /data/db/db.sqlite'
+docker compose up -d
+```
+
+**Ohne** Sicherung genügt der `mkdir`-Schritt allein: `app` startet dann mit
+leerer Datenbank, die Migrationen legen die Tabellen selbst an, und
+Schritt 11 des Runbooks (`create-admin`) ist wieder nötig — alle
+Einladungslinks sind dann neu auszustellen.
+
+### Erneuerung
+
+Der `certbot`-Dienst ruft alle zwölf Stunden `certbot renew` auf; Let's Encrypt
+erneuert innerhalb der letzten 30 Tage der Laufzeit. Die ACME-Prüfung läuft über
+das geteilte Webroot-Volume, das nginx unter `/.well-known/acme-challenge/`
+ausliefert — **vor** der Umleitung auf HTTPS, sonst folgte die Prüfung ins
+Leere.
+
+**nginx merkt davon nichts von selbst.** Es hat die Zertifikatsdateien beim
+Start gelesen und hält sie offen. Darum die zweite Cron-Zeile aus Schritt 12:
+ein wöchentliches `nginx -s reload` genügt bei 90 Tagen Laufzeit und 30 Tagen
+Erneuerungsfenster mit grossem Abstand. Von Hand:
+
+```sh
+docker compose exec nginx nginx -s reload
+```
+
+Stand und Ablaufdatum nachsehen:
+
+```sh
+docker compose run --rm --no-deps --entrypoint certbot certbot certificates
+docker compose logs certbot --tail 20
+```
+
+### Wenn etwas nicht startet
+
+```sh
+docker compose ps
+docker compose logs app --tail 50
+docker compose logs nginx --tail 50
+```
+
+- **`app` beendet sich sofort, das Log nennt einen deutschen Satz ohne
+  Stacktrace.** Dann fehlt eine Pflichtvariable oder sie taugt nicht: die
+  Meldung nennt sie beim Namen. `restart: unless-stopped` startet den Container
+  erneut, und jeder Lauf schreibt denselben Satz — es gibt keinen
+  Neustart-Sturm, aber auch keine Selbstheilung. `.env` korrigieren und
+  `docker compose up -d` erneut.
+- **`nginx` startet gar nicht.** Meist fehlt die Zertifikatsdatei — Schritt 6
+  wurde übersprungen oder der Hostname in `.env` weicht von dem im Volume ab.
+  `docker compose exec nginx nginx -t` sagt es genau.
+- **`nginx` wartet ewig.** `depends_on … service_healthy`: solange `app`
+  ungesund ist, startet nginx nicht. Erst das `app`-Log lesen.
+- **Ein Update einspielen:** `git pull && docker compose up -d --build`. Die
+  Migrationen laufen beim Start der Anwendung, es gibt keinen eigenen Schritt
+  dafür.
+
+### Benannte Kosten
+
+- **Kein Staging.** Eine Änderung geht vom Entwicklerrechner direkt auf den
+  einen Server. Bei zwanzig Nutzenden und einer SQLite-Datei ist das die
+  richtige Grösse; wer mehr Sicherheit will, macht vorher eine Sicherung von
+  Hand.
+- **Der Entwicklerrechner ist arm64, der VPS amd64.** `docker compose build`
+  lokal baut ein **anderes** Image als auf dem Server. Das ist unkritisch, weil
+  `better-sqlite3` beide `prebuilds` mitliefert (`linuxmusl-arm64` und
+  `linuxmusl-x64`) — aber ein lokal gebautes Image gehört **nicht** auf den VPS
+  geschoben. Auf dem Server wird gebaut, Punkt.
+- **Falls der VPS light das Bauen nicht trägt:** der Ausweg ist ein lokal für
+  `linux/amd64` gebautes Image über eine Registry
+  (`docker buildx build --platform linux/amd64 --push …`, dann in
+  `docker-compose.yml` `build: .` durch `image: …` ersetzen). Eine
+  Betriebsentscheidung, kein Architekturbruch — und bisher nicht nötig
+  gewesen.
+- **TLS-Handschlag und certbot sind lokal nicht prüfbar** und bleiben
+  ausdrücklich ungetestet: sie brauchen einen von aussen erreichbaren
+  Hostnamen. Lokal tritt das selbstsignierte Attrappen-Zertifikat an ihre
+  Stelle, geprüft mit `curl -k`. Der erste echte Handschlag findet auf dem
+  Server statt.
+- **Die Sicherungen liegen auf derselben Maschine wie die Datenbank.** Der
+  Verlust des VPS nimmt beide mit, alle 30 Kopien eingeschlossen. Die
+  Wiederherstellung in diesem Runbook ist für den Volume-Verlust geschrieben —
+  den überlebbaren Fall. Ein Kopieren an einen zweiten Ort wäre die
+  naheliegende Ergänzung und ist bewusst nicht Teil dieser Story.
+- **`SESSION_SECRET` ist nicht gesichert.** Es steht nur in `.env` auf dem
+  Server. Wer die Datenbank auf einer neu aufgesetzten Maschine mit frischem
+  Geheimnis wiederherstellt, entwertet damit jedes ausgestellte
+  Sitzungs-Cookie: alle rund zwanzig Mitglieder sind ausgesperrt, und weil es
+  keinen Anmeldevorgang gibt, hilft nur ein neuer Einladungslink für jede
+  Person. Wer `.env` mitsichert, sichert das Geheimnis im Klartext mit — beides
+  hat einen Preis, und keiner davon ist hier bezahlt.
+- **Eine fehlgeschlagene Sicherung meldet sich bei niemandem.** Kein `MAILTO`
+  in der crontab, keine Prüfung, ob die jüngste Kopie von heute Nacht ist. Das
+  Log wird genau einmal angesehen — am Morgen nach Schritt 12 —, und danach
+  nie wieder. Eine seit Wochen stumm scheiternde Sicherung fiele erst in dem
+  Moment auf, in dem sie gebraucht wird.
+- **Kein Autoheal.** `restart: unless-stopped` fasst einen Container an, der
+  _beendet_. Ein Prozess, der lebt, aber am Healthcheck scheitert, bleibt
+  `unhealthy` stehen — Docker startet ihn von sich aus nicht neu. `nginx`
+  antwortet dann mit 502, und jemand muss hinsehen.
+- **Keine Firewall und keine Systemhärtung im Runbook.** Kein `ufw`, kein
+  `fail2ban`, keine SSH-Härtung. Dazu eine Falle, die man kennen muss: Dockers
+  eigene iptables-Regeln hängen sich vor `ufw`, ein veröffentlichter Port ist
+  also auch dann offen, wenn `ufw` ihn zu sperren scheint. Bewusst nicht Teil
+  dieser Story, aber kein Grund, es für erledigt zu halten.
+- **Keine Content-Security-Policy.** nginx setzt HSTS, `X-Frame-Options`,
+  `X-Content-Type-Options` und `Referrer-Policy` — keine CSP. Das ist eine
+  Auslassung, keine Vergesslichkeit: die Anwendung lädt nichts von fremden
+  Hosts, und eine CSP ohne einen Anlass, sie zu pflegen, veraltet zum
+  wirkungslosen Kopfzeilentext. Der Kommentar am Kopfzeilenblock in
+  `nginx/templates/app.conf.template` sagt dasselbe an Ort und Stelle.
+- **Ein Upstream-Fehler auf `/i/` schreibt den Pfad weiterhin ins
+  Fehlerprotokoll.** `access_log off` und `limit_req_log_level info` decken das
+  Zugriffsprotokoll und die Ratenbegrenzung ab; einen Verbindungsfehler zu
+  `app:3000` protokolliert nginx auf `error`-Ebene mit vollem Request. Der Fall
+  setzt voraus, dass die Anwendung ohnehin am Boden liegt, und ist damit
+  benannt statt behoben.
 
 ## Skripte
 
@@ -173,6 +733,11 @@ mit der benannten Meldung ab.
 | `npm run smoke`             | Führt die Zusagen der Zugangsschicht aus und prüft sie (siehe unten).                                                |
 | `npm run lint`              | `prettier --check`, `eslint`, `gate`, `gate:selftest`, `db:check`, `db:check:selftest`, `smoke`.                     |
 | `npm run format`            | Schreibt die Formatierung mit Prettier.                                                                              |
+
+Ein Skript steht nicht in dieser Tabelle, weil es kein npm-Skript ist:
+`sh scripts/backup.sh` zieht eine Sicherung der SQLite-Datei aus dem
+Compose-Stapel. Es läuft auf dem Server per Cron und braucht dort einen
+laufenden `app`-Container — siehe [Sicherung](#sicherung).
 
 Das Qualitätstor vor jeder Abgabe:
 
@@ -761,11 +1326,18 @@ das Abhaken ist bewusst ohne Netz gebaut. Sie sind gesehen, gewogen und
 angenommen — nicht übersehen:
 
 - **Das Klartext-Token steht im Pfad.** Damit landet es in jedem Protokoll, das
-  Pfade mitschreibt. **Für Story 1.6 festhalten:** `/i/` gehört aus dem
-  nginx-Zugriffsprotokoll herausgehalten, sonst liegt jedes Token in
-  `access.log` — und dort liest es sich leichter als aus der Datenbank, in der
-  nur der Hash steht. Dazu kommt die Ratenbegrenzung auf `/i/`; im
-  Anwendungscode gibt es bewusst keine.
+  Pfade mitschreibt. **So gebaut:** beide `/i/`-Blöcke in
+  `nginx/templates/app.conf.template` tragen `access_log off`, also erscheint
+  keine `/i/`-Zeile in `access.log` — dort läse sie sich leichter als aus der
+  Datenbank, in der nur der Hash steht. Der Block auf Port 80 trägt es mit,
+  weil sonst schon die Umleitung auf HTTPS das Token mitschriebe. Dazu
+  `limit_req_log_level info`, damit auch das Bremsen der Ratenbegrenzung den
+  Pfad nicht ins Fehlerprotokoll schreibt. Was bleibt, ist benannt: ein
+  Upstream-Fehler auf `/i/` protokolliert den Pfad weiterhin auf `error`-Ebene
+  — ein Fall, der voraussetzt, dass die Anwendung ohnehin am Boden liegt. Die
+  Ratenbegrenzung auf `/i/` sitzt ebenfalls in nginx (`20r/m`, `burst=10
+nodelay`); im Anwendungscode gibt es bewusst keine. Siehe
+  [Betrieb und Runbook](#betrieb-und-runbook).
 - **Verbindungsvorschau.** Wird der Link in einem Chat verschickt, holt der
   Messenger die Adresse oft selbst ab, um eine Vorschau zu bauen. Das Token ist
   damit auf dessen Servern bekannt. Verbraucht wird es nicht — es bleibt
@@ -866,8 +1438,6 @@ angenommen — nicht übersehen:
   Spalte gibt es nicht, und `--overdue` ist ein noch unbenutztes Token.
 - Diensthinweis und freie Einzelaufgaben, also Block 1 und 2 auf `/`: **Epic 3**.
   Die Reihenfolge ist angelegt, die Blöcke rendern nichts.
-- Docker Compose, nginx als TLS-Terminierung, certbot, Backup-Skript und
-  Runbook: **Story 1.6**. In diesem Stand gibt es davon nichts.
 - Es gibt bewusst keinen Service Worker: `static/manifest.webmanifest` und die
   Icons genügen für die Installation zum Home-Bildschirm, und ein Datencache
   würde Erledigtes als offen zeigen.

@@ -1,0 +1,166 @@
+# Der Betriebsstapel: drei Dienste, ein Netz.
+#
+# Werte kommen aus .env neben dieser Datei — sie steht in .gitignore, und im
+# Repository liegt nur .env.example. Kein Vorgabewert für eine Pflichtvariable:
+# fehlt eine, endet app mit der benannten deutschen Meldung, statt still mit
+# einem erfundenen Wert weiterzulaufen.
+
+services:
+  app:
+    build: .
+    # DATABASE_PATH, SESSION_SECRET und die drei Betriebsvariablen kommen von
+    # hier. Auf dem Server steht DATABASE_PATH=/data/db/db.sqlite — eine Ebene
+    # unter dem Mountpunkt, siehe die Volume-Anmerkung unten.
+    env_file: .env
+    environment:
+      # ORIGIN entsteht aus DOMAIN, damit Herkunft und Zertifikatsname nicht
+      # auseinanderlaufen können — beide bezeichnen denselben Host. Das ist
+      # kein Vorgabewert: ist DOMAIN leer, ist auch ORIGIN unbrauchbar und der
+      # Start bricht mit der benannten Meldung ab. Ein hier gesetzter Wert
+      # gewinnt gegen env_file; ein ORIGIN in .env wirkt im Stapel also nicht.
+      # Das :? ist kein Vorgabewert, sondern sein Gegenteil: fehlt DOMAIN,
+      # bricht schon `docker compose config` mit dieser Meldung ab, statt
+      # https:// an die Anwendung zu reichen.
+      ORIGIN: https://${DOMAIN:?DOMAIN fehlt. Siehe .env.example.}
+      # Der interne Port steht an drei Stellen: hier, im Healthcheck unten und
+      # in proxy_pass in nginx/templates/app.conf.template. Hier ist er
+      # festgenagelt, damit die drei nicht auseinanderlaufen können — ein PORT
+      # in .env wirkt im Stapel nicht. Ohne diese Zeile bräche eine leere Zeile
+      # `PORT=` den Container mit einem rohen ERR_SOCKET_BAD_PORT-Stacktrace,
+      # und ein gesetztes PORT=8080 liesse app stumm nie `healthy` werden,
+      # womit nginx wegen service_healthy gar nicht erst startete.
+      PORT: '3000'
+    volumes:
+      # Die SQLite-Datei, unter /data/db/db.sqlite — eine Ebene unter dem
+      # Mountpunkt, damit ein Volume-Verlust laut wird. Vollständige Begründung
+      # im Dockerfile, Bedienung im Runbook (README.md).
+      - daten:/data
+      # Das Sicherungsverzeichnis des Hosts. scripts/backup.sh schreibt die
+      # fertige Kopie hierher, ohne dass der Host den Volume-Pfad kennen muss.
+      - ${BACKUP_DIR:?BACKUP_DIR fehlt. Siehe .env.example.}:/sicherungen
+    restart: unless-stopped
+    # KEIN ports-Eintrag. Der Dienst ist nur über das interne Bridge-Netz
+    # erreichbar; nginx spricht ihn als http://app:3000 an. Das ist Absicht und
+    # keine Auslassung.
+    healthcheck:
+      # Es gibt bewusst keinen Health-Endpunkt. Jeder Pfad ausser /i/<token>
+      # läuft durch den Wächter in src/hooks.server.ts und antwortet ohne
+      # gültiges Cookie mit 403 — genau dieses 403 ist der Gesundheitsbeweis.
+      # Es belegt mehr als ein 200 auf einer freien Route: der Prozess hört,
+      # und der init-Hook ist ohne process.exit(1) durchgelaufen, also stehen
+      # Datenbank, Sitzungsgeheimnis und Herkunft.
+      #
+      # Der Preis ist benannt: ändert sich der Statuscode des Wächters je,
+      # meldet der Healthcheck den Container als krank.
+      #
+      # Node 24 bringt fetch mit — es braucht kein curl und kein wget im Image.
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3000/').then((a) => process.exit(Number(a.status !== 403)), () => process.exit(1))
+      interval: 30s
+      start_period: 30s
+      start_interval: 2s
+      timeout: 5s
+      retries: 3
+    # Ohne Obergrenze wächst json-file unbegrenzt. Eine volllaufende Platte
+    # ist die eine Störung, die SQLite nicht bloss anhält, sondern beschädigt —
+    # und ein VPS light hat davon wenig.
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    networks:
+      - intern
+
+  nginx:
+    image: nginx:1.29-alpine
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      DOMAIN: ${DOMAIN}
+      # Auf die eine Variable begrenzt. Ohne Filter ersetzte envsubst jede
+      # $-Folge in der Vorlage, also auch $host und $binary_remote_addr, und
+      # zurück bliebe eine leere Zone und ein leerer Host.
+      NGINX_ENVSUBST_FILTER: ^DOMAIN$$
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/templates:/etc/nginx/templates:ro
+      - letsencrypt:/etc/letsencrypt:ro
+      - acme:/var/www/certbot:ro
+    tmpfs:
+      # Das Einstiegsskript rendert die Vorlage hierher. Das tmpfs verdeckt
+      # zugleich die default.conf des Images — sonst beantwortete deren
+      # server-Block auf Port 80 jede Anfrage ohne passenden Host mit der
+      # nginx-Startseite statt mit der Umleitung.
+      - /etc/nginx/conf.d
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    # Ohne Obergrenze wächst json-file unbegrenzt. Eine volllaufende Platte
+    # ist die eine Störung, die SQLite nicht bloss anhält, sondern beschädigt —
+    # und ein VPS light hat davon wenig.
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    networks:
+      - intern
+
+  certbot:
+    # Version gepinnt wie überall sonst: node:24-alpine, nginx:1.29-alpine.
+    # Ein wanderndes latest auf dem Dienst, der die Zertifikate hält, ist die
+    # unangenehmste Sorte Überraschung.
+    image: certbot/certbot:v5.7.0
+    environment:
+      # Damit die Runbook-Befehle ohne einen einzigen echten Hostnamen und ohne
+      # eine erfundene Adresse auskommen: `docker compose run … certbot` liest
+      # beides hier aus der Umgebung des Containers.
+      DOMAIN: ${DOMAIN:?DOMAIN fehlt. Siehe .env.example.}
+      CERTBOT_EMAIL: ${CERTBOT_EMAIL:?CERTBOT_EMAIL fehlt. Siehe .env.example.}
+    # Erneuerungsschleife statt Host-Cron: certbot bringt seinen eigenen
+    # Zustand mit, und der liegt im Volume. `trap exit TERM` sorgt dafür, dass
+    # `docker compose down` nicht bis zum Ende des sleep wartet.
+    #
+    # Das erste Zertifikat holt diese Schleife NICHT — das tut der Mensch
+    # einmal je Maschine, siehe Runbook in README.md.
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        trap exit TERM
+        while :; do
+          certbot renew --webroot --webroot-path /var/www/certbot --quiet
+          sleep 12h & wait $${!}
+        done
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - acme:/var/www/certbot
+    restart: unless-stopped
+    # Ohne Obergrenze wächst json-file unbegrenzt. Eine volllaufende Platte
+    # ist die eine Störung, die SQLite nicht bloss anhält, sondern beschädigt —
+    # und ein VPS light hat davon wenig.
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    networks:
+      - intern
+
+volumes:
+  # Die SQLite-Datei samt -wal und -shm.
+  daten:
+  # /etc/letsencrypt: Zertifikate, Schlüssel und certbots Zustand.
+  letsencrypt:
+  # Das geteilte Webroot für die ACME-Prüfung.
+  acme:
+
+networks:
+  intern:
+    driver: bridge

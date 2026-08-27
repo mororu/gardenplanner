@@ -1,0 +1,46 @@
+# Was nicht in den Build-Kontext gehört.
+#
+# Ohne diese Datei wandern die 2,3 MB unter build/ und ein lokal gebautes
+# node_modules mit — und die Builder-Stufe baute auf fremden Artefakten auf
+# statt auf dem, was package-lock.json beschreibt. Ein arm64-node_modules vom
+# Entwicklerrechner in einem amd64-Image ist der teuerste Fall davon.
+
+node_modules
+build
+.svelte-kit
+
+# Lokale Datenbank. Im Betrieb liegt sie im Named Volume unter /data.
+data
+
+# Geheimnisse bleiben draussen. .env.example ist die Vorlage und darf mit.
+.env*
+!.env.example
+
+.git
+.DS_Store
+
+# Planungsartefakte und Werkzeugkonfiguration — kein Anwendungscode.
+_bmad
+_bmad-output
+.claude
+
+# Die Betriebsdateien selbst. Sie beschreiben, wie das Image läuft, und gehen
+# nicht hinein. Sie sind zugleich die Dateien, die sich am häufigsten ändern:
+# blieben sie im Kontext, entwertete jede Zeile im Runbook die COPY-Schicht der
+# Quellen und erzwänge auf dem VPS einen vollen `npm run build` — genau den
+# Schritt, den die benannten Kosten in README.md als knapp markieren.
+Dockerfile
+.dockerignore
+docker-compose.yml
+nginx
+README.md
+
+# Fehlerproben der Prüfskripte. scripts/ selbst muss mit — die Builder-Stufe
+# ist der Weg, auf dem create-admin läuft —, die Proben darin nicht.
+scripts/gate-fixtures
+scripts/db-check-fixtures
+
+# drizzle/ steht hier bewusst NICHT, auch drizzle/meta/ nicht: migrate() liest
+# den Ordner beim Serverstart (src/lib/server/db/index.ts), und ohne
+# meta/_journal.json scheitert die Migration erst auf der ersten leeren
+# Datenbank — also auf dem Server, nicht hier.

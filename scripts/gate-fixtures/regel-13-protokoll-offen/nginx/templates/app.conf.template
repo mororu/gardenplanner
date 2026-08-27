@@ -1,0 +1,42 @@
+# Gegenprobe zu Regel 13: beide /i/-Blöcke schweigen, also darf nichts fallen.
+#
+# Die Fallen dieser Probe, alle drei dürfen NICHT zählen:
+#   - ein auskommentierter location-Block auf /i/ ohne access_log off
+#   - ein location-Block auf /.well-known/acme-challenge/ ohne access_log off
+#   - ein location / ohne access_log off
+#
+# location ^~ /i/alt/ {
+#     proxy_pass http://app:3000;
+# }
+
+server {
+	listen 80;
+	server_name beispiel.invalid;
+
+	location /.well-known/acme-challenge/ {
+		root /var/www/certbot;
+	}
+
+	location ^~ /i/ {
+		access_log off;
+		return 301 https://beispiel.invalid$request_uri;
+	}
+
+	location / {
+		return 301 https://beispiel.invalid$request_uri;
+	}
+}
+
+server {
+	listen 443 ssl;
+	server_name beispiel.invalid;
+
+	location / {
+		proxy_pass http://app:3000;
+	}
+
+	location ^~ /i/ {
+		limit_req zone=einloesen burst=10 nodelay;
+		proxy_pass http://app:3000;
+	}
+}

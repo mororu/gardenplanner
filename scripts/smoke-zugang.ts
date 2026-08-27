@@ -86,7 +86,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 261;
+const ERWARTETE_BEHAUPTUNGEN = 262;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -782,6 +782,47 @@ try {
 	fehlerVorlage = await fehlervorlageLaden();
 
 	// -----------------------------------------------------------------------
+	// Der fehlende-Verzeichnis-Zweig — und zwar vor allem anderen
+	// -----------------------------------------------------------------------
+	/*
+	 * src/lib/server/db/index.ts prüft mit existsSync, ob das Verzeichnis der
+	 * Datenbank da ist, und wirft sonst mit dem Verzeichnis im Text. Auf genau
+	 * diesem Zweig ruht die /data/db-Konstruktion des Betriebsstapels: das
+	 * Named Volume hängt auf /data, die Datei liegt unter /data/db/db.sqlite,
+	 * und ein verlorenes Volume lässt /data/db fehlen. Der Container endet dann
+	 * laut, statt still eine leere Datenbank anzulegen und der Gemeinschaft
+	 * `Nichts offen.` ohne jeden Hinweis auf den Datenverlust zu zeigen.
+	 *
+	 * Gedeckt hat das bis hierher nichts: jeder DATABASE_PATH dieses Skripts
+	 * zeigt in ein vorhandenes Verzeichnis, der Zweig wurde nie betreten. Wer
+	 * den Wächter durch ein mkdirSync(…, { recursive: true }) ersetzte, bekam
+	 * grünes lint, grünes check — und den stillen Leerstart zurück.
+	 *
+	 * Diese Behauptung steht **vor** datenschichtStarten() und muss dort
+	 * bleiben. Die Schicht merkt sich ihre Verbindung, ein zweiter Aufruf tut
+	 * nichts; nach dem ersten erfolgreichen Start ist dieser Zweig im selben
+	 * Prozess nicht mehr auszulösen. Das ist kein stilles Risiko: rutscht die
+	 * Behauptung je dahinter, wirft startPruefen nicht mehr und sie wird rot.
+	 */
+	{
+		const gemerkterPfad = process.env.DATABASE_PATH;
+		const fehlendesVerzeichnis = join(arbeit, 'kein-solches-verzeichnis');
+		process.env.DATABASE_PATH = join(fehlendesVerzeichnis, 'db.sqlite');
+		let fehlendMeldung: string | null = null;
+		try {
+			startPruefen();
+		} catch (fehler) {
+			fehlendMeldung = fehler instanceof Error ? fehler.message : String(fehler);
+		}
+		process.env.DATABASE_PATH = gemerkterPfad;
+		pruefen(
+			'startPruefen wirft, wenn das Verzeichnis der Datenbank fehlt, und nennt das Verzeichnis',
+			fehlendMeldung !== null && fehlendMeldung.includes(fehlendesVerzeichnis),
+			fehlendMeldung ?? 'kein Wurf — der existsSync-Wächter in db/index.ts greift nicht mehr'
+		);
+	}
+
+	// -----------------------------------------------------------------------
 	// Datenschicht auf leerer Datei
 	// -----------------------------------------------------------------------
 	datenschichtStarten();
@@ -812,6 +853,9 @@ try {
 		startGeworfen ?? undefined
 	);
 
+	// DATABASE_PATH fehlt in dieser Aufzählung mit Absicht: sein Fehlen und sein
+	// Zeigen ins Leere sind beide geprüft, aber weiter oben — die Datenschicht
+	// merkt sich ihre Verbindung und wirft hier unten nicht mehr.
 	for (const [was, name] of [
 		['SESSION_SECRET', 'SESSION_SECRET'],
 		['ORIGIN', 'ORIGIN'],

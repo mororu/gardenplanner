@@ -14,7 +14,7 @@
  *   node scripts/gate.mjs [zielverzeichnis]   prüft ein Projekt (Vorgabe: dieses)
  *   node scripts/gate.mjs --selftest          prüft das Tor gegen die Fehlerproben
  *
- * Die zwölf Regeln:
+ * Die dreizehn Regeln:
  *   1. In .svelte und .css unter src/ kein Farbliteral (Hex, rgb(), rgba(),
  *      hsl(), hsla(), oklch(), color() …, CSS-Farbname), kein rohes
  *      px/rem-Literal ausser 0 und **kein rohes ms/s-Literal ausser 0** im Wert
@@ -67,6 +67,22 @@
  *      nannte die Marke wörtlich, und die halbe Erklärung stand danach als
  *      sichtbarer Text über der Titelleiste. Gefunden hat das kein Werkzeug,
  *      sondern das Auge des Users.
+ *  13. Jeder location-Block auf /i/ in nginx/templates/app.conf.template trägt
+ *      `access_log off;` — beide, der auf Port 443 und der auf Port 80. Das
+ *      Klartext-Token steht im Pfad des Einladungslinks; ohne die Zeile läge
+ *      jedes eingelöste Token in access.log, und dort liest es sich leichter
+ *      als aus der Datenbank, in der nur der SHA-256-Hash steht. Belegt: die
+ *      Zeile aus einem Block löschen lässt `npm run lint` grün und `nginx -t`
+ *      "syntax is ok" melden, während die Zusage gebrochen ist.
+ *
+ * **Regel 13 ist die erste, die über src/ hinausliest.** Bis dahin galt: das
+ * Tor sieht src/ und static/manifest.webmanifest. Die Zusage, die Regel 13
+ * absichert, steht aber in einer nginx-Vorlage im Repositoriumswurzelbaum, und
+ * eine Regel, die dort nicht hinsieht, sichert nichts. Fehlt die Vorlage ganz,
+ * schweigt die Regel — es sei denn, das Projekt bringt eine docker-compose.yml
+ * mit, die sie einhängt; dann ist ihr Fehlen selbst der Verstoss. Ohne diese
+ * Ausnahme fiele jede Fehlerprobe der zwölf anderen Regeln durch, denn keine
+ * bringt ein nginx/ mit.
  *
  * Zwei Eigenschaften der Umsetzung sind nicht verhandelbar, weil frühere
  * Fassungen genau daran vorbeigeschaut haben:
@@ -1221,6 +1237,85 @@ const torPrüfen = (ziel) => {
 	}
 
 	// -------------------------------------------------------------------
+	// Regel 13: jeder /i/-location-Block trägt access_log off
+	// -------------------------------------------------------------------
+	/*
+	 * Die erste Regel, die über src/ hinausgreift, und der Grund dafür ist
+	 * benannt: die bindende Zusage aus README.md ("Benannt akzeptierte
+	 * Risiken") lautet, dass /i/ in keinem nginx-Zugriffsprotokoll erscheint.
+	 * Das Klartext-Token steht im Pfad; in access.log läse es sich leichter als
+	 * aus der Datenbank, in der nur der SHA-256-Hash steht.
+	 *
+	 * Gedeckt hat diese Zusage bis hierher nichts. Gemessen: löscht man
+	 * `access_log off` aus einem der beiden /i/-Blöcke, meldet `npm run lint`
+	 * grün und `nginx -t` "syntax is ok" — und jedes eingelöste Token läuft ins
+	 * Protokoll. **Beide** Blöcke zählen, der auf 443 und der auf 80: schon die
+	 * Umleitung schreibt den vollen Pfad mit.
+	 *
+	 * `#` ist in nginx ein Zeilenkommentar und wird vorher ausgeblendet. Ohne
+	 * das zählte ein auskommentiertes `access_log off;` als Erfüllung, und ein
+	 * erklärender Kommentar, der das Wort location nennt, als Block.
+	 */
+	const nginxVorlage = join(ziel, 'nginx', 'templates', 'app.conf.template');
+	const composeDatei = join(ziel, 'docker-compose.yml');
+	if (!existsSync(nginxVorlage)) {
+		// Die Fehlerproben der übrigen Regeln bringen kein nginx/ mit, darum ist
+		// eine fehlende Vorlage für sich noch kein Verstoss. Fehlt sie aber in
+		// einem Projekt, das den Compose-Stapel mitbringt, ist sie gelöscht
+		// worden — und mit ihr die Zusage.
+		if (existsSync(composeDatei)) {
+			melden(
+				13,
+				nginxVorlage,
+				1,
+				'die nginx-Vorlage fehlt, obwohl docker-compose.yml sie einhängt — ohne sie ist ' +
+					'die Zusage "kein /i/ im Zugriffsprotokoll" von nichts mehr gedeckt'
+			);
+		}
+	} else {
+		const vorlageRoh = lesen(nginxVorlage, 13);
+		if (vorlageRoh !== null) {
+			const vorlageText = vorlageRoh.replace(/#[^\n]*/g, ausgeblendet);
+			let einloeseBloecke = 0;
+			for (const treffer of vorlageText.matchAll(/\blocation\s+([^{\n]*?)\s*\{/g)) {
+				const spezifikation = treffer[1].trim();
+				if (!spezifikation.includes('/i/')) continue;
+				einloeseBloecke += 1;
+				const stelle = treffer.index ?? 0;
+				const block = blockAb(vorlageText, stelle);
+				if (block === null) {
+					melden(
+						13,
+						nginxVorlage,
+						zeileVon(vorlageText, stelle),
+						`der location-Block \`${spezifikation}\` ist unbalanciert — die schliessende Klammer fehlt`
+					);
+					continue;
+				}
+				const innen = vorlageText.slice(block.innenVon, block.innenBis);
+				if (!/\baccess_log\s+off\s*;/.test(innen)) {
+					melden(
+						13,
+						nginxVorlage,
+						zeileVon(vorlageText, stelle),
+						`location ${spezifikation} trägt kein \`access_log off;\` — das Klartext-Token ` +
+							'steht im Pfad und liefe damit Zeile für Zeile in access.log'
+					);
+				}
+			}
+			if (einloeseBloecke === 0) {
+				melden(
+					13,
+					nginxVorlage,
+					1,
+					'kein location-Block auf /i/ gefunden — entweder ist der Einlösepfad umbenannt ' +
+						'worden oder die Blöcke sind weg. Beides bricht die Protokollzusage'
+				);
+			}
+		}
+	}
+
+	// -------------------------------------------------------------------
 	// Regel 8: unbenutzte Tokens sind ein Hinweis, kein Fehler
 	// -------------------------------------------------------------------
 	for (const name of hellTokens.keys()) {
@@ -1260,7 +1355,7 @@ const berichten = (ergebnis, ziel) => {
 	}
 	console.log(
 		`gate (${wo}): ${ergebnis.dateien} Dateien und ${ergebnis.tokens} Tokens geprüft, ` +
-			`${ergebnis.hinweise.length} Hinweis(e), zwölf Regeln erfüllt.`
+			`${ergebnis.hinweise.length} Hinweis(e), dreizehn Regeln erfüllt.`
 	);
 	return 0;
 };
@@ -1523,12 +1618,38 @@ const proben = [
 		art: 'Verstoss',
 		beschreibung: 'Datenbank-Handle über einen relativen Pfad auf db/index.ts',
 	},
+	{
+		regel: 13,
+		verzeichnis: 'regel-13-protokoll-offen',
+		erwartet: 1,
+		begruendung:
+			'1 /i/-Block ohne access_log off (der auf 443). Der Block auf Port 80 trägt die ' +
+			'Zeile und darf nicht mitzählen, ebenso wenig der auskommentierte /i/-Block im ' +
+			'Kopf, der acme-challenge-Block und location / — keiner von ihnen führt ein ' +
+			'Klartext-Token im Pfad',
+		art: 'Verstoss',
+		beschreibung:
+			'einem der beiden /i/-Blöcke fehlt access_log off — genau die Mutation, die lint ' +
+			'und nginx -t grün lässt, während jedes Token in access.log läuft',
+	},
+	{
+		regel: 13,
+		verzeichnis: 'regel-13-protokoll-still',
+		erwartet: 0,
+		begruendung:
+			'Gegenprobe: beide /i/-Blöcke tragen access_log off. Ein auskommentierter ' +
+			'/i/-Block ohne die Zeile, drei Erwähnungen von access_log off in Kommentaren und ' +
+			'zwei Blöcke ohne /i/ im Pfad dürfen nichts auslösen, also null Treffer',
+		art: 'Verstoss',
+		beschreibung:
+			'vollständige Vorlage; Kommentare und Blöcke ohne /i/ dürfen die Regel nicht wecken',
+	},
 ];
 
 const selbsttest = () => {
 	let fehlt = 0;
 	console.log(
-		`gate --selftest: ${proben.length} Fehlerproben gegen die zwölf Regeln ` +
+		`gate --selftest: ${proben.length} Fehlerproben gegen die dreizehn Regeln ` +
 			`(erwartet: ${erwarteteSvelteRegeln} svelte/*- und ${erwarteteTsRegeln} @typescript-eslint/*-Regeln je Komponente)\n`
 	);
 
@@ -1576,7 +1697,7 @@ const selbsttest = () => {
 	}
 	console.log(
 		`\ngate --selftest: alle ${proben.length} Fehlerproben in erwarteter Zahl gefunden, ` +
-			'jede der zwölf Regeln beisst nachweislich.'
+			'jede der dreizehn Regeln beisst nachweislich.'
 	);
 	return 0;
 };

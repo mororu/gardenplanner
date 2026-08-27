@@ -17,6 +17,11 @@ data/
 *.sqlite-shm
 *.sqlite-wal
 
+# Sperrverzeichnis von scripts/backup.sh. Ein sauberer Lauf räumt es selbst
+# weg; nach einem harten Abbruch bleibt es liegen und will von Hand entfernt
+# werden — im Repository hat es nie etwas zu suchen.
+.backup.lock/
+
 # Betriebssystem und Editor
 .DS_Store
 *.swp
