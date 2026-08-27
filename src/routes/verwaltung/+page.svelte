@@ -191,7 +191,11 @@
 	let abbrechenKnopf = $state<HTMLButtonElement | null>(null);
 	let zuWiderrufen = $state<{ id: number; name: string; createdAt: number } | null>(null);
 
-	function widerrufFragen(mitglied: { id: number; name: string; createdAt: number }): void {
+	async function widerrufFragen(mitglied: {
+		id: number;
+		name: string;
+		createdAt: number;
+	}): Promise<void> {
 		// Ohne Dialog wird nicht widerrufen. Der Knopf in der Zeile ist
 		// type="button" und schickt nichts ab; ohne die Bestätigung passiert
 		// darum nichts — die richtige Ausfallrichtung. Vor allem bleibt
@@ -199,16 +203,29 @@
 		// hat.
 		if (dialog === null) return;
 		zuWiderrufen = mitglied;
-		dialog.showModal();
+		/*
+			tick() wartet, bis der Inhalt des Dialogs entstanden ist. Er hängt an
+			zuWiderrufen, und Svelte aktualisiert den DOM erst nach dieser
+			Zuweisung — ohne das Warten gäbe es `Abbrechen` hier noch nicht.
+		*/
+		await tick();
 		/*
 			showModal() fokussiert das erste fokussierbare Element. Damit lag der
-			Fokus vorher auf `Widerrufen`: ein Enter direkt nach dem Öffnen
-			beendete einen Zugang ohne weiteres Zutun. `Abbrechen` steht deshalb
-			zuerst im DOM — und wird zusätzlich ausdrücklich fokussiert, damit die
-			Zusage nicht daran hängt, welches Element der Browser für das erste
-			hält.
+			Fokus in einer früheren Fassung auf `Widerrufen`: ein Enter direkt nach
+			dem Öffnen beendete einen Zugang ohne weiteres Zutun. `Abbrechen` steht
+			deshalb zuerst im DOM und wird zusätzlich ausdrücklich fokussiert.
+
+			Fehlt der Knopf, wird **nicht geöffnet**. Ein `abbrechenKnopf?.focus()`
+			wäre hier falsch: es tut still nichts, und übrig bliebe ein offener
+			Dialog, dessen Fokus auf der zerstörenden Aktion liegt. Lieber keine
+			Bestätigung als eine gefährliche.
 		*/
-		abbrechenKnopf?.focus();
+		if (abbrechenKnopf === null) {
+			zuWiderrufen = null;
+			return;
+		}
+		dialog.showModal();
+		abbrechenKnopf.focus();
 	}
 </script>
 
@@ -365,34 +382,45 @@
 	aria-describedby="widerruf-text"
 	onclose={() => (zuWiderrufen = null)}
 >
-	<h2 class="abschnittstitel" id="widerruf-titel">Einladung widerrufen?</h2>
-	<p class="bestaetigung__text" id="widerruf-text">
-		{zuWiderrufen === null ? '' : zuWiderrufen.name}, aufgenommen am
-		{zuWiderrufen === null ? '' : datumLang(zuWiderrufen.createdAt)}, kommt danach nicht mehr
-		herein, und der Link führt auf die Fehlerseite. Der Name bleibt in der Liste stehen; gelöscht
-		wird nichts, und es gibt keinen Weg zurück.
-	</p>
-	<form method="POST" action="?/widerrufen" use:enhance={versand}>
-		<input type="hidden" name="mitgliedId" value={zuWiderrufen === null ? '' : zuWiderrufen.id} />
-		<!--
-			`Abbrechen` steht zuerst und wird beim Öffnen fokussiert: ein Enter
-			direkt nach dem Öffnen darf keinen Zugang beenden. Die Sichtreihenfolge
-			folgt dem DOM, die Fokusreihenfolge damit der Leserichtung.
-		-->
-		<div class="bestaetigung__knoepfe">
-			<button
-				class="button-quiet"
-				type="button"
-				bind:this={abbrechenKnopf}
-				onclick={() => dialog?.close()}
-			>
-				Abbrechen
-			</button>
-			<button class="button-quiet button-quiet--zerstoerend" type="submit" disabled={imFlug}>
-				Widerrufen
-			</button>
-		</div>
-	</form>
+	<!--
+		Der Inhalt entsteht erst mit der gewählten Zeile.
+
+		Vorher stand er immer im Markup und füllte Name und Datum mit leeren
+		Zeichenketten: der ausgelieferte Quelltext trug den Satz „, aufgenommen am
+		, kommt danach nicht mehr herein" — unsichtbar, weil das Element
+		geschlossen ist, aber gelesen von jedem, der in den Quelltext schaut.
+		Ebenso trug das versteckte Feld ein leeres mitgliedId. Das Element selbst
+		bleibt stehen, weil bind:this es braucht; nur sein Inhalt ist bedingt.
+	-->
+	{#if zuWiderrufen !== null}
+		<h2 class="abschnittstitel" id="widerruf-titel">Einladung widerrufen?</h2>
+		<p class="bestaetigung__text" id="widerruf-text">
+			{zuWiderrufen.name}, aufgenommen am {datumLang(zuWiderrufen.createdAt)}, kommt danach nicht
+			mehr herein, und der Link führt auf die Fehlerseite. Der Name bleibt in der Liste stehen;
+			gelöscht wird nichts, und es gibt keinen Weg zurück.
+		</p>
+		<form method="POST" action="?/widerrufen" use:enhance={versand}>
+			<input type="hidden" name="mitgliedId" value={zuWiderrufen.id} />
+			<!--
+				`Abbrechen` steht zuerst und wird beim Öffnen fokussiert: ein Enter
+				direkt nach dem Öffnen darf keinen Zugang beenden. Die Sichtreihenfolge
+				folgt dem DOM, die Fokusreihenfolge damit der Leserichtung.
+			-->
+			<div class="bestaetigung__knoepfe">
+				<button
+					class="button-quiet"
+					type="button"
+					bind:this={abbrechenKnopf}
+					onclick={() => dialog?.close()}
+				>
+					Abbrechen
+				</button>
+				<button class="button-quiet button-quiet--zerstoerend" type="submit" disabled={imFlug}>
+					Widerrufen
+				</button>
+			</div>
+		</form>
+	{/if}
 </dialog>
 
 <style>
