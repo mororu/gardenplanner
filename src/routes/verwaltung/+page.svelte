@@ -132,6 +132,25 @@
 		}
 		imFlug = true;
 		return async ({ update, result }) => {
+			/*
+				Zuerst den Dialog schliessen.
+
+				use:enhance schickt per fetch ab, es gibt also keine Navigation, die
+				ihn schliessen würde: nach einem Antippen von `Widerrufen` blieb er
+				offen stehen, und weil ein modaler Dialog den Rest der Seite inert
+				macht, kam man nur über `Abbrechen` wieder heraus — während die
+				Rückmeldung unerreichbar dahinter lag.
+
+				Unbedingt und nicht nur beim Widerruf: solange der Dialog offen ist,
+				ist er der einzige Ort, von dem überhaupt abgeschickt werden kann,
+				und auf einem geschlossenen Dialog tut close() nichts.
+
+				Vor update() und vor fokusNach(): close() gibt den Fokus an das
+				Element zurück, das ihn vor showModal() hatte, und würde eine danach
+				gesetzte Fokusposition wieder überschreiben. Auch bei einem
+				Fehlschlag wird geschlossen — der Satz dazu steht oben auf der Seite.
+			*/
+			dialog?.close();
 			await update();
 			imFlug = false;
 			// Nach dem Rendern, sonst gibt es das Ziel noch nicht.
