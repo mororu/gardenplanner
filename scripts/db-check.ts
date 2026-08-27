@@ -42,6 +42,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const eigenesProjekt = fileURLToPath(new URL('..', import.meta.url));
 const probenWurzel = join(eigenesProjekt, 'scripts', 'db-check-fixtures');
 const drizzleKit = join(eigenesProjekt, 'node_modules', 'drizzle-kit', 'bin.cjs');
+/** Für alle drei spawnSync-Aufrufe an drizzle-kit — ein hängender Prozess soll den Lauf nicht unbegrenzt blockieren. */
+const SPAWN_TIMEOUT_MS = 120_000;
 
 /** Ein Befund ist eine benannte Meldung, nie ein Stacktrace. */
 type Befund = { pruefung: string; meldung: string };
@@ -73,7 +75,7 @@ function failFastPruefen(ziel: string): Befund[] {
 			encoding: 'utf8',
 			env: umgebung,
 			stdio: ['ignore', 'pipe', 'pipe'],
-			timeout: 120_000,
+			timeout: SPAWN_TIMEOUT_MS,
 		});
 
 		if (lauf.error !== undefined) {
@@ -159,7 +161,7 @@ function konfigurationLesen(ziel: string): { konfig: Konfiguration | null; befun
 			encoding: 'utf8',
 			env: { ...process.env, DATABASE_PATH: join(ziel, 'nur-zum-laden.sqlite') },
 			stdio: ['ignore', 'pipe', 'pipe'],
-			timeout: 120_000,
+			timeout: SPAWN_TIMEOUT_MS,
 		}
 	);
 
@@ -271,7 +273,7 @@ function driftPruefen(ziel: string, konfig: Konfiguration): Befund[] {
 				// scheitern und nicht warten. Ein hängendes lint ist schlimmer als ein
 				// rotes.
 				stdio: ['ignore', 'pipe', 'pipe'],
-				timeout: 120_000,
+				timeout: SPAWN_TIMEOUT_MS,
 			}
 		);
 

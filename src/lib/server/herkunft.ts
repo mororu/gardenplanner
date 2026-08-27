@@ -50,11 +50,7 @@ export function herkunftLesen(): string {
 	// Das Fragment steht ausdrücklich mit in dieser Prüfung. adresse.origin würde
 	// es lautlos wegwerfen — und ein JSDoc, der "abgewiesen" verspricht, während
 	// der Code schweigend zurechtbiegt, ist schlimmer als beides einzeln.
-	if (
-		(adresse.pathname !== '' && adresse.pathname !== '/') ||
-		adresse.search !== '' ||
-		adresse.hash !== ''
-	) {
+	if (adresse.pathname !== '/' || adresse.search !== '' || adresse.hash !== '') {
 		throw new Error(
 			`ORIGIN trägt mehr als eine Herkunft: ${wert}\n` +
 				'Erwartet werden Schema, Host und höchstens ein Port — kein Pfad, kein\n' +

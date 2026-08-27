@@ -4,7 +4,7 @@
  * Datenbank steht nur der SHA-256-Hash.
  *
  * Aufruf:
- *   npm run create-admin -- Anna
+ *   npm run create-admin -- Anna Meier
  *
  * Node 25 strippt TypeScript von sich aus, darum braucht dieses Skript kein
  * tsx. Die Importe stehen relativ und mit .ts-Endung, nie über $lib: nacktes
