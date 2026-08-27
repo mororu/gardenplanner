@@ -35,13 +35,13 @@ project_key: NOKEY
 tracking_system: file-system
 story_location: _bmad-output/implementation-artifacts
 development_status:
-  epic-1: in-progress
+  epic-1: done
   1-1-gerüst-und-gestaltungsrahmen: done
   1-2-einladungslink-einlösen-und-angemeldet-bleiben: done
   1-3-mitglieder-aufnehmen-und-zugang-beenden: done
   1-4-offene-aufgaben-sehen-und-abhaken: done
   1-5-aufgabe-vor-ort-erfassen: done
-  1-6-betrieb-und-deployment: review
+  1-6-betrieb-und-deployment: done
   epic-1-retrospective: optional
 
   epic-2: backlog
