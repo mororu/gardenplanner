@@ -13,10 +13,15 @@
 		an 2.70.3.
 
 		Darum hängt die Auswahl an der **Meldung** und nicht am nackten Status 403.
-		Story 1.3 bringt eigene 403-Fälle mit (Verwaltung ohne Adminrechte); ein
-		`page.status === 403 ? KEIN_ZUGANG : …` würde dort fälschlich
-		"Dieser Link gilt nicht mehr" zeigen, obwohl der Link tadellos gilt. Die
-		Meldung aus dem Wurf ist immer die genauere Auskunft; die Statuszweige
+		Ein `page.status === 403 ? KEIN_ZUGANG : …` zeigte bei jeder künftigen 403
+		aus einer Route fälschlich "Dieser Link gilt nicht mehr", obwohl der Link
+		tadellos gilt. Story 1.3 war der erwartete erste Fall dieser Art und ist es
+		nicht geworden: `/verwaltung` ohne Adminrechte **leitet weiter** statt zu
+		werfen, weil die Verwaltung für Nicht-Admins nicht existieren soll, nicht
+		verboten sein. Die Falle bleibt trotzdem entschärft, statt auf den nächsten
+		Anlass zu warten.
+
+		Die Meldung aus dem Wurf ist immer die genauere Auskunft; die Statuszweige
 		darunter greifen nur, wenn gar keine da ist — eine leere Meldung fällt auf
 		einen Satz zurück und nie auf ein leeres <h1>.
 	*/

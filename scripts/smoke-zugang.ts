@@ -35,6 +35,11 @@
  *   - Ein **unerwarteter Wurf ist ein Befund**, kein Absturz: der Rahmen unten
  *     benennt ihn, räumt die Wegwerfverzeichnisse weg und endet mit 1 — dasselbe
  *     Versprechen, das scripts/gate.mjs schon gibt.
+ *   - Die POST-Behauptungen fahren **echte** Formulardaten: das Ereignis baut
+ *     `new Request(url, { method: 'POST', body: FormData })`, damit
+ *     `await request.formData()` in der action wirklich etwas zu parsen hat.
+ *     Ohne Rumpf bekäme jede action eine leere Menge und die Prüfung läse nur
+ *     ihre eigene Vorbereitung.
  *
  * Nicht abgedeckt bleibt respond.js — die Schicht, die den Wurf in die Vorlage
  * überführt, Kopfzeilen anhängt und Cookies ausliefert. Ihr Verhalten ist am
@@ -52,7 +57,7 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import Database from 'better-sqlite3';
 import { eq } from 'drizzle-orm';
-import { isHttpError, isRedirect, text } from '@sveltejs/kit';
+import { isActionFailure, isHttpError, isRedirect, text } from '@sveltejs/kit';
 import type { Cookies, Handle, RequestEvent } from '@sveltejs/kit';
 import {
 	sitzungAusstellen,
@@ -60,10 +65,17 @@ import {
 	sitzungsgeheimnisPruefen,
 } from '../src/lib/server/auth.ts';
 import { datenbank, datenschichtStarten } from '../src/lib/server/db/index.ts';
-import { members } from '../src/lib/server/db/schema.ts';
+import { members, ohneTokenHash } from '../src/lib/server/db/schema.ts';
+import type { AngemeldetesMitglied } from '../src/lib/server/db/schema.ts';
 import { mitgliedAnlegen, mitgliederZaehlen } from '../src/lib/server/db/queries/members.ts';
 import { tokenErzeugen, tokenHashen } from '../src/lib/server/token.ts';
-import { KEIN_ZUGANG, NICHT_GEFUNDEN, UNERWARTETER_FEHLER } from '../src/lib/texte.ts';
+import {
+	EIGENER_ZUGANG_GESCHUETZT,
+	KEIN_ZUGANG,
+	MITGLIED_NICHT_ANSPRECHBAR,
+	NICHT_GEFUNDEN,
+	UNERWARTETER_FEHLER,
+} from '../src/lib/texte.ts';
 import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
 
 /**
@@ -73,7 +85,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 109;
+const ERWARTETE_BEHAUPTUNGEN = 185;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -278,9 +290,25 @@ class Ereignis {
 	readonly params: Record<string, string>;
 	readonly cookies: Cookies;
 
-	constructor(pfad: string, keks?: string) {
+	/**
+	 * @param formular fehlt für ein GET; steht dafür, wird die Anfrage ein POST
+	 *   mit multipart-Formulardaten.
+	 *
+	 * Ohne den dritten Parameter baute diese Attrappe nur `new Request(this.url)`
+	 * — ohne Methode und ohne Rumpf. Eine form action, die `await
+	 * request.formData()` ruft, bekäme darauf eine leere Menge und wäre nicht
+	 * von einer geprüft, sondern nur ausgeführt. Der Rumpf entsteht aus einem
+	 * echten FormData, damit ihn `request.formData()` auch wirklich parst.
+	 */
+	constructor(pfad: string, keks?: string, formular?: Record<string, string>) {
 		this.url = new URL(`${HERKUNFT}${pfad}`);
-		this.request = new Request(this.url);
+		if (formular === undefined) {
+			this.request = new Request(this.url);
+		} else {
+			const daten = new FormData();
+			for (const [feld, wert] of Object.entries(formular)) daten.set(feld, wert);
+			this.request = new Request(this.url, { method: 'POST', body: daten });
+		}
 		this.params = { token: pfad.replace(/^\/i\//, '').replace(/\/+$/, '') };
 		this.cookies = this.kekse.alsCookies();
 		if (keks !== undefined) this.kekse.saat('sitzung', keks);
@@ -447,6 +475,151 @@ async function abdruck(ausgang: Ausgang & { art: 'abweisung' }): Promise<string>
 		`nebenwirkungen:\n${ausgang.ereignis.nebenwirkungen()}`,
 		rumpf.toString('base64'),
 	].join('\n---\n');
+}
+
+// ---------------------------------------------------------------------------
+// Die Routenmodule von /verwaltung und /mehr, direkt gerufen.
+//
+// Direkt und nicht durch den Wächter: die Adminschranke sitzt in der Route, und
+// der Wächter kennt is_admin gar nicht. Was hier geprüft wird, ist genau die
+// Schranke — vier Aufrufstellen, von denen jede einzeln vergessen werden kann.
+// ---------------------------------------------------------------------------
+type Aktion = (ereignis: RequestEvent) => Promise<unknown>;
+type VerwaltungsModul = {
+	load: (ereignis: RequestEvent) => unknown;
+	actions: Record<string, Aktion>;
+};
+type MehrModul = { load: (ereignis: RequestEvent) => unknown };
+
+let verwaltungsModul: VerwaltungsModul | null = null;
+let mehrModul: MehrModul | null = null;
+
+/*
+ * Die zwei Casts gehen über `unknown`, und das ist eine Aussage: die echten
+ * load-Funktionen nehmen ein ServerLoadEvent, das Ereignis oben ist ein
+ * RequestEvent ohne parent, depends und untrack. Behauptet wird damit, dass
+ * diese drei Angebote von keiner der beiden load-Funktionen gebraucht werden —
+ * was für eine synchrone Repository-Abfrage stimmt. Ruft eine load sie je doch,
+ * bricht der Aufruf mit einem TypeError, und der Rahmen unten macht daraus eine
+ * benannte Verletzung statt eines stillen Durchlaufs.
+ */
+async function verwaltungLaden(): Promise<VerwaltungsModul> {
+	verwaltungsModul ??=
+		(await import('../src/routes/verwaltung/+page.server.ts')) as unknown as VerwaltungsModul;
+	return verwaltungsModul;
+}
+
+async function mehrLaden(): Promise<MehrModul> {
+	mehrModul ??= (await import('../src/routes/mehr/+page.server.ts')) as unknown as MehrModul;
+	return mehrModul;
+}
+
+/**
+ * Die drei Ausgänge, die eine load oder eine action nehmen kann.
+ *
+ * `redirect()` wirft, `fail()` gibt zurück — beides muss beobachtbar sein, sonst
+ * liesse sich eine 303 nicht von einem stillen Erfolg unterscheiden.
+ */
+type Routenausgang =
+	| { art: 'wert'; wert: Record<string, unknown> }
+	| { art: 'weiter'; status: number; ort: string }
+	| { art: 'fehlschlag'; status: number; daten: Record<string, unknown> };
+
+async function routenausgang(lauf: () => unknown): Promise<Routenausgang> {
+	try {
+		const ergebnis = await lauf();
+		if (isActionFailure(ergebnis)) {
+			return {
+				art: 'fehlschlag',
+				status: ergebnis.status,
+				daten: (ergebnis.data ?? {}) as Record<string, unknown>,
+			};
+		}
+		return { art: 'wert', wert: (ergebnis ?? {}) as Record<string, unknown> };
+	} catch (fehler) {
+		if (isRedirect(fehler)) {
+			return { art: 'weiter', status: fehler.status, ort: fehler.location };
+		}
+		throw fehler;
+	}
+}
+
+/** Ein Ereignis mit gesetztem locals.mitglied — so, wie der Wächter es ablegt. */
+function alsMitglied(
+	pfad: string,
+	mitglied: AngemeldetesMitglied | null,
+	formular?: Record<string, string>
+): Ereignis {
+	const ereignis = new Ereignis(pfad, undefined, formular);
+	ereignis.locals.mitglied = mitglied;
+	return ereignis;
+}
+
+/** Behauptet eine Weiterleitung mit 303 auf `/` — die Antwort der Adminschranke. */
+function wegGeleitet(name: string, ausgang: Routenausgang): void {
+	pruefen(
+		name,
+		ausgang.art === 'weiter' && ausgang.status === 303 && ausgang.ort === '/',
+		ausgang.art === 'weiter' ? `${ausgang.status} auf ${ausgang.ort}` : `Ausgang ${ausgang.art}`
+	);
+}
+
+/** Behauptet einen Fehlschlag mit 400 und genau diesem Satz. */
+function abgewiesen(name: string, ausgang: Routenausgang, satz: string): void {
+	pruefen(
+		name,
+		ausgang.art === 'fehlschlag' && ausgang.status === 400 && ausgang.daten.meldung === satz,
+		ausgang.art === 'fehlschlag'
+			? `${ausgang.status}: ${JSON.stringify(ausgang.daten.meldung)}`
+			: `Ausgang ${ausgang.art}`
+	);
+}
+
+/** Die vollständige Mitgliedszeile als Zeichenkette — samt Hash, für Vergleiche. */
+function zeileAbdruck(id: number): string {
+	const zeile = datenbank().select().from(members).where(eq(members.id, id)).get();
+	return JSON.stringify(zeile ?? null);
+}
+
+/** Der Rückgabewert einer geglückten load oder action, oder ein leeres Objekt. */
+function wertVon(ausgang: Routenausgang): Record<string, unknown> {
+	return ausgang.art === 'wert' ? ausgang.wert : {};
+}
+
+/** Die Daten eines Fehlschlags, oder ein leeres Objekt. */
+function datenVon(ausgang: Routenausgang): Record<string, unknown> {
+	return ausgang.art === 'fehlschlag' ? ausgang.daten : {};
+}
+
+/**
+ * Trägt dieser Rückgabewert irgendwo ein Token?
+ *
+ * Gesucht wird nach der **Form, in der ein Token den Server verlässt**: als
+ * Feld `link` oder als Pfad `/i/<43 Zeichen>`. Ein nacktes
+ * `/[A-Za-z0-9_-]{43}/` wäre hier falsch und war es: die zurückgegebene
+ * Eingabe eines 81 Zeichen langen Namens erfüllt dieses Muster von selbst, und
+ * die Behauptung wurde rot, ohne dass etwas ausgelaufen war. Ein Prüfmuster,
+ * das auf harmlosen Eingaben anschlägt, wird beim nächsten roten Lauf
+ * abgeschwächt statt gelesen.
+ */
+function traegtToken(daten: Record<string, unknown>): boolean {
+	const text = JSON.stringify(daten);
+	return 'link' in daten || /\/i\/[A-Za-z0-9_-]{43}/.test(text);
+}
+
+/** Ein Feld als Zeichenkette; alles andere wird zur leeren Zeichenkette. */
+function textFeld(daten: Record<string, unknown>, feld: string): string {
+	const wert = daten[feld];
+	return typeof wert === 'string' ? wert : '';
+}
+
+/** Alle Token-Hashes der Datenbank. Für die Suche im ausgelieferten Zustand. */
+function alleHashes(): string[] {
+	return datenbank()
+		.select({ hash: members.inviteTokenHash })
+		.from(members)
+		.all()
+		.map((zeile) => zeile.hash);
 }
 
 /**
@@ -1061,6 +1234,536 @@ try {
 		}
 	}
 	rmSync(mitNamen, { recursive: true, force: true });
+
+	// =======================================================================
+	// /verwaltung und /mehr — Story 1.3.
+	//
+	// Die Routenmodule werden direkt gerufen, mit gesetztem locals.mitglied.
+	// Das ist die Grenze, an der die Adminschranke sitzt: der Wächter kennt
+	// is_admin nicht, und eine action ohne Schranke fällt in der Oberfläche
+	// nicht auf, weil Nicht-Admins den Knopf ohnehin nicht sehen.
+	// =======================================================================
+	const verwaltung = await verwaltungLaden();
+	const mehr = await mehrLaden();
+
+	const veraToken = tokenErzeugen();
+	const vera = mitgliedAnlegen({
+		name: 'Vera',
+		inviteTokenHash: tokenHashen(veraToken),
+		isAdmin: true,
+	});
+	const nico = mitgliedAnlegen({
+		name: 'Nico',
+		inviteTokenHash: tokenHashen(tokenErzeugen()),
+		isAdmin: false,
+	});
+	const veraLocals = ohneTokenHash(vera);
+	const nicoLocals = ohneTokenHash(nico);
+
+	// -----------------------------------------------------------------------
+	// Die Adminschranke: load und alle drei actions
+	// -----------------------------------------------------------------------
+	const vorSchranke = mitgliederZaehlen();
+	const veraVorSchranke = zeileAbdruck(vera.id);
+
+	wegGeleitet(
+		'Nicht-Admin auf die load von /verwaltung: 303 auf /',
+		await routenausgang(() =>
+			verwaltung.load(alsMitglied('/verwaltung', nicoLocals).alsRequestEvent())
+		)
+	);
+
+	for (const aktion of ['aufnehmen', 'neuAusstellen', 'widerrufen'] as const) {
+		// Die Formulardaten sind vollständig und gültig: was hier abgewiesen
+		// wird, ist allein die fehlende Adminschaft. Ohne adminOderWeg in dieser
+		// action entstünde ein Mitglied beziehungsweise änderte sich eine Zeile.
+		wegGeleitet(
+			`Nicht-Admin auf die action ${aktion}: 303 auf /`,
+			await routenausgang(() =>
+				verwaltung.actions[aktion](
+					alsMitglied('/verwaltung', nicoLocals, {
+						name: 'Eve Eindringling',
+						mitgliedId: String(vera.id),
+					}).alsRequestEvent()
+				)
+			)
+		);
+	}
+
+	pruefenGleich(
+		'die vier abgewiesenen Aufrufe haben kein Mitglied angelegt',
+		mitgliederZaehlen(),
+		vorSchranke
+	);
+	pruefenGleich(
+		'und die angesprochene Zeile ist unverändert',
+		zeileAbdruck(vera.id),
+		veraVorSchranke
+	);
+
+	// -----------------------------------------------------------------------
+	// Aufnehmen: der Klartext verlässt den Server genau einmal
+	// -----------------------------------------------------------------------
+	// Das Ereignis wird festgehalten: die Kopfzeilen, die die action über
+	// setHeaders anmeldet, stehen nur darauf.
+	const aufnahmeEreignis = alsMitglied('/verwaltung', veraLocals, { name: '  Emma   Studer ' });
+	const aufnahme = await routenausgang(() =>
+		verwaltung.actions.aufnehmen(aufnahmeEreignis.alsRequestEvent())
+	);
+	const aufnahmeLink = textFeld(wertVon(aufnahme), 'link');
+	const emmaToken = aufnahmeLink.replace(`${HERKUNFT}/i/`, '');
+
+	pruefen(
+		'aufnehmen gibt einen Klartext-Link zurück',
+		aufnahme.art === 'wert' && aufnahmeLink !== '',
+		`Ausgang ${aufnahme.art}`
+	);
+	pruefen(
+		'der Link steht auf der Herkunft und trägt ein base64url-Token',
+		new RegExp(`^${HERKUNFT}/i/[A-Za-z0-9_-]{43}$`).test(aufnahmeLink),
+		JSON.stringify(aufnahmeLink)
+	);
+	pruefenGleich(
+		'der Name kommt getrimmt und mit einfachen Leerzeichen an',
+		textFeld(wertVon(aufnahme), 'name'),
+		'Emma Studer'
+	);
+
+	const emma = datenbank()
+		.select()
+		.from(members)
+		.where(eq(members.inviteTokenHash, tokenHashen(emmaToken)))
+		.get();
+	pruefenGleich('das aufgenommene Mitglied hat is_admin = 0', emma?.isAdmin, false);
+	pruefenGleich('das aufgenommene Mitglied ist aktiv', emma?.isActive, true);
+	pruefen(
+		'in members steht ein 64-stelliger Hex-Hash',
+		/^[0-9a-f]{64}$/.test(emma?.inviteTokenHash ?? ''),
+		JSON.stringify(emma?.inviteTokenHash)
+	);
+
+	/*
+	 * Die Rohdatei-Suche geht über **alle** Dateien der Datenbank, nicht nur
+	 * über die Hauptdatei: die Verbindung läuft in WAL, und ein eben
+	 * geschriebener Wert steht zuerst in smoke.sqlite-wal. Eine Suche allein in
+	 * smoke.sqlite fände weder den Klartext noch den Hash und wäre damit eine
+	 * Behauptung, die immer grün ist.
+	 */
+	const rohdaten = readdirSync(arbeit)
+		.filter((datei) => datei.startsWith('smoke.sqlite'))
+		.map((datei) => readFileSync(join(arbeit, datei), 'latin1'))
+		.join('\n');
+	pruefen('der Klartext steht in keiner Datenbankdatei', !rohdaten.includes(emmaToken));
+	// Positive Gegenprobe: ohne sie wäre die Zeile darüber auch bei einer
+	// leeren Suchmenge grün.
+	pruefen(
+		'der Hash steht dagegen in einer Datenbankdatei',
+		rohdaten.includes(emma?.inviteTokenHash ?? 'kein-hash')
+	);
+
+	/*
+	 * no-store auf der Antwort, die Klartext trägt.
+	 *
+	 * Es ist die einzige Kopfzeile, die die Zusage „nie gespeichert" überhaupt
+	 * trägt: ohne sie darf der Browser die POST-Antwort im Verlauf und im
+	 * Plattenzwischenspeicher behalten — und ohne JavaScript ist diese Antwort
+	 * ein vollständiges HTML-Dokument mit dem Link darin.
+	 */
+	pruefenGleich(
+		'aufnehmen meldet cache-control: no-store an',
+		aufnahmeEreignis.gesetzteKopfzeilen.join('\n'),
+		'cache-control: no-store'
+	);
+
+	const nachAufnahme = await routenausgang(() =>
+		verwaltung.load(alsMitglied('/verwaltung', veraLocals).alsRequestEvent())
+	);
+	pruefen(
+		'ein Neuladen der Seite kennt den Klartext nicht mehr',
+		!JSON.stringify(wertVon(nachAufnahme)).includes(emmaToken)
+	);
+
+	// -----------------------------------------------------------------------
+	// Leerer Name: kein Mitglied, kein Token
+	// -----------------------------------------------------------------------
+	const vorLeer = mitgliederZaehlen();
+	const leererName = await routenausgang(() =>
+		verwaltung.actions.aufnehmen(
+			alsMitglied('/verwaltung', veraLocals, { name: '   ' }).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'ein Name aus Leerzeichen ergibt einen Fehlschlag mit 400 am Feld name',
+		leererName.art === 'fehlschlag' &&
+			leererName.status === 400 &&
+			leererName.daten.feld === 'name',
+		`Ausgang ${leererName.art}`
+	);
+	pruefenGleich('und legt kein Mitglied an', mitgliederZaehlen(), vorLeer);
+	pruefen('und lässt kein Token nach draussen', !traegtToken(datenVon(leererName)));
+	pruefenGleich(
+		'die Eingabe kommt unverändert zum Feld zurück',
+		textFeld(datenVon(leererName), 'nameEingabe'),
+		'   '
+	);
+
+	/*
+	 * Namen, die trim() besteht und die trotzdem keiner sind.
+	 *
+	 * Nullbreiten-Zeichen haben keine Breite und sind für trim() kein Leerraum:
+	 * ein Name aus ihnen legte eine Zeile ohne lesbaren Namen an, mit einem
+	 * lebenden Einladungslink und ohne jede Aussage, wer das ist. Es gibt keine
+	 * Umbenennen-Aktion, der Fehler wäre endgültig.
+	 *
+	 * Die Überlänge steht daneben, weil beide dieselbe Stelle prüfen und beide
+	 * dieselbe Zusage tragen: kein Mitglied, kein Token.
+	 */
+	for (const [wie, eingabe] of [
+		['aus Nullbreiten-Zeichen', '\u200B\u200C\u200D\u2060\uFEFF'],
+		['aus Nullbreite mit Leerzeichen', ' \u200B \uFEFF '],
+		['über 80 Zeichen', 'A'.repeat(81)],
+		['über 80 Zeichen nach dem Zusammenziehen', `${'B'.repeat(40)}   ${'C'.repeat(41)}`],
+	] as const) {
+		const vorher = mitgliederZaehlen();
+		const ausgang = await routenausgang(() =>
+			verwaltung.actions.aufnehmen(
+				alsMitglied('/verwaltung', veraLocals, { name: eingabe }).alsRequestEvent()
+			)
+		);
+		pruefen(
+			`ein Name ${wie} wird mit 400 am Feld name abgewiesen`,
+			ausgang.art === 'fehlschlag' && ausgang.status === 400 && ausgang.daten.feld === 'name',
+			`Ausgang ${ausgang.art}`
+		);
+		pruefenGleich(`ein Name ${wie} legt kein Mitglied an`, mitgliederZaehlen(), vorher);
+		pruefen(`ein Name ${wie} lässt kein Token nach draussen`, !traegtToken(datenVon(ausgang)));
+	}
+
+	// Gegenprobe: ein Name **mit** einem Nullbreiten-Zeichen darin, der nach dem
+	// Aussieben lesbar bleibt, muss durchgehen — sonst wäre die Prüfung zu breit
+	// und wiese Namen ab, die aus einem Chat eingefügt wurden.
+	const mitUnsichtbarem = await routenausgang(() =>
+		verwaltung.actions.aufnehmen(
+			alsMitglied('/verwaltung', veraLocals, {
+				name: 'Ida\u200BLenz',
+			}).alsRequestEvent()
+		)
+	);
+	pruefenGleich(
+		'ein lesbarer Name mit einem Nullbreiten-Zeichen darin wird gesäubert und angenommen',
+		textFeld(wertVon(mitUnsichtbarem), 'name'),
+		'IdaLenz'
+	);
+
+	// Und die Grenze selbst: genau 80 Zeichen sind erlaubt, 81 nicht.
+	const genauAchtzig = await routenausgang(() =>
+		verwaltung.actions.aufnehmen(
+			alsMitglied('/verwaltung', veraLocals, { name: 'D'.repeat(80) }).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'genau 80 Zeichen werden angenommen — die Grenze liegt bei 81',
+		genauAchtzig.art === 'wert' && textFeld(wertVon(genauAchtzig), 'name').length === 80,
+		`Ausgang ${genauAchtzig.art}`
+	);
+
+	// -----------------------------------------------------------------------
+	// Link neu ausstellen: der alte Link stirbt, der neue lebt
+	// -----------------------------------------------------------------------
+	const emmaId = emma?.id ?? 0;
+	const alterHash = emma?.inviteTokenHash ?? '';
+	const neuEreignis = alsMitglied('/verwaltung', veraLocals, { mitgliedId: String(emmaId) });
+	const neuAusgestellt = await routenausgang(() =>
+		verwaltung.actions.neuAusstellen(neuEreignis.alsRequestEvent())
+	);
+	pruefenGleich(
+		'neuAusstellen meldet cache-control: no-store an',
+		neuEreignis.gesetzteKopfzeilen.join('\n'),
+		'cache-control: no-store'
+	);
+	const neuerLink = textFeld(wertVon(neuAusgestellt), 'link');
+	const emmaTokenNeu = neuerLink.replace(`${HERKUNFT}/i/`, '');
+	pruefen(
+		'neuAusstellen gibt einen neuen Klartext-Link zurück',
+		neuAusgestellt.art === 'wert' && neuerLink !== '' && emmaTokenNeu !== emmaToken,
+		`Ausgang ${neuAusgestellt.art}`
+	);
+
+	const emmaNachNeu = datenbank().select().from(members).where(eq(members.id, emmaId)).get();
+	pruefen(
+		'der neue Hash ersetzt den alten',
+		emmaNachNeu?.inviteTokenHash === tokenHashen(emmaTokenNeu) &&
+			emmaNachNeu?.inviteTokenHash !== alterHash,
+		JSON.stringify(emmaNachNeu?.inviteTokenHash)
+	);
+	pruefen(
+		'Id und Name bleiben — es ist ein UPDATE derselben Zeile',
+		emmaNachNeu?.id === emmaId && emmaNachNeu?.name === 'Emma Studer',
+		JSON.stringify({ id: emmaNachNeu?.id, name: emmaNachNeu?.name })
+	);
+
+	abweisungOderRot(
+		'der alte Link wird von der Einlöseroute abgewiesen',
+		await aufrufen(`/i/${emmaToken}`)
+	);
+	const neuEingeloest = antwortOderRot(
+		'der neue Link wird eingelöst',
+		await aufrufen(`/i/${emmaTokenNeu}`)
+	);
+	pruefenGleich('und zwar mit 303', neuEingeloest.antwort.status, 303);
+
+	// -----------------------------------------------------------------------
+	// Widerrufen: deaktivieren, nicht löschen
+	// -----------------------------------------------------------------------
+	const widerrufEreignis = alsMitglied('/verwaltung', veraLocals, { mitgliedId: String(emmaId) });
+	const widerrufen = await routenausgang(() =>
+		verwaltung.actions.widerrufen(widerrufEreignis.alsRequestEvent())
+	);
+	// Gegenprobe zu den zwei Behauptungen darüber: eine Antwort ohne Geheimnis
+	// braucht die Kopfzeile nicht, und ein pauschales setHeaders in allen drei
+	// actions wäre kein Nachweis, sondern eine Gewohnheit.
+	pruefenGleich(
+		'widerrufen meldet keine Kopfzeile an — es steht kein Klartext in der Antwort',
+		widerrufEreignis.gesetzteKopfzeilen.length,
+		0
+	);
+	pruefen(
+		'widerrufen gelingt und nennt den Namen',
+		widerrufen.art === 'wert' && textFeld(wertVon(widerrufen), 'name') === 'Emma Studer',
+		`Ausgang ${widerrufen.art}`
+	);
+
+	const emmaNachWiderruf = datenbank().select().from(members).where(eq(members.id, emmaId)).get();
+	pruefenGleich('is_active steht danach auf false', emmaNachWiderruf?.isActive, false);
+	pruefen(
+		'Name und Hash stehen unverändert — gelöscht und geleert wird nichts',
+		emmaNachWiderruf?.name === 'Emma Studer' &&
+			emmaNachWiderruf?.inviteTokenHash === emmaNachNeu?.inviteTokenHash,
+		JSON.stringify(emmaNachWiderruf)
+	);
+	abweisungOderRot(
+		'der Link ergibt nach dem Widerruf die Fehlerseite',
+		await aufrufen(`/i/${emmaTokenNeu}`)
+	);
+
+	// -----------------------------------------------------------------------
+	// Auf sich selbst: abgewiesen in der action, nicht nur in der Oberfläche
+	// -----------------------------------------------------------------------
+	const selbstSaetze = new Set<string>();
+	for (const aktion of ['widerrufen', 'neuAusstellen'] as const) {
+		const vorher = zeileAbdruck(vera.id);
+		const ausgang = await routenausgang(() =>
+			verwaltung.actions[aktion](
+				alsMitglied('/verwaltung', veraLocals, { mitgliedId: String(vera.id) }).alsRequestEvent()
+			)
+		);
+		abgewiesen(`${aktion} auf die eigene Id wird abgewiesen`, ausgang, EIGENER_ZUGANG_GESCHUETZT);
+		pruefenGleich(`${aktion} auf die eigene Id ändert nichts`, zeileAbdruck(vera.id), vorher);
+		selbstSaetze.add(textFeld(datenVon(ausgang), 'meldung'));
+	}
+	/*
+	 * Ein Satz für beide Wurfstellen — und einer, der auf beide passt.
+	 *
+	 * Die frühere Fassung sagte „kannst du hier nicht beenden" und war damit
+	 * beim Neuausstellen eine Ablehnung für eine Handlung, die niemand versucht
+	 * hat. Diese Behauptung hält den einen Satz fest; dass er kein Verb der
+	 * einen Aktion nennt, prüft die Zeile darunter.
+	 */
+	pruefen(
+		'beide Selbst-actions tragen denselben Satz',
+		selbstSaetze.size === 1,
+		`${selbstSaetze.size} verschiedene Sätze: ${JSON.stringify([...selbstSaetze])}`
+	);
+	pruefen(
+		'und der Satz nennt kein Verb, das nur auf eine der beiden actions passt',
+		!/\bbeenden\b|\bwiderruf/i.test(EIGENER_ZUGANG_GESCHUETZT) &&
+			!/\bausstell/i.test(EIGENER_ZUGANG_GESCHUETZT),
+		JSON.stringify(EIGENER_ZUGANG_GESCHUETZT)
+	);
+
+	// -----------------------------------------------------------------------
+	// Nicht ansprechbar: vier Zustände, ein Satz
+	// -----------------------------------------------------------------------
+	const tabelleVorher = JSON.stringify(datenbank().select().from(members).all());
+	const saetze = new Set<string>();
+	for (const [wie, formular] of [
+		['unbekannt', { mitgliedId: '999999' }],
+		['fehlend', {}],
+		['nicht numerisch', { mitgliedId: 'abc' }],
+		['schon beendet', { mitgliedId: String(emmaId) }],
+	] as const) {
+		for (const aktion of ['widerrufen', 'neuAusstellen'] as const) {
+			const ausgang = await routenausgang(() =>
+				verwaltung.actions[aktion](
+					alsMitglied('/verwaltung', veraLocals, { ...formular }).alsRequestEvent()
+				)
+			);
+			abgewiesen(`${aktion}, mitgliedId ${wie}`, ausgang, MITGLIED_NICHT_ANSPRECHBAR);
+			saetze.add(textFeld(datenVon(ausgang), 'meldung'));
+		}
+	}
+	pruefen(
+		'alle vier Zustände und beide actions tragen denselben Satz',
+		saetze.size === 1,
+		`${saetze.size} verschiedene Sätze`
+	);
+	pruefenGleich(
+		'und keiner von ihnen hat die Tabelle angefasst',
+		JSON.stringify(datenbank().select().from(members).all()),
+		tabelleVorher
+	);
+
+	// -----------------------------------------------------------------------
+	// Ohne Mitglied in locals: derselbe Ausgang wie ohne Adminrechte
+	// -----------------------------------------------------------------------
+	/*
+	 * Der Zweig `locals.mitglied === null` in adminOderWeg und in
+	 * mehr/+page.server.ts. Er ist auf dem gewachten Pfad unerreichbar — der
+	 * Wächter hat vorher mit 403 abgewiesen —, aber der Typ lässt null zu, und
+	 * ein `!` an einer der beiden Stellen wäre eine Annahme über eine andere
+	 * Datei. Diese zwei Behauptungen sind das Einzige, was diesen Zweig
+	 * überhaupt ausführt.
+	 */
+	wegGeleitet(
+		'die load von /verwaltung leitet ohne Mitglied in locals weiter',
+		await routenausgang(() => verwaltung.load(alsMitglied('/verwaltung', null).alsRequestEvent()))
+	);
+	wegGeleitet(
+		'die load von /mehr leitet ohne Mitglied in locals weiter',
+		await routenausgang(() => mehr.load(alsMitglied('/mehr', null).alsRequestEvent()))
+	);
+
+	// -----------------------------------------------------------------------
+	// Die Namensfolge: de-CH, nicht SQLites BINARY
+	// -----------------------------------------------------------------------
+	/*
+	 * Drei Namen, die BINARY und de-CH verschieden ordnen. BINARY vergleicht
+	 * UTF-8-Bytes: Grossbuchstaben (0x41…) liegen vor Kleinbuchstaben (0x61…),
+	 * und ein mehrbytiges `Ä` (0xC3 0x84) hinter allem. Die drei Behauptungen
+	 * darunter nennen darum konkrete Paare und nicht bloss „sortiert" — ein
+	 * Vergleich der Ausgabe gegen denselben Collator wäre ein Selbstgespräch.
+	 */
+	const ueli = mitgliedAnlegen({
+		name: 'Ueli Zwygart',
+		inviteTokenHash: tokenHashen(tokenErzeugen()),
+		isAdmin: true,
+	});
+	const ueliLocals = ohneTokenHash(ueli);
+	for (const name of ['Ärni Zbinden', 'Zoe Ackermann', 'zoe Ackermann', 'oskar meier']) {
+		mitgliedAnlegen({ name, inviteTokenHash: tokenHashen(tokenErzeugen()), isAdmin: false });
+	}
+
+	// -----------------------------------------------------------------------
+	// Die Liste und /mehr — und in keiner von beiden ein Token-Hash
+	// -----------------------------------------------------------------------
+	const liste = wertVon(
+		await routenausgang(() =>
+			verwaltung.load(alsMitglied('/verwaltung', veraLocals).alsRequestEvent())
+		)
+	);
+	const zeilen = (liste.mitglieder ?? []) as { id: number; isActive: boolean; name: string }[];
+
+	/** Der Platz eines Namens in der ausgelieferten Liste, oder -1. */
+	const platzVon = (name: string) => zeilen.findIndex((zeile) => zeile.name === name);
+
+	pruefen(
+		'Ärni Zbinden steht vor Zoe Ackermann — nicht nach UTF-8-Bytes sortiert',
+		platzVon('Ärni Zbinden') >= 0 && platzVon('Ärni Zbinden') < platzVon('Zoe Ackermann'),
+		`Ärni auf ${platzVon('Ärni Zbinden')}, Zoe auf ${platzVon('Zoe Ackermann')}`
+	);
+	pruefen(
+		'oskar meier steht vor Ueli Zwygart — Kleinschreibung sortiert mit, nicht hinten an',
+		platzVon('oskar meier') >= 0 && platzVon('oskar meier') < platzVon('Ueli Zwygart'),
+		`oskar auf ${platzVon('oskar meier')}, Ueli auf ${platzVon('Ueli Zwygart')}`
+	);
+	/*
+	 * Zwei Namen, die sich **nur** in der Grossschreibung unterscheiden.
+	 *
+	 * Behauptet wird ihre **Nachbarschaft** und nicht, welcher von beiden vorn
+	 * steht. Die Richtung ist eine Festlegung der Kollation — de-CH stellt von
+	 * sich aus klein vor gross —, und sie festzuschreiben hiesse, eine
+	 * Willkürlichkeit zur Zusage zu machen. Was der Fehler war, ist die
+	 * **Trennung**: unter BINARY liegen alle kleingeschriebenen Namen hinter
+	 * allen grossgeschriebenen, und die zwei Zoes stehen an entgegengesetzten
+	 * Enden der Liste. Zwei Zeilen, die nebeneinander gehören, sind dann nicht
+	 * zusammen zu lesen.
+	 *
+	 * Eine erste Fassung dieser Behauptung nannte eine Richtung und war falsch
+	 * — die Mutation auf caseFirst hat das gezeigt, indem sie **grün** blieb,
+	 * bis die Namen sich wirklich nur in der Schreibung unterschieden, und dann
+	 * die falsche Richtung offenlegte.
+	 */
+	pruefen(
+		'Zoe Ackermann und zoe Ackermann stehen unmittelbar nebeneinander — die Grossschreibung trennt nicht',
+		platzVon('Zoe Ackermann') >= 0 &&
+			platzVon('zoe Ackermann') >= 0 &&
+			Math.abs(platzVon('Zoe Ackermann') - platzVon('zoe Ackermann')) === 1,
+		`Zoe auf ${platzVon('Zoe Ackermann')}, zoe auf ${platzVon('zoe Ackermann')}`
+	);
+	// Und die ganze Folge, damit eine Sortierung nach einer anderen Spalte auffällt.
+	const aktiveNamen = zeilen.filter((zeile) => zeile.isActive).map((zeile) => zeile.name);
+	pruefenGleich(
+		'die aktive Gruppe steht vollständig in der Ordnung von de-CH',
+		aktiveNamen.join(' | '),
+		[...aktiveNamen].sort(new Intl.Collator('de-CH').compare).join(' | ')
+	);
+
+	/*
+	 * ichId kommt aus der load und nicht aus einer Konstante.
+	 *
+	 * Zwei Adminpersonen rufen dieselbe load und müssen zwei verschiedene Werte
+	 * bekommen. Eine einzelne Behauptung gegen eine bekannte Id liesse sich mit
+	 * genau dieser Zahl als Literal erfüllen.
+	 */
+	const listeUeli = wertVon(
+		await routenausgang(() =>
+			verwaltung.load(alsMitglied('/verwaltung', ueliLocals).alsRequestEvent())
+		)
+	);
+	pruefenGleich('die load gibt Vera ihre eigene Id als ichId', liste.ichId, vera.id);
+	pruefenGleich('und Ueli seine — ichId ist keine Konstante', listeUeli.ichId, ueli.id);
+	pruefen(
+		'die Liste führt aktive und beendete Mitglieder',
+		zeilen.some((zeile) => zeile.isActive) && zeilen.some((zeile) => !zeile.isActive),
+		JSON.stringify(zeilen.map((zeile) => zeile.isActive))
+	);
+	pruefen(
+		'die Liste stellt die aktiven vor die beendeten',
+		zeilen.findIndex((zeile) => !zeile.isActive) ===
+			zeilen.filter((zeile) => zeile.isActive).length,
+		JSON.stringify(zeilen.map((zeile) => zeile.isActive))
+	);
+
+	const hashes = alleHashes();
+	const listeAlsText = JSON.stringify(liste);
+	pruefen(
+		'die load von /verwaltung gibt keinen einzigen Token-Hash heraus',
+		hashes.length > 0 && !hashes.some((hash) => listeAlsText.includes(hash)),
+		`${hashes.length} Hashes geprüft`
+	);
+
+	const mehrAlsAdmin = wertVon(
+		await routenausgang(() => mehr.load(alsMitglied('/mehr', veraLocals).alsRequestEvent()))
+	);
+	const mehrAlsNicht = wertVon(
+		await routenausgang(() => mehr.load(alsMitglied('/mehr', nicoLocals).alsRequestEvent()))
+	);
+	pruefen(
+		'/mehr gibt einer Adminperson istAdmin = true samt Namen',
+		mehrAlsAdmin.istAdmin === true && mehrAlsAdmin.name === 'Vera',
+		JSON.stringify(mehrAlsAdmin)
+	);
+	pruefen(
+		'/mehr gibt einem Nicht-Admin istAdmin = false samt Namen',
+		mehrAlsNicht.istAdmin === false && mehrAlsNicht.name === 'Nico',
+		JSON.stringify(mehrAlsNicht)
+	);
+	pruefen(
+		'die load von /mehr gibt keinen einzigen Token-Hash heraus',
+		!hashes.some((hash) =>
+			`${JSON.stringify(mehrAlsAdmin)}${JSON.stringify(mehrAlsNicht)}`.includes(hash)
+		)
+	);
 } catch (fehler) {
 	/*
 	 * Ein unerwarteter Wurf ist ein Befund wie jeder andere und wird benannt.

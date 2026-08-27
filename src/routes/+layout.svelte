@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import '$lib/styles/fonts.css';
+	// Knöpfe und Felder global, weil die Stories 1.4 und 1.5 dieselben brauchen.
+	import '$lib/styles/bedienelemente.css';
 	// Vorgeladen werden genau die zwei Schnitte, die die Oberfläche tatsächlich
 	// benutzt: Figtree latin für Titel und Aktionen, Inter latin für alles
 	// Gelesene. latin-ext springt nur für seltene Zeichen ein und bleibt

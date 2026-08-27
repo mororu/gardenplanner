@@ -55,7 +55,18 @@ export type NewMember = typeof members.$inferInsert;
  */
 export type AngemeldetesMitglied = Omit<Member, 'inviteTokenHash'>;
 
-/** Wirft die Hash-Spalte weg. Die einzige Stelle, die das tut. */
+/**
+ * Wirft die Hash-Spalte weg.
+ *
+ * Die zweite Stelle mit derselben Spaltenliste ist `ohneHashSpalte` in
+ * ./queries/members.ts — die Spaltenauswahl für jede Abfrage, deren Ergebnis
+ * eine load-Funktion verlässt. Die beiden sind gegeneinander abgesichert und
+ * nicht bloss gleich geschrieben: dort hält ein
+ * `satisfies Record<keyof AngemeldetesMitglied, unknown>` die Auswahl an diesen
+ * Typ, und hier hält die Rückgabeannotation dieselbe Funktion. Eine neue Spalte
+ * im Schema fällt darum in **beiden** auf, nicht nur in der, an die gerade
+ * jemand gedacht hat.
+ */
 export function ohneTokenHash(mitglied: Member): AngemeldetesMitglied {
 	// Bewusst ausgeschrieben und nicht über eine Auslassung gebildet: eine neue
 	// Spalte soll hier auffallen, statt still mitzureisen.

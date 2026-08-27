@@ -1,0 +1,10 @@
+/*
+ * Gegenprobe zu Regel 10: dieses Stilblatt **wird** eingebunden.
+ *
+ * Erwartet sind null Regel-10-Treffer.
+ */
+.knopf {
+	min-height: var(--touch);
+	padding: var(--gutter);
+	color: var(--accent);
+}

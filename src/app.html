@@ -10,7 +10,16 @@
 		-->
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-		<title>Gemeinschaftsgarten</title>
+		<!--
+			**Hier steht kein title-Element.** Es stand hier und war der Grund, dass
+			jeder Seitentitel aus svelte:head wirkungslos blieb: bei mehreren
+			title-Elementen nimmt der Browser das **erste**, und dieses stand vor
+			%sveltekit.head%. Zwei title-Elemente sind zudem kein gültiges HTML.
+			Jede Seite trägt ihren eigenen Titel — src/routes/+page.svelte,
+			mehr/+page.svelte, verwaltung/+page.svelte und +error.svelte. Eine neue
+			Seite braucht darum einen, sonst zeigt der Reiter ihre Adresse.
+			Die rahmenlose src/error.html hat ihren eigenen.
+		-->
 		<meta
 			name="description"
 			content="Aufgabenliste für den Gemeinschaftsgarten: sehen, was offen ist, und mit einem Griff abhaken."
@@ -56,6 +65,17 @@
 				--accent: #2f6b3f;
 				--accent-ink: #ffffff;
 				--overdue: #9a5a12;
+				/*
+				   Rot, und nur für Zerstörendes: der Knopf `Einladung widerrufen`.
+				   Es gibt bewusst kein --danger-ink, weil der zerstörende Knopf
+				   durchsichtig bleibt — Text und Umriss tragen diesen Wert, es
+				   entsteht nie eine gefüllte rote Fläche, die eine eigene
+				   Schriftfarbe bräuchte.
+				   Gemessen: 7.07:1 auf --surface-raised, 6.42:1 auf
+				   --surface-base. Damit liegt der Wert im Kontrastband des
+				   Akzents (6.37:1) und schreit nicht heraus.
+				 */
+				--danger: #a32e22;
 
 				/* Schriftfamilien — selbst gehostet, siehe src/lib/styles/fonts.css */
 				--font-heading: 'Figtree Variable', 'Figtree', system-ui, sans-serif;
@@ -135,7 +155,7 @@
 			}
 
 			/* Der dunkle Modus ist gleichrangig gestaltet: eigene Werte, keine Invertierung,
-			   kein Filter. Nur die acht Farben wechseln, alle Masse bleiben gleich. */
+			   kein Filter. Nur die neun Farben wechseln, alle Masse bleiben gleich. */
 			@media (prefers-color-scheme: dark) {
 				:root {
 					--surface-base: #12160f;
@@ -146,6 +166,8 @@
 					--accent: #7fbb8c;
 					--accent-ink: #0e1410;
 					--overdue: #d99b4e;
+					/* Gemessen: 6.48:1 auf --surface-raised, 7.13:1 auf --surface-base */
+					--danger: #e8877b;
 				}
 			}
 

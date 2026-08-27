@@ -1,0 +1,14 @@
+/*
+ * Fehlerprobe zu Regel 10: dieses Stilblatt bindet **niemand** ein.
+ *
+ * Die Datei ist gültiges CSS, benutzt nur Tokens und verstösst gegen keine
+ * andere Regel. Genau das ist der Punkt: eslint, svelte-check und vite build
+ * sehen hier nichts, weil nichts falsch ist — die Datei wird bloss nie geladen.
+ *
+ * Erwartet ist 1 Regel-10-Treffer.
+ */
+.knopf {
+	min-height: var(--touch);
+	padding: var(--gutter);
+	color: var(--accent);
+}

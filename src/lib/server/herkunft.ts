@@ -1,10 +1,26 @@
 /*
  * ORIGIN.
  *
- * Zwei Stellen brauchen den Wert und dieselbe Prüfung: der init-Hook, weil
- * adapter-node hinter nginx ohne ORIGIN jeden Formularversand als CSRF-Verstoss
- * abweist, und scripts/create-admin.ts, weil der ausgegebene Einladungslink
- * sonst unklickbar ist und das Klartext-Token damit verbraucht.
+ * **Zwei** Stellen rufen diese Funktion, und eine dritte baut einen Link ohne
+ * sie. Alle drei sind hier aufgezählt, weil eine ungenannte dritte Stelle sonst
+ * wie ein Versehen aussieht:
+ *
+ *   1. Der init-Hook in src/hooks.server.ts — adapter-node hinter nginx weist
+ *      ohne ORIGIN jeden Formularversand als CSRF-Verstoss ab.
+ *   2. scripts/create-admin.ts — der ausgegebene Einladungslink wäre sonst
+ *      unklickbar, und das Klartext-Token damit verbraucht, denn es erscheint
+ *      genau einmal.
+ *   3. Die actions `aufnehmen` und `neuAusstellen` in
+ *      src/routes/verwaltung/+page.server.ts bauen ihren Link aus
+ *      `url.origin` und rufen diese Funktion **nicht** — und das ist richtig,
+ *      keine Auslassung. Im Betrieb leitet adapter-node `url.origin` aus
+ *      ORIGIN ab, die beiden Werte decken sich dort also von selbst. Im
+ *      Entwicklungsserver sollen sie gerade abweichen: dort ist `url.origin`
+ *      die Adresse, unter der der Browser die Seite tatsächlich geöffnet hat
+ *      (auch `http://192.168.x.x:5173` beim Prüfen auf dem Handy), während
+ *      ORIGIN auf `http://localhost:5173` steht. Ein Link aus ORIGIN wäre auf
+ *      dem Handy nicht erreichbar. Eine Gleichheit zu behaupten, die niemand
+ *      prüft, wäre hier schlechter als die Abweichung zu begründen.
  *
  * Frei von SvelteKit-Importen, damit nacktes Node die Datei laden kann.
  */

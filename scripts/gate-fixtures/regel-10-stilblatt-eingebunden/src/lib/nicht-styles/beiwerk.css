@@ -1,0 +1,11 @@
+/*
+ * Teil der Gegenprobe: eine .css **ausserhalb** von src/lib/styles/.
+ *
+ * Regel 10 gilt für das Verzeichnis der Stilblätter und nicht für jede .css im
+ * Baum. Eine zu breite Regel würde hier einen Verstoss melden; sie bliebe im
+ * Selbsttest der Fehlerprobe grün und fiele erst als rätselhafter Befund im
+ * echten Baum auf. Diese Datei bindet niemand ein und sie darf nicht fallen.
+ */
+.beiwerk {
+	color: var(--ink-primary);
+}

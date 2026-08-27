@@ -62,16 +62,29 @@ dessen SHA-256-Hash und gibt den Klartext-Link **genau einmal** aus:
 http://localhost:5173/i/NXpe6MFBD0LjD4ftXGppqAJL2vt-aVibzj_b_J_5Hrg
 ```
 
-Diese Zeile ist die einzige Stelle im ganzen System, an der ein Token im
-Klartext erscheint. In der Datenbank steht nur der Hash; ein verlorener Link
-lässt sich nicht wiederherstellen.
+In der Datenbank steht nur der Hash; ein verlorener Link lässt sich nicht
+wiederherstellen.
+
+Diese Zeile ist die einzige Stelle, an der ein Token **auf der Konsole**
+erscheint — seit Story 1.3 nicht mehr die einzige im System. `/verwaltung` zeigt
+beim Aufnehmen und beim Neuausstellen ebenfalls einen Klartext-Link, dort im
+Rumpf **einer** POST-Antwort. Beides ist derselbe Handel: einmal sichtbar,
+danach nur noch als Hash vorhanden.
 
 Und auch nicht einfach neu erzeugen: `create-admin` legt **nur das erste**
 Mitglied an und bricht ab, sobald es schon eines gibt — sonst entstünde
-unbemerkt ein zweiter Admin mit einem zweiten lebenden Link. Ist der erste Link
-weg, bevor Story 1.3 die Verwaltungsoberfläche bringt, führt der Weg über die
-Datenbank: die Zeile in `members` löschen und `create-admin` erneut laufen
-lassen.
+unbemerkt ein zweiter Admin mit einem zweiten lebenden Link.
+
+**Der Alleinverwalter ist eine Sollbruchstelle, und zwar mit Ansage.** Es gibt
+genau eine Adminperson und keinen Weg, eine zweite zu machen: `create-admin`
+läuft nur auf einem leeren System, und `/verwaltung` nimmt ausschliesslich
+Mitglieder ohne Adminrechte auf. Wer also den Admin-Link verliert und kein
+angemeldetes Gerät mehr hat, kommt in die Verwaltung nicht zurück — es ist
+niemand da, der ihm einen neuen ausstellen könnte. Der Ausweg führt dann über
+die Datenbank: die Admin-Zeile in `members` löschen und `create-admin` erneut
+laufen lassen. Die Sitzung überlebt einen verlorenen Link übrigens: das Cookie
+hängt an der `member_id` und nicht am Token, und es läuft ein Jahr. Der Verlust
+schlägt erst beim Gerätewechsel zu.
 
 Der Link wird auf dem Handy einmal angetippt: der Server stellt ein signiertes
 Cookie aus und leitet mit 303 auf `/`. Danach liegt zwischen Öffnen und Liste
@@ -306,6 +319,24 @@ gleiche Zeichen ab, `create-admin` legt `is_admin = 1` an, nimmt den Namen aus
 allen Argumenten, weist einen zweiten Lauf und ein `ORIGIN` mit Pfad oder
 Fragment ab, und in `members` steht nirgends ein Klartext-Token.
 
+Seit Story 1.3 fährt das Skript zusätzlich die Routenmodule von `/verwaltung`
+und `/mehr` direkt, mit gesetztem `locals.mitglied` und mit **echten**
+Formulardaten (`POST` mit `FormData`, damit `await request.formData()` in der
+action wirklich etwas zu parsen hat). Belegt sind dort: ein Nicht-Admin bekommt
+auf die `load` **und** auf jede der drei actions `303` auf `/` und ändert dabei
+nichts; `aufnehmen` legt `is_admin = 0`/`is_active = 1` an und gibt den Klartext
+genau einmal heraus, während in der Datenbank dessen Hash steht und der Klartext
+in **keiner** Datenbankdatei vorkommt (die Suche geht über `smoke.sqlite` **und**
+`-wal`, sonst fände sie auch den Hash nicht); ein Name aus Leerzeichen ergibt
+`400`, legt kein Mitglied an und lässt kein Token nach draussen; `neuAusstellen`
+ersetzt den Hash derselben Zeile, der alte Link wird danach mit `403`
+abgewiesen und der neue mit `303` eingelöst; `widerrufen` setzt `is_active = 0`
+und lässt Name und Hash stehen; Selbstwiderruf und Selbst-Neuausstellen ändern
+nichts; und eine fehlende, nicht numerische, unbekannte oder schon beendete
+`mitgliedId` ergibt in beiden actions denselben Satz, ohne die Tabelle
+anzufassen. Zuletzt wird jeder Token-Hash aus `members` im Rückgabewert beider
+`load`-Funktionen gesucht — gefunden wird keiner.
+
 **Was die Vergleiche vergleichen.** Die Fehlerseiten kommen über SvelteKits
 **eigene** aus `src/error.html` erzeugte Vorlage (`svelte-kit sync` läuft dazu am
 Anfang). Der Abdruck eines Fehlerfalls besteht aus Status, allen Kopfzeilen, den
@@ -410,9 +441,10 @@ Es gibt kein Passwort, kein Login-Formular und keinen Registrierungsvorgang.
 - `src/routes/+error.svelte` greift für Fehler **innerhalb** des Routings, etwa
   einen unbekannten Pfad bei gültiger Sitzung. Dort ist der Rahmen sichtbar. Die
   Auswahl des Satzes hängt dort an der **Meldung** aus dem Wurf und nicht am
-  nackten Status: Story 1.3 bringt eigene 403-Fälle mit (Verwaltung ohne
-  Adminrechte), und ein `status === 403 ? …` würde dort fälschlich „Dieser Link
-  gilt nicht mehr" zeigen.
+  nackten Status: ein `status === 403 ? …` zeigte bei jeder künftigen 403 aus
+  einer Route fälschlich „Dieser Link gilt nicht mehr", obwohl der Link tadellos
+  gilt. `/verwaltung` ohne Adminrechte war der erwartete erste Fall dieser Art
+  und ist es nicht geworden — dort wird weitergeleitet statt geworfen.
 - Ein unbekannter Pfad bekommt seinen eigenen Satz — `Diese Seite gibt es nicht.`
   Ein 404 mit „Etwas ist schiefgelaufen" zu beantworten wäre eine Lüge, und der
   englische Vorgabetext `Not Found` keine Option: die Oberfläche ist durchgehend
@@ -426,6 +458,64 @@ Es gibt kein Passwort, kein Login-Formular und keinen Registrierungsvorgang.
   aussen und trägt die Kopfzeile nicht; dafür steht in `src/error.html` ein
   `<meta name="referrer" content="no-referrer">`, und die Seite verweist auf
   nichts von draussen.
+
+## Mitglieder aufnehmen und Zugang beenden
+
+Alles Seltene liegt unter `/mehr`. Für eine Adminperson steht dort der Eintrag
+`Verwaltung`; für alle anderen fehlt er **ganz** — kein ausgegrauter Punkt, keine
+Erklärung. Ein Direktaufruf von `/verwaltung` ohne Adminrechte endet mit
+`303` auf `/`, nicht mit einer Fehlerseite: für jemanden ohne Adminrechte soll
+die Verwaltung nicht existieren, nicht verboten sein. Eine Fehlerseite wäre die
+Auskunft, dass es dort etwas gibt.
+
+Die Schranke sitzt in **einer** Funktion (`src/lib/server/adminschranke.ts`) und
+greift in der `load` **und** in jeder der drei form actions. Eine action ohne
+Schranke wäre der Fehler, den die Oberfläche nicht sichtbar macht: für
+Nicht-Admins fehlt der Knopf, ein POST braucht aber keinen.
+
+- **Aufnehmen.** Ein Feld, ein Name, ein Knopf. Danach erscheint der
+  Einladungslink **genau einmal** — im Klartext, in einem Feld zum Kopieren, mit
+  dem Satz, dass er nur jetzt zu sehen ist. Er wird **von Hand** weitergegeben:
+  die Anwendung verschickt nichts, keine E-Mail, keinen Messenger.
+- **Der Server kann den Link nach der einen Antwort nicht mehr hergeben.** Das
+  ist der belegbare Teil, und er ist Aufbau statt Zusage: der Klartext entsteht
+  in der action und steht ausschliesslich im Rumpf **einer** POST-Antwort — kein
+  Zwischenspeicher, kein Flash-Cookie, keine Weiterleitung mit Fragment. Ein
+  Neuladen ist ein GET, dessen `load` ihn nicht kennt und nicht kennen kann: in
+  `members` steht nur der SHA-256-Hash, und der ist nicht umkehrbar. Die POST-
+  Antwort trägt `cache-control: no-store`, damit sie nicht im Verlauf und nicht
+  im Plattenzwischenspeicher liegenbleibt.
+
+  Was **nicht** behauptet wird: dass der Link damit überall fort ist. Solange
+  die Seite offen bleibt, hält die Oberfläche ihn absichtlich fest — sonst
+  löschte ihn jeder weitere Knopfdruck, bevor er weitergegeben wäre. Und wer
+  `Link kopieren` gedrückt hat, hat ihn in der Zwischenablage des Geräts; siehe
+  die benannt akzeptierten Risiken.
+
+- **Link neu ausstellen** ersetzt den Hash derselben Zeile. Der alte Link ist
+  damit sofort ungültig und führt auf `Dieser Link gilt nicht mehr.` Das ist der
+  Zweck: für ein zweites Gerät braucht es die Aktion **nicht** — ein Token bleibt
+  mehrfach einlösbar —, wohl aber für einen verlorenen oder in falsche Hände
+  geratenen Link. Die Person behält Id, Name und ihre Historie.
+- **Einladung widerrufen** setzt `is_active = 0`. Es wird **nichts gelöscht**:
+  keine Zeile, kein Name, kein Hash. Die Zeile bleibt in der Liste stehen und ist
+  dort im **Text** als beendet gekennzeichnet, nicht über eine Farbe. Abgehakte
+  Aufgaben bleiben in der Historie, künftige Dienstwochen erscheinen als
+  unbesetzt. Der Widerruf wirkt sofort, auch auf eine schon lebende Sitzung — der
+  Wächter liest `is_active` bei jedem Aufruf frisch. Es ist die einzige Aktion
+  mit einer Bestätigung und der einzige rote Knopf der Anwendung.
+- **Adminrechte vergibt ausschliesslich `npm run create-admin`**, und nur für das
+  erste Mitglied. Wer unter `/verwaltung` aufgenommen wird, entsteht immer mit
+  `is_admin = 0`; es gibt keine Oberfläche, die Adminrechte vergibt oder
+  entzieht, und keine, die einen beendeten Zugang reaktiviert.
+- **Ein Admin kann sich nicht selbst widerrufen** und den eigenen Link nicht neu
+  ausstellen — sonst bliebe die Verwaltung ohne Zugang. Geprüft wird das in der
+  action, nicht nur in der Oberfläche: die eigene Zeile trägt keine Knöpfe, aber
+  ein POST braucht keinen.
+- **Ein Satz für vier Zustände.** Eine fehlende, eine nicht numerische, eine
+  unbekannte und eine schon beendete `mitgliedId` ergeben alle `400` mit
+  demselben Satz. Jede Abweichung im Wortlaut wäre ein Kanal, an dem sich ablesen
+  liesse, welche Zeilen es gibt.
 
 ### Benannt akzeptierte Risiken
 
@@ -454,11 +544,35 @@ gesehen, gewogen und angenommen — nicht übersehen:
 - **Kein Ablauf ohne Widerruf.** Das Cookie läuft ein Jahr, das Token gilt bis
   zum Widerruf. Dafür kommen Mitglied und `is_active` bei **jedem** Aufruf frisch
   aus der Datenbank: Widerrufen wirkt sofort, ohne auf einen Ablauf zu warten.
+- **Ein Widerruf ist ohne Datenbankeingriff unumkehrbar.** Es gibt bewusst keine
+  Reaktivieren-Aktion und kein Undo-Fenster. Wer die falsche Zeile widerruft,
+  nimmt die Person wieder auf — mit neuer Id und neuem Link. Die alte Zeile
+  bleibt daneben stehen; ihre Historie hängt an der alten Id und wandert nicht
+  mit. Der Bestätigungsdialog nennt darum Namen **und** Aufnahmedatum: auf
+  `members.name` gibt es keine Eindeutigkeitsbedingung, zwei Mitglieder dürfen
+  gleich heissen.
+- **Ein Tippfehler im Namen bleibt für immer stehen.** Es gibt keine
+  Umbenennen-Aktion. Der Name ist die einzige menschenlesbare Identität im
+  System, und die einzige Korrektur ist Widerrufen plus Neuaufnehmen — was einen
+  neuen Link nötig macht. Serverseitig abgewehrt sind nur die Fälle, in denen gar
+  kein lesbarer Name entstünde: leere Eingabe, Nullbreiten-Zeichen und mehr als
+  80 Zeichen.
+- **Niemand protokolliert, wer wen widerrufen hat.** Es gibt kein Audit-Log,
+  keine Spalte für den Handelnden und keine Zeitmarke des Widerrufs — nur
+  `is_active = 0`. Bei einer Gemeinschaft mit genau einer Adminperson ist die
+  Frage „wer war das" trivial beantwortet; die Frage „wann" ist es nicht mehr.
+  Angenommen, weil eine Protokolltabelle hier mehr Bauwerk wäre als Nutzen.
+- **Nach `Link kopieren` liegt der Klartext in der Zwischenablage.** iOS und
+  Android synchronisieren die Zwischenablage geräteübergreifend (Universal
+  Clipboard, Gboard-Verlauf), und jede App mit Vordergrundfokus darf sie lesen.
+  Der Knopf ist trotzdem da: die Alternative ist Abtippen eines 43 Zeichen langen
+  base64url-Tokens von Hand, und ein Tippfehler darin verbrennt einen Link, den
+  niemand wiederherstellen kann. `navigator.clipboard` gibt es ohnehin nur auf
+  einer sicheren Herkunft; ohne die fällt die Oberfläche auf „Feld antippen,
+  Inhalt ist markiert" zurück.
 
 ## Was noch nicht hier ist
 
-- Mitglieder aufnehmen und Zugang beenden über die Oberfläche: **Story 1.3**. In
-  diesem Stand entsteht ein Mitglied nur über `npm run create-admin`.
 - Aufgaben sehen, abhaken und erfassen: Stories 1.4 und 1.5. `tasks` gibt es
   noch nicht.
 - Docker Compose, nginx als TLS-Terminierung, certbot, Backup-Skript und

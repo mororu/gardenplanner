@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
 
-	// Vier Ziele mit Wort statt Symbol. /dienstplan, /wissen und /mehr entstehen
-	// in späteren Stories; bis dahin führen sie auf die Standardfehlerseite.
+	// Vier Ziele mit Wort statt Symbol. Unbebaut sind noch /dienstplan und
+	// /wissen; bis dahin führen sie auf die Fehlerseite mit `Diese Seite gibt es
+	// nicht.` /mehr steht seit Story 1.3.
 	const ziele = [
 		{ href: '/', beschriftung: 'Aufgaben' },
 		{ href: '/dienstplan', beschriftung: 'Dienstplan' },
@@ -24,12 +25,18 @@
 <nav class="nav-bar" aria-label="Hauptnavigation">
 	<ul class="nav-bar__liste">
 		<!--
-			Ausnahme mit Ansage und mit engster Reichweite: /dienstplan, /wissen und
-			/mehr entstehen erst in späteren Stories. resolve() kennt diese Routen
-			noch nicht und würde im Typcheck brechen, darum ist die Regel genau für
-			diesen each-Block ausgesetzt und danach sofort wieder eingeschaltet —
-			für jede andere Stelle bleibt sie scharf. Sobald die Routen stehen,
-			gehört der resolve()-Aufruf hierher zurück.
+			Ausnahme mit Ansage und mit engster Reichweite.
+
+			Der Grund ist **nicht**, dass Routen fehlen — das war die frühere
+			Begründung und sie stimmte schon damals nicht ganz. Der href kommt hier
+			aus einer Variablen, und durch eine Variable sieht
+			svelte/no-navigation-without-resolve nicht hindurch: sie verlangt einen
+			resolve()-Aufruf an der Stelle des Attributwerts. Die Ziele stehen als
+			Liste, damit Beschriftung und Aktiv-Vergleich einmal geschrieben sind;
+			der Preis ist diese Ausnahme, genau für diesen each-Block und danach
+			sofort wieder eingeschaltet. Für jede andere Stelle bleibt die Regel
+			scharf — siehe src/routes/mehr/+page.svelte, wo ein literales
+			resolve('/verwaltung') steht.
 		-->
 		<!-- eslint-disable svelte/no-navigation-without-resolve -->
 		{#each ziele as ziel (ziel.href)}

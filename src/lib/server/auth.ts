@@ -119,8 +119,16 @@ export async function sitzungLesen(cookies: Cookies): Promise<number | null> {
  *
  * Darum ruft der Wächter diese Funktion nicht: dort wäre sie toter Code, und
  * das liegengebliebene Cookie ist harmlos, weil Mitglied und is_active bei
- * jedem Aufruf neu aus der Datenbank kommen. Für Story 1.3, wo ein Widerruf
- * eine ausgelieferte Antwort hat, steht sie hier bereit.
+ * jedem Aufruf neu aus der Datenbank kommen.
+ *
+ * **Auch Story 1.3 ruft sie nicht**, und das ist kein Versehen: dort war sie
+ * bereitgehalten für den Fall, dass ein Widerruf die eigene Sitzung trifft.
+ * Genau das ist verboten — ein Admin kann den eigenen Zugang nicht beenden,
+ * sonst bliebe die Verwaltung ohne Zugang. Ein Widerruf trifft damit immer ein
+ * **fremdes** Cookie, das in der Antwort der action nicht vorkommt und das der
+ * Wächter beim nächsten Aufruf ohnehin abweist. Die Funktion bleibt stehen,
+ * weil das Löschen des einzigen Zugangsmittels an einer Stelle definiert
+ * gehört; ihre Attribute werden von scripts/smoke-zugang.ts geprüft.
  */
 export function sitzungLoeschen(cookies: Cookies): void {
 	cookies.set(COOKIE, '', { ...cookieOptionen(), maxAge: 0 });

@@ -14,7 +14,7 @@
  *   node scripts/gate.mjs [zielverzeichnis]   prüft ein Projekt (Vorgabe: dieses)
  *   node scripts/gate.mjs --selftest          prüft das Tor gegen die Fehlerproben
  *
- * Die neun Regeln:
+ * Die elf Regeln:
  *   1. In .svelte und .css unter src/ kein Farbliteral (Hex, rgb(), rgba(),
  *      hsl(), hsla(), oklch(), color() …, CSS-Farbname) und kein rohes
  *      px/rem-Literal ausser 0. Farbliteral heisst auch **Systemfarbe**
@@ -44,6 +44,19 @@
  *      TypeScript löscht die Anweisung beim Bauen.
  *      Datenzugriff läuft ausschliesslich über die benannten Funktionen aus
  *      src/lib/server/db/queries/*.ts.
+ *  10. Jede .css unter src/lib/styles/ wird von mindestens einer Datei unter
+ *      src/routes/ importiert. Ein Stilblatt, das niemand einbindet, ist
+ *      vollständig unsichtbar für eslint, svelte-check und vite build: die
+ *      Datei ist gültig, sie wird nur nie geladen. Belegt hat das die gelöschte
+ *      Importzeile von bedienelemente.css — gate blieb grün, bei unveränderter
+ *      Hinweiszahl, während alle 44px-Trefferfelder, das einzige Rot und die
+ *      16px, die iOS am Hineinzoomen hindern, aus der Auslieferung fielen.
+ *  11. Jedes action="?/name" im Markup unter src/routes/ hat einen
+ *      gleichnamigen Eintrag in der actions der Nachbar-+page.server.ts.
+ *      Belegt: ein verschriebener Name passiert check, eslint und smoke grün,
+ *      und der Knopf tut am laufenden Server nichts. Das Prüfskript ruft die
+ *      actions über den Namensindex und umgeht SvelteKits Auflösung, kann diese
+ *      Klasse also grundsätzlich nicht fangen.
  *
  * Zwei Eigenschaften der Umsetzung sind nicht verhandelbar, weil frühere
  * Fassungen genau daran vorbeigeschaut haben:
@@ -977,6 +990,141 @@ const torPrüfen = (ziel) => {
 	}
 
 	// -------------------------------------------------------------------
+	// Regel 10: jede .css unter src/lib/styles/ ist unter src/routes/ eingebunden
+	// -------------------------------------------------------------------
+	/*
+	 * Ein Stilblatt wirkt erst, wenn es jemand importiert — und der Import steht
+	 * nach der Konvention dieses Projekts in einer Datei unter src/routes/
+	 * (heute in +layout.svelte, damit er für jede Seite gilt). Fehlt er, ist die
+	 * Datei weiter gültig, weiter formatiert, weiter gelintet und wird nie
+	 * geladen. Genau das hat die Review demonstriert.
+	 *
+	 * Geprüft wird nur die **Existenz** eines Imports, nicht seine Form: $lib,
+	 * relativ, mit oder ohne ?url — alle Wege zählen, weil jeder von ihnen die
+	 * Datei tatsächlich lädt. Verglichen werden absolute Pfade, damit
+	 * '$lib/styles/x.css' und '../../lib/styles/x.css' auf denselben Eintrag
+	 * fallen.
+	 */
+	const stilWurzel = join(quelle, 'lib', 'styles') + sep;
+	const stilblätter = dateien.filter(
+		(datei) => datei.startsWith(stilWurzel) && datei.endsWith('.css')
+	);
+
+	/** @type {Set<string>} */
+	const eingebundeneStilblätter = new Set();
+	for (const datei of dateien) {
+		if (!datei.startsWith(routenWurzel)) continue;
+		const roh = lesen(datei, 10);
+		if (roh === null) continue;
+		const text = ohneZeilenkommentare(datei, ohneKommentare(roh));
+		for (const { spez } of importStellen(text)) {
+			// Ein Abfrageteil wie ?url gehört zum Vite-Aufruf, nicht zum Pfad.
+			const ohneAbfrage = spez.split('?')[0];
+			if (!ohneAbfrage.endsWith('.css')) continue;
+			const absolut = ohneAbfrage.startsWith('$lib/')
+				? join(quelle, 'lib', ohneAbfrage.slice('$lib/'.length))
+				: ohneAbfrage.startsWith('.')
+					? resolve(dirname(datei), ohneAbfrage)
+					: null;
+			// Ein Stilblatt aus node_modules ist kein Eintrag dieses Projekts.
+			if (absolut !== null) eingebundeneStilblätter.add(absolut);
+		}
+	}
+
+	for (const blatt of stilblätter) {
+		if (eingebundeneStilblätter.has(blatt)) continue;
+		melden(
+			10,
+			blatt,
+			1,
+			'wird von keiner Datei unter src/routes/ importiert — das Stilblatt ist gültig, ' +
+				'wird aber nie geladen, und keine andere Prüfung der Kette sieht das'
+		);
+	}
+
+	// -------------------------------------------------------------------
+	// Regel 11: jedes action="?/name" hat eine gleichnamige action
+	// -------------------------------------------------------------------
+	/*
+	 * SvelteKit löst action="?/name" zur Laufzeit gegen die actions der Route
+	 * auf. Ein verschriebener Name ist damit kein Typfehler und kein
+	 * Lint-Befund, sondern ein Knopf, der nichts tut: SvelteKit antwortet mit
+	 * 404, und ohne JavaScript sieht die Person eine Fehlerseite. Auch
+	 * scripts/smoke-zugang.ts kann das nicht fangen — es ruft die actions über
+	 * den Namensindex und umgeht die Auflösung, die hier der Prüfgegenstand ist.
+	 *
+	 * Geprüft wird die Form action="?/name", also die des Projekts. Eine Form
+	 * mit Pfad davor (action="/verwaltung?/name") kommt hier nicht vor und wird
+	 * bewusst nicht gedeutet — die Route liesse sich dann nicht mehr aus dem
+	 * Verzeichnis der Datei ableiten, und eine geratene Zuordnung wäre schlimmer
+	 * als eine benannte Grenze.
+	 */
+	/**
+	 * Die Namen auf der obersten Ebene des actions-Objekts einer +page.server.ts.
+	 * null, wenn die Datei fehlt oder kein actions-Objekt trägt.
+	 * @param {string} serverDatei
+	 * @returns {Set<string> | null}
+	 */
+	const aktionsnamen = (serverDatei) => {
+		if (!existsSync(serverDatei)) return null;
+		const roh = lesen(serverDatei, 11);
+		if (roh === null) return null;
+		const text = ohneZeilenkommentare(serverDatei, ohneKommentare(roh));
+		const stelle = text.search(/\bactions\b[^=]*=\s*\{/);
+		if (stelle < 0) return null;
+		const block = blockAb(text, text.indexOf('{', stelle));
+		if (block === null) return null;
+		// ohneVerschachtelung blendet alles tiefer als die oberste Ebene aus:
+		// die destrukturierten Parameter ({ locals, request }) und die Rümpfe der
+		// Pfeilfunktionen zählen damit nicht als Schlüssel.
+		const oben = ohneVerschachtelung(text.slice(block.innenVon, block.innenBis));
+		/** @type {Set<string>} */
+		const namen = new Set();
+		for (const treffer of oben.matchAll(/(?:^|[,{\s])['"]?([A-Za-z_$][\w$]*)['"]?\s*:/g)) {
+			namen.add(treffer[1]);
+		}
+		return namen;
+	};
+
+	/** @type {Map<string, Set<string> | null>} */
+	const aktionsCache = new Map();
+
+	for (const datei of dateien) {
+		if (!datei.startsWith(routenWurzel) || !datei.endsWith('.svelte')) continue;
+		const roh = lesen(datei, 11);
+		if (roh === null) continue;
+		const text = ohneKommentare(roh);
+		const treffer = [...text.matchAll(/\baction=["']\?\/([A-Za-z_$][\w$]*)["']/g)];
+		if (treffer.length === 0) continue;
+
+		const serverDatei = join(dirname(datei), '+page.server.ts');
+		if (!aktionsCache.has(serverDatei)) aktionsCache.set(serverDatei, aktionsnamen(serverDatei));
+		const namen = aktionsCache.get(serverDatei) ?? null;
+
+		for (const { 1: name, index } of treffer) {
+			if (namen === null) {
+				melden(
+					11,
+					datei,
+					zeileVon(text, index ?? 0),
+					`action="?/${name}", aber neben dieser Komponente steht keine +page.server.ts ` +
+						'mit einem actions-Objekt — der Knopf antwortet mit 404'
+				);
+				continue;
+			}
+			if (namen.has(name)) continue;
+			melden(
+				11,
+				datei,
+				zeileVon(text, index ?? 0),
+				`action="?/${name}" hat keinen gleichnamigen Eintrag in den actions von ` +
+					`${relative(ziel, serverDatei)} (dort: ${[...namen].sort().join(', ') || 'keine'}) — ` +
+					'der Knopf antwortet mit 404 und tut nichts'
+			);
+		}
+	}
+
+	// -------------------------------------------------------------------
 	// Regel 8: unbenutzte Tokens sind ein Hinweis, kein Fehler
 	// -------------------------------------------------------------------
 	for (const name of hellTokens.keys()) {
@@ -1016,7 +1164,7 @@ const berichten = (ergebnis, ziel) => {
 	}
 	console.log(
 		`gate (${wo}): ${ergebnis.dateien} Dateien und ${ergebnis.tokens} Tokens geprüft, ` +
-			`${ergebnis.hinweise.length} Hinweis(e), neun Regeln erfüllt.`
+			`${ergebnis.hinweise.length} Hinweis(e), elf Regeln erfüllt.`
 	);
 	return 0;
 };
@@ -1181,6 +1329,49 @@ const proben = [
 		beschreibung: 'erlaubte Importe unter src/routes/ dürfen nicht fallen',
 	},
 	{
+		regel: 10,
+		verzeichnis: 'regel-10-stilblatt-nicht-eingebunden',
+		erwartet: 1,
+		begruendung:
+			'1 .css unter src/lib/styles/, die keine Datei unter src/routes/ importiert; ' +
+			'die Datei selbst ist gültig und verstösst gegen keine andere Regel',
+		art: 'Verstoss',
+		beschreibung: 'Stilblatt vorhanden, Importzeile fehlt — die Datei wird nie geladen',
+	},
+	{
+		regel: 10,
+		verzeichnis: 'regel-10-stilblatt-eingebunden',
+		erwartet: 0,
+		begruendung:
+			'Gegenprobe: dasselbe Stilblatt über den Alias **und** über einen relativen ' +
+			'Pfad importiert, dazu eine nicht eingebundene .css ausserhalb von ' +
+			'src/lib/styles/ — alle drei erlaubt, also null Treffer',
+		art: 'Verstoss',
+		beschreibung:
+			'eingebundenes Stilblatt und .css ausserhalb von src/lib/styles/ dürfen nicht fallen',
+	},
+	{
+		regel: 11,
+		verzeichnis: 'regel-11-aktion-verschrieben',
+		erwartet: 1,
+		begruendung:
+			'1 action="?/neuAusstellen" ohne gleichnamigen Eintrag; das action="?/aufnehmen" ' +
+			'daneben ist aufgelöst und darf nicht mitzählen',
+		art: 'Verstoss',
+		beschreibung: 'Aktionsname im Markup, den die Nachbar-+page.server.ts nicht kennt',
+	},
+	{
+		regel: 11,
+		verzeichnis: 'regel-11-aktion-aufgeloest',
+		erwartet: 0,
+		begruendung:
+			'Gegenprobe: drei aufgelöste Namen, ein Formular ohne action (die Standard-action), ' +
+			'ein action mit fremder Adresse und ein verschriebener Name in einem Kommentar — ' +
+			'nichts davon darf fallen, also null Treffer',
+		art: 'Verstoss',
+		beschreibung: 'aufgelöste Aktionsnamen, Standard-action und fremdes Ziel dürfen nicht fallen',
+	},
+	{
 		regel: 9,
 		verzeichnis: 'regel-9d-relativer-pfad',
 		erwartet: 1,
@@ -1194,7 +1385,7 @@ const proben = [
 const selbsttest = () => {
 	let fehlt = 0;
 	console.log(
-		`gate --selftest: ${proben.length} Fehlerproben gegen die neun Regeln ` +
+		`gate --selftest: ${proben.length} Fehlerproben gegen die elf Regeln ` +
 			`(erwartet: ${erwarteteSvelteRegeln} svelte/*- und ${erwarteteTsRegeln} @typescript-eslint/*-Regeln je Komponente)\n`
 	);
 
@@ -1242,7 +1433,7 @@ const selbsttest = () => {
 	}
 	console.log(
 		`\ngate --selftest: alle ${proben.length} Fehlerproben in erwarteter Zahl gefunden, ` +
-			'jede der neun Regeln beisst nachweislich.'
+			'jede der elf Regeln beisst nachweislich.'
 	);
 	return 0;
 };

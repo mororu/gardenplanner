@@ -1,3 +1,7 @@
+<svelte:head>
+	<title>Aufgaben</title>
+</svelte:head>
+
 <!--
 	Startseite. Sie führt später genau drei Blöcke in dieser Reihenfolge:
 	Diensthinweis, freie Einzelaufgaben, offener Pool. Dieses Gerüst zeigt nur

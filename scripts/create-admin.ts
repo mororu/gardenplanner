@@ -3,6 +3,11 @@
  * auf der Konsole aus. Der Klartext ist danach unwiederbringlich weg — in der
  * Datenbank steht nur der SHA-256-Hash.
  *
+ * Es gibt keinen zweiten Weg zu einer Adminperson: /verwaltung nimmt
+ * ausschliesslich Mitglieder ohne Adminrechte auf, und dieses Skript läuft nur
+ * auf einem leeren System. Der Alleinverwalter ist damit eine benannte
+ * Sollbruchstelle, siehe README.md.
+ *
  * Aufruf:
  *   npm run create-admin -- Anna Meier
  *
@@ -56,8 +61,9 @@ try {
 /*
  * Zweitlauf-Schutz. Dieses Skript ist ausdrücklich für das **erste** Mitglied
  * gedacht. Ein zweiter Lauf erzeugte einen zweiten Admin und einen zweiten
- * lebenden Klartext-Link — ohne dass jemand danach gefragt hätte, und ohne
- * Oberfläche, auf der man ihn wieder loswird.
+ * lebenden Klartext-Link, ohne dass jemand danach gefragt hätte — und
+ * Adminrechte vergibt keine Oberfläche wieder ab, /verwaltung nimmt
+ * ausschliesslich Mitglieder ohne Adminrechte auf.
  */
 let vorhandene: number;
 try {
@@ -68,9 +74,11 @@ try {
 if (vorhandene > 0) {
 	abbrechen(
 		`Es gibt schon ${vorhandene} Mitglied(er). Dieses Skript legt nur das erste an.\n` +
-			'Weitere Mitglieder nimmt eine Adminperson unter /verwaltung auf — das kommt\n' +
-			'mit Story 1.3. Bis dahin gibt es bewusst keinen zweiten Weg, damit nicht\n' +
-			'unbemerkt ein zweiter Admin mit einem zweiten lebenden Link entsteht.'
+			'Weitere Mitglieder nimmt eine Adminperson unter /verwaltung auf — dort gibt es\n' +
+			'Aufnehmen, Link neu ausstellen und Einladung widerrufen.\n' +
+			'Hier gibt es bewusst keinen zweiten Weg, damit nicht unbemerkt ein zweiter\n' +
+			'Admin mit einem zweiten lebenden Link entsteht. Adminrechte vergibt allein\n' +
+			'dieses Skript, und nur für das erste Mitglied.'
 	);
 }
 
@@ -95,5 +103,8 @@ try {
 
 console.log(`Mitglied "${name}" angelegt, Nummer ${mitgliedId}, mit Adminrechten.`);
 console.log('Der Einladungslink erscheint genau einmal — jetzt. Er ist nicht wiederherstellbar:');
-// Die einzige Zeile der Anwendung, die ein Klartext-Token enthält.
+// Die einzige Zeile, die ein Klartext-Token auf die **Konsole** schreibt. Seit
+// Story 1.3 nicht mehr die einzige Stelle im System, die einen Klartext-Link
+// zeigt: die actions aufnehmen und neuAusstellen unter /verwaltung geben je
+// einen im Rumpf ihrer POST-Antwort zurück. Derselbe Handel, anderer Kanal.
 console.log(`${herkunft}/i/${token}`);

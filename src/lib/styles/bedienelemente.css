@@ -1,0 +1,167 @@
+/*
+ * Knöpfe und Formularfelder — global, nicht als Komponente.
+ *
+ * Bis Story 1.3 gab es im ganzen Baum kein <form>, kein Textfeld und keinen
+ * Knopf; DESIGN.md beschreibt button-primary und button-quiet trotzdem seit
+ * Story 1.1. Diese Datei ist die erste Umsetzung dieser Beschreibung.
+ *
+ * Global und nicht als Svelte-Komponente, weil die Stories 1.4 und 1.5
+ * dieselben Knöpfe brauchen: eine Klasse ohne Fassade ist billiger als eine
+ * Komponente, die Beschriftung, type, name, formaction, disabled und aria-*
+ * durchreichen müsste. Eingebunden wird die Datei in
+ * src/routes/+layout.svelte neben fonts.css — damit gilt sie für jede Seite.
+ *
+ * Wie überall: kein Farbwert und kein Mass steht hier als Literal, alles kommt
+ * aus dem Token-Block in src/app.html. scripts/gate.mjs liest diese Datei mit.
+ */
+
+/*
+ * Die gemeinsame Form beider Knöpfe. DESIGN.md: volle Spaltenbreite,
+ * mindestens 44px hoch, Text in der action-Rolle, Radius md.
+ *
+ * Volle Breite, weil die Anwendung eine Spalte hat und im Garten mit
+ * Handschuhen bedient wird — ein Knopf, der nur so breit ist wie sein Text,
+ * ist ein kleineres Ziel ohne Gewinn.
+ */
+.button-primary,
+.button-quiet {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	/* Trefferfeld: 44px Boden aus dem Barrierefreiheits-Boden. box-sizing:
+	   border-box aus app.html rechnet die Kante mit hinein. */
+	min-height: var(--touch);
+	padding: var(--space-2) var(--space-4);
+	/* Die Kante liegt bei beiden, damit ein Wechsel der Klasse die Zeile nicht
+	   verschiebt — beim primären Knopf in seiner eigenen Füllfarbe. */
+	border: var(--border-hairline) solid transparent;
+	border-radius: var(--radius-md);
+	font-family: var(--action-font);
+	font-size: var(--action-size);
+	font-weight: var(--action-weight);
+	line-height: var(--action-line);
+	text-align: center;
+	text-decoration: none;
+	cursor: pointer;
+	/* Kein Systemaussehen: sonst überschreibt der Browser Kante und Radius. */
+	appearance: none;
+}
+
+/* Höchstens einer pro Seite (DESIGN.md). */
+.button-primary {
+	border-color: var(--accent);
+	background-color: var(--accent);
+	color: var(--accent-ink);
+}
+
+/* Nebenaktionen: durchsichtig, Text im Akzent, Umriss auf der Haarlinie. */
+.button-quiet {
+	border-color: var(--hairline);
+	background-color: transparent;
+	color: var(--accent);
+}
+
+/*
+ * Zerstörendes: dieselbe Form, Text und Umriss in Rot. Die einzige Stelle der
+ * Anwendung, an der Rot vorkommt.
+ *
+ * Rot trägt nie allein: der Knopf sagt `Einladung widerrufen`, und ohne die
+ * Farbe bliebe die Aussage vollständig. Der Umriss ist deshalb keine
+ * Verdopplung, sondern nur die Form, die DESIGN.md für Zerstörendes vorsieht.
+ */
+.button-quiet--zerstoerend {
+	border-color: var(--danger);
+	color: var(--danger);
+}
+
+/*
+ * Gedrückt.
+ *
+ * Vorher kannte diese Datei ausschliesslich Ruhezustände: kein :active, kein
+ * :disabled, keine Gestaltung für das aria-invalid, das das Markup setzt. Ein
+ * Knopf, der einen Druck nie quittiert, erzeugt genau den Doppeldruck, gegen
+ * den die Seite sich danach mit einer Sperre wehren muss — die Ursache gehört
+ * hierher, nicht nur die Folge.
+ *
+ * `currentcolor` und nicht ein weiteres Token: die Kante nimmt die Textfarbe
+ * des Knopfs, der sie trägt. Damit quittiert der zerstörende Knopf in Rot, der
+ * primäre in der Tintenfarbe seiner Füllung, und es entsteht kein Zustand, den
+ * jemand einzeln nachpflegen müsste. Die Kante liegt bei allen Knöpfen ohnehin,
+ * nur durchsichtig — es wächst also nur ihre Breite, und box-sizing: border-box
+ * hält die Höhe. Nichts springt.
+ */
+.button-primary:active,
+.button-quiet:active {
+	border-width: var(--border-active);
+	border-color: currentcolor;
+}
+
+/*
+ * Gesperrt, solange ein Versand unterwegs ist.
+ *
+ * Der Zustand hängt nicht an der Farbe allein: `disabled` nimmt den Knopf auch
+ * aus der Tastaturreihenfolge, und ein Screenreader sagt „nicht verfügbar".
+ */
+.button-primary:disabled,
+.button-quiet:disabled {
+	border-color: var(--hairline);
+	background-color: var(--surface-raised);
+	color: var(--ink-secondary);
+	cursor: default;
+}
+
+/*
+ * Ein Textfeld über die volle Spaltenbreite.
+ *
+ * Die Schriftgrösse kommt aus der task-Rolle und damit auf 16px: unter 16px
+ * zoomt iOS beim Fokus in das Feld hinein und die Seite bleibt danach
+ * verschoben.
+ */
+.feld {
+	display: block;
+	width: 100%;
+	min-height: var(--touch);
+	padding: var(--space-2) var(--space-3);
+	border: var(--border-hairline) solid var(--hairline);
+	border-radius: var(--radius-md);
+	background-color: var(--surface-raised);
+	color: var(--ink-primary);
+	font-family: var(--task-font);
+	font-size: var(--task-size);
+	font-weight: var(--task-weight);
+	line-height: var(--task-line);
+	appearance: none;
+}
+
+/*
+ * Ein Feld, dessen Eingabe abgewiesen wurde.
+ *
+ * Die Kante wird breiter und nimmt die Tintenfarbe — **nicht** var(--danger).
+ * Rot bleibt dem Zerstörenden vorbehalten und sagt „das hier zerstört etwas",
+ * nicht „das hier ging schief"; ein rotes Feld wäre zudem das zweite Rot auf
+ * einer Seite, die genau eines haben darf. Die Aussage steht ohnehin im Satz
+ * darunter, mit dem das Feld über aria-describedby verbunden ist — die Kante
+ * ist der Hinweis, wo, nicht die Auskunft, was.
+ */
+.feld[aria-invalid='true'] {
+	border-width: var(--border-active);
+	border-color: var(--ink-primary);
+}
+
+/*
+ * Die Beschriftung eines Feldes, in der meta-Rolle und immer sichtbar.
+ *
+ * Kein Platzhalter statt einer Beschriftung: der Platzhalter verschwindet beim
+ * Tippen, und wer dann unterbrochen wird, weiss nicht mehr, was in das Feld
+ * gehört.
+ */
+.feld__beschriftung {
+	display: block;
+	margin-bottom: var(--space-1);
+	color: var(--ink-secondary);
+	font-family: var(--meta-font);
+	font-size: var(--meta-size);
+	font-weight: var(--meta-weight);
+	line-height: var(--meta-line);
+}
