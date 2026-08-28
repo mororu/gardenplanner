@@ -48,6 +48,8 @@ Der Story-2.2-Block sät Zeilen mit `created_at` bis 60 Tage in der Vergangenhei
 **Warum jetzt:** Epic 3 hängt Behauptungen an. Wer das tut, tappt hinein, und die Fehlermeldung zeigt auf eine fremde Story.
 **Fassung:** die älteren Reihenfolgeprüfungen auf eigene Ids umstellen, wie es der 2.2-Block über `gesäteIds` schon tut. Mechanisch, klein.
 
+**Erledigt am 2026-08-28.** `offeneReihenfolge` nimmt jetzt einen optionalen Id-Filter; die sechs Ketten der Stories 1.4 und 1.5 fragen über `dreiGesaete`/`fuenfGesaete` nur noch nach ihren eigenen Zeilen. Belegt statt behauptet: eine Probezeile mit 60 Tage altem `created_at`, mitten in den 1.4-Block gesät, machte vor der Umstellung fünf Behauptungen rot und nach ihr keine mehr (Probezeile wieder entfernt). Die Endposition des 2.2-Blocks trägt damit nichts mehr, und sein Kopfkommentar sagt das statt der alten Bedingung. Anzahl der Behauptungen unverändert bei 373. Einzelheiten in `deferred-work.md`.
+
 ### B2 · Abdeckung der Svelte-Schicht — **die Auslösebedingung tritt in Epic 3 ein** *(Einträge 9, 15, 17, 36, 37 — Zeilen 34, 53, 59, 125, 131)*
 
 Fünf Einträge, ein Gegenstand: die Svelte-Schicht von `/verwaltung`, `/mehr`, `/` und `/monatsplan` ist von keinem ausgeführten Werkzeug gedeckt. Der vierstufige Vorschlag steht ausformuliert in Eintrag 15.
@@ -132,7 +134,8 @@ der ersten Fassung sind erledigt; was bleibt, ist Bauen — in dieser Ordnung.
 
 1. ~~**B6 Rest**~~ — erledigt am 2026-08-28: eigenes Token `--warn` in Ringelblume. Story 3.1 hat
    damit freie Bahn; keine offene Frage hält Epic 3 mehr auf.
-2. **B1** — mechanisch, klein, und die einzige, die sonst mitten in Epic 3 rot wird.
+2. ~~**B1**~~ — erledigt am 2026-08-28: die Ketten der Stories 1.4 und 1.5 fragen nur noch nach
+   ihren eigenen Ids. Kein Block der Epic 3 kann sie mehr mit alten Zeitstempeln rot machen.
 3. **Stufe A als eigene Story** (Entscheid zu Eintrag 15). Sie schliesst vier Posten auf einmal, und
    jede Story ab 3.1 bekommt sie geschenkt — der Nutzen ist am grössten, wenn sie **vor** Epic 3 steht.
 4. **Ein Durchgang durch die geteilten Stellen: B3 + B4 + B5 + Retro-Punkte 1, 2, 3 + Entscheid 32.**

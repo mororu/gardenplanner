@@ -735,10 +735,32 @@ function nenntErledigt(daten: unknown): boolean {
 	return /completed/i.test(JSON.stringify(daten));
 }
 
-/** Die Ids der offenen Aufgaben in der Reihenfolge, in der die load sie liefert. */
-function offeneReihenfolge(ausgang: Routenausgang): string {
+/**
+ * Die Ids der offenen Aufgaben in der Reihenfolge, in der die load sie liefert.
+ *
+ * `nurIds` schneidet die Antwort auf die Zeilen zu, die der fragende Block
+ * **selbst gesät** hat. Ohne diesen Filter sagt jede Reihenfolgebehauptung
+ * etwas über den ganzen Tabelleninhalt zu, und das ist mehr, als sie meint:
+ * ein späterer Block, der Aufgaben mit älterem created_at anlegt, stellt sie
+ * vor alles Frühere und macht die festen Id-Ketten rot, ohne dass an der
+ * Sortierung etwas falsch wäre. Genau das tut der Story-2.2-Block mit seinen
+ * bis zu 60 Tage alten Zeitstempeln; er filtert aus demselben Grund über
+ * `gesaeteIds`, und seit dieser Fassung tun es die älteren Ketten auch.
+ *
+ * Zugesagt ist damit die **relative** Reihenfolge der eigenen Zeilen. Dass eine
+ * fremde dazwischensteht, ist keine gebrochene Zusage — dass eine eigene fehlt
+ * oder an falscher Stelle steht, weiterhin schon.
+ */
+function offeneReihenfolge(
+	ausgang: Routenausgang,
+	nurIds?: readonly (number | undefined)[]
+): string {
 	const zeilen = (wertVon(ausgang).aufgaben ?? []) as { id: number }[];
-	return zeilen.map((zeile) => zeile.id).join(' | ');
+	const eigene = nurIds === undefined ? null : new Set(nurIds);
+	return zeilen
+		.map((zeile) => zeile.id)
+		.filter((id) => eigene === null || eigene.has(id))
+		.join(' | ');
 }
 
 /** Der Rückgabewert einer geglückten load oder action, oder ein leeres Objekt. */
@@ -2001,11 +2023,18 @@ try {
 	const spaet = aufgabeSaen('Randen ernten, Beet 12', jetzt - 100);
 	const frueh = aufgabeSaen('Beet 25 Nüsslisalat jäten', jetzt - 300);
 	const mittel = aufgabeSaen('Tomaten ausgeizen, Beete 3 bis 7', jetzt - 200);
+	/*
+	 * Jede Reihenfolgebehauptung dieses Blocks fragt nur nach **diesen** Ids.
+	 * Der Grund steht bei offeneReihenfolge: ein späterer Block mit älteren
+	 * Zeitstempeln stellt sich sonst vor sie und macht sie rot, obwohl die
+	 * Sortierung stimmt.
+	 */
+	const dreiGesaete = [frueh, mittel, spaet] as const;
 
 	const erstesLaden = await startseiteLadenAn('/');
 	pruefenGleich(
 		'die load von / gibt die offenen Aufgaben, älteste zuerst',
-		offeneReihenfolge(erstesLaden),
+		offeneReihenfolge(erstesLaden, dreiGesaete),
 		`${frueh} | ${mittel} | ${spaet}`
 	);
 	/*
@@ -2082,7 +2111,7 @@ try {
 	const nachAbhaken = await startseiteLadenAn('/');
 	pruefenGleich(
 		'die abgehakte Zeile fehlt in einer frischen load — auch für alle anderen',
-		offeneReihenfolge(nachAbhaken),
+		offeneReihenfolge(nachAbhaken, dreiGesaete),
 		`${frueh} | ${spaet}`
 	);
 	/*
@@ -2142,7 +2171,7 @@ try {
 	);
 	pruefenGleich(
 		'die Zeile steht danach wieder an ihrem Platz nach created_at',
-		offeneReihenfolge(await startseiteLadenAn('/')),
+		offeneReihenfolge(await startseiteLadenAn('/'), dreiGesaete),
 		`${frueh} | ${mittel} | ${spaet}`
 	);
 
@@ -2227,14 +2256,15 @@ try {
 	const geteilterZeitpunkt = jetzt - 500;
 	const zwillingEins = aufgabeSaen('Kompost wenden', geteilterZeitpunkt);
 	const zwillingZwei = aufgabeSaen('Laub rechen', geteilterZeitpunkt);
+	const fuenfGesaete = [zwillingEins, zwillingZwei, ...dreiGesaete] as const;
 	pruefenGleich(
 		'zwei Aufgaben mit demselben created_at stehen nach aufsteigender Id',
-		offeneReihenfolge(await startseiteLadenAn('/')),
+		offeneReihenfolge(await startseiteLadenAn('/'), fuenfGesaete),
 		`${zwillingEins} | ${zwillingZwei} | ${frueh} | ${mittel} | ${spaet}`
 	);
 	pruefenGleich(
 		'und die Reihenfolge bleibt über einen zweiten Ladevorgang stabil',
-		offeneReihenfolge(await startseiteLadenAn('/')),
+		offeneReihenfolge(await startseiteLadenAn('/'), fuenfGesaete),
 		`${zwillingEins} | ${zwillingZwei} | ${frueh} | ${mittel} | ${spaet}`
 	);
 
@@ -2368,7 +2398,7 @@ try {
 	const nachAblage = await startseiteLadenAn('/?abgelegt');
 	pruefenGleich(
 		'die neue Aufgabe steht in der load von / — jüngste zuletzt',
-		offeneReihenfolge(nachAblage),
+		offeneReihenfolge(nachAblage, [...fuenfGesaete, neueAufgabe?.id]),
 		`${zwillingEins} | ${zwillingZwei} | ${frueh} | ${mittel} | ${spaet} | ${neueAufgabe?.id}`
 	);
 	pruefen(
@@ -3774,12 +3804,15 @@ try {
 	// =======================================================================
 	// / — Story 2.2: überfällige Aufgaben erkennen.
 	//
-	// Jede Zeile der I/O-Matrix ausgeführt. Der Block steht ganz **am Ende** der
-	// Prüfliste, und das ist keine Bequemlichkeit: er sät Aufgaben mit
-	// Zeitstempeln von bis zu 60 Tagen, und die stehen nach created_at **vor**
-	// allen bisher gesäten. Weiter oben eingefügt machte er die vier
-	// Sortierbehauptungen mit ihren festen Id-Ketten rot, ohne dass an der
-	// Sortierung etwas falsch wäre.
+	// Jede Zeile der I/O-Matrix ausgeführt. Der Block sät Aufgaben mit
+	// Zeitstempeln von bis zu 60 Tagen; die stehen nach created_at **vor** allen
+	// bisher gesäten. Bis zur Triage vom 2026-08-28 hing daran seine Position:
+	// weiter oben eingefügt machte er die Sortierbehauptungen der Stories 1.4
+	// und 1.5 rot, ohne dass an der Sortierung etwas falsch wäre. Seither
+	// fragen jene Ketten über `dreiGesaete`/`fuenfGesaete` nur noch nach ihren
+	// eigenen Zeilen — dieselbe Vorkehrung, die dieser Block mit `gesaeteIds`
+	// schon traf. **Der Block darf jetzt überall stehen, und der nächste, der
+	// alte Zeitstempel sät, ebenfalls.**
 	//
 	// Gemessen wird zweimal, und die zwei Messungen haben verschiedene Aufgaben:
 	//

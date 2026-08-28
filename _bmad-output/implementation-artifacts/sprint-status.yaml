@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-26-2026 13:20
-last_updated: 08-28-2026 12:40
+last_updated: 08-28-2026 13:20
 project: Gemeinschaftsgarten
 project_key: NOKEY
 tracking_system: file-system
@@ -188,7 +188,7 @@ action_items:
     action: "Reihenfolgefalle in smoke-zugang.ts entschaerfen, bevor Epic 3 Behauptungen
       anhaengt (G2)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-21-entscheid-plausibilitaetsschranke-an-fae"
     epic: 2

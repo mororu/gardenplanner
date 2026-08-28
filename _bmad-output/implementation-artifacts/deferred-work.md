@@ -285,3 +285,27 @@ eine Gestaltungsfrage und muss vor Story 3.1 beantwortet werden.
     reserviert" — und fällt mit Story 3.1 wieder auf 1. Das Akzeptanzkriterium aus Story 2.2, das
     den Fall von 2 auf 1 verlangte, ist davon unberührt; es galt für seinen eigenen Stand.
   status: entschieden und umgesetzt
+
+## Erledigt am 2026-08-28 (Nachtrag): B1 — die Reihenfolgefalle in `smoke-zugang.ts`
+
+- betrifft: Eintrag 40 (Zeile 141), Bucket B1 der Triage
+  fassung: Die **zweite** der beiden im Eintrag genannten Auswege — die älteren
+    Reihenfolgebehauptungen vergleichen nur noch ihre eigenen Ids, so wie der 2.2-Block es über
+    `gesaeteIds` schon tat. Nicht der erste (gesäte Zeilen am Blockende löschen): der hätte die
+    Zusicherung an ein Aufräumen gehängt, das jeder neue Block wieder vergessen kann.
+  umsetzung: `offeneReihenfolge` nimmt einen zweiten, optionalen Parameter `nurIds` und schneidet
+    die Antwort darauf zu. Die Ids stehen als `dreiGesaete` (Story 1.4) und `fuenfGesaete`
+    (dieselben plus die zwei Zwillinge) je direkt bei ihrem Säen; die Kette aus Story 1.5 hängt
+    die neu abgelegte Aufgabe an. Sechs Behauptungen umgestellt, keine hinzugefügt und keine
+    entfernt — `ERWARTETE_BEHAUPTUNGEN` bleibt bei 373.
+  belegt: Nicht behauptet, sondern zweimal ausgeführt. Eine Probezeile mit `created_at` 60 Tage in
+    der Vergangenheit, mitten in den 1.4-Block gesät: **vor** der Umstellung fünf rote
+    Behauptungen (`war "4 | 2 | 3 | 1", erwartet "2 | 3 | 1"` und vier weitere derselben Art),
+    **nach** der Umstellung alle grün. Die Probezeile ist danach wieder entfernt; sie war das
+    Beweismittel, nicht der Zustand.
+  folge: Die Endposition des 2.2-Blocks trägt nichts mehr. Sein Kopfkommentar sagt das jetzt
+    ausdrücklich, statt eine Bedingung zu behaupten, die es nicht mehr gibt: **wer in Epic 3 einen
+    Block anhängt oder dazwischenschiebt, tappt nicht mehr hinein.** Was die Ketten weiterhin rot
+    macht, ist eine eigene Zeile an falscher Stelle oder eine fehlende — also genau das, was sie
+    zusagen. Dass eine fremde Zeile dazwischensteht, ist keine gebrochene Zusage mehr.
+  status: erledigt
