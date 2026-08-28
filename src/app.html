@@ -72,6 +72,23 @@
 				--accent-ink: #ffffff;
 				--overdue: #9a5a12;
 				/*
+				   Ringelblume, und nur für die unbesetzte Dienstwoche (Epic 3): eine
+				   Lücke, die jemand schliessen muss — kein Fehler und keine Gefahr,
+				   darum nicht --danger, und kein Liegenbleiben, darum nicht --overdue.
+
+				   **Von --overdue kaum zu unterscheiden, und das ist gemessen und
+				   hingenommen:** die zwei liegen im Hellen bei 1.07:1 zueinander. Jedes
+				   Orange, das auf Weiss 4.5:1 erreicht, ist dunkel, und dunkles Orange
+				   ist Lehmbraun — der Unterschied ist die volle Sättigung, sonst nichts.
+				   Es trägt trotzdem, weil die beiden Zustände **nie auf derselben Seite**
+				   vorkommen: Überfälligkeit steht auf /, Unbesetztheit auf /dienstplan.
+				   Und wie überall trägt das Wort die Aussage — `— unbesetzt —` steht da,
+				   auch ohne jede Farbe.
+
+				   Gemessen: 5.63:1 auf --surface-raised, 5.11:1 auf --surface-base.
+				*/
+				--warn: #a05300;
+				/*
 				   Rot, und nur für Zerstörendes: der Knopf `Einladung widerrufen`.
 				   Es gibt bewusst kein --danger-ink, weil der zerstörende Knopf
 				   durchsichtig bleibt — Text und Umriss tragen diesen Wert, es
@@ -204,6 +221,13 @@
 					--accent: #7fbb8c;
 					--accent-ink: #0e1410;
 					--overdue: #d99b4e;
+					/*
+					   Im Dunkeln trennen sich die zwei besser als im Hellen: 1.26:1
+					   zueinander, spürbar heller und satter als --overdue. Der Grund für
+					   das eigene Token bleibt trotzdem die Bedeutung und nicht der Abstand.
+					   Gemessen: 8.70:1 auf --surface-raised, 9.58:1 auf --surface-base
+					*/
+					--warn: #ffa857;
 					/* Gemessen: 6.48:1 auf --surface-raised, 7.13:1 auf --surface-base */
 					--danger: #e8877b;
 				}

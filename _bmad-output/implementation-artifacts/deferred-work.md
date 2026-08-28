@@ -251,3 +251,37 @@ und tragen jetzt `{colors.overdue}` — es war dort nie eine Frage, `DESIGN.md:2
 je richtig. **Offen bleibt allein `:102`** („Dienstwoche unbesetzt" in `{colors.warn}`): ob
 „unbesetzt" dasselbe Token trägt wie „überfällig" oder Epic 3 ein eigenes `--warn` bekommt, ist
 eine Gestaltungsfrage und muss vor Story 3.1 beantwortet werden.
+
+## Entschieden am 2026-08-28 (Nachtrag): das Token für „Dienstwoche unbesetzt"
+
+- entscheid: **Fassung B — ein eigenes Token `--warn` in einem Orangeton.** Name: **Ringelblume**,
+    `#A05300` hell / `#FFA857` dunkel. Damit ist Eintrag 35 vollständig geschlossen.
+  betrifft: Eintrag 35 (Zeile 122), letzter offener Teil `EXPERIENCE.md:102`
+  begruendung: Zwei Quellen widersprachen sich über eine Farbe für einen Zustand — die
+    Akzeptanzkriterien schrieben Lehmbraun, die Erlebnisbeschreibung ein `{colors.warn}`, das es
+    nirgends gab. Entschieden ist damit, dass „unbesetzt" **nicht** dieselbe Farbe trägt wie
+    „überfällig": es sind zwei verschiedene Aussagen. Überfällig heisst, dass etwas liegt;
+    unbesetzt heisst, dass eine Lücke da ist, die jemand schliessen muss. Rot bleibt dem
+    Zerstörenden vorbehalten, also kein `--danger`.
+  gemessen: Die Trennschärfe ist **im Hellen schwach, und das ist nachgerechnet und hingenommen.**
+    `#A05300` und `#9A5A12` liegen bei 1.07:1 zueinander — nahezu ununterscheidbar. Das ist keine
+    schlechte Wahl, sondern Physik: jedes Orange, das auf Weiss 4.5:1 erreicht, muss dunkel sein,
+    und dunkles Orange **ist** Lehmbraun. Der ganze Unterschied ist die Sättigung (100% gegen 79%).
+    Im Dunkeln trennen sie sich besser: 1.26:1, spürbar heller und satter.
+    Es trägt trotzdem, aus zwei Gründen, die beide im Baum stehen: die zwei Zustände kommen **nie
+    auf derselben Seite** vor — Überfälligkeit auf `/`, Unbesetztheit auf `/dienstplan` —, und wie
+    überall in diesem Produkt trägt das **Wort** die Aussage: `— unbesetzt —` steht auch ohne jede
+    Farbe da.
+    Kontrast: hell 5.63:1 auf `--surface-raised` und 5.11:1 auf `--surface-base`; dunkel 8.70:1
+    und 9.58:1. Beide Modi über 4.5:1, beide mit Reserve.
+  umsetzung: Vollständig nachgezogen. `DESIGN.md` trägt `warn`/`warn-dark` im Token-Block, den
+    Ringelblume-Absatz in der Farbprosa und zwei neue Zeilen in der Kontrasttabelle;
+    `epics.md` sagt in der Story-3.1-Akzeptanz jetzt Ringelblume statt Lehmbraun;
+    `EXPERIENCE.md:102` war schon richtig und stimmt ab jetzt auch. `src/app.html` deklariert
+    `--warn` in **beiden** Blöcken mit den gemessenen Werten im Kommentar — nach demselben Muster,
+    nach dem `--overdue` seit Story 1.1 dort stand, bevor Story 2.2 es benutzte.
+  folge: `npm run gate` gibt jetzt **2 Hinweise statt 1** (`--warn` und `--border-marker` sind
+    deklariert und unbenutzt). Das ist genau der Zweck von Regel 8 — „für eine spätere Story
+    reserviert" — und fällt mit Story 3.1 wieder auf 1. Das Akzeptanzkriterium aus Story 2.2, das
+    den Fall von 2 auf 1 verlangte, ist davon unberührt; es galt für seinen eigenen Stand.
+  status: entschieden und umgesetzt

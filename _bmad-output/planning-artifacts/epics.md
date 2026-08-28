@@ -461,7 +461,7 @@ So that der Dienst verbindlich ist und ich ihn nicht vergesse.
 
 **Given** ein Mitglied, dessen Zugang beendet wurde, mit künftigen Dienstwochen
 **When** ich den Dienstplan öffne
-**Then** stehen diese Wochen als `— unbesetzt —` in Lehmbraun, bis sie neu besetzt werden
+**Then** stehen diese Wochen als `— unbesetzt —` in Ringelblume, bis sie neu besetzt werden
 
 *Erfüllt:* FR6, FR7, FR8, AD-4, AD-11, AD-14, UX-DR9. Legt `duty_weeks` an, eindeutig über Dienstart, Jahr und Kalenderwoche.
 
