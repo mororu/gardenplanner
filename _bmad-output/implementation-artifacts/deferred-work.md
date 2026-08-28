@@ -144,3 +144,110 @@ Beleg, dass sie ohne einen festen Lesepunkt verstreicht.
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-2-ueberfaellige-aufgaben-erkennen.md`
   summary: ERLEDIGT — die visuelle Prüfung von Story 2.2 ist am 2026-08-28 erfolgt und abgenommen ("Ok, das passt, habs jetzt gesehen wie es funktioniert").
   evidence: Maschinell belegt waren vorher `npm run lint`, `npm run check`, `npm run db:check` und `npm run build` mit Exit 0 über 374 ausgeführte Behauptungen; jede neue Zusage ist durch eine Mutationsprobe rot belegt, darunter die zwei Prüflücken, die der Review vorgeführt hatte (`aria-describedby` am falschen Kästchen, zweite Textzeile über dem Aufgabentext) — beide vom Koordinator eigenhändig nachgemessen. Am laufenden Entwicklungsserver gegen `data/dev.sqlite` gemessen: neun gesäte Zeilen deckten die Schwelle (21 Tage exakt ohne Zeile, eine Stunde darüber mit `seit 3 Wochen offen`), den Vorrang von `due_at` über `created_at` (25 Tage Frist bei 60 Tagen Alter ergibt 3 und nicht 8), die Monatsplan-Ausnahme, den ungekappten Extremwert (`seit 42 Wochen offen`) und einen langen Text über mehrere Zeilen. Der User hat zusätzlich über `/monatsplan` selbst eine Planaufgabe mit Fälligkeit 2026-07-01 angelegt und `seit 8 Wochen offen` in der Liste gesehen. **Aus der Prüfung entstand eine Produktfrage, die er entschieden hat:** eine Planaufgabe mit Frist in der jüngeren Vergangenheit trägt bewusst keinen Hinweis, weil die Schwelle drei Wochen ist und nicht das Fälligkeitsdatum — nachgewiesen an 5, 19 und 25 Tagen Überschreitung. Er hat das so abgenommen, die Schwelle bleibt unverändert. Der ursprüngliche Verdacht kam von zwei Testzeilen mit der Vorbelegung 31.08.2026, die drei Tage in der Zukunft liegt. **Ausdrücklich NICHT einzeln bestätigt** sind die Punkte der sechsteiligen Prüfliste, die die Barrierefreiheit tragen: der dunkle Modus bei 375px, das Trefferfeld von 44px bei der jetzt zweizeiligen Zeile, die Beurteilung des Höhensprungs beim Abhaken, **VoiceOver** (ob das Kästchen weiterhin `<Aufgabentext>, erledigen` heisst und `seit N Wochen offen` als Beschreibung und nicht als Namensteil kommt) und die Lesbarkeit bei ausgeschalteter Farbdarstellung. VoiceOver trägt davon die echte Unsicherheit, weil die Svelte-Schicht in diesem Projekt von keinem ausgeführten Werkzeug gedeckt ist und dort alles an fünf Textprüfungen hängt. Der Handy-Test wurde ausdrücklich verschoben ("Handy test lassen wir aktuell"). Damit wiederholt sich das Muster, das die Retrospektive zu Epic 1 und der Abnahmeeintrag zu Story 2.1 schon benannt haben: abgenommen wird die sichtbare Funktion, nicht die Barrierefreiheit.
+
+## Entschieden am 2026-08-28 (Triage vor Epic 3)
+
+Fünf Entscheide, die die Triage als „kann niemand durch Lesen von Code auflösen" ausgewiesen
+hatte, sind gefallen. Anderes Format als die Einträge oben, weil es ein anderer Gegenstand ist:
+dort steht, was zurückgestellt wurde, hier, was entschieden ist. Die Einträge oben bleiben als
+Protokoll unverändert stehen.
+
+- entscheid: `Fällig bis` bekommt ein **Fenster von einem Jahr in jede Richtung**, hart abgewiesen.
+  betrifft: Eintrag 31 (Zeile 107)
+  begruendung: „Nur warnen" ist die schlechteste Fassung — eine wegklickbare Warnung auf der
+    einzigen Handlung ohne Rückgängig. „Vergangenheit hart abweisen" bricht das Nachtragen eines
+    laufenden Monats. Das Fenster tut beides nicht und fängt trotzdem jeden plausiblen Vertipper
+    (`1990`, `2016`, `2062` liegen alle draussen). Symmetrisch, obwohl der Schaden es nicht ist —
+    eine Frist ein Jahr zurück legt bis zu 100 sofort überfällige, unentfernbare Aufgaben an, eine
+    ein Jahr vor ist bloss sinnlos; zwei Grenzen mit zwei Sätzen wären der teurere Weg zum selben
+    Ergebnis, und die Asymmetrie gehört in den Kommentar.
+  umsetzung: Konstante nach `src/lib/zeit.ts` neben `UEBERFAELLIG_SEKUNDEN` — auch das ist eine
+    Produktentscheidung, die dort schon steht. Prüfung direkt hinter die bestehende
+    `faelligAm === null`-Prüfung in `src/routes/monatsplan/+page.server.ts`: gleiches Feld, gleicher
+    Platz in der Kette, ein zusätzlicher Satz. `min`/`max` am Feld ist die Bequemlichkeit, die
+    action bleibt die Instanz — dasselbe Verhältnis wie `maxlength` zu `AUFGABE_HOECHSTLAENGE`.
+  status: entschieden, Umsetzung offen
+
+- entscheid: Der Satz heisst **`seit N Wochen überfällig`**, nicht `seit N Wochen offen`.
+  betrifft: Eintrag 39 (Zeile 137)
+  begruendung: Entscheidet sich an der Wahrheit, nicht am Geschmack. `offen` ist bei einer
+    Planaufgabe falsch — die vor 60 Tagen angelegte Aufgabe mit Frist vor 25 Tagen ist seit 8,5
+    Wochen offen, nicht seit 3. `überfällig` ist in **beiden** Fällen wahr: bei der Planaufgabe
+    seit der Fälligkeit, bei der Ad-hoc-Aufgabe seit der Anlage, die laut AD-8 die Ersatzfrist
+    **ist**. Der Einwand, `überfällig` klinge anklagender, trägt nicht: den Ton tragen das
+    Lehmbraun, das fehlende Abzeichen, die unveränderte Sortierung und die fehlende Eskalation.
+    Und das System nennt die Sache ohnehin überall so — AD-8, der Story-Titel, das Token
+    `--overdue`; nur in dem einen Satz, den eine Gärtnerin liest, hiess sie anders. Zweitbeste
+    Fassung wäre `seit N Wochen fällig` gewesen — ebenfalls in beiden Fällen wahr und ruhiger;
+    `überfällig` gewinnt, weil Code und Oberfläche dieselbe Sache gleich nennen sollen.
+  umsetzung: Plandokumente sind **nachgezogen** (`epics.md:81,412`, `DESIGN.md:199,248`,
+    `EXPERIENCE.md:64,79,101,154`, `mockups/startseite.html`). Der Code hinkt bewusst hinterher und
+    ist als Aktionspunkt geführt: eine gerenderte Zeichenkette (`+page.svelte:391`), eine Prüfung
+    (`smoke-zugang.ts:4165`) und rund 20 Prosastellen in `zeit.ts`, `+page.svelte`, `README.md` und
+    `smoke`, die über das Wort **argumentieren** und darum mitgeschrieben und nicht ersetzt werden.
+  status: entschieden, Plandokumente nachgezogen, Code offen
+
+- entscheid: **Stufe A wird gebaut**, als eigene Story vor Epic 3. **Stufe C nicht** — und ihre
+    Auslösebedingung wird neu gefasst.
+  betrifft: Eintrag 15 (Zeile 53), und über ihn die Einträge 5, 9, 17, 29, 36, 37
+  begruendung: Stufe A verletzt NFR13 nicht — dieselbe Bauform wie die bestehenden Skripte, reines
+    Node, keine neue Abhängigkeit, `pruefen`/`pruefenGleich`/`wegwerfVerzeichnis` wiederverwendbar.
+    Sie schliesst vier Posten auf einmal und **misst** den 303-Pfad, statt ihn von der Attrappe
+    entscheiden zu lassen. Sie war vor Epic 2 empfohlen, und die Belege seither machen den Fall
+    stärker: in Story 2.2 liefen zwei Prüflücken grün durch die ganze Kette, bis der Review sie
+    vorführte. Die schwache Schicht dieses Projekts sind Textprüfungen über Quelltext, und genau
+    die ersetzt Stufe A für eine ganze Klasse durch Messung.
+    Stufe C widerspricht einer ausdrücklichen Stack-Entscheidung und kostet einen Sprung statt
+    eines Schritts. Ihre bisherige Bedingung („ab zwei Bestätigungsdialogen") stimmt zudem nicht
+    mehr: die tatsächlich ungedeckte Klasse ist seit Story 2.2 die **Geometrie** — Zeilenhöhe,
+    44px-Trefferfeld bei zweizeiliger Zeile, Lage des Kästchens —, und das ist kein Dialogproblem.
+    Stufe A deckt sie ebenfalls nicht.
+  neue_ausloesebedingung: Stufe C kommt, wenn eine Geometrie- oder Fokuszusage im Betrieb bricht,
+    oder wenn Barrierefreiheit **abgenommen** statt mitgenickt werden soll. Bis dahin tragen diese
+    Zusagen die manuelle Prüfung — und die gehört dann einzeln benannt (Retro-Punkt 15).
+  umsetzung: Stufe B braucht keinen eigenen Entscheid: sie war „beim nächsten Anfassen von
+    `/verwaltung`" fällig, und Retro-Punkt 1 fasst `/verwaltung` an. Sie reitet mit.
+  status: entschieden, Stufe A als Story offen
+
+- entscheid: Die **80 Zeichen und das Aussieben** sind abgenommen. **Kein Reaktivieren, kein Undo**
+    ist abgenommen. **Kein Umbenennen** ist ab Story 3.1 nicht mehr tragbar.
+  betrifft: Eintrag 11 (Zeile 40), der seit Story 1.3 `status: dem User vorzulegen` trug
+  begruendung: Die 80 und das Aussieben sind das Minimum, das eine unlesbare Mitgliedszeile
+    verhindert, spiegeln die Regel für Aufgabentexte und liegen weit über jedem realen Namen. Die
+    Unumkehrbarkeit des Widerrufs ist der Grund, warum „Zugang beenden" etwas bedeutet, und der
+    Korrekturweg kostet eine Nachricht in der Gartengruppe.
+    Beim Umbenennen ändert Epic 3 die Rechnung, und nur dieser Teil erzwingt eine Antwort: heute
+    steht ein vertippter Name in der Mitgliederliste, die nur Adminpersonen sehen; ab Story 3.1
+    steht er im Dienstplan vor allen, jede Woche, drei Monate im Voraus (`epics.md:434-436`). Der
+    Korrekturweg „beenden und neu aufnehmen" nähme der Person zugleich ihre künftigen
+    Dienstwochen, die dann auf `— unbesetzt —` fallen.
+  umsetzung: In `epics.md` bei den Implementierungshinweisen zu Epic 3 als Vorbedingung
+    festgehalten. Eine kleine `umbenennen`-action auf `/verwaltung`, vor oder mit Story 3.1 — neue
+    Arbeit und kein freier Handgriff. Mit ihr bekommt die Namensprüfung eine dritte Wurfstelle,
+    und Epic-1-Punkt 3 (`scripts/create-admin.ts`) gehört im selben Zug erledigt.
+  status: entschieden, Plandokument nachgezogen, Umsetzung offen
+
+- entscheid: Ein Wurf in einer action wird **abgefangen** — einheitlich auf allen vier Seiten, mit
+    einem generischen Satz in der bestehenden Live-Region. Der Wurf erreicht `handleError` weiter.
+  betrifft: Eintrag 32 (Zeile 110)
+  begruendung: Nachgemessen am Stand `aac97e1`: **kein einziger** der vier `use:enhance`-Rückrufe
+    behandelt `result.type === 'error'` (`+page.svelte:187`, `aufgabe:58`, `verwaltung:161`,
+    `monatsplan:324` rufen alle nur `update()`), und die Live-Region samt Fehlersatz steht auf
+    allen vier Seiten schon. Es fehlt nicht der Mechanismus, sondern die Führung des einen Falls.
+    „Nur unter einem Datenbankfehler erreichbar" ist zu beruhigend: `SQLITE_BUSY` unter WAL mit
+    zwanzig Leuten und eine volle Platte auf einem kleinen VPS sind die klassischen zwei.
+    Der Schaden ist pro Seite verschieden — auf `/` ein Klick, auf `/monatsplan` vierzig gerade
+    übertragene Zeilen —, der Mechanismus ist es nicht. Darum **eine** Regel für alle vier: vier
+    Seiten mit drei Fassungen wären genau die `abweisen`-Drift, die die Retrospektive als D2 führt.
+  umsetzung: Der Satz muss generisch sein — ein Datenbankfehler hat für die lesende Person keine
+    Bedeutung — und darf den Wurf nicht schlucken. Die Fehlergrenze behält ihre Aufgabe für alles,
+    was keine Formularübermittlung ist. Es sind auf jeder Seite dieselben fünf Zeilen; damit ist es
+    derselbe Durchgang, in dem die vier `abweisen`-Signaturen zusammengehen (Retro-Punkt 3).
+  status: entschieden, Umsetzung offen
+
+**Nebenbei geschlossen:** `EXPERIENCE.md:79` und `:101` verwiesen auf ein Token `{colors.warn}`,
+das es nicht gibt (Eintrag 35, Zeile 122). Beide Zeilen wurden für den Wortlaut ohnehin angefasst
+und tragen jetzt `{colors.overdue}` — es war dort nie eine Frage, `DESIGN.md:248` schreibt es seit
+je richtig. **Offen bleibt allein `:102`** („Dienstwoche unbesetzt" in `{colors.warn}`): ob
+„unbesetzt" dasselbe Token trägt wie „überfällig" oder Epic 3 ein eigenes `--warn` bekommt, ist
+eine Gestaltungsfrage und muss vor Story 3.1 beantwortet werden.

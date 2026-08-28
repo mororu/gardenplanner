@@ -16,6 +16,8 @@ Die Einordnung „vor Epic 3 fällig" ist nicht geschätzt. Sie kommt aus den Ak
 
 Netto sinkt die Liste der offenen Arbeit von 41 auf **32**, davon **12 mit Termin**.
 
+> **Nachtrag vom selben Tag:** Die fünf Entscheide aus Bucket C sind **gefallen**. Sie stehen mit voller Begründung in `deferred-work.md` unter „Entschieden am 2026-08-28"; für zwei davon sind die Plandokumente nachgezogen. Bucket C trägt darum keine Fragen mehr, sondern Umsetzungsarbeit — siehe die geänderte Reihenfolge am Ende.
+
 ---
 
 ## A — Geschlossen (9)
@@ -79,19 +81,21 @@ Die Regel liegt heute an zwei Stellen: `src/lib/aufgabentext.ts:55` (seit Story 
 `EXPERIENCE.md:79` und `:101` verweisen auf ein Token `{colors.warn}`, das es nicht gibt; das Token heisst `overdue` (`src/app.html:73,206`). Bisher als Kosmetik geführt. Ist es nicht: dieselbe Datei benutzt `{colors.warn}` auf `:102` für **„Dienstwoche unbesetzt"**, und `epics.md:466` schreibt für Story 3.1 vor, dass unbesetzte Wochen als `— unbesetzt —` **in Lehmbraun** stehen. Lehmbraun ist `--overdue`.
 **Die Frage, die vor Story 3.1 beantwortet sein muss:** trägt „unbesetzt" dasselbe Token wie „überfällig", oder bekommt Epic 3 ein eigenes `--warn`? Gate-Regel 3 weist ein `var(--warn)` ohne Deklaration sofort ab, die Story bliebe also stehen.
 
+**Teilweise geschlossen am 2026-08-28:** `:79` und `:101` tragen jetzt `{colors.overdue}` — dort war es nie eine Frage, `DESIGN.md:248` schreibt es seit je richtig, und beide Zeilen wurden für den Wortlaut ohnehin angefasst. **Offen bleibt allein `:102`**, die Gestaltungsfrage für Epic 3.
+
 ---
 
-## C — Entscheid durch Manuel (5)
+## C — Entscheid durch Manuel (5) — **entschieden am 2026-08-28**
 
-Keiner davon lässt sich durch Lesen von Code auflösen.
+Keiner liess sich durch Lesen von Code auflösen; alle fünf sind jetzt beantwortet. Die Begründungen stehen in `deferred-work.md`, Abschnitt „Entschieden am 2026-08-28". Was bleibt, ist Umsetzung.
 
 | # | Zeile | Frage | Bemerkung |
 | --- | --- | --- | --- |
-| 31 | 107 | **Plausibilitätsschranke an `Fällig bis`** — Vergangenheit abweisen, warnen oder Obergrenze? | Der Eintrag setzte sich selbst die Frist „bevor Story 2.2 rechnet". Verstrichen. Bis dahin legt ein vertipptes Jahr bis zu 100 Aufgaben an, die keine Löschen-Aktion aufräumt. = Retro-Punkt 7. |
-| 39 | 137 | **`seit N Wochen offen` oder `seit N Wochen überfällig`?** | Untertreibt bei Planaufgaben systematisch (3 statt 8). Wortlaut ist durch `epics.md:412` und `DESIGN.md:199,248` gebunden. = Retro-Punkt 8. |
-| 15 | 53 | **Stufe A und Stufe C: bauen oder nicht?** | Stack-Entscheidung, gehört ausdrücklich dem User. Siehe B2. |
-| 11 | 40 | **Namensregeln: 80 Zeichen und Aussieben** — als gewollt abnehmen? | Der Eintrag trägt seit Story 1.3 selbst `status: dem User vorzulegen` und ist nie vorgelegt worden. Kein Umbenennen, kein Reaktivieren, kein Undo — Folgen stehen in `README.md`. |
-| 32 | 110 | **Fehlerverhalten bei einem Wurf in einer action** | Heute ersetzt ein Wurf die Seite durch die Fehlergrenze — auf `/monatsplan` kostet das vierzig gerade getippte Zeilen. Betrifft `/aufgabe`, `/`, `/verwaltung` und `/monatsplan` zugleich. Nur über einen Datenbankfehler erreichbar. |
+| 31 | 107 | ✔ **Entschieden: Fenster ±1 Jahr, hart abgewiesen.** Ursprünglich: — Vergangenheit abweisen, warnen oder Obergrenze? | Der Eintrag setzte sich selbst die Frist „bevor Story 2.2 rechnet". Verstrichen. Bis dahin legt ein vertipptes Jahr bis zu 100 Aufgaben an, die keine Löschen-Aktion aufräumt. = Retro-Punkt 7. |
+| 39 | 137 | ✔ **Entschieden: `seit N Wochen überfällig`.** Plandokumente nachgezogen, Code offen. | Untertreibt bei Planaufgaben systematisch (3 statt 8). Wortlaut ist durch `epics.md:412` und `DESIGN.md:199,248` gebunden. = Retro-Punkt 8. |
+| 15 | 53 | ✔ **Entschieden: Stufe A ja (eigene Story vor Epic 3), Stufe C nein.** Bedingung für C neu gefasst — Geometrie- oder Fokuszusage bricht, oder Barrierefreiheit soll abgenommen werden. | Stack-Entscheidung, gehört ausdrücklich dem User. Siehe B2. |
+| 11 | 40 | ✔ **Entschieden: 80 und Aussieben abgenommen, kein Reaktivieren/Undo abgenommen — Umbenennen ab Story 3.1 nötig.** In `epics.md` bei Epic 3 als Vorbedingung festgehalten. | Der Eintrag trägt seit Story 1.3 selbst `status: dem User vorzulegen` und ist nie vorgelegt worden. Kein Umbenennen, kein Reaktivieren, kein Undo — Folgen stehen in `README.md`. |
+| 32 | 110 | ✔ **Entschieden: abfangen, einheitlich auf allen vier Seiten, generischer Satz in der bestehenden Live-Region.** Läuft mit Retro-Punkt 3. | Heute ersetzt ein Wurf die Seite durch die Fehlergrenze — auf `/monatsplan` kostet das vierzig gerade getippte Zeilen. Betrifft `/aufgabe`, `/`, `/verwaltung` und `/monatsplan` zugleich. Nur über einen Datenbankfehler erreichbar. |
 
 Dazu, ausserhalb der Buckets, aber offen seit Story 1.1: **Eintrag 4** (Zeile 19) — die Installation zum Home-Bildschirm ist auf keinem echten Gerät geprüft. Story 1.6 (Betrieb) ist durch, der Punkt blieb; er trägt weiterhin „spätestens mit Betrieb nachzuholen". Braucht ein Telefon, sonst nichts.
 
@@ -123,12 +127,24 @@ Benannt, begründet, ohne Auslöser. Sie bleiben stehen — mit einem Zähler do
 
 ## Empfohlene Reihenfolge
 
-1. **B6** — die einzige, die eine Story von Epic 3 sonst aufhält (`— unbesetzt —` braucht ein Token mit Namen).
-2. **C: die zwei Produktentscheide 31 und 39** — beide sind auch Retro-Punkte, beide kosten je eine Antwort.
-3. **C: Stufe A / Stufe C entscheiden (15)** — die Antwort bestimmt, ob vor Epic 3 noch eine Werkzeug-Story kommt.
-4. **B1** — mechanisch, klein, und die einzige, die sonst mitten in Epic 3 rot wird.
-5. **B3 + B4 + B5** — ein Durchgang durch die geteilten Stellen, bevor Epic 3 sie vervierfacht. B3 und B5 hängen ohnehin an denselben Dateien wie die Retro-Punkte 2 und 3.
-6. **B2 bauen**, falls unter 3 so entschieden.
+Fassung vom 2026-08-28, nachdem die fünf Entscheide gefallen sind. Die drei Entscheidungsschritte
+der ersten Fassung sind erledigt; was bleibt, ist Bauen — in dieser Ordnung.
+
+1. **B6 Rest** — `EXPERIENCE.md:102`: trägt „Dienstwoche unbesetzt" dasselbe Token wie „überfällig"?
+   Die letzte offene Frage, die eine Story von Epic 3 aufhält. Eine Antwort, keine Arbeit.
+2. **B1** — mechanisch, klein, und die einzige, die sonst mitten in Epic 3 rot wird.
+3. **Stufe A als eigene Story** (Entscheid zu Eintrag 15). Sie schliesst vier Posten auf einmal, und
+   jede Story ab 3.1 bekommt sie geschenkt — der Nutzen ist am grössten, wenn sie **vor** Epic 3 steht.
+4. **Ein Durchgang durch die geteilten Stellen: B3 + B4 + B5 + Retro-Punkte 1, 2, 3 + Entscheid 32.**
+   Sie hängen alle an denselben vier Seiten und teilweise an denselben Zeilen — der Fehlerfall
+   `result.type === 'error'` und die vier `abweisen`-Signaturen sind derselbe Handgriff, `/verwaltung`
+   wird für Retro-Punkt 1 ohnehin geöffnet (und nimmt Stufe B mit), und `bedienelemente.css` ist
+   offen, sobald die Stile zusammengehen (dann auch die Umbruchregel aus Eintrag 38).
+5. **Wortlaut im Code nachziehen** (Entscheid zu Eintrag 39). Die Plandokumente sagen es schon; bis
+   der Code folgt, ist es eine benannte, verfolgte Plan-Ist-Abweichung.
+6. **Fenster an `Fällig bis`** (Entscheid zu Eintrag 31) — klein und unabhängig, passt in jeden Zug.
+7. **`umbenennen`-action auf `/verwaltung`** (Entscheid zu Eintrag 11), vor oder mit Story 3.1; nimmt
+   Epic-1-Punkt 3 (`create-admin.ts`) mit.
 
 ## Was mit `deferred-work.md` geschehen soll
 

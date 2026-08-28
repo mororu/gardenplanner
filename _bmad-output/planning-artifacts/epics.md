@@ -78,7 +78,7 @@ UX-DR4: Komponente `title-bar` — volle Breite, Akzent gefüllt, Produktname in
 UX-DR5: Komponente `nav-bar` — fest am unteren Rand, vier Ziele (Aufgaben · Dienstplan · Wissen · Mehr), Beschriftung als Wort ohne Symbol, aktives Ziel in Akzentfarbe **und** mit 2px-Kante, `padding-bottom: env(safe-area-inset-bottom)`. Ab 600px Fensterbreite wandert die Leiste nach oben.
 UX-DR6: Komponente `task-row` mit `task-box` — nur das Kästchen ist antippbar (sichtbar 22px, Trefferfeld 44px), der Text nicht. Das Kästchen ist ein echtes Formular-Bedienelement mit Beschriftung aus dem Aufgabentext.
 UX-DR7: Zustand „in dieser Sitzung erledigt" — die Zeile bleibt an ihrem Platz, durchgestrichen und gedämpft, Kästchen gefüllt mit Haken; Übergang 140ms, entfällt bei `prefers-reduced-motion`. Sie verschwindet erst beim nächsten Laden.
-UX-DR8: Zustand „überfällig" — zweite Textzeile `seit N Wochen offen` in Lehmbraun. Der Text ist Pflicht; kein Zustand hängt allein an der Farbe. Lehmbraun, nicht Rot: Rot ist ausschliesslich für Zerstörendes reserviert.
+UX-DR8: Zustand „überfällig" — zweite Textzeile `seit N Wochen überfällig` in Lehmbraun. Der Text ist Pflicht; kein Zustand hängt allein an der Farbe. Lehmbraun, nicht Rot: Rot ist ausschliesslich für Zerstörendes reserviert.
 UX-DR9: Komponente `duty-banner` — nur vorhanden, wenn die betrachtende Person diese Woche Dienst hat; 3px linke Kante in Akzentfarbe, nicht abhakbar, nicht schliessbar, verlinkt auf den Dienstplan.
 UX-DR10: Komponenten `button-primary` und `button-quiet` — volle Spaltenbreite, mindestens 44px hoch, höchstens ein primärer pro Seite, Knopftext trägt ein Verb und bei Mengen die Zahl (`25 Aufgaben ablegen`). Zerstörende Aktionen in derselben Form, aber Text und Umriss in Rot.
 UX-DR11: Massen-Eingabe des Monatsplans in zwei Schritten — Schritt 1: Datumsfeld `Fällig bis` (vorbelegt Monatsende) plus `textarea-bulk` mit mindestens 16em Höhe, eine Aufgabe pro Zeile, mitlaufende Zählung `N Aufgaben erkannt`, leere Zeilen zählen nicht. Schritt 2: erkannte Zeilen als Liste, jede mit `×` zum Entfernen, kein Bearbeiten pro Zeile.
@@ -131,6 +131,8 @@ Tränkedienst und Setzlingsabholung sind namentlich verbindlich geregelt. Die Um
 **FRs covered:** FR6, FR7, FR8, FR9, FR10
 
 *Implementierungshinweise:* Zwei getrennte Entitäten mit unterschiedlicher Verbindlichkeit (AD-4): `duty_weeks` mit genau einer Person pro Woche, `signup_tasks` mit null oder einer. Der Diensthinweis auf der Startseite folgt UX-DR9 und der Blockreihenfolge aus AD-14. Ein Tausch ist ein Ersetzen des Namens, keine Verhandlung im System.
+
+*Vorbedingung, entschieden am 2026-08-28:* Mit Story 3.1 verlässt der Mitgliedsname die Mitgliederliste und steht im Dienstplan vor allen, jede Woche, drei Monate im Voraus. Das bisher bewusst fehlende **Umbenennen** (siehe `deferred-work.md`, Eintrag 11) ist damit nicht mehr tragbar: der einzige Korrekturweg — Zugang beenden und neu aufnehmen — nähme der Person zugleich ihre künftigen Dienstwochen, die dann auf `— unbesetzt —` fallen. Vor oder mit Story 3.1 braucht `/verwaltung` eine kleine `umbenennen`-action. Sie ist die dritte Wurfstelle derselben Namensprüfung; `scripts/create-admin.ts` gehört dann im selben Zug angeglichen. Kein Reaktivieren und kein Undo bleiben ausdrücklich unverändert — die Unumkehrbarkeit ist der Grund, warum „Zugang beenden" etwas bedeutet.
 
 ### Epic 4: Wissen liegt im System, nicht im Kopf
 
@@ -409,7 +411,7 @@ So that Liegengebliebenes auffällt, ohne dass jemand mahnen muss.
 
 **Given** eine offene Aufgabe, deren `COALESCE(due_at, created_at)` mehr als drei Wochen zurückliegt
 **When** ich `/` öffne
-**Then** trägt ihre Zeile eine zweite Textzeile `seit N Wochen offen` in Lehmbraun
+**Then** trägt ihre Zeile eine zweite Textzeile `seit N Wochen überfällig` in Lehmbraun
 **And** die Aufgabe bleibt in der Liste und verschwindet nicht
 
 **Given** eine Aufgabe aus einem Monatsplan mit `due_at` am Monatsende

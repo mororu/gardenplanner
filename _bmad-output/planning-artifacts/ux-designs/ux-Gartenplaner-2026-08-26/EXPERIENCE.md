@@ -61,7 +61,7 @@ Alles, was eine Person höchstens einmal im Monat tut — Monatsplan ablegen, Ei
 | Keine Entschuldigungen | `Nicht gespeichert — probier es nochmals.` | `Leider ist etwas schiefgelaufen, sorry!` |
 | Keine Systemsprache | `Wer ist diese Woche dran` | `Zuständigkeitszuweisung` |
 
-Zeitangaben in Alltagssprache: `heute`, `gestern`, `seit 4 Wochen offen`, `Sa 14 Uhr`. Kein `26.08.2026 14:00` in Listen; das ausgeschriebene Datum nur dort, wo es zählt (Dienstplan, Einzelaufgabe).
+Zeitangaben in Alltagssprache: `heute`, `gestern`, `seit 4 Wochen überfällig`, `Sa 14 Uhr`. Kein `26.08.2026 14:00` in Listen; das ausgeschriebene Datum nur dort, wo es zählt (Dienstplan, Einzelaufgabe).
 
 **Nie in einem Text auftauchen:** wer eine Aufgabe abgehakt hat (AD-5). Kein `von R. erledigt`, nirgends, auch nicht als Tooltip.
 
@@ -76,7 +76,7 @@ Der wichtigste Baustein der ganzen Anwendung. Eine Zeile trägt ein Kästchen li
 - **Nur das Kästchen ist antippbar**, mindestens 44 × 44 px. Der Text ist nicht antippbar — es gibt keine Detailansicht, und ein grosses Trefferfeld über die ganze Zeile würde im Beet versehentlich Aufgaben erledigen.
 - Ein Antippen erledigt. Kein Bestätigungsdialog, keine Rückfrage, keine Eingabe (Spec-Constraint).
 - Nach dem Antippen bleibt die Zeile **an ihrem Platz** stehen, durchgestrichen und gedämpft. Sie verschwindet erst beim nächsten Laden. So sieht die Person, dass ihr Tippen angekommen ist, und merkt einen Fehlgriff sofort.
-- Eine überfällige Zeile trägt zusätzlich eine Textzeile `seit N Wochen offen` in `{colors.warn}`. **Die Farbe allein signalisiert nie** — der Text steht immer dabei.
+- Eine überfällige Zeile trägt zusätzlich eine Textzeile `seit N Wochen überfällig` in `{colors.overdue}`. **Die Farbe allein signalisiert nie** — der Text steht immer dabei.
 
 ### Diensthinweis
 
@@ -98,7 +98,7 @@ Ein Blatt ist Titel plus Freitext. Liste zeigt nur Titel. Kein Editor mit Werkze
 | --- | --- |
 | Pool leer | `Nichts offen.` — und darunter der Knopf zum Erfassen. Ein leerer Garten-Pool ist ein gutes Zeichen, der Text feiert es leise mit. |
 | Alles erledigt in dieser Sitzung | Die durchgestrichenen Zeilen bleiben sichtbar, bis neu geladen wird. Kein Konfetti, keine Belohnung. |
-| Überfällig | `{colors.warn}` plus Text `seit N Wochen offen`. Ab drei Wochen (AD-8). Nichts verschwindet, nichts eskaliert. |
+| Überfällig | `{colors.overdue}` plus Text `seit N Wochen überfällig`. Ab drei Wochen (AD-8). Nichts verschwindet, nichts eskaliert. |
 | Dienstwoche unbesetzt | Die Woche steht mit `— unbesetzt —` in `{colors.warn}`. Entsteht, wenn ein Mitglied deaktiviert wurde (AD-11). |
 | Kein Netz | `Keine Verbindung. Die Liste braucht Netz.` Keine Warteschlange, kein späteres Senden (AD-12). |
 | Link ungültig | Eigene Seite: `Dieser Link gilt nicht mehr. Melde dich in der Gartengruppe.` Kein Hinweis darauf, ob das Token je existiert hat. |
@@ -151,7 +151,7 @@ Die Personen sind reale Mitglieder der Gemeinschaft, aus der Brainstorming-Sessi
 1. Sie kommt an, Handschuhe schon an, und öffnet Gemeinschaftsgarten vom Home-Bildschirm.
 2. Sie liest die offenen Aufgaben. Drei davon hat sie letzte Woche selbst gemacht.
 3. **Der Höhepunkt:** sie zieht einen Handschuh aus und tippt drei Kästchen an. Drei Zeilen streichen sich durch. Sie hat nichts erklärt, nichts kommentiert, niemandem widersprochen — und die Liste stimmt jetzt.
-4. Sie sieht `Tunnel 2 Blattläuse nachbehandeln · seit 4 Wochen offen`, macht es, hakt es ab.
+4. Sie sieht `Tunnel 2 Blattläuse nachbehandeln · seit 4 Wochen überfällig`, macht es, hakt es ab.
 5. Handschuh wieder an. Die ganze Interaktion hat unter einer Minute gedauert.
 
 ### Die planende Person, Sonntagabend am Küchentisch

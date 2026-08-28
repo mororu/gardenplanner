@@ -196,7 +196,7 @@ Zwei Familien, **selbst gehostet als woff2 in `static/fonts/`** — nicht von Go
 | `section` | 20px | 700 | Titelleiste, Abschnittstitel, Titel einer Einzelaufgabe |
 | `task` | 16px | 400 | Aufgabentext, Sheet-Inhalt, Textfelder |
 | `body` | 16px | 400 | Fliesstext |
-| `meta` | 13px | 500 | Termine, `seit N Wochen offen`, Navigationsbeschriftung |
+| `meta` | 13px | 500 | Termine, `seit N Wochen überfällig`, Navigationsbeschriftung |
 | `label` | 12px | 600, +0.09em, Grossbuchstaben | Abschnittsmarken wie `OFFEN` |
 | `action` | 16px | 700 | Knopftext |
 
@@ -245,7 +245,7 @@ Fest am unteren Rand, `{colors.surface-raised}` mit Haarlinie oben. Vier Ziele m
 Kästchen links, Text rechts, 12px Abstand. Zeilenhöhe mindestens 44px. Trennung zur nächsten Zeile durch Haarlinie oben; die erste Zeile hat keine.
 
 - **Offen:** Text in `{typography.task}` und `{colors.ink-primary}`.
-- **Überfällig:** darunter eine zweite Zeile in `{typography.meta}` und `{colors.overdue}` mit `seit N Wochen offen`. Der Text ist Pflicht, die Farbe allein trägt nie.
+- **Überfällig:** darunter eine zweite Zeile in `{typography.meta}` und `{colors.overdue}` mit `seit N Wochen überfällig`. Der Text ist Pflicht, die Farbe allein trägt nie.
 - **Erledigt (in dieser Sitzung):** Text `{colors.ink-secondary}` mit Durchstreichung, Kästchen gefüllt `{colors.accent}` mit weissem Haken. Der Übergang dauert 140ms und entfällt bei `prefers-reduced-motion`.
 
 ### `task-box`

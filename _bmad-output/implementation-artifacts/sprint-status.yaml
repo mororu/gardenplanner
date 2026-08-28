@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-26-2026 13:20
-last_updated: 08-28-2026 10:30
+last_updated: 08-28-2026 11:15
 project: Gemeinschaftsgarten
 project_key: NOKEY
 tracking_system: file-system
@@ -195,14 +195,14 @@ action_items:
     action: "Entscheid: Plausibilitaetsschranke an Faellig bis - abweisen, warnen
       oder Obergrenze (S1)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-22-entscheid-wortlaut-seit-n-wochen-offen-g"
     epic: 2
     action: "Entscheid: Wortlaut seit N Wochen offen gegen seit N Wochen ueberfaellig
       (S2)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-23-entscheid-pruefwerkzeug-in-die-architekt"
     epic: 2
@@ -223,7 +223,7 @@ action_items:
     action: "EXPERIENCE.md:79,101 von {colors.warn} auf {colors.overdue} korrigieren,
       :102 fuer Epic 3 mitentscheiden (S3)"
     owner: "Manuel"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-26-offene-plan-ist-abweichungen-aus-epic-1"
     epic: 2
@@ -244,7 +244,7 @@ action_items:
     action: "deferred-work.md vor Epic 3 triagieren und den Story-Start um einen Lesepunkt
       ergaenzen (P2)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-29-barrierefreiheit-der-abnahme-sichtbar-ma"
     epic: 2
@@ -259,3 +259,39 @@ action_items:
     owner: "Manuel"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
+  - id: "epic-2-retro-item-31-fenster-von-einem-jahr-in-jede-richtung"
+    epic: 2
+    action: "Fenster von einem Jahr in jede Richtung an Faellig bis bauen, Konstante
+      nach src/lib/zeit.ts, min/max am Feld (Entscheid zu Eintrag 31)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/deferred-work-triage-2026-08-28.md"
+  - id: "epic-2-retro-item-32-wortlaut-seit-n-wochen-ueberfaellig-im-c"
+    epic: 2
+    action: "Wortlaut seit N Wochen ueberfaellig im Code nachziehen - Plandokumente
+      sind schon umgestellt (Entscheid zu Eintrag 39)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/deferred-work-triage-2026-08-28.md"
+  - id: "epic-2-retro-item-33-stufe-a-bauen-zweites-pruefskript-gegen"
+    epic: 2
+    action: "Stufe A bauen: zweites Pruefskript gegen einen echten Server, als eigene
+      Story vor Epic 3 (Entscheid zu Eintrag 15)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/deferred-work-triage-2026-08-28.md"
+  - id: "epic-2-retro-item-34-umbenennen-action-auf-verwaltung-vor-ode"
+    epic: 2
+    action: "umbenennen-action auf /verwaltung vor oder mit Story 3.1, create-admin.ts
+      im selben Zug angleichen (Entscheid zu Eintrag 11)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/deferred-work-triage-2026-08-28.md"
+  - id: "epic-2-retro-item-35-result-type-error-in-allen-vier-use-enha"
+    epic: 2
+    action: "result.type === error in allen vier use:enhance-Rueckrufen abfangen,
+      generischer Satz in die bestehende Live-Region, zusammen mit den vier abweisen-Signaturen
+      (Entscheid zu Eintrag 32)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/deferred-work-triage-2026-08-28.md"
