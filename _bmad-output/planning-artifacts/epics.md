@@ -132,6 +132,8 @@ Tränkedienst und Setzlingsabholung sind namentlich verbindlich geregelt. Die Um
 
 *Implementierungshinweise:* Zwei getrennte Entitäten mit unterschiedlicher Verbindlichkeit (AD-4): `duty_weeks` mit genau einer Person pro Woche, `signup_tasks` mit null oder einer. Der Diensthinweis auf der Startseite folgt UX-DR9 und der Blockreihenfolge aus AD-14. Ein Tausch ist ein Ersetzen des Namens, keine Verhandlung im System.
 
+*Vorarbeit, aufgesetzt am 2026-08-28:* **Story 3.0 läuft vor Story 3.1** und gehört fachlich zu keinem Epic — sie ist Stufe A des vierstufigen Vorschlags aus `deferred-work.md` (Eintrag 15), war dort schon „als eigene Story vor Epic 2" empfohlen und ist seither offen. Sie legt ein zweites Prüfskript an, das die gebaute Anwendung auf einem freien Port misst statt SvelteKit nachzustellen, und schliesst damit vier Posten auf einmal. Der Nutzen ist am grössten, wenn sie **vor** den zwei Stories dieses Epics steht: jede von ihnen bekommt die Abdeckung geschenkt.
+
 *Vorbedingung, entschieden am 2026-08-28:* Mit Story 3.1 verlässt der Mitgliedsname die Mitgliederliste und steht im Dienstplan vor allen, jede Woche, drei Monate im Voraus. Das bisher bewusst fehlende **Umbenennen** (siehe `deferred-work.md`, Eintrag 11) ist damit nicht mehr tragbar: der einzige Korrekturweg — Zugang beenden und neu aufnehmen — nähme der Person zugleich ihre künftigen Dienstwochen, die dann auf `— unbesetzt —` fallen. Vor oder mit Story 3.1 braucht `/verwaltung` eine kleine `umbenennen`-action. Sie ist die dritte Wurfstelle derselben Namensprüfung; `scripts/create-admin.ts` gehört dann im selben Zug angeglichen. Kein Reaktivieren und kein Undo bleiben ausdrücklich unverändert — die Unumkehrbarkeit ist der Grund, warum „Zugang beenden" etwas bedeutet.
 
 ### Epic 4: Wissen liegt im System, nicht im Kopf
@@ -147,7 +149,7 @@ Epic 1 steht allein und liefert vollständigen Nutzen. Epic 2, 3 und 4 bauen auf
 
 ## Zuordnung zum abgesegneten Schnitt
 
-Die sieben Slices aus `stories.yaml` sind vollständig enthalten. Zwei mussten geteilt werden, weil sie eine Dev-Sitzung überschreiten; zwei Stories kommen aus Architektur und UX neu hinzu.
+Die sieben Slices aus `stories.yaml` sind vollständig enthalten. Zwei mussten geteilt werden, weil sie eine Dev-Sitzung überschreiten; drei Stories kommen neu hinzu — zwei aus Architektur und UX, eine aus der Triage der zurückgestellten Arbeit vom 2026-08-28.
 
 | `stories.yaml` | wird hier |
 | --- | --- |
@@ -157,6 +159,7 @@ Die sieben Slices aus `stories.yaml` sind vollständig enthalten. Zwei mussten g
 | — (neu, aus Architektur) | Story 1.6 Betrieb und Deployment |
 | 3 Monatsplan | Story 2.1 |
 | 4 Überfällig-Markierung | Story 2.2 |
+| — (neu, aus der Triage vom 2026-08-28) | Story 3.0 Das ausgelieferte HTML gegen einen echten Server prüfen |
 | 5 Dienstplan | Story 3.1 |
 | 6 Einzelaufgabe mit Anmeldung | Story 3.2 |
 | 7 Referenz-Sheets | Story 4.1 |
@@ -434,6 +437,48 @@ Tränkedienst und Setzlingsabholung sind namentlich verbindlich geregelt. Die Um
 
 **FRs:** FR6, FR7, FR8, FR9, FR10
 
+### Story 3.0: Das ausgelieferte HTML gegen einen echten Server prüfen
+
+As a Betreiber des Gartenwerkzeugs,
+I want ein zweites Prüfskript, das die gebaute Anwendung auf einem freien Port startet und ihre echten Antworten misst,
+So that kein Fehler mehr bis zur Benutzung durchkommt, den nur ein echter Server zeigt und eine Attrappe nie zeigen kann.
+
+**Acceptance Criteria:**
+
+**Given** einen gebauten Baum
+**When** ich `npm run smoke:http` ausführe
+**Then** startet das Skript die Anwendung auf einem freien Port gegen eine **Wegwerf-Datenbank** und beendet Prozess und Verzeichnis auch dann wieder, wenn eine Behauptung rot ist
+**And** es kommt **keine neue Abhängigkeit** dazu — reines Node, und `pruefen`, `pruefenGleich` und `wegwerfVerzeichnis` werden mit `scripts/smoke-zugang.ts` geteilt statt kopiert
+
+**Given** einen gestellten Einladungslink
+**When** das Skript ihn über HTTP einlöst
+**Then** misst es den 303 samt `Location` und das `Set-Cookie` **an der Antwort des Servers**, nicht an einem selbstgebauten Objekt
+**And** eine zweite Anfrage mit dem erhaltenen Cookie bekommt 200 auf `/`
+
+**Given** eine Anfrage ohne Sitzungscookie
+**When** sie auf `/` trifft
+**Then** antwortet der Server mit 403, dem vorgeschriebenen Satz und `content-type: text/html`, und der Rumpf ist die aus `src/error.html` gebaute Hülle mit ersetzten Platzhaltern — gemessen an den Bytes der Antwort, nicht an einer nachgestellten Grenze
+**And** auf diesem Pfad stehen die Sicherheitskopfzeilen aus `hooks.server.ts` — die `Referrer-Policy` eingeschlossen, die heute von keiner Prüfung berührt wird
+
+**Given** das ausgelieferte HTML von `/`, `/verwaltung` und `/mehr`
+**When** das Skript es liest
+**Then** steht darin kein aufgebrochener HTML-Kommentar, kein unersetzter `%sveltekit.…%`-Platzhalter, kein leerer Platzhalter eines Bestätigungstexts und kein Token-Hash
+**And** damit sind die zwei Fehler der Klasse A aus Story 1.3 ausgeführt geprüft statt beschrieben
+
+**Given** ein Mitglied ohne Adminrechte
+**When** es `/verwaltung` aufruft
+**Then** kommt 303 auf `/`, und `/mehr` trägt keinen Verwaltungs-Eintrag; dieselbe Anfrage als Adminperson bekommt 200
+
+**Given** eine mutwillig geänderte Zusage im Code
+**When** das Skript läuft
+**Then** wird sie rot — jede Behauptung ist durch Mutation belegt, und das Skript zählt seine Behauptungen wie `smoke` gegen eine Konstante
+
+**Given** das Qualitätstor
+**When** `npm run lint` läuft
+**Then** läuft das neue Skript in der Kette mit, hinter `smoke`
+
+*Erfüllt:* keinen FR — NFR13. Legt keine Tabelle an, ändert keine Route und keine Oberfläche. Schliesst vier Posten aus `deferred-work.md` auf einmal: Eintrag 5 (die Attrappen-Bauform, die sich über drei Review-Runden selbst bestätigte), Stufe A aus Eintrag 15, die Klasse A aus den Einträgen 9 und 17 und die ungeprüfte `Referrer-Policy`. **Ausdrücklich nicht enthalten:** Stufe B (Interaktionslogik in reine Funktionen ziehen) und Stufe C (kopfloser Browser) — Stufe C bleibt an ihre eigene Auslösebedingung gebunden und ist eine Stack-Entscheidung.
+
 ### Story 3.1: Dienstplan mit Namen und laufender Woche
 
 As a Gärtnerin mit Tränkedienst,
@@ -561,13 +606,13 @@ Alle 16 UX-Design-Anforderungen sind mindestens einer Story zugeordnet.
 Maschinell geprüft am 2026-08-26:
 
 - **FR-Deckung:** 14 von 14. Jede funktionale Anforderung ist in der `Erfüllt`-Zeile mindestens einer Story genannt. Keine Waise.
-- **NFR-Deckung:** 13 von 13.
+- **NFR-Deckung:** 13 von 13. Story 3.0 trägt keinen FR und keinen UX-DR nach — sie erfüllt NFR13 (Qualitätstor) und ändert an den drei Deckungszahlen nichts.
 - **UX-DR-Deckung:** 16 von 16.
 - **Tabellenanlage:** keine Story legt eine Tabelle an, die sie nicht braucht. Story 1.1 legt gar keine Domänentabelle an; `members` entsteht in 1.2, `tasks` in 1.4, `due_at` kommt in 2.1 hinzu, `duty_weeks` in 3.1, `signup_tasks` in 3.2, `sheets` in 4.1.
 - **Vorwärtsabhängigkeiten:** keine. Jede Story baut ausschliesslich auf früheren auf. Reihenfolge geprüft: 2.2 steht nach 2.1, weil es `due_at` braucht; 1.5 nach 1.4, weil es `tasks` braucht.
 - **Epic-Unabhängigkeit:** Epic 1 steht allein. Epic 2, 3 und 4 setzen Epic 1 voraus, aber nicht einander.
 - **File Churn:** Epic 2 fasst `queries/tasks.ts` und die Listenansicht aus Epic 1 nochmals an. Zusammenlegung wurde geprüft und begründet verworfen — andere Nutzergruppe, andere Oberfläche, und ein zusammengelegtes Epic hätte sieben Stories.
-- **Parser:** `sprint_plan.py` liest 4 Epics und 11 Stories. Zwei verbleibende Warnungen betreffen den Dokumenttitel und die Abschnittsmarke `## Epic List` — beide von der Vorlage vorgegeben und nicht änderbar.
+- **Parser:** `sprint_plan.py` liest 4 Epics und 12 Stories (11 bei der Validierung am 2026-08-26; Story 3.0 kam am 2026-08-28 aus der Triage dazu). Zwei verbleibende Warnungen betreffen den Dokumenttitel und die Abschnittsmarke `## Epic List` — beide von der Vorlage vorgegeben und nicht änderbar.
 
 ### Zwei offene Punkte für die Sprint-Planung
 

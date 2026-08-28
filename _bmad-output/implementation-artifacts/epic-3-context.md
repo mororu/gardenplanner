@@ -8,6 +8,7 @@ Zwei Arten von Verbindlichkeit, die heute im Gruppenchat ausgehandelt werden, st
 
 ## Stories
 
+- Story 3.0: Das ausgelieferte HTML gegen einen echten Server prüfen — **Vorarbeit, läuft zuerst.** Gehört fachlich zu keinem Epic und ändert keine Oberfläche: sie legt ein zweites Prüfskript an, das die gebaute Anwendung auf einem freien Port gegen eine Wegwerf-Datenbank misst, statt SvelteKit mit Attrappen nachzustellen. Aufgesetzt am 2026-08-28 aus der Triage (Stufe A, `deferred-work.md` Eintrag 15); sie schliesst vier Posten auf einmal, und beide Stories dieses Epics bekommen die Abdeckung geschenkt.
 - Story 3.1: Dienstplan mit Namen und laufender Woche
 - Story 3.2: Einzelaufgabe ausschreiben und übernehmen
 

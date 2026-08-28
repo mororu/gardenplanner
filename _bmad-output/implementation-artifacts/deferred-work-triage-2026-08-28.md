@@ -138,6 +138,9 @@ der ersten Fassung sind erledigt; was bleibt, ist Bauen — in dieser Ordnung.
    ihren eigenen Ids. Kein Block der Epic 3 kann sie mehr mit alten Zeitstempeln rot machen.
 3. **Stufe A als eigene Story** (Entscheid zu Eintrag 15). Sie schliesst vier Posten auf einmal, und
    jede Story ab 3.1 bekommt sie geschenkt — der Nutzen ist am grössten, wenn sie **vor** Epic 3 steht.
+   **Aufgesetzt am 2026-08-28 als Story 3.0** („Das ausgelieferte HTML gegen einen echten Server
+   prüfen", `epics.md`), im Sprint-Status als `backlog` geführt und im Epic-3-Kontext als Vorarbeit
+   vor 3.1 vermerkt. Geschrieben, nicht gebaut — die Umsetzung steht noch aus.
 4. **Ein Durchgang durch die geteilten Stellen: B3 + B4 + B5 + Retro-Punkte 1, 2, 3 + Entscheid 32.**
    Sie hängen alle an denselben vier Seiten und teilweise an denselben Zeilen — der Fehlerfall
    `result.type === 'error'` und die vier `abweisen`-Signaturen sind derselbe Handgriff, `/verwaltung`

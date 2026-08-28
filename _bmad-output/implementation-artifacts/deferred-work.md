@@ -309,3 +309,20 @@ eine Gestaltungsfrage und muss vor Story 3.1 beantwortet werden.
     macht, ist eine eigene Zeile an falscher Stelle oder eine fehlende — also genau das, was sie
     zusagen. Dass eine fremde Zeile dazwischensteht, ist keine gebrochene Zusage mehr.
   status: erledigt
+
+## Aufgesetzt am 2026-08-28: Stufe A ist jetzt Story 3.0
+
+- betrifft: Eintrag 15 (Zeile 53, Stufe A), und über sie Eintrag 5 sowie die Klasse A aus den
+    Einträgen 9 und 17
+  fassung: Der Vorschlag stand seit Story 1.3 als Prosa in diesem Protokoll und war „als eigene
+    Story vor Epic 2" empfohlen — Epic 2 ist durch, die Empfehlung war verstrichen. Er steht jetzt
+    als **Story 3.0** in `epics.md` mit sieben Given/When/Then-Blöcken: freier Port, Wegwerf-
+    Datenbank, Aufräumen auch im roten Fall, keine neue Abhängigkeit, geteilte Prüfhelfer, der 303
+    und das `Set-Cookie` an der echten Antwort, die 403 byte-gleich mit `src/error.html` samt
+    `Referrer-Policy`, das ausgelieferte HTML von drei Seiten ohne aufgebrochenen Kommentar,
+    unersetzten Platzhalter oder Token-Hash, die Adminweiche über HTTP, jede Behauptung durch
+    Mutation belegt und ein Platz in der `lint`-Kette hinter `smoke`.
+  abgrenzung: Stufe B und Stufe C sind ausdrücklich **nicht** enthalten. Stufe C bleibt an ihre
+    eigene Auslösebedingung gebunden (zweite Bestätigung mit Sicherheitszusage, Story 3.2) und ist
+    eine Stack-Entscheidung, die dem User gehört.
+  status: aufgesetzt, Umsetzung offen
