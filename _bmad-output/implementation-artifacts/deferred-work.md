@@ -1,3 +1,12 @@
+# Zurückgestellte Arbeit
+
+Protokoll dessen, was jede Story zurückgestellt hat. Wird angehängt, nie umgeschrieben.
+
+**Vor dem Start einer Story lesen:** `deferred-work-triage-2026-08-28.md` ordnet alle 41 Einträge
+ein (geschlossen · vor Epic 3 fällig · Entscheid durch Manuel · bewusst getragen). Einträge tragen
+mitunter eine eigene Fälligkeit — Eintrag 31 („gehört entschieden, bevor Story 2.2 rechnet") ist der
+Beleg, dass sie ohne einen festen Lesepunkt verstreicht.
+
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-1-geruest-und-gestaltungsrahmen.md`
   summary: Datenbankschicht — Fail-Fast-Umgebungsvariablen, leeres Drizzle-Schema, SQLite-Verbindung mit WAL und Migrationskette, drizzle.config.ts und die db:*-Skripte.
   evidence: In Story 1.1 ohne sichtbares Ergebnis — sie erzeugt eine leere Datenbank mit Migrationstabelle und sonst nichts. Erstmals gebraucht von Story 1.2, die `members` anlegt. Herausgelöst, weil die Spezifikation bei rund 3180 Tokens lag (Zielband 900–1300, Warnschwelle 1600) und der Schnitt beide Stories inhaltlich kohärenter macht.
