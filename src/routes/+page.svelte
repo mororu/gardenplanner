@@ -258,6 +258,50 @@
 		<ul class="liste" aria-labelledby="offen-marke">
 			{#each data.aufgaben as aufgabe (aufgabe.id)}
 				{@const istErledigt = erledigt.includes(aufgabe.id)}
+				<!--
+					Überfällig heisst zweierlei auf einmal (AD-8), und beide Konjunkte
+					stehen hier: `completed_at IS NULL` erfüllt schon die Abfrage — was in
+					`data.aufgaben` steht, ist offen —, und `wochenOffen !== null` ist die
+					fertige Zahl aus den Seitendaten.
+
+					Die Rechnung dahinter ist zweigeteilt, und diese Komponente kennt
+					keinen ihrer Teile: welche Spalte den Zählbeginn liefert, entscheidet
+					offeneAufgabenAuflisten in src/lib/server/db/queries/tasks.ts über
+					`dueAt ?? createdAt`; die Schwelle und die Wochenrechnung stehen in
+					src/lib/zeit.ts. Hier wird nur noch entschieden, ob die Zahl **jetzt**
+					gezeigt wird.
+
+					`!istErledigt` zieht den ersten Konjunkt in **diese Sitzung** hinein.
+					In der Datenbank fällt er mit dem Abhaken weg; in der Oberfläche nicht,
+					weil der Rückruf mit invalidateAll: false fährt und die Zeile samt
+					unverändertem `data` an ihrem Platz stehen bleibt. Bliebe die zweite
+					Zeile stehen, behauptete `seit 4 Wochen offen` „offen" über eine
+					Aufgabe, die gerade erledigt wurde — eine Falschaussage. Beim
+					Wieder-Öffnen kommt sie von selbst zurück, mit unveränderter Zahl:
+					`data` wurde nie neu geladen.
+
+					**Der Preis dieser Bedingung ist ein Höhensprung**, und er ist hier
+					benannt, weil er der Zusage aus Story 1.4 etwas wegnimmt.
+					Verschwindet die zweite Zeile, schrumpft die Zeile um deren Höhe plus
+					gap, und **alle Zeilen darunter rutschen nach oben** — genau im Moment
+					des Antippens. „Die Zeile bleibt an ihrem Platz stehen, so ist ein
+					Fehlgriff sofort sichtbar" gilt damit nur noch für die angetippte
+					Zeile selbst; wer unmittelbar danach die nächste treffen will, greift
+					auf eine Liste, die sich unter dem Daumen verschoben hat. Die
+					Alternative — den Platz der zweiten Zeile freihalten — kostete jede
+					frische Zeile die Höhe einer Zeile, die sie nie zeigt, und wurde
+					darum nicht gebaut.
+
+					**Was die Zahl zählt, ist doppeldeutig, und der Wortlaut bleibt
+					trotzdem.** Bei einer Planaufgabe zählt `seit N Wochen offen` die
+					Wochen **seit der Fälligkeit** und nicht die, die die Aufgabe offen
+					liegt: eine vor 60 Tagen angelegte Aufgabe mit Fälligkeit vor 25 Tagen
+					zeigt `seit 3 Wochen offen` und nicht `seit 8 Wochen offen`. Der Satz
+					steht wörtlich so in den Akzeptanzkriterien des Epics und in
+					DESIGN.md und wird darum nicht umformuliert; festgehalten ist er hier,
+					damit niemand die Zahl als Liegedauer liest.
+				-->
+				{@const istUeberfaellig = !istErledigt && aufgabe.wochenOffen !== null}
 				<li class="zeile" class:zeile--erledigt={istErledigt}>
 					<!--
 						Zwei getrennte Formulare mit **literalem** action, bedingt
@@ -309,6 +353,7 @@
 									type="checkbox"
 									disabled={imFlug}
 									aria-labelledby="aufgabe-{aufgabe.id} verb-{aufgabe.id}"
+									aria-describedby={istUeberfaellig ? `frist-${aufgabe.id}` : undefined}
 									onchange={abschicken}
 								/>
 								<span class="haken" aria-hidden="true"></span>
@@ -316,7 +361,37 @@
 							<span class="nur-vorgelesen" id="verb-{aufgabe.id}">, erledigen</span>
 						</form>
 					{/if}
-					<span class="zeile__text" id="aufgabe-{aufgabe.id}">{aufgabe.text}</span>
+					<!--
+						Der Spaltencontainer ist keine Zierde, sondern die einzige Stelle,
+						an der die zweite Zeile **unter** dem Text landen kann: .zeile ist
+						ein Flexcontainer in Zeilenrichtung, und ein Geschwister von
+						.zeile__text stünde daneben.
+
+						Die zweite Zeile liegt ausdrücklich **neben** #aufgabe-{id} und
+						nicht darin: das Kästchen holt seinen Namen über aria-labelledby
+						aus diesem Element, und ein verschachteltes <p> machte aus
+						`Beet 25 jäten, erledigen` ein
+						`Beet 25 jäten seit 4 Wochen offen, erledigen`. Die Überfälligkeit
+						ist eine **Beschreibung** des Kästchens (aria-describedby) und kein
+						Teil seines Namens — ein Screenreader liest sie nach einer Pause und
+						lässt sie in einer Elementliste weg.
+
+						Das aria-describedby sitzt am **abhaken**-Kästchen und nur dort. Das
+						ist keine Auslassung: istUeberfaellig enthält `!istErledigt`, und
+						das wiederOeffnen-Formular wird nur bei `istErledigt` gerendert —
+						die zwei Bedingungen schliessen sich aus, das Attribut wäre dort
+						konstant undefined und das <p> mit der Zielkennung existierte gar
+						nicht. Ein aria-describedby am wiederOeffnen-Kästchen zeigte damit
+						auf eine leere Kennung, und die Beschreibung fiele **ganz** aus.
+					-->
+					<div class="zeile__spalte">
+						<span class="zeile__text" id="aufgabe-{aufgabe.id}">{aufgabe.text}</span>
+						{#if istUeberfaellig}
+							<p class="zeile__frist" id="frist-{aufgabe.id}">
+								seit {aufgabe.wochenOffen} Wochen offen
+							</p>
+						{/if}
+					</div>
 				</li>
 			{/each}
 		</ul>
@@ -525,12 +600,63 @@
 		opacity: 1;
 	}
 
+	/*
+		Die Spalte rechts vom Kästchen: Aufgabentext, darunter die
+		Überfälligkeitszeile.
+
+		Ein Spaltencontainer und nicht zwei Geschwister in .zeile — die ist ein
+		Flexcontainer in Zeilenrichtung, und ein zweites Element darin stünde
+		**neben** dem Text.
+
+		min-width: 0 hebt die Vorgabe `min-width: auto` eines Flexkindes auf. Damit
+		darf die Spalte unter ihre Inhaltsbreite schrumpfen, statt die Zeile
+		aufzuspannen: ohne die Zeile schöbe ein langes Wort ohne Trennstelle die
+		ganze Zeile breiter, und das Kästchen links wanderte mit aus dem Blickfeld.
+
+		Was min-width: 0 **nicht** tut, ist umbrechen. Das Wort läuft dann aus der
+		Box heraus — im ganzen Baum steht keine Umbruchregel, und eine hier wäre die
+		erste. Das ist ein eigener Posten und keine Aufgabe dieser Story.
+	*/
+	.zeile__spalte {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		min-width: 0;
+	}
+
 	.zeile__text {
 		color: var(--ink-primary);
 		font-family: var(--task-font);
 		font-size: var(--task-size);
 		font-weight: var(--task-weight);
 		line-height: var(--task-line);
+	}
+
+	/*
+		Überfällig: eine zweite Textzeile in der meta-Rolle, Lehmbraun aus
+		--overdue.
+
+		**Absichtlich kein Rot.** Eine Aufgabe, die vier Wochen liegt, ist kein
+		Fehler und keine Gefahr; --danger bleibt allein dem Zerstörenden vorbehalten.
+		Und **kein Abzeichen**: kein gefüllter Hintergrund, kein Pillen-Radius, keine
+		eigene Fläche — die Zeile bleibt eine ganz normale Aufgabenzeile.
+
+		Der **Text** trägt die Aussage, die Farbe nie allein (UX-DR8): bei
+		ausgeschalteter Farbdarstellung oder Farbfehlsichtigkeit steht
+		`seit N Wochen offen` unverändert da.
+
+		Diese Regel steht ausdrücklich **nicht** in der Übergangsliste unten. Beim
+		Abhaken wird die Zeile aus dem DOM genommen und nicht überblendet — ein
+		transition auf color liefe hier ins Leere und suggerierte einen Zustand, den
+		es nicht gibt.
+	*/
+	.zeile__frist {
+		margin: 0;
+		color: var(--overdue);
+		font-family: var(--meta-font);
+		font-size: var(--meta-size);
+		font-weight: var(--meta-weight);
+		line-height: var(--meta-line);
 	}
 
 	/*

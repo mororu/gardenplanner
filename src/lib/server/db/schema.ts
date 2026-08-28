@@ -9,9 +9,11 @@ import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
  * Date-Objekte.
  *
  * In diesem Stand gibt es zwei Tabellen: members aus Story 1.2 und tasks aus
- * Story 1.4, letztere seit Story 2.1 um due_at erweitert. duty_weeks und
- * signup_tasks kommen mit Epic 3. Drei getrennte Tabellen ohne gemeinsame
- * Zuständigkeitsspalte, keine Basistabelle und keine Typspalte darüber (AD-3).
+ * Story 1.4, letztere seit Story 2.1 um due_at erweitert. Story 2.2 hat daran
+ * **nichts** geändert: die Überfälligkeit wird gerechnet und nicht gespeichert,
+ * und die Rechnung steht in src/lib/zeit.ts. duty_weeks und signup_tasks kommen
+ * mit Epic 3. Drei getrennte Tabellen ohne gemeinsame Zuständigkeitsspalte,
+ * keine Basistabelle und keine Typspalte darüber (AD-3).
  */
 export const members = sqliteTable('members', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
@@ -93,10 +95,13 @@ export function ohneTokenHash(mitglied: Member): AngemeldetesMitglied {
  * signup_tasks (Epic 3), nicht hier.
  *
  * due_at steht seit Story 2.1 hier — der Monatsplan setzt es einmal für den
- * ganzen Stapel. Eine Überfälligkeits**spalte** gibt es weiterhin nicht und
- * soll es nicht geben: Story 2.2 rechnet die Überfälligkeit zur Anzeigezeit aus
- * COALESCE(due_at, created_at), ohne Cron und ohne Hintergrundjob. Zwei
- * Wahrheiten liefen auseinander, sobald ein Job einmal nicht läuft.
+ * ganzen Stapel. Eine Überfälligkeits**spalte** gibt es nicht und soll es nicht
+ * geben: die Überfälligkeit wird seit Story 2.2 **zur Anzeigezeit gerechnet**,
+ * aus dueAt ?? createdAt gegen den Zeitpunkt, den die load von / mitgibt. Die
+ * Schwelle und die Rechnung stehen in src/lib/zeit.ts (wochenOffenSeit), die
+ * Ableitung je Zeile in ./queries/tasks.ts (offeneAufgabenAuflisten). Es gibt
+ * keinen Cron und keinen Hintergrundjob — zwei Wahrheiten liefen auseinander,
+ * sobald ein Job einmal nicht läuft.
  */
 export const tasks = sqliteTable('tasks', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
@@ -141,12 +146,15 @@ export const tasks = sqliteTable('tasks', {
 	 *
 	 * nullable und ohne $defaultFn, weil eine vor Ort über /aufgabe erfasste
 	 * Aufgabe keine Frist hat: sie entsteht nicht beim Anlegen, sondern kommt vom
-	 * Stapel. Genau diese Lücke fängt Story 2.2 mit COALESCE(due_at, created_at)
-	 * ab — die Frist zählt ab Fälligkeit, ersatzweise ab Anlage.
+	 * Stapel. Genau diese Lücke fängt die Überfälligkeitsrechnung seit Story 2.2
+	 * mit `dueAt ?? createdAt` ab — die Frist zählt ab Fälligkeit, ersatzweise ab
+	 * Anlage. Eine Planaufgabe mit Fälligkeit am Monatsende ist damit auch dann
+	 * nicht überfällig, wenn sie schon 30 Tage liegt.
 	 *
-	 * **Kein Index**, und das ist eine Entscheidung und keine Auslassung: Story
-	 * 2.2 rechnet die Überfälligkeit über COALESCE, worauf ein Index auf einer
-	 * der beiden Spalten ohnehin nicht griffe, und die Liste ist ein voller
+	 * **Kein Index**, und das ist eine Entscheidung und keine Auslassung: die
+	 * Überfälligkeit entsteht nicht in SQL, sondern in TypeScript über
+	 * `dueAt ?? createdAt` (siehe ./queries/tasks.ts) — ein Index auf einer der
+	 * beiden Spalten griffe darauf ohnehin nicht, und die Liste ist ein voller
 	 * Durchlauf ohne Blättern. Zwanzig Leute und eine Handvoll Aufgaben je Woche
 	 * ergeben eine Tabelle, die auf Jahre in eine Speicherseite passt; ein Index
 	 * kostete dort mehr Schreibarbeit, als er an Lesearbeit spart.

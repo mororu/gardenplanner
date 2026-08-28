@@ -1,5 +1,10 @@
 /*
- * Die Zeitzone und die zwei Umrechnungen, die ein Datumsfeld braucht.
+ * Die Zeitzone, die zwei Umrechnungen, die ein Datumsfeld braucht, und die
+ * Überfälligkeitsrechnung.
+ *
+ * **Die Schwelle der Überfälligkeit steht seit Story 2.2 ebenfalls hier**, ganz
+ * unten, aus demselben Grund wie die Zone: an genau einer Stelle. Sie rechnet
+ * ohne Zone — die Begründung dafür steht an wochenOffenSeit.
  *
  * **Die Zeitzone steht genau einmal, und zwar hier.** Sie stand bis Story 2.1 in
  * src/lib/client/utils/date.ts, dem einzigen Ort, der einen Zeitstempel in Text
@@ -167,4 +172,115 @@ export function tagesendeInUnixSekunden(feldwert: string): number | null {
 		return null;
 	}
 	return zeitpunkt;
+}
+
+/**
+ * Eine Woche in Sekunden — die Einheit, in der die zweite Zeile einer
+ * überfälligen Aufgabe zählt, und der Baustein der Schwelle darunter.
+ *
+ * Exportiert, weil scripts/smoke-zugang.ts die Zeilen der
+ * Überfälligkeitsmatrix in Wochen und Tagen sät und die Zahl sonst dort ein
+ * zweites Mal stünde. Aus demselben Grund wie bei der Schwelle: zwei
+ * Deklarationen derselben Grösse laufen auseinander.
+ */
+export const WOCHE_SEKUNDEN = 7 * 24 * 60 * 60;
+
+/**
+ * Die Schwelle, ab der eine offene Aufgabe überfällig ist: drei Wochen.
+ *
+ * **Sie steht genau einmal, und zwar hier.** AD-8 nennt sie als 21 Tage, und
+ * eine zweite 21 irgendwo — in der Abfrage, in der Komponente, in einem
+ * Prüfskript — wäre eine zweite Wahrheit über dieselbe Produktentscheidung.
+ *
+ * Geschrieben als `3 * WOCHE_SEKUNDEN` und nicht als `21 * 24 * 60 * 60`, obwohl
+ * beides dieselbe Zahl ist: die Schwelle **ist** ein Vielfaches der Einheit, in
+ * der die Anzeige zählt, und diese Kopplung soll man sehen. Sie ist der Grund
+ * dafür, dass der kleinste Rückgabewert von wochenOffenSeit 3 ist.
+ *
+ * **Was mitwandert, wenn jemand die Schwelle verschiebt.** Diese Zeile ist die
+ * einzige Deklaration, aber nicht die einzige Stelle, die von ihrem Wert abhängt.
+ * Fällt sie unter drei Wochen, wird der kleinste Rückgabewert 1 oder 0, und dann
+ * kippen still mit:
+ *
+ *   - die Begründung an wochenOffenSeit, dass `seit N Wochen offen` keine
+ *     Beugungsregel braucht — bei 1 heisst es `seit 1 Wochen offen`;
+ *   - bei 0 zusätzlich die Aussage des Satzes selbst: `seit 0 Wochen offen` unter
+ *     einer Aufgabe, die gerade überfällig geworden ist;
+ *   - die literalen `3` in scripts/smoke-zugang.ts, in README.md und in der
+ *     Spezifikation der Story.
+ *
+ * Ein `Math.max(3, …)` in wochenOffenSeit wäre der falsche Riegel: er behauptete
+ * eine Zahl, die dann nicht stimmt. Wer die Schwelle verschiebt, entscheidet
+ * über den Satz mit.
+ *
+ * Gelesen wird sie von wochenOffenSeit darunter und, ausführlich begründet, von
+ * scripts/smoke-zugang.ts — dort sät sie die Matrixzeilen relativ zu sich selbst,
+ * damit die Prüfliste nicht grün bleibt, wenn jemand sie hier verschiebt.
+ */
+export const UEBERFAELLIG_SEKUNDEN = 3 * WOCHE_SEKUNDEN;
+
+/**
+ * Wie viele **ganze Wochen** eine Aufgabe schon überfällig offen ist — oder
+ * null, solange sie es nicht ist.
+ *
+ * Der **Zählbeginn** ist `COALESCE(due_at, created_at)` aus AD-8: die Frist
+ * zählt ab Fälligkeit, ersatzweise ab Anlage. Diese Funktion sieht davon nur die
+ * fertige Zahl; **welche** der beiden Spalten es war, entscheidet
+ * offeneAufgabenAuflisten in ./server/db/queries/tasks.ts über `??`. Die Regel
+ * ist damit zweigeteilt, und das ist Absicht: die Auswahl der Spalte gehört zur
+ * Zeile, die Schwelle und die Wochenrechnung gehören hierher.
+ *
+ * „Zählbeginn" und „Bezugszeitpunkt" sind in diesem Projekt zwei verschiedene
+ * Dinge und werden nicht vermischt: der Zählbeginn ist der Zeitpunkt, **ab** dem
+ * gezählt wird (die Spalte), der Bezugszeitpunkt der, **bis** zu dem gezählt
+ * wird (jetzt, siehe @param jetztSekunden).
+ *
+ * **Der Vergleich ist strikt.** Genau an der Schwelle ist eine Aufgabe noch
+ * **nicht** überfällig — `>` und nicht `>=`. Eine Grenze, die in beide
+ * Richtungen gelesen werden kann, wird beim nächsten Anfassen anders gelesen.
+ *
+ * **Der kleinste Rückgabewert ist 3**, solange UEBERFAELLIG_SEKUNDEN bei drei
+ * Wochen steht. Eine Sekunde über der Schwelle liegt die Differenz bei 21 Tagen
+ * und einer Sekunde, und `Math.floor(x / WOCHE_SEKUNDEN)` ergibt darauf 3. Ein
+ * Singular kann also nicht auftreten, und `seit N Wochen offen` braucht keine
+ * Beugungsregel — der Satz ist immer im Plural richtig. Diese Zusage hängt an
+ * der Schwelle und nicht an dieser Funktion; die Liste dessen, was bei einer
+ * Verschiebung mitwandert, steht an UEBERFAELLIG_SEKUNDEN.
+ *
+ * **Ohne Obergrenze und ohne Kappung.** Ein vertipptes Jahresfeld (`Fällig bis`
+ * nimmt jedes formgültige Datum an) erzeugt `seit ~1900 Wochen offen`, und genau
+ * diese absurde Zahl ist das Diagnosesignal. Eine Kappung auf `über einem Jahr`
+ * liesse einen Stapel von 1990 aussehen wie einen, der 14 Monate liegt.
+ *
+ * **Warum hier keine Zonenrechnung steht, obwohl der Rest dieses Moduls eine
+ * braucht.** monatsendeAlsFeldwert und tagesendeInUnixSekunden rechnen
+ * Kalendertage in Zeitpunkte um, und dafür ist die Zone konstitutiv. Hier werden
+ * zwei **Zeitpunkte** verglichen — eine Differenz in Sekunden hat keine Zone.
+ *
+ * Ganz folgenlos ist das nicht, und die Grenze der Aussage steht hier: `due_at`
+ * ist ein Tagesende **in der Zone**, der Vergleich läuft aber auf absoluten
+ * Sekunden. Liegen Zählbeginn und Bezugszeitpunkt auf verschiedenen Seiten einer
+ * der **zwei** Schweizer Umstellungen im Jahr, ist die 21-Tage-Spanne in
+ * Wandkalender-Stunden um eine Stunde kürzer oder länger, und die wirksame
+ * Grenze wandert um genau diese Stunde. Betroffen ist damit ein Ein-Stunden-
+ * Fenster zweimal im Jahr, in dem eine Aufgabe eine Stunde früher oder später
+ * überfällig wird als der Wandkalender sagt — auf Wochenauflösung ändert das
+ * kein angezeigtes Ergebnis nennenswert. Wer hier teileInZone hereinzieht, macht
+ * die Rechnung komplizierter und schliesst ein Fenster, das niemand sieht.
+ *
+ * Eine **negative** Differenz braucht keinen Sonderfall: ein Monatsplan, dessen
+ * Fälligkeit in der Zukunft liegt, fällt durch denselben Vergleich wie eine
+ * Aufgabe von vorgestern.
+ *
+ * @param bezugSekunden Der **Zählbeginn** in Unix-Sekunden: `due_at` oder
+ *   ersatzweise `created_at`.
+ * @param jetztSekunden Der **Bezugszeitpunkt** in Unix-Sekunden. Er kommt als
+ *   Parameter herein und nicht aus `Date.now()`: dieselbe Liste soll für alle
+ *   Zeilen eines Ladevorgangs an derselben Uhr gemessen werden, und der Wert
+ *   entsteht serverseitig in der load (siehe ../routes/+page.server.ts).
+ */
+export function wochenOffenSeit(bezugSekunden: number, jetztSekunden: number): number | null {
+	const verstrichen = jetztSekunden - bezugSekunden;
+	if (verstrichen <= UEBERFAELLIG_SEKUNDEN) return null;
+	return Math.floor(verstrichen / WOCHE_SEKUNDEN);
 }

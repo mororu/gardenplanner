@@ -1,6 +1,7 @@
 import { and, asc, eq, isNotNull, isNull } from 'drizzle-orm';
 import { datenbank } from '../index.ts';
 import { tasks, type NewTask, type SichtbareAufgabe } from '../schema.ts';
+import { wochenOffenSeit } from '../../../zeit.ts';
 
 /*
  * Das Repository für tasks. Die Routen benutzen ausschliesslich diese benannten
@@ -60,6 +61,26 @@ const sichtbareSpalten = {
  * Zuweisung an SichtbareAufgabe im Weg.
  */
 type NurSichtbar = SichtbareAufgabe & Partial<Record<'completedBy' | 'completedAt', never>>;
+
+/**
+ * Eine offene Aufgabe samt abgeleiteter Wochenzahl — der Zeilentyp der Liste.
+ *
+ * Der Typ ist **exportiert**, NurSichtbar darüber nicht: dieser hier steht in
+ * der Rückgabeannotation der load von / und muss darum von aussen benennbar
+ * sein. NurSichtbar bleibt modulintern, weil ihn niemand ausserhalb dieser Datei
+ * braucht.
+ *
+ * `wochenOffen` ist die Zahl der ganzen Wochen, die die Aufgabe über der
+ * Schwelle offen liegt, oder null — die Rechnung steht in
+ * ../../../zeit.ts. Das Feld heisst deutsch, und das ist nicht nur Stil:
+ * scripts/smoke-zugang.ts sucht in den Seitendaten nach dem Muster
+ * `/completed/i` (AD-5), und ein englischer Name wie `weeksOverdue` liesse diese
+ * Wache zwar durch, aber jeder Nachbar in diesem Modul heisst deutsch.
+ *
+ * Es ist **kein** Erledigt-Zustand und keine Sortierhilfe: die Liste ordnet
+ * weiter nach created_at, und überfällige Zeilen stehen an ihrem Platz.
+ */
+export type OffeneAufgabe = NurSichtbar & { wochenOffen: number | null };
 
 /**
  * Legt eine Aufgabe an und gibt die erzeugte Zeile zurück.
@@ -164,12 +185,14 @@ export function aufgabenStapelAnlegen(texte: string[], faelligAm: number): NurSi
 }
 
 /**
- * Die offenen Aufgaben, älteste zuerst.
+ * Die offenen Aufgaben, älteste zuerst — jede mit ihrer Wochenzahl.
  *
  * Nur `completed_at IS NULL`: eine erledigte Aufgabe erscheint in keiner
  * Ansicht mehr, auch nicht durchgestrichen. Die durchgestrichene Zeile nach dem
  * Abhaken lebt allein in der Sitzung der abhakenden Person und ist beim nächsten
- * Laden fort — dann auch für alle anderen.
+ * Laden fort — dann auch für alle anderen. Das ist zugleich der erste Konjunkt
+ * von AD-8: was hier steht, ist offen, und nur darum darf `wochenOffen`
+ * überhaupt einen Wert tragen.
  *
  * Vollständig und ohne Nachladen: bei 40 Beeten und einer Handvoll Aufgaben pro
  * Woche gibt es nichts zu blättern.
@@ -178,14 +201,55 @@ export function aufgabenStapelAnlegen(texte: string[], faelligAm: number): NurSi
  * Auflösung einer Sekunde, und zwei in derselben Sekunde erfasste Aufgaben
  * hätten sonst keine festgelegte Reihenfolge: die Liste wechselte zwischen zwei
  * Aufrufen ihre Anordnung, ohne dass sich etwas geändert hat.
+ *
+ * **Das orderBy reagiert bewusst nicht auf Überfälligkeit.** „Überfällige
+ * zuerst" wäre eine andere Story: die Zeile bleibt eine ganz normale
+ * Aufgabenzeile an ihrem nach created_at sortierten Platz, und wer die Liste
+ * zwei Wochen später wieder aufschlägt, findet sie dort, wo sie war. Eine
+ * Umsortierung nach einem Zustand, der sich von selbst ändert, liesse die Liste
+ * ohne Zutun anders aussehen.
+ *
+ * **`dueAt ?? createdAt` ist dieselbe Regel wie AD-8s
+ * `COALESCE(due_at, created_at)`**: die Frist zählt ab Fälligkeit, ersatzweise
+ * ab Anlage. Eine vor Ort über /aufgabe erfasste Aufgabe hat keine Frist und
+ * wird 21 Tage nach ihrer Erfassung überfällig; eine Planaufgabe mit Fälligkeit
+ * am Monatsende wird es 21 Tage nach dem Monatsende, auch wenn sie schon 30 Tage
+ * liegt.
+ *
+ * **Warum die Ableitung in TypeScript entsteht und nicht als SQL-COALESCE.**
+ * sichtbareSpalten oben ist **eine** Projektion für **alle fünf** Funktionen
+ * dieser Datei. Ein Überfälligkeits-Ausdruck darin landete auch im `returning()`
+ * von aufgabeAnlegen, aufgabenStapelAnlegen, aufgabeAbhaken und
+ * aufgabeWiederOeffnen, wo er nichts bedeutet — eine gerade angelegte Aufgabe
+ * ist nie überfällig, eine gerade abgehakte gar nicht mehr offen. Zudem weist
+ * das `satisfies Record<keyof SichtbareAufgabe, unknown>` jede Zusatzspalte ab,
+ * solange SichtbareAufgabe sie nicht kennt: der SQL-Weg verlangte, den Zeilentyp
+ * der **Tabelle** um ein abgeleitetes Feld zu erweitern oder eine zweite
+ * Projektion neben die erste zu stellen. AD-8 verbietet eine `is_overdue`-Spalte,
+ * einen Cron und einen Job; eine Ableitung im Repository ist keines davon, und
+ * „berechnet zur Anzeigezeit" ist erfüllt.
+ *
+ * Der Preis dieser Entscheidung ist benannt: die Wochenzahl entsteht in
+ * JavaScript, es gibt also keinen Weg, überfällige Aufgaben in SQL zu filtern
+ * oder zu zählen, falls das je gebraucht wird.
+ *
+ * @param jetztSekunden Der Bezugszeitpunkt in Unix-**Sekunden**. Er kommt als
+ *   Parameter herein und nicht aus einem `Date.now()` in dieser Funktion: die
+ *   ganze Liste soll an **einer** Uhr gemessen sein, und der Wert entsteht
+ *   serverseitig in der load von / — ein Date.now() im Browser erzeugte einen
+ *   Hydrierungsunterschied.
  */
-export function offeneAufgabenAuflisten(): NurSichtbar[] {
+export function offeneAufgabenAuflisten(jetztSekunden: number): OffeneAufgabe[] {
 	return datenbank()
 		.select(sichtbareSpalten)
 		.from(tasks)
 		.where(isNull(tasks.completedAt))
 		.orderBy(asc(tasks.createdAt), asc(tasks.id))
-		.all();
+		.all()
+		.map((zeile) => ({
+			...zeile,
+			wochenOffen: wochenOffenSeit(zeile.dueAt ?? zeile.createdAt, jetztSekunden),
+		}));
 }
 
 /**

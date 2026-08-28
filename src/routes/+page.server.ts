@@ -4,8 +4,8 @@ import {
 	aufgabeAbhaken,
 	aufgabeWiederOeffnen,
 	offeneAufgabenAuflisten,
+	type OffeneAufgabe,
 } from '../lib/server/db/queries/tasks.ts';
-import type { SichtbareAufgabe } from '../lib/server/db/schema.ts';
 import { AUFGABE_NICHT_ANSPRECHBAR } from '../lib/texte.ts';
 
 /*
@@ -84,6 +84,21 @@ function abgelegtLesen(url: URL): number | null {
  * und completed_at — der Abhakende kann diesen Rückgabewert nicht verlassen,
  * weil das Feld nicht existiert (AD-5).
  *
+ * **Der Bezugszeitpunkt der Überfälligkeit entsteht hier**, als
+ * `Math.floor(Date.now() / 1000)`, und wird an offeneAufgabenAuflisten
+ * weitergegeben. Er entsteht ausdrücklich **nicht** im Browser: ein `Date.now()`
+ * in der Komponente lief einmal serverseitig beim Rendern und einmal beim
+ * Hydrieren, und Svelte meldete einen Hydrierungsunterschied — genau derselbe
+ * Grund, aus dem die Vorgabe von `Fällig bis` in ./monatsplan/+page.server.ts
+ * serverseitig entsteht. Der Nebeneffekt ist erwünscht: **eine** Uhr für die
+ * ganze Liste, keine Zeile wird an einem anderen Moment gemessen als ihre
+ * Nachbarin.
+ *
+ * Die Zusage „aus dem Ereignis liest die Funktion allein die Adresse" bleibt
+ * dabei wörtlich wahr: `Date.now()` ist die Uhr des Prozesses und kein Feld des
+ * Ereignisses. Ein Umweg über `event.locals` oder ein Cookie bräche sie, diese
+ * Zeile nicht.
+ *
  * `abgelegt` ist die Meldung, die eine Weiterleitung überlebt hat. Ein
  * redirect() aus einer form action verwirft deren Rückgabewert; /aufgabe und
  * /monatsplan legen die Bestätigung darum als Query-Parameter in die Adresse,
@@ -108,10 +123,11 @@ function abgelegtLesen(url: URL): number | null {
  * eintippt, sieht sie auch. Eine Bestätigung ohne Folgen verträgt das.
  */
 export function load({ url }: ServerLoadEvent): {
-	aufgaben: SichtbareAufgabe[];
+	aufgaben: OffeneAufgabe[];
 	abgelegt: number | null;
 } {
-	return { aufgaben: offeneAufgabenAuflisten(), abgelegt: abgelegtLesen(url) };
+	const jetztSekunden = Math.floor(Date.now() / 1000);
+	return { aufgaben: offeneAufgabenAuflisten(jetztSekunden), abgelegt: abgelegtLesen(url) };
 }
 
 export const actions = {

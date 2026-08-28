@@ -4,13 +4,14 @@ Aufgabenliste für einen Gemeinschaftsgarten: rund zwanzig Gärtner\*innen sehen
 dem Handy, was offen ist, und haken mit einem Griff ab. Serverseitig gerenderter
 SvelteKit-Monolith, eine SQLite-Datei, nur online.
 
-Dieser Stand ist Story 2.1: Monatsplan in einem Zug ablegen. Es gibt
+Dieser Stand ist Story 2.2: Überfällige Aufgaben erkennen. Es gibt
 Titelleiste, Navigationsleiste, das PWA-Manifest, die SQLite-Datenschicht mit
-`members` und `tasks` (letztere seit dieser Story mit `due_at`), den einzigen
+`members` und `tasks` (letztere seit Story 2.1 mit `due_at`), den einzigen
 Zugangsweg (`GET /i/<token>` löst die Einladung ein, ein Wächter lässt ohne
 gültige Sitzung niemanden weiter), die Verwaltung unter `/verwaltung`, auf `/`
-die ganze Schleife (die offenen Aufgaben, abgehakt mit einem Griff, und unter
-dem Pool der Knopf `+ Aufgabe`, der auf `/aufgabe` führt), unter `/mehr` den
+die ganze Schleife (die offenen Aufgaben, abgehakt mit einem Griff, unter einer
+seit drei Wochen liegenden Zeile der Satz `seit N Wochen offen`, und unter dem
+Pool der Knopf `+ Aufgabe`, der auf `/aufgabe` führt), unter `/mehr` den
 Einstieg zu `/monatsplan`, wo die planende Person ihren ganzen Monatsplan in
 einem Zug ablegt — und den Compose-Stapel, der das alles auf einen Server
 bringt: siehe [Betrieb und Runbook](#betrieb-und-runbook).
@@ -948,14 +949,16 @@ fehlende, nicht numerische, unbekannte `aufgabeId` sowie der falsche
 Erledigt-Zustand ergeben in **beiden** actions denselben Satz, ohne die Tabelle
 anzufassen.
 
-Zwei Behauptungen dort sind ausdrücklich **Textprüfungen** und kein ausgeführter
-Nachweis: dass der `use:enhance`-Rückruf in `src/routes/+page.svelte`
-`update({ reset: false, invalidateAll: false })` ruft, und dass die Seite kein
-`<label>` trägt. Beide Zusagen hängen an genau einer Textstelle und wären sonst
-still zu brechen — die Svelte-Schicht deckt in diesem Projekt keine ausgeführte
-Prüfung. Beide laufen auf der Datei **ohne Kommentare**: die Komponente erklärt
-an beiden Stellen wörtlich, was dort zu stehen hat, und auf dem Rohtext hätten
-sich die Behauptungen an der eigenen Begründung erfüllt. Gemessen.
+**Sieben** Behauptungen über `src/routes/+page.svelte` sind ausdrücklich
+**Textprüfungen** und kein ausgeführter Nachweis. Zwei stammen aus Story 1.4:
+dass der `use:enhance`-Rückruf `update({ reset: false, invalidateAll: false })`
+ruft, und dass die Seite kein `<label>` trägt. Fünf kommen mit Story 2.2 dazu und
+sind unten im Überfälligkeitsblock beschrieben. Alle sieben Zusagen hängen an
+genau einer Textstelle und wären sonst still zu brechen — die Svelte-Schicht
+deckt in diesem Projekt keine ausgeführte Prüfung. Alle laufen auf der Datei
+**ohne Kommentare**: die Komponente erklärt an jeder dieser Stellen wörtlich, was
+dort zu stehen hat, und auf dem Rohtext hätten sich die Behauptungen an der
+eigenen Begründung erfüllt. Gemessen.
 
 Seit Story 1.5 kommt `src/routes/aufgabe/+page.server.ts` dazu — die eine action
 `ablegen`, gefahren mit einem Ereignis **ohne** `locals.mitglied`, weil sie keine
@@ -973,7 +976,7 @@ und unveränderter Zeilenzahl, während die Eingabe unverändert zurückkommt; g
 **mit** einem Nullbreiten-Zeichen darin, der lesbar bleibt, geht als Gegenprobe
 durch und steht gesäubert in der Tabelle.
 
-Elf weitere **Textprüfungen** stehen dort, aus demselben Grund wie die zwei der
+Elf weitere **Textprüfungen** stehen dort, aus demselben Grund wie die sieben der
 Startseite — die Svelte-Schicht deckt kein ausgeführtes Werkzeug, und diese
 Zusagen hängen an genau einer Textstelle:
 
@@ -1023,7 +1026,7 @@ Texten und **einem** gemeinsamen `due_at` an, das auf dem Tagesende in
 Europe/Zurich liegt und nicht auf Mitternacht UTC, mit leeren Erledigt-Spalten
 und einem `created_at` aus dem Schema, und leitet mit `303` auf `/?abgelegt=3`;
 die `load` von `/` reicht `due_at` heraus, ohne dabei eine `completed`-Spalte
-mitzunehmen; zwölf Eingaben ergeben `400` **am richtigen Feld** und lassen die
+mitzunehmen — darauf rechnet der Überfälligkeitsblock weiter unten; zwölf Eingaben ergeben `400` **am richtigen Feld** und lassen die
 Zeilenzahl unverändert (fehlende, leere, nur aus Leerraum oder Nullbreiten
 bestehende Zeilen, ein fehlendes Feld, ein Blob statt eines Strings — und für
 das Datum: fehlend, leer, `30.09.2026`, das unmögliche `2026-02-31`, ein Blob),
@@ -1108,6 +1111,43 @@ ein reiner Formatierungslauf von Prettier oder ein zweiter Effekt darf die
 Prüfliste nicht rot machen. Der Preis jeder Textprüfung ist benannt: sie belegt,
 dass die Stelle **dasteht**, nicht, dass sie **wirkt**.
 
+Seit Story 2.2 steht am **Ende** der Prüfliste der Überfälligkeitsblock, und die
+Stelle ist Absicht: er sät Aufgaben mit Zeitstempeln von bis zu 60 Tagen, die
+nach `created_at` **vor** allen bisherigen stehen — weiter oben eingefügt machte
+er die vier Sortierbehauptungen mit ihren festen Id-Ketten rot, ohne dass an der
+Sortierung etwas falsch wäre. Gemessen wird zweimal, und die zwei Messungen
+haben verschiedene Aufgaben. Gegen `offeneAufgabenAuflisten` mit **fester** Uhr
+läuft jede Zeile der Matrix auf die Sekunde genau: genau an der Schwelle keine
+Zahl, eine Sekunde darüber `3`, in der vollen vierten Woche `4`, ohne Frist ab
+`created_at`, mit Fälligkeit in der Zukunft nichts, nach der Fälligkeit `3` statt
+`8` (`due_at` gewinnt über `created_at`), ein vertipptes Jahr ungekappt mit über
+1800 Wochen, und eine erledigte Aufgabe steht gar nicht in der Liste. Gegen die
+`load` von `/` läuft dieselbe Saat an der **echten** Uhr, und darum liegt dort
+keine Behauptung an einer Wochengrenze; die eine Zeile, die es nicht kann — genau
+an der Schwelle —, trägt eine ausdrücklich benannte Toleranz: `null` ist die
+einzige zugelassene Antwort, solange die Uhr nachweislich nicht getickt ist. Die
+sieben Ids belegen zusätzlich, dass die Sortierung **nicht** auf Überfälligkeit
+reagiert: sie laufen in der Einfügereihenfolge aufsteigend, ihre `created_at` in
+einer anderen, und die zwei Zeilen ohne Zahl stehen mitten drin — „überfällige
+zuerst" und „nach Id" sind beide rot. `wochenOffenSeit` läuft daneben direkt an
+festen Zeitpunkten (Schwelle, eine Sekunde darüber, negative Differenz); zwei
+Behauptungen gehen über den **ganzen Baum** und belegen, dass die Schwelle in
+`src/` und `drizzle/` genau einmal deklariert ist und dass dort weder ein
+`is_overdue` noch ein Timer vorkommt. Zwei Zeilen der Matrix — abgehakt und in
+derselben Sitzung wieder geöffnet — sind Verhalten im Browser und stehen als
+**Textprüfung** da, zusammen mit vier weiteren. Drei davon greifen ausdrücklich
+**nicht** über die ganze Datei, sondern über einen geschnittenen Bereich: das
+Formular mit `action="?/abhaken"` (dort muss `aria-describedby` stehen, im
+wiederOeffnen-Formular darf es nicht vorkommen), der Spaltencontainer (der
+Aufgabentext kommt vor dem `<p>`) und die zwei Regelrümpfe. Der Grund ist
+gemessen: zwei Mutationen liefen grün durch die ganze Kette, solange die Suche
+über die Datei ging — das verschobene `aria-describedby` landete an einem
+Kästchen, an dem die Bedingung konstruktionsbedingt nie greift, und der
+`{#if}`-Block liess sich über den Aufgabentext heben. Die vierte hält die
+Gestaltung fest: ein `<p>` in `var(--overdue)` und in der meta-Rolle, kein
+Abzeichen, und der Aufgabentext bleibt allein in dem Element, auf das
+`aria-labelledby` zeigt.
+
 **Was die Vergleiche vergleichen.** Die Fehlerseiten kommen über SvelteKits
 **eigene** aus `src/error.html` erzeugte Vorlage (`svelte-kit sync` läuft dazu am
 Anfang). Der Abdruck eines Fehlerfalls besteht aus Status, allen Kopfzeilen, den
@@ -1149,49 +1189,59 @@ Der Grund für all das ist gemessen. Die Tabelle nennt nur Mutationen, die
 **vorher grün** blieben — eine Mutation, die schon vorher rot war, beweist nichts
 über die Prüfung, die dazukam:
 
-| Mutation                                                        | War grün bis | Wird heute rot in                             |
-| --------------------------------------------------------------- | ------------ | --------------------------------------------- |
-| `\|\| !mitglied.isActive` aus der **Einlöseroute** entfernt     | Iteration 2  | widerrufenes gespeichertes Token              |
-| `httpOnly: true` aus den Cookie-Optionen entfernt               | Iteration 2  | drei Cookie-Attribut-Behauptungen             |
-| Wächter schlägt jedes Mitglied nur einmal pro Prozess nach      | Iteration 2  | Widerruf einer lebenden Sitzung               |
-| `secure: false` in den Cookie-Optionen                          | Iteration 3  | drei Cookie-Attribut-Behauptungen             |
-| die beiden Konstanten in `handleError` getauscht                | Iteration 3  | zwei `handleError`-Behauptungen               |
-| ein Aufruf in `startPruefen` in ein schluckendes `catch`        | Iteration 3  | `startPruefen` und der `init`-Unterprozess    |
-| `setHeaders` an **einer** der beiden 403-Wurfstellen            | Iteration 3  | Kopfzeilen-Behauptung und beide Abdrücke      |
-| `?? './data/dev.sqlite'` statt Fail-Fast in `drizzle.config.ts` | Iteration 3  | `db:check`, Prüfung Fail-Fast                 |
-| ein Befund in `db:check` zur Warnung gemacht                    | Iteration 3  | `db:check:selftest`, zwei von drei Proben     |
-| Zeilenkommentare wieder in **jeder** Datei ausgeblendet         | Iteration 3  | `gate:selftest`, Probe `regel-1b`             |
-| `invalidateAll: false` aus dem Rückruf auf `/` entfernt         | Story 1.4    | die Textprüfung an `+page.svelte`             |
-| ein `<label>` um den Aufgabentext                               | Story 1.4    | die Textprüfung an `+page.svelte`             |
-| `completed_at IS NULL` aus `aufgabeAbhaken` entfernt            | Story 1.4    | zweites `abhaken`, der erste Abhakende        |
-| `completed_by` in die Projektion der offenen Aufgaben           | Story 1.4    | zwei Seitendaten-Behauptungen, `check`        |
-| ein rohes `140ms` in einem Komponenten-`<style>`                | Story 1.4    | `gate`, Regel 1                               |
-| die Längenprüfung aus `ablegen` entfernt                        | Story 1.5    | `smoke`, 201 Codepoints                       |
-| `returning()` statt `returning(sichtbareSpalten)`               | Story 1.5    | `check`, die Annotation `NurSichtbar`         |
-| `action="?/ablegen"` verschrieben                               | Story 1.5    | `gate`, Regel 11                              |
-| `name="text"` am Feld in `name="aufgabentext"` umbenannt        | Story 1.5    | `smoke`, die Verdrahtung des Formulars        |
-| `+ Aufgabe` in den `{:else}`-Zweig geschoben                    | Story 1.5    | `smoke`, die Verortung des Ankers             |
-| `tabindex="-1"` an der Meldungsregion entfernt                  | Story 1.5    | `smoke`, tabindex und bind:this               |
-| `maxlength` am Feld von der Konstante abgekoppelt               | Story 1.5    | `smoke`, das Band zur Längengrenze            |
-| die `load` von `/` liest `locals`                               | Story 1.5    | `smoke`, das werfende Ereignis                |
-| `dueAt` aus `sichtbareSpalten` entfernt                         | Story 2.1    | `check`, `satisfies` auf der Spaltenauswahl   |
-| `action="?/ablegen"` auf `/monatsplan` verschrieben             | Story 2.1    | `gate`, Regel 11                              |
-| Tagesende durch Mitternacht UTC ersetzt                         | Story 2.1    | `smoke`, das gemeinsame `due_at`              |
-| `due_at` je Zeile um eins erhöht                                | Story 2.1    | `smoke`, das gemeinsame `due_at`              |
-| die Zeilenlängen-Prüfung aus `ablegen` entfernt                 | Story 2.1    | `smoke`, zwei Zeilen zu 201 Codepoints        |
-| `use:enhance` am Monatsplan-Formular entfernt                   | Story 2.1    | `smoke`, die Verdrahtung des Formulars        |
-| das `×` als `<span role="button">` statt als `<button>`         | Story 2.1    | `smoke`, das × ist ein echter Knopf           |
-| `zeilenListe.length === 0` aus dem Ablegen-Knopf entfernt       | Story 2.1    | `smoke`, der Knopf sperrt bei null Zeilen     |
-| `zurueck` setzt das Textfeld zusätzlich zurück                  | Story 2.1    | `smoke`, `Zurück zum Text`                    |
-| leere Zeilen fallen in `zeilenErkennen` nicht mehr weg          | Story 2.1    | `smoke`, die 24 aus 27 Zeilen                 |
-| die Versatzrechnung in `zeit.ts` durch `annahme - 7200` ersetzt | Story 2.1    | `smoke`, Winterzeit und beide Umstellungstage |
-| `PLAN_HOECHSTZAHL` zurück in die Route statt ins geteilte Modul | Story 2.1    | `check`, der Import in der Komponente         |
-| die Datumssperre aus `weiterGesperrt` entfernt                  | Story 2.1    | `smoke`, `Weiter` sperrt aus drei Gründen     |
-| `quittiert = false` vor dem Versand entfernt                    | Story 2.1    | `smoke`, der Fehlersatz wird quittiert        |
-| der Fokusgriff in `entfernen` entfernt                          | Story 2.1    | `smoke`, das Entfernen lässt den Fokus stehen |
-| das `<noscript>` entfernt                                       | Story 2.1    | `smoke`, /monatsplan sagt es ohne JavaScript  |
-| die Leerheits-Wache aus `aufgabenStapelAnlegen` entfernt        | Story 2.1    | `smoke`, unerwarteter Wurf aus `values([])`   |
-| `aria-describedby` vom Zähler am Textfeld entfernt              | Story 2.1    | `smoke`, beide Felder sind beschrieben        |
+| Mutation                                                        | War grün bis | Wird heute rot in                                                                                                                                                                                                          |
+| --------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `\|\| !mitglied.isActive` aus der **Einlöseroute** entfernt     | Iteration 2  | widerrufenes gespeichertes Token                                                                                                                                                                                           |
+| `httpOnly: true` aus den Cookie-Optionen entfernt               | Iteration 2  | drei Cookie-Attribut-Behauptungen                                                                                                                                                                                          |
+| Wächter schlägt jedes Mitglied nur einmal pro Prozess nach      | Iteration 2  | Widerruf einer lebenden Sitzung                                                                                                                                                                                            |
+| `secure: false` in den Cookie-Optionen                          | Iteration 3  | drei Cookie-Attribut-Behauptungen                                                                                                                                                                                          |
+| die beiden Konstanten in `handleError` getauscht                | Iteration 3  | zwei `handleError`-Behauptungen                                                                                                                                                                                            |
+| ein Aufruf in `startPruefen` in ein schluckendes `catch`        | Iteration 3  | `startPruefen` und der `init`-Unterprozess                                                                                                                                                                                 |
+| `setHeaders` an **einer** der beiden 403-Wurfstellen            | Iteration 3  | Kopfzeilen-Behauptung und beide Abdrücke                                                                                                                                                                                   |
+| `?? './data/dev.sqlite'` statt Fail-Fast in `drizzle.config.ts` | Iteration 3  | `db:check`, Prüfung Fail-Fast                                                                                                                                                                                              |
+| ein Befund in `db:check` zur Warnung gemacht                    | Iteration 3  | `db:check:selftest`, zwei von drei Proben                                                                                                                                                                                  |
+| Zeilenkommentare wieder in **jeder** Datei ausgeblendet         | Iteration 3  | `gate:selftest`, Probe `regel-1b`                                                                                                                                                                                          |
+| `invalidateAll: false` aus dem Rückruf auf `/` entfernt         | Story 1.4    | die Textprüfung an `+page.svelte`                                                                                                                                                                                          |
+| ein `<label>` um den Aufgabentext                               | Story 1.4    | die Textprüfung an `+page.svelte`                                                                                                                                                                                          |
+| `completed_at IS NULL` aus `aufgabeAbhaken` entfernt            | Story 1.4    | zweites `abhaken`, der erste Abhakende                                                                                                                                                                                     |
+| `completed_by` in die Projektion der offenen Aufgaben           | Story 1.4    | zwei Seitendaten-Behauptungen, `check`                                                                                                                                                                                     |
+| ein rohes `140ms` in einem Komponenten-`<style>`                | Story 1.4    | `gate`, Regel 1                                                                                                                                                                                                            |
+| die Längenprüfung aus `ablegen` entfernt                        | Story 1.5    | `smoke`, 201 Codepoints                                                                                                                                                                                                    |
+| `returning()` statt `returning(sichtbareSpalten)`               | Story 1.5    | `check`, die Annotation `NurSichtbar`                                                                                                                                                                                      |
+| `action="?/ablegen"` verschrieben                               | Story 1.5    | `gate`, Regel 11                                                                                                                                                                                                           |
+| `name="text"` am Feld in `name="aufgabentext"` umbenannt        | Story 1.5    | `smoke`, die Verdrahtung des Formulars                                                                                                                                                                                     |
+| `+ Aufgabe` in den `{:else}`-Zweig geschoben                    | Story 1.5    | `smoke`, die Verortung des Ankers                                                                                                                                                                                          |
+| `tabindex="-1"` an der Meldungsregion entfernt                  | Story 1.5    | `smoke`, tabindex und bind:this                                                                                                                                                                                            |
+| `maxlength` am Feld von der Konstante abgekoppelt               | Story 1.5    | `smoke`, das Band zur Längengrenze                                                                                                                                                                                         |
+| die `load` von `/` liest `locals`                               | Story 1.5    | `smoke`, das werfende Ereignis                                                                                                                                                                                             |
+| `dueAt` aus `sichtbareSpalten` entfernt                         | Story 2.1    | `check`, `satisfies` auf der Spaltenauswahl                                                                                                                                                                                |
+| `action="?/ablegen"` auf `/monatsplan` verschrieben             | Story 2.1    | `gate`, Regel 11                                                                                                                                                                                                           |
+| Tagesende durch Mitternacht UTC ersetzt                         | Story 2.1    | `smoke`, das gemeinsame `due_at`                                                                                                                                                                                           |
+| `due_at` je Zeile um eins erhöht                                | Story 2.1    | `smoke`, das gemeinsame `due_at`                                                                                                                                                                                           |
+| die Zeilenlängen-Prüfung aus `ablegen` entfernt                 | Story 2.1    | `smoke`, zwei Zeilen zu 201 Codepoints                                                                                                                                                                                     |
+| `use:enhance` am Monatsplan-Formular entfernt                   | Story 2.1    | `smoke`, die Verdrahtung des Formulars                                                                                                                                                                                     |
+| das `×` als `<span role="button">` statt als `<button>`         | Story 2.1    | `smoke`, das × ist ein echter Knopf                                                                                                                                                                                        |
+| `zeilenListe.length === 0` aus dem Ablegen-Knopf entfernt       | Story 2.1    | `smoke`, der Knopf sperrt bei null Zeilen                                                                                                                                                                                  |
+| `zurueck` setzt das Textfeld zusätzlich zurück                  | Story 2.1    | `smoke`, `Zurück zum Text`                                                                                                                                                                                                 |
+| leere Zeilen fallen in `zeilenErkennen` nicht mehr weg          | Story 2.1    | `smoke`, die 24 aus 27 Zeilen                                                                                                                                                                                              |
+| die Versatzrechnung in `zeit.ts` durch `annahme - 7200` ersetzt | Story 2.1    | `smoke`, Winterzeit und beide Umstellungstage                                                                                                                                                                              |
+| `PLAN_HOECHSTZAHL` zurück in die Route statt ins geteilte Modul | Story 2.1    | `check`, der Import in der Komponente                                                                                                                                                                                      |
+| die Datumssperre aus `weiterGesperrt` entfernt                  | Story 2.1    | `smoke`, `Weiter` sperrt aus drei Gründen                                                                                                                                                                                  |
+| `quittiert = false` vor dem Versand entfernt                    | Story 2.1    | `smoke`, der Fehlersatz wird quittiert                                                                                                                                                                                     |
+| der Fokusgriff in `entfernen` entfernt                          | Story 2.1    | `smoke`, das Entfernen lässt den Fokus stehen                                                                                                                                                                              |
+| das `<noscript>` entfernt                                       | Story 2.1    | `smoke`, /monatsplan sagt es ohne JavaScript                                                                                                                                                                               |
+| die Leerheits-Wache aus `aufgabenStapelAnlegen` entfernt        | Story 2.1    | `smoke`, unerwarteter Wurf aus `values([])`                                                                                                                                                                                |
+| `aria-describedby` vom Zähler am Textfeld entfernt              | Story 2.1    | `smoke`, beide Felder sind beschrieben                                                                                                                                                                                     |
+| das `<=` in `wochenOffenSeit` durch `<` ersetzt                 | Story 2.2    | `smoke`, `wochenOffenSeit` und die feste Uhr an der Schwelle (zwei Behauptungen; die dritte, an der echten Uhr, wird nur rot, wenn Saat und `load` in dieselbe Sekunde fallen — ihre benannte Toleranz lässt sonst `3` zu) |
+| `dueAt ?? createdAt` auf `createdAt` verkürzt                   | Story 2.2    | `smoke`, drei Zeilen der Überfälligkeitsmatrix plus die `load`-Behauptung                                                                                                                                                  |
+| `aria-describedby` aufs wiederOeffnen-Kästchen verschoben       | Story 2.2    | `smoke`, die formularweise geschnittene Beschreibungs-Behauptung                                                                                                                                                           |
+| der `{#if istUeberfaellig}`-Block vor den Aufgabentext gestellt | Story 2.2    | `smoke`, die Reihenfolge im Spaltencontainer                                                                                                                                                                               |
+| `flex-direction: column` aus `.zeile__spalte` entfernt          | Story 2.2    | `smoke`, der Rumpf der Spaltenregel                                                                                                                                                                                        |
+| `min-width: 0` aus `.zeile__spalte` entfernt                    | Story 2.2    | `smoke`, der Rumpf der Spaltenregel                                                                                                                                                                                        |
+| ein nackter `21 * 24 * 60 * 60` in `queries/tasks.ts`           | Story 2.2    | `smoke`, die Schwelle über den ganzen Baum                                                                                                                                                                                 |
+| ein `setImmediate` in der Komponente                            | Story 2.2    | `smoke`, die Timer-Wache über `src/`                                                                                                                                                                                       |
+| eine Spalte `ueberfaellig_seit` im Schema                       | Story 2.2    | `smoke`, das Spaltenverbot über Schema und Migrationen                                                                                                                                                                     |
+| `!istErledigt` aus der Bedingung der zweiten Zeile entfernt     | Story 2.2    | `smoke`, die Überfälligkeitszeile                                                                                                                                                                                          |
 
 `\|\| !mitglied.isActive` aus dem **Wächter** entfernt steht bewusst **nicht** in
 der Tabelle: diese Mutation war schon vor Iteration 2 rot.
@@ -1271,7 +1321,10 @@ Garten ist und nicht eine Folge davon, in welcher Reihenfolge gebaut wurde.
 
 Der dritte Block trägt unter der Marke `OFFEN` alle offenen Aufgaben, **älteste
 zuerst**, vollständig und ohne Nachladen. Erledigte erscheinen nicht — auch nicht
-durchgestrichen, auch nicht eingeklappt.
+durchgestrichen, auch nicht eingeklappt. Eine Zeile, die seit über drei Wochen
+liegt, bekommt eine zweite Textzeile und bleibt im Übrigen unverändert an ihrem
+Platz: siehe
+[Überfällige Aufgaben erkennen](#überfällige-aufgaben-erkennen).
 
 - **Ein Antippen erledigt.** Kein Formular, kein Statusfeld, kein Pflichtkommentar,
   kein Bestätigungsdialog, kein zweiter Knopf. Es ist das einzige
@@ -1285,7 +1338,11 @@ durchgestrichen, auch nicht eingeklappt.
   aus dem sichtbaren Aufgabentext **und** einem verborgenen Verb: ein Screenreader
   liest `Beet 25 Nüsslisalat jäten, erledigen` mit der Rolle Kontrollkästchen.
   Bewusst **kein** `<label for>` — ein Label schaltet sein Bedienelement, und
-  damit wäre der Text wieder antippbar.
+  damit wäre der Text wieder antippbar. Diese Zusage gilt **auch** für eine
+  überfällige Zeile: `seit N Wochen offen` hängt über `aria-describedby` als
+  **Beschreibung** am Kästchen und liegt ausdrücklich nicht in dem Element, auf
+  das `aria-labelledby` zeigt — sonst hiesse das Kästchen
+  `Beet 25 Nüsslisalat jäten seit 4 Wochen offen, erledigen`.
 - **Die Zeile bleibt an ihrem Platz stehen**, durchgestrichen und gedämpft,
   Kästchen gefüllt mit Haken. Sie verschwindet erst beim nächsten Laden — dann
   auch für alle anderen. So ist ein Fehlgriff sofort sichtbar. Der Preis dieser
@@ -1424,10 +1481,11 @@ Danach `303` auf `/` mit der Meldung im Perfekt desselben Verbs:
 - **`Fällig bis` bezeichnet das Ende des Tages in Europe/Zurich**, nicht
   Mitternacht UTC. `Fällig bis 31. August` heisst umgangssprachlich „bis der 31.
   vorbei ist"; Mitternacht UTC läge in der Sommerzeit zwei Stunden **vor** dem
-  Beginn des gemeinten Tages, und eine am 31. erledigte Aufgabe wäre
-  zwischendurch überfällig gewesen. Die Zone steht genau einmal, in
-  `src/lib/zeit.ts`, und wird von der Formatierung und von der Umrechnung
-  gelesen.
+  Beginn des gemeinten Tages, und die Zeile trüge am 31. schon den Satz aus
+  [Überfällige Aufgaben erkennen](#überfällige-aufgaben-erkennen), obwohl der
+  gemeinte Tag noch läuft. Die Zone steht genau einmal, in `src/lib/zeit.ts`, und
+  wird von der Formatierung und von der Umrechnung gelesen — die Schwelle der
+  Überfälligkeit steht seit Story 2.2 in derselben Datei, aus demselben Grund.
 - **Ein Aufruf, ein INSERT, keine Transaktion.** `aufgabenStapelAnlegen` setzt
   alle Zeilen in einem mehrzeiligen `INSERT` — ein einzelnes Statement ist in
   SQLite von sich aus atomar. Eine Schleife mit einem INSERT je Zeile bräuchte
@@ -1473,6 +1531,79 @@ Danach `303` auf `/` mit der Meldung im Perfekt desselben Verbs:
 - **Die Meldung reist als Query-Parameter mit Zahl** (`/?abgelegt=22`). Die
   `load` von `/` macht daraus eine **Zahl**, die Oberfläche den Satz. Das bare
   `?abgelegt` von `/aufgabe` bleibt gültig und bedeutet weiterhin `Abgelegt.`
+
+## Überfällige Aufgaben erkennen
+
+Eine Aufgabe, die drei Wochen liegt, sieht in einer nackten Liste aus wie eine
+von heute — Liegengebliebenes fällt dann nur auf, wenn jemand mahnt. Auf `/`
+bekommt eine solche Zeile darum unter dem Aufgabentext einen zweiten Satz:
+`seit 4 Wochen offen`, in Nebentext-Grösse und im Lehmbraun aus `--overdue`.
+
+- **Überfällig ist abgeleitet, nicht gespeichert.** Keine `is_overdue`-Spalte,
+  kein Cron, kein Hintergrundjob: zwei Wahrheiten liefen auseinander, sobald ein
+  Job einmal nicht läuft. Gerechnet wird zur Anzeigezeit, in
+  `offeneAufgabenAuflisten`. Der Preis: die Zahl entsteht in JavaScript und nicht
+  in SQL, es gibt also **keinen** Weg, überfällige Aufgaben in der Datenbank zu
+  filtern oder zu zählen.
+- **Die Schwelle steht an genau einer Stelle.** `UEBERFAELLIG_SEKUNDEN` in
+  `src/lib/zeit.ts` als `3 * WOCHE_SEKUNDEN` — dieselbe Datei, in der auch die
+  Zeitzone genau einmal steht, aus demselben Grund. Gelesen wird sie von
+  `wochenOffenSeit` und vom Prüfskript, das seine Matrixzeilen relativ zu ihr sät,
+  damit die Prüfliste nicht grün bleibt, wenn jemand sie verschiebt. Der
+  Vergleich ist **strikt**: genau an der Schwelle ist eine Aufgabe noch nicht
+  überfällig, eine Sekunde darüber sind es drei Wochen. Damit ist `3` der
+  kleinste mögliche Wert, und `seit N Wochen offen` braucht keine Beugungsregel.
+  Der Preis: die drei Wochen stehen nirgends in der Oberfläche, und die Zeile ist
+  die einzige **Deklaration**, nicht die einzige Abhängigkeit — fällt die Schwelle
+  je unter drei Wochen, kippt die Beugungsfreiheit mit, und `seit 1 Wochen offen`
+  steht da. Der Docblock an der Konstante zählt auf, was mitwandert.
+- **Die Frist zählt ab Fälligkeit, ersatzweise ab Anlage** (`dueAt ?? createdAt`).
+  Ein Monatsplan mit Fälligkeit am Monatsende gilt darum nicht schon drei Wochen
+  nach dem Ablegen als überfällig. Umgekehrt wird eine über `/aufgabe` erfasste
+  Aufgabe 21 Tage nach der Erfassung überfällig, ohne dass jemand eine Frist
+  gesetzt hat — und es gibt keinen Weg, diesen Zeitpunkt zu verschieben.
+- **Der Satz ist doppeldeutig, und der Wortlaut bleibt trotzdem.** Bei einer
+  Planaufgabe zählt `seit N Wochen offen` die Wochen **seit der Fälligkeit**, nicht
+  die Liegedauer: vor 60 Tagen angelegt, vor 25 Tagen fällig, angezeigt
+  `seit 3 Wochen offen`. Der Wortlaut steht so in den Akzeptanzkriterien des Epics
+  und in `DESIGN.md` und wird nicht umformuliert — hier steht nur, wie er zu lesen
+  ist.
+- **Der Bezugszeitpunkt entsteht serverseitig in der `load`.** Ein `Date.now()` in
+  der Komponente lief einmal beim Rendern und einmal beim Hydrieren und meldete
+  einen Hydrierungsunterschied; zugleich wird so die ganze Liste an **einer** Uhr
+  gemessen. Der Preis: die Zahl ist so alt wie der letzte Ladevorgang, und kein
+  Timer zieht sie nach.
+- **Der Text trägt die Aussage, die Farbe nie allein.** Bei Farbfehlsichtigkeit
+  oder ausgeschalteter Farbdarstellung steht `seit N Wochen offen` unverändert da.
+  Und **kein Rot**: eine Aufgabe, die vier Wochen liegt, ist kein Fehler und keine
+  Gefahr, und `--danger` bleibt allein dem Zerstörenden vorbehalten.
+- **Kein Abzeichen, keine Umsortierung, keine Eskalation.** Die Zeile bleibt an
+  ihrem nach `created_at` sortierten Platz, der Text bleibt nicht antippbar, und
+  nichts verschwindet — offene Aufgaben verfallen nie. Der Preis: wer wissen will,
+  wie viel liegt, liest die Liste; es gibt keine Zählung und keine Erinnerung.
+- **Beim Abhaken verschwindet die zweite Zeile.** `completed_at IS NULL` ist der
+  erste Konjunkt der Regel, und `seit 4 Wochen offen` unter einer gerade
+  erledigten Aufgabe wäre eine Falschaussage. Beim Wieder-Öffnen kommt sie mit
+  **unveränderter** Zahl zurück, weil das Abhaken kein `invalidateAll()` auslöst —
+  der Preis derselben Entscheidung, die die Zeile an ihrem Platz stehen lässt.
+- **Der zweite Preis ist ein Höhensprung.** Verschwindet die zweite Zeile,
+  schrumpft die Zeile um deren Höhe plus `gap`, und **alle Zeilen darunter rutschen
+  nach oben** — im Moment des Antippens. „Die Zeile bleibt an ihrem Platz stehen,
+  so ist ein Fehlgriff sofort sichtbar" gilt damit nur noch für die angetippte
+  Zeile. Den Platz freizuhalten kostete jede frische Zeile eine Zeilenhöhe, die
+  sie nie zeigt.
+- **Der Satz wird nicht gekappt.** Ein vertipptes Jahr im Feld `Fällig bis`
+  erzeugt `seit ~1900 Wochen offen`, und genau diese absurde Zahl ist das
+  Diagnosesignal. Eine Obergrenze liesse einen Stapel von 1990 aussehen wie einen,
+  der 14 Monate liegt. Der Preis: die Liste kann grotesk aussehen — eine
+  Eingabeschranke am Datumsfeld ist eine eigene, noch offene Produktentscheidung.
+- **Die zweite Zeile ist eine Beschreibung, kein Name.** Sie hängt über
+  `aria-describedby` am Kästchen und liegt ausdrücklich **nicht** in dem Element,
+  auf das `aria-labelledby` zeigt: das Kästchen heisst weiter
+  `<Aufgabentext>, erledigen`, und die Überfälligkeit kommt danach.
+- **Keine Schemaänderung, keine neue Migration** — die Story rechnet auf Spalten,
+  die seit Story 2.1 stehen, und `npm run db:check` meldet weiter „No schema
+  changes".
 
 ## Mitglieder aufnehmen und Zugang beenden
 
@@ -1663,13 +1794,12 @@ nodelay`); im Anwendungscode gibt es bewusst keine. Siehe
 - **Eine Aufgabe bearbeiten oder löschen gibt es nicht.** Ein Tippfehler im
   Aufgabentext bleibt stehen; abhaken ist das Einzige, was bleibt. In keiner
   Story von Epic 1 vorgesehen.
-- Die **Kennzeichnung** überfälliger Aufgaben (`seit N Wochen offen`):
-  **Story 2.2**. Die Spalte `due_at` gibt es seit Story 2.1 und sie steht in den
-  Seitendaten von `/`, aber gerechnet wird noch nichts, die Liste sieht
-  unverändert aus, und `--overdue` ist ein noch unbenutztes Token.
 - Eine Aufgabe **nachträglich** mit einer Frist versehen gibt es nicht: `due_at`
   entsteht beim Ablegen des Stapels und sonst nirgends. `/aufgabe` bekommt kein
-  Datumsfeld.
+  Datumsfeld. Das heisst nicht, dass eine so erfasste Aufgabe nie überfällig
+  wird: sie wird es 21 Tage nach ihrer **Erfassung**, weil die Frist ersatzweise
+  ab `created_at` zählt — ohne dass jemand ein Datum gesetzt hat und ohne dass es
+  einen Weg gäbe, diesen Zeitpunkt zu verschieben.
 - Diensthinweis und freie Einzelaufgaben, also Block 1 und 2 auf `/`: **Epic 3**.
   Die Reihenfolge ist angelegt, die Blöcke rendern nichts.
 - Es gibt bewusst keinen Service Worker: `static/manifest.webmanifest` und die

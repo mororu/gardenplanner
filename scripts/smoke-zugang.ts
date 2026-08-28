@@ -69,9 +69,27 @@ import { datenbank, datenschichtStarten } from '../src/lib/server/db/index.ts';
 import { members, ohneTokenHash, tasks } from '../src/lib/server/db/schema.ts';
 import type { AngemeldetesMitglied, NewTask } from '../src/lib/server/db/schema.ts';
 import { mitgliedAnlegen, mitgliederZaehlen } from '../src/lib/server/db/queries/members.ts';
-import { aufgabenStapelAnlegen } from '../src/lib/server/db/queries/tasks.ts';
+import {
+	aufgabenStapelAnlegen,
+	offeneAufgabenAuflisten,
+} from '../src/lib/server/db/queries/tasks.ts';
 import { tokenErzeugen, tokenHashen } from '../src/lib/server/token.ts';
-import { monatsendeAlsFeldwert, tagesendeInUnixSekunden } from '../src/lib/zeit.ts';
+/*
+ * Aus zeit.ts kommen seit Story 2.2 fünf Werte herein, und zwei davon sind
+ * Grössen und keine Funktionen: die Schwelle und die Woche. Die Zeilen der
+ * Überfälligkeitsmatrix werden **relativ zu ihnen** gesät, und der Tag wird aus
+ * der Woche gerechnet. Eine 21 oder eine 604800 im Prüfskript wäre eine zweite
+ * Wahrheit über dieselbe Produktentscheidung — und eine Prüfliste, die grün
+ * bleibt, wenn jemand die Schwelle in zeit.ts verschiebt, prüfte die falsche
+ * Zusage.
+ */
+import {
+	monatsendeAlsFeldwert,
+	tagesendeInUnixSekunden,
+	UEBERFAELLIG_SEKUNDEN,
+	WOCHE_SEKUNDEN,
+	wochenOffenSeit,
+} from '../src/lib/zeit.ts';
 /*
  * zeilenErkennen kommt als **Wert** herein und nicht nur als Text: die Zahl
  * unter dem Textfeld auf /monatsplan ist eine Zusage der Akzeptanzkriterien
@@ -98,7 +116,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 349;
+const ERWARTETE_BEHAUPTUNGEN = 373;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -3751,6 +3769,530 @@ try {
 		'und `Nichts zu verwalten.` ist fort — die Liste ist nie mehr leer',
 		!/Nichts zu verwalten/.test(mehrCode) && !/class="leer"/.test(mehrCode),
 		mehrCode.slice(verwaltungsVon < 0 ? 0 : verwaltungsVon, 400)
+	);
+
+	// =======================================================================
+	// / — Story 2.2: überfällige Aufgaben erkennen.
+	//
+	// Jede Zeile der I/O-Matrix ausgeführt. Der Block steht ganz **am Ende** der
+	// Prüfliste, und das ist keine Bequemlichkeit: er sät Aufgaben mit
+	// Zeitstempeln von bis zu 60 Tagen, und die stehen nach created_at **vor**
+	// allen bisher gesäten. Weiter oben eingefügt machte er die vier
+	// Sortierbehauptungen mit ihren festen Id-Ketten rot, ohne dass an der
+	// Sortierung etwas falsch wäre.
+	//
+	// Gemessen wird zweimal, und die zwei Messungen haben verschiedene Aufgaben:
+	//
+	//   - **gegen offeneAufgabenAuflisten mit fester Uhr**: dort ist jede Zeile
+	//     der Matrix auf die Sekunde genau prüfbar, insbesondere die Schwelle
+	//     selbst. Es ist derselbe Codeweg, den die load nimmt — sie gibt nichts
+	//     hinein als diese eine Zahl.
+	//   - **gegen die load von /**: dort läuft die echte Uhr. Ihre Sekunde lässt
+	//     sich nicht festhalten, und tickt sie zwischen dem Säen und dem Laden
+	//     über die Grenze, wäre eine Behauptung „genau an der Schwelle → null"
+	//     gelegentlich rot, ohne dass etwas kaputt ist. Alle Zeilen hier liegen
+	//     darum fern jeder Wochengrenze; die eine, die es nicht kann, trägt eine
+	//     ausdrücklich benannte Toleranz.
+	//
+	// Zwei Zeilen der Matrix — „in dieser Sitzung abgehakt" und „in derselben
+	// Sitzung wieder geöffnet" — sind Verhalten im Browser und von keinem
+	// ausgeführten Werkzeug dieses Projekts gedeckt (deferred-work.md). Sie
+	// hängen an genau einer Textstelle und stehen darum als **Textprüfung** am
+	// Ende dieses Blocks, ausdrücklich als solche benannt.
+	// =======================================================================
+	/*
+	 * Der Tag wird aus der **importierten** Woche abgeleitet und nicht als
+	 * `24 * 60 * 60` daneben geschrieben. Der Grund ist derselbe, den der
+	 * Importkommentar oben für die Schwelle nennt: eine Grösse, die in zeit.ts
+	 * schon steht, ein zweites Mal hier zu deklarieren, ist eine zweite Wahrheit.
+	 * Die Matrixzeilen sind darum in Wochen und in daraus gerechneten Tagen gesät.
+	 */
+	const TAG_SEKUNDEN = WOCHE_SEKUNDEN / 7;
+
+	/*
+	 * wochenOffenSeit an **festen** Zeitpunkten — der einzige Ort, an dem die
+	 * strikte Grenze auf die Sekunde prüfbar ist.
+	 *
+	 * Die Erwartungswerte stehen als Literale da und kommen nicht aus der
+	 * geprüften Funktion. Die 3 in der zweiten Zeile ist zugleich die Begründung
+	 * dafür, dass `seit N Wochen offen` keine Beugungsregel braucht: sie ist der
+	 * **kleinste** mögliche Rückgabewert, ein Singular kann nicht auftreten.
+	 * Gemessen, nicht vermutet: ersetzt man das `<=` in wochenOffenSeit durch ein
+	 * `<`, wird die erste Zeile rot — genau an der Schwelle ist eine Aufgabe noch
+	 * nicht überfällig.
+	 */
+	const PROBE_JETZT = Math.floor(Date.UTC(2026, 7, 28, 12) / 1000);
+	for (const [wie, bezug, soll] of [
+		['genau an der Schwelle mit null', PROBE_JETZT - UEBERFAELLIG_SEKUNDEN, null],
+		['eine Sekunde darüber mit 3', PROBE_JETZT - UEBERFAELLIG_SEKUNDEN - 1, 3],
+		['bei negativer Differenz mit null', PROBE_JETZT + 5 * TAG_SEKUNDEN, null],
+	] as const) {
+		pruefenGleich(`wochenOffenSeit antwortet ${wie}`, wochenOffenSeit(bezug, PROBE_JETZT), soll);
+	}
+
+	/*
+	 * Die Saat: sieben offene Aufgaben, eine erledigte.
+	 *
+	 * Der Bezug ist einmal created_at und einmal due_at, und zwei Zeilen fahren
+	 * beide gegeneinander aus: `planVorFrist` liegt 29 Tage, ist aber erst in
+	 * fünf Tagen fällig (die Monatsplan-Ausnahme), und `planNachFrist` liegt 60
+	 * Tage bei einer Fälligkeit vor 25 — dort muss 3 herauskommen und nicht 8,
+	 * sonst gewinnt created_at über due_at.
+	 *
+	 * `BEZUG_1990` ist **unabhängig** gerechnet und kommt nicht aus
+	 * tagesendeInUnixSekunden: der 1. Januar 1990 liegt in der Winterzeit
+	 * (UTC+1), sein Tagesende 23:59:59 Ortszeit ist also 22:59:59 UTC. Über die
+	 * Funktion gerechnet läse diese Behauptung nur ihre eigene Vorbereitung.
+	 */
+	const jetztFest = Math.floor(Date.now() / 1000);
+	const BEZUG_1990 = Math.floor(Date.UTC(1990, 0, 1, 22, 59, 59) / 1000);
+	const wochen1990 = Math.floor((jetztFest - BEZUG_1990) / WOCHE_SEKUNDEN);
+
+	const anSchwelle = aufgabeSaen('Beet 4 hacken', jetztFest - UEBERFAELLIG_SEKUNDEN);
+	const knappDarueber = aufgabeSaen('Beet 5 hacken', jetztFest - UEBERFAELLIG_SEKUNDEN - 1);
+	const vierteWoche = aufgabeSaen('Himbeeren aufbinden', jetztFest - 4 * WOCHE_SEKUNDEN);
+	const ohneFrist = aufgabeSaen('Schnecken sammeln', jetztFest - 30 * TAG_SEKUNDEN);
+	const planVorFrist = aufgabeSaen(
+		'Zwiebeln stecken',
+		jetztFest - 29 * TAG_SEKUNDEN,
+		jetztFest + 5 * TAG_SEKUNDEN
+	);
+	const planNachFrist = aufgabeSaen(
+		'Hecke schneiden',
+		jetztFest - 60 * TAG_SEKUNDEN,
+		jetztFest - 25 * TAG_SEKUNDEN
+	);
+	const vertipptesJahr = aufgabeSaen('Rasen mähen', jetztFest - 5 * TAG_SEKUNDEN, BEZUG_1990);
+	const laengstErledigt = aufgabeSaen('Kürbis ernten, Beet 1', jetztFest - 40 * TAG_SEKUNDEN);
+	/*
+	 * Die erledigte Zeile bekommt ihre zwei Spalten direkt und nicht über
+	 * aufgabeAbhaken: die action setzte den Zeitstempel auf **jetzt**, und die
+	 * Zeile wäre dann eine gerade erledigte statt einer, die seit 40 Tagen läge.
+	 * Gate-Regel 9 verbietet den direkten Zugriff nur unter src/routes/.
+	 *
+	 * **Beide** Spalten, und das ist keine Sorgfaltsübung: aufgabeAbhaken setzt in
+	 * Produktion immer completed_by **und** completed_at, ein Zustand mit nur
+	 * einem der beiden kommt in der Anwendung nicht vor. Mit leerem completed_by
+	 * wäre die Behauptung „eine erledigte Aufgabe steht gar nicht in der Liste"
+	 * auch gegen eine Abfrage grün, die versehentlich auf completed_by filtert —
+	 * sie prüfte dann einen Zustand, den es nicht gibt.
+	 */
+	datenbank()
+		.update(tasks)
+		.set({ completedBy: nico.id, completedAt: jetztFest - 30 * TAG_SEKUNDEN })
+		.where(eq(tasks.id, laengstErledigt))
+		.run();
+
+	const mitFesterUhr = new Map(
+		offeneAufgabenAuflisten(jetztFest).map((zeile) => [zeile.id, zeile.wochenOffen])
+	);
+	for (const [wie, id, soll] of [
+		['genau an der Schwelle keine Zahl trägt', anSchwelle, null],
+		['eine Sekunde darüber bei 3 anfängt', knappDarueber, 3],
+		['in der vollen vierten Woche 4 sagt', vierteWoche, 4],
+		['ohne Frist ab created_at zählt', ohneFrist, 4],
+		['mit Fälligkeit in der Zukunft keine Zahl trägt', planVorFrist, null],
+		['nach der Fälligkeit ab due_at zählt und nicht ab created_at', planNachFrist, 3],
+		['ein vertipptes Jahr ungekappt durchreicht', vertipptesJahr, wochen1990],
+	] as const) {
+		pruefenGleich(`offeneAufgabenAuflisten ${wie}`, mitFesterUhr.get(id), soll);
+	}
+	/*
+	 * Der erste Konjunkt von AD-8, und die Behauptung prüft **auch ihre eigene
+	 * Vorbereitung**: dass die Zeile wirklich in dem Zustand steht, den
+	 * aufgabeAbhaken in Produktion herstellt. Ohne diesen ersten Punkt liesse sich
+	 * die Saat still auf einen unmöglichen Zustand verkürzen (nur completed_at),
+	 * und die Zeile behauptete etwas über eine Zeile, die es so nie gibt.
+	 */
+	const erledigteZeile = aufgabeLesen(laengstErledigt);
+	const erledigtTeile = [
+		[
+			'die Saat trägt beide Erledigt-Spalten, wie aufgabeAbhaken sie setzt',
+			erledigteZeile?.completedBy === nico.id &&
+				erledigteZeile?.completedAt === jetztFest - 30 * TAG_SEKUNDEN,
+		],
+		['und die Zeile steht nicht in der Liste', !mitFesterUhr.has(laengstErledigt)],
+	] as const;
+	pruefen(
+		'eine erledigte Aufgabe steht gar nicht in der Liste — der erste Konjunkt von AD-8',
+		fehlendeTeile(erledigtTeile).length === 0,
+		`verletzt: ${fehlendeTeile(erledigtTeile).join(', ')}`
+	);
+	/*
+	 * Die Kappung, die es nicht gibt. Ohne diese Zeile wäre ein
+	 * `Math.min(wochen, 52)` in wochenOffenSeit grün, solange die Tabelle oben nur
+	 * gegen `wochen1990` vergleicht — die absurde Zahl **ist** das Diagnosesignal
+	 * für ein vertipptes Jahresfeld, und eine Obergrenze liesse einen Stapel von
+	 * 1990 aussehen wie einen, der 14 Monate liegt.
+	 */
+	pruefen(
+		'und die Zahl aus dem vertippten Jahr liegt über 1800 Wochen',
+		wochen1990 > 1800,
+		`${wochen1990} Wochen`
+	);
+
+	/*
+	 * **Die Sortierung reagiert nicht auf Überfälligkeit.** Die sieben Ids laufen
+	 * in der Einfügereihenfolge aufsteigend, ihre created_at aber in einer ganz
+	 * anderen — und die zwei Zeilen ohne Zahl (anSchwelle, planVorFrist) stehen
+	 * mitten drin. „Überfällige zuerst" und „nach Id" sind damit beide rot.
+	 * Geprüft wird nur die relative Reihenfolge der hier gesäten Zeilen; die
+	 * älteren aus den Blöcken davor stehen dahinter und gehören nicht zur Zusage.
+	 */
+	const gesaeteIds = new Set([
+		anSchwelle,
+		knappDarueber,
+		vierteWoche,
+		ohneFrist,
+		planVorFrist,
+		planNachFrist,
+		vertipptesJahr,
+	]);
+	pruefenGleich(
+		'überfällige Zeilen stehen an ihrem nach created_at sortierten Platz, nicht oben',
+		offeneAufgabenAuflisten(jetztFest)
+			.map((zeile) => zeile.id)
+			.filter((id) => gesaeteIds.has(id))
+			.join(' | '),
+		`${planNachFrist} | ${ohneFrist} | ${planVorFrist} | ${vierteWoche} | ${knappDarueber} | ${anSchwelle} | ${vertipptesJahr}`
+	);
+
+	// -----------------------------------------------------------------------
+	// Dieselben Zeilen, gemessen an der echten Uhr der load
+	// -----------------------------------------------------------------------
+	const ueberfaelligLaden = await startseiteLadenAn('/');
+	const nachUeberfaelligLoad = Math.floor(Date.now() / 1000);
+	const ausLoad = new Map(
+		((wertVon(ueberfaelligLaden).aufgaben ?? []) as { id: number; wochenOffen?: unknown }[]).map(
+			(zeile) => [zeile.id, zeile.wochenOffen]
+		)
+	);
+	pruefenGleich(
+		'die load von / reicht wochenOffen heraus — dieselben Zahlen an der echten Uhr',
+		[knappDarueber, vierteWoche, ohneFrist, planVorFrist, planNachFrist]
+			.map((id) => `${id}:${JSON.stringify(ausLoad.get(id))}`)
+			.join(' | '),
+		[
+			`${knappDarueber}:3`,
+			`${vierteWoche}:4`,
+			`${ohneFrist}:4`,
+			`${planVorFrist}:null`,
+			`${planNachFrist}:3`,
+		].join(' | ')
+	);
+	/*
+	 * Die eine Zeile mit einer **benannten** Toleranz, und sie ist so schmal wie
+	 * möglich: steht die Uhr der load noch auf derselben Sekunde wie die Saat, ist
+	 * `null` die einzige zugelassene Antwort. Erst wenn nachweislich eine Sekunde
+	 * getickt ist, kommt die 3 dazu — dann ist sie richtig. Die exakte Grenze
+	 * belegen die drei Aufrufe von wochenOffenSeit oben und die feste Uhr darüber;
+	 * hier soll sie nur nicht als Zufallsprobe stehen.
+	 */
+	const erlaubtSchwelle: unknown[] = nachUeberfaelligLoad === jetztFest ? [null] : [null, 3];
+	pruefen(
+		'und die Zeile an der Schwelle trägt auch dort keine Zahl',
+		erlaubtSchwelle.includes(ausLoad.get(anSchwelle)),
+		`war ${JSON.stringify(ausLoad.get(anSchwelle))}, erlaubt ${JSON.stringify(erlaubtSchwelle)} — gesät bei ${jetztFest}, geladen bis ${nachUeberfaelligLoad}`
+	);
+	pruefen(
+		'und die Seitendaten tragen weiterhin weder completed_by noch completed_at',
+		!nenntErledigt(wertVon(ueberfaelligLaden)),
+		JSON.stringify(wertVon(ueberfaelligLaden)).slice(0, 160)
+	);
+
+	// -----------------------------------------------------------------------
+	// Fünf Textprüfungen an src/routes/+page.svelte — als solche benannt
+	// -----------------------------------------------------------------------
+	/*
+	 * Sie laufen auf `startseitenCode`, also auf der Datei **ohne** Kommentare:
+	 * die Komponente erklärt an jeder dieser Stellen ausführlich, was dort zu
+	 * stehen hat — sie nennt `!istErledigt`, `seit 4 Wochen offen`, das
+	 * abhaken-Kästchen und die verbotene Verschachtelung wörtlich. Auf dem Rohtext
+	 * hätten sich die Behauptungen an der eigenen Begründung erfüllt.
+	 *
+	 * Drei von ihnen greifen ausdrücklich **nicht** über die ganze Datei, sondern
+	 * über einen geschnittenen Bereich — ein Formular, den Spaltencontainer, einen
+	 * Regelrumpf. Der Grund ist gemessen und nicht vermutet: eine Suche über die
+	 * ganze Datei sagt nichts über Elementzugehörigkeit und nichts über
+	 * Reihenfolge, und zwei Mutationen liefen damit grün durch die ganze Kette.
+	 * Sie stehen unten an ihrer jeweiligen Behauptung.
+	 */
+
+	/** Der Rumpf des ersten `<form>`-Elements mit dieser literalen action, oder ''. */
+	const formularMit = (quelle: string, aktion: string): string => {
+		const stelle = quelle.indexOf(`action="?/${aktion}"`);
+		if (stelle < 0) return '';
+		const auf = quelle.lastIndexOf('<form', stelle);
+		const zu = quelle.indexOf('</form>', stelle);
+		return auf < 0 || zu < 0 ? '' : quelle.slice(auf, zu);
+	};
+
+	/** Der geglättete Rumpf einer CSS-Regel, oder '' — kein irreführendes -1. */
+	const regelRumpf = (quelle: string, selektor: string): string => {
+		const stelle = quelle.indexOf(`${selektor} {`);
+		return stelle < 0 ? '' : glatterRumpf(quelle, stelle);
+	};
+
+	/*
+	 * Die Bedingung. Sie deckt die zwei Matrixzeilen ab, die eine Sitzung
+	 * brauchen: abgehakt (die zweite Zeile verschwindet) und in derselben Sitzung
+	 * wieder geöffnet (sie kommt mit unveränderter Zahl zurück, weil `data` nie neu
+	 * geladen wird).
+	 */
+	const fristTeile = [
+		[
+			'die Bedingung hängt an !istErledigt und an wochenOffen',
+			/\{@const istUeberfaellig = !istErledigt && aufgabe\.wochenOffen !== null\}/.test(
+				startseitenCode
+			),
+		],
+		[
+			'die zweite Zeile hängt an derselben Bedingung',
+			/\{#if istUeberfaellig\}/.test(startseitenCode),
+		],
+	] as const;
+	pruefen(
+		'die Überfälligkeitszeile hängt an !istErledigt und verschwindet beim Abhaken',
+		fehlendeTeile(fristTeile).length === 0,
+		`fehlt: ${fehlendeTeile(fristTeile).join(', ')}`
+	);
+
+	/*
+	 * **Die Beschreibung hängt am richtigen Kästchen**, und geprüft wird das je
+	 * Formular und nicht über die Datei.
+	 *
+	 * Gemessen: schiebt man das `aria-describedby` vom abhaken- auf das
+	 * wiederOeffnen-Kästchen, bleibt eine Suche über die ganze Datei grün — dort
+	 * ist `istUeberfaellig` aber konstruktionsbedingt immer false (es enthält
+	 * `!istErledigt`, und das Formular rendert nur bei `istErledigt`), das Attribut
+	 * wird nie ausgegeben, und eine überfällige Aufgabe verliert ihre Beschreibung
+	 * vollständig. Darum: im abhaken-Formular muss es stehen, im
+	 * wiederOeffnen-Formular darf es nicht vorkommen.
+	 */
+	const abhakenFormular = formularMit(startseitenCode, 'abhaken');
+	const wiederOeffnenFormular = formularMit(startseitenCode, 'wiederOeffnen');
+	const beschreibungTeile = [
+		[
+			'beide Formularbereiche sind geschnitten',
+			abhakenFormular !== '' && wiederOeffnenFormular !== '',
+		],
+		[
+			'aria-describedby steht im Formular mit action="?/abhaken"',
+			/aria-describedby=\{istUeberfaellig \? `frist-\$\{aufgabe\.id\}` : undefined\}/.test(
+				abhakenFormular
+			),
+		],
+		[
+			'und kommt im wiederOeffnen-Formular nicht vor',
+			wiederOeffnenFormular !== '' && !/aria-describedby/.test(wiederOeffnenFormular),
+		],
+	] as const;
+	pruefen(
+		'aria-describedby sitzt am abhaken-Kästchen und nirgends sonst',
+		fehlendeTeile(beschreibungTeile).length === 0,
+		`fehlt: ${fehlendeTeile(beschreibungTeile).join(', ')}`
+	);
+
+	/*
+	 * **Die zweite Zeile steht unter dem Text, nicht über ihm** — und sie steht im
+	 * Spaltencontainer.
+	 *
+	 * Gemessen: stellt man den `{#if istUeberfaellig}`-Block **vor** den
+	 * Aufgabentext, bleibt jede Suche über die ganze Datei grün, und
+	 * `seit N Wochen offen` steht über der Aufgabe. Behauptet wird darum die
+	 * Reihenfolge **innerhalb** des geschnittenen Containers. Der erste `</div>`
+	 * nach dem Container schliesst ihn auch: darin liegen nur ein <span> und ein
+	 * <p>, kein weiteres <div>.
+	 */
+	const spalteVon = startseitenCode.indexOf('<div class="zeile__spalte">');
+	const spalteBis = spalteVon < 0 ? -1 : startseitenCode.indexOf('</div>', spalteVon);
+	const spaltenRumpf =
+		spalteVon < 0 || spalteBis < 0 ? '' : startseitenCode.slice(spalteVon, spalteBis);
+	const textStelle = spaltenRumpf.indexOf('<span class="zeile__text"');
+	const fristStelle = spaltenRumpf.indexOf('<p class="zeile__frist"');
+	const reihenfolgeTeile = [
+		['der Spaltencontainer ist geschnitten', spaltenRumpf !== ''],
+		['der Aufgabentext liegt darin', textStelle >= 0],
+		['das <p> liegt darin und nicht daneben', fristStelle >= 0],
+		[
+			'und der Aufgabentext kommt vor dem <p>',
+			textStelle >= 0 && fristStelle >= 0 && textStelle < fristStelle,
+		],
+	] as const;
+	pruefen(
+		'die Überfälligkeitszeile steht im Spaltencontainer unter dem Aufgabentext',
+		fehlendeTeile(reihenfolgeTeile).length === 0,
+		`fehlt: ${fehlendeTeile(reihenfolgeTeile).join(', ')}`
+	);
+
+	/*
+	 * **Die Regel, die das „unter" überhaupt herstellt.** Ohne sie war der
+	 * Spaltencontainer von keiner Behauptung berührt: nimmt man
+	 * `flex-direction: column` heraus, steht die zweite Zeile wieder **neben** dem
+	 * Text, und die Reihenfolgeprüfung darüber bleibt grün, weil sie den DOM und
+	 * nicht das Layout liest.
+	 */
+	const spaltenRegel = regelRumpf(startseitenCode, '.zeile__spalte');
+	const spaltenRegelTeile = [
+		['die Regel .zeile__spalte steht im <style>', spaltenRegel !== ''],
+		['sie ist ein Flexcontainer', /display: flex;/.test(spaltenRegel)],
+		['in Spaltenrichtung', /flex-direction: column;/.test(spaltenRegel)],
+		['mit gap aus --space-1', /gap: var\(--space-1\);/.test(spaltenRegel)],
+		['und sie darf schrumpfen', /min-width: 0;/.test(spaltenRegel)],
+	] as const;
+	pruefen(
+		'.zeile__spalte stellt die Spalte her — column, gap und min-width',
+		fehlendeTeile(spaltenRegelTeile).length === 0,
+		`fehlt: ${fehlendeTeile(spaltenRegelTeile).join(', ')}`
+	);
+
+	/*
+	 * Die Gestaltung der zweiten Zeile. Der Fund der Regel ist der **erste**
+	 * Punkt der Liste und nicht bloss eine Wache am Abzeichen-Punkt: bei
+	 * umbenannter Klasse ist der Rumpf leer, jeder Regex darauf falsch, und die
+	 * Meldung sagte sonst „die Farbe kommt aus --overdue fehlt", obwohl die Regel
+	 * schlicht nicht gefunden wurde.
+	 */
+	const fristRegel = regelRumpf(startseitenCode, '.zeile__frist');
+	const gestaltungsTeile = [
+		['die Regel .zeile__frist steht im <style>', fristRegel !== ''],
+		[
+			'ein <p> mit Klasse und Id',
+			/<p class="zeile__frist" id="frist-\{aufgabe\.id\}">/.test(startseitenCode),
+		],
+		[
+			'der Satz steht wörtlich im Markup',
+			/seit \{aufgabe\.wochenOffen\} Wochen offen/.test(startseitenCode),
+		],
+		['die Farbe kommt aus --overdue', /color: var\(--overdue\);/.test(fristRegel)],
+		['die Grösse aus der meta-Rolle', /font-size: var\(--meta-size\);/.test(fristRegel)],
+		[
+			'kein Abzeichen: keine Fläche, kein Rahmen, kein Radius, kein Innenabstand',
+			fristRegel !== '' && !/background|border|radius|padding/.test(fristRegel),
+		],
+		[
+			'und der Aufgabentext bleibt allein in #aufgabe-{id}',
+			/<span class="zeile__text" id="aufgabe-\{aufgabe\.id\}">\{aufgabe\.text\}<\/span>/.test(
+				startseitenCode
+			),
+		],
+	] as const;
+	pruefen(
+		'die zweite Zeile ist ein <p> in Lehmbraun, trägt den Text und liegt nicht im Namen des Kästchens',
+		fehlendeTeile(gestaltungsTeile).length === 0,
+		`fehlt: ${fehlendeTeile(gestaltungsTeile).join(', ')}`
+	);
+
+	// -----------------------------------------------------------------------
+	// Drei Behauptungen über den Baum
+	// -----------------------------------------------------------------------
+	/*
+	 * Alle drei laufen auf dem **kommentarfreien** Text. Der Grund steht in
+	 * queries/tasks.ts und in schema.ts: die Docblocks dort nennen `is_overdue`,
+	 * Cron und Hintergrundjob wörtlich, weil sie begründen, warum es sie nicht
+	 * gibt — auf dem Rohtext wären die Behauptungen an dieser Begründung rot
+	 * geworden.
+	 *
+	 * Gelesen wird src/, drizzle/ **und scripts/**. Das dritte ist keine
+	 * Vollständigkeitsübung: der Importkommentar oben nennt genau dieses Skript
+	 * als den Ort, an dem eine zweite 21 am leichtesten entsteht, und eine
+	 * Baumsuche, die es auslässt, prüfte alles ausser der eigentlichen Gefahr.
+	 */
+	const baumdateien = (verzeichnis: string) =>
+		existsSync(verzeichnis)
+			? readdirSync(verzeichnis, { recursive: true, withFileTypes: true })
+					.filter((eintrag) => eintrag.isFile())
+					.map((eintrag) => join(eintrag.parentPath, eintrag.name))
+			: [];
+	const baum = [
+		...baumdateien(join(wurzel, 'src')),
+		...baumdateien(join(wurzel, 'drizzle')),
+		...baumdateien(join(wurzel, 'scripts')),
+	].map((datei) => ({
+		pfad: datei.slice(wurzel.length),
+		text: kommentarfrei(readFileSync(datei, 'utf8')),
+	}));
+	const ZEIT_MODUL = join('src', 'lib', 'zeit.ts');
+
+	/*
+	 * **Die Schwelle steht genau einmal**, und die Behauptung deckt beide Formen
+	 * ab, in denen eine zweite entstehen könnte: eine zweite Deklaration der
+	 * Konstante und ein nackter Ausdruck daneben. Die Spec-Zusage lautet „keine
+	 * zweite 21 irgendwo", und ein `21 * 24 * 60 * 60` oder ein ausgerechnetes
+	 * 1814400 in einer Route wäre genau das — von der Deklarationssuche allein
+	 * aber unbemerkt. Beide Muster sind ausserhalb von zeit.ts verboten; in
+	 * zeit.ts kommt seit dem Umschreiben auf `3 * WOCHE_SEKUNDEN` selbst keines
+	 * davon mehr vor.
+	 */
+	const SCHWELLE_ROH = /21\s*\*\s*24\s*\*\s*60\s*\*\s*60|\b1814400\b|3\s*\*\s*WOCHE_SEKUNDEN/;
+	const schwelleTeile = [
+		[
+			'genau eine Deklaration, und zwar in src/lib/zeit.ts',
+			baum
+				.filter((datei) => /UEBERFAELLIG_SEKUNDEN\s*=/.test(datei.text))
+				.map((datei) => datei.pfad)
+				.join(', ') === ZEIT_MODUL,
+		],
+		[
+			'kein nackter 21-Tage-Ausdruck ausserhalb von zeit.ts',
+			!baum.some((datei) => datei.pfad !== ZEIT_MODUL && SCHWELLE_ROH.test(datei.text)),
+		],
+		['und der Baum wurde wirklich gelesen', baum.length > 30],
+	] as const;
+	pruefen(
+		'die Schwelle steht in src/, drizzle/ und scripts/ genau einmal — als Konstante und als Zahl',
+		fehlendeTeile(schwelleTeile).length === 0,
+		`verletzt: ${fehlendeTeile(schwelleTeile).join(', ')}`
+	);
+
+	/*
+	 * **Keine Überfälligkeitsspalte** — und die Behauptung ist genau so weit
+	 * gefasst, wie sie tragen kann. Gesucht wird in der Schemadatei und in der
+	 * Migrationskette, nicht im ganzen Baum: `--overdue` ist ein Farbtoken in
+	 * src/app.html und `var(--overdue)` steht in der Komponente, eine Suche nach
+	 * `overdue` über src/ wäre also von der richtigen Lösung rot. Mitgesucht wird
+	 * die deutsche Benennung, weil eine Spalte `ueberfaellig_seit` dieselbe zweite
+	 * Wahrheit wäre wie ein englisches is_overdue.
+	 */
+	const SPALTENVERBOT = /is_?overdue|overdue|ueberfaellig|überfällig/i;
+	const schemadateien = baum.filter(
+		(datei) =>
+			datei.pfad === join('src', 'lib', 'server', 'db', 'schema.ts') || datei.pfad.endsWith('.sql')
+	);
+	const spaltenTeile = [
+		['Schema und Migrationen sind gelesen', schemadateien.length >= 4],
+		[
+			'keine Spalte, die Überfälligkeit speichert',
+			!schemadateien.some((datei) => SPALTENVERBOT.test(datei.text)),
+		],
+	] as const;
+	pruefen(
+		'weder das Schema noch die Migrationskette kennt eine Überfälligkeitsspalte',
+		fehlendeTeile(spaltenTeile).length === 0,
+		`verletzt: ${fehlendeTeile(spaltenTeile).join(', ')}`
+	);
+
+	/*
+	 * **Kein Timer zieht die Zahl nach.** Die Zusage nennt keinen bestimmten
+	 * Aufruf, sondern jeden Weg, auf dem die Wochenzahl sich ohne Ladevorgang
+	 * ändern könnte — `setInterval` ist nur der naheliegendste. Gesucht wird
+	 * darum in src/ nach allen fünf Terminplanern, die eine Browser- oder
+	 * Node-Umgebung anbietet; scripts/ ist ausgenommen, weil ein Prüfskript
+	 * legitim warten dürfte und die Zusage über die Anwendung spricht.
+	 */
+	const TERMINPLANER = /setInterval|setTimeout|setImmediate|requestAnimationFrame|queueMicrotask/;
+	const anwendung = baum.filter((datei) => datei.pfad.startsWith(join('src', '')));
+	const timerTeile = [
+		['src/ ist gelesen', anwendung.length > 20],
+		[
+			'kein Terminplaner in der Anwendung',
+			!anwendung.some((datei) => TERMINPLANER.test(datei.text)),
+		],
+	] as const;
+	pruefen(
+		'kein Timer in src/ zieht die Wochenzahl nach — sie entsteht allein in der load',
+		fehlendeTeile(timerTeile).length === 0,
+		`verletzt: ${fehlendeTeile(timerTeile).join(', ')}`
 	);
 } catch (fehler) {
 	/*
