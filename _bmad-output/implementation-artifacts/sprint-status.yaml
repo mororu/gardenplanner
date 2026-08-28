@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-26-2026 13:20
-last_updated: 08-28-2026 09:20
+last_updated: 08-28-2026 10:30
 project: Gemeinschaftsgarten
 project_key: NOKEY
 tracking_system: file-system
@@ -47,7 +47,7 @@ development_status:
   epic-2: done
   2-1-monatsplan-in-einem-zug-ablegen: done
   2-2-überfällige-aufgaben-erkennen: done
-  epic-2-retrospective: optional
+  epic-2-retrospective: done
 
   epic-3: backlog
   3-1-dienstplan-mit-namen-und-laufender-woche: backlog
@@ -62,7 +62,7 @@ action_items:
     epic: 1
     action: "imFlug-Freigabe auf / und /verwaltung in try/finally fassen (B1)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
   - id: "epic-1-retro-item-2-fehlersatz-in-verwaltung-page-svelte-imm"
     epic: 1
@@ -148,3 +148,114 @@ action_items:
     owner: "Manuel"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
+  - id: "epic-2-retro-item-15-fehlersatz-in-verwaltung-page-svelte-345"
+    epic: 2
+    action: "Fehlersatz in verwaltung/+page.svelte:345-346 immer ins DOM, mit role=alert
+      und aria-live=assertive (M2)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
+  - id: "epic-2-retro-item-16-geteilte-stile-seite-seitentitel-fehler"
+    epic: 2
+    action: "Geteilte Stile (.seite, .seitentitel, .fehler, .live:empty) nach bedienelemente.css
+      ziehen, Gap-Drift in verwaltung:455 aufloesen (D1)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
+  - id: "epic-2-retro-item-17-die-vier-abweisen-signaturen-auf-eine-fo"
+    epic: 2
+    action: "Die vier abweisen-Signaturen auf eine Form bringen, Vorlage ist /monatsplan
+      (D2)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
+  - id: "epic-2-retro-item-18-entwicklerkommentar-aus-src-app-html-13"
+    epic: 2
+    action: "Entwicklerkommentar aus src/app.html:13-28 entfernen, Gate-Regel 12 auf
+      ausgelieferte Entwicklerprosa erweitern (S4)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
+  - id: "epic-2-retro-item-19-namenspruefung-in-scripts-create-admin-t"
+    epic: 2
+    action: "Namenspruefung in scripts/create-admin.ts:43 an die UI-Kette angleichen
+      (Epic-1-Punkt 3)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
+  - id: "epic-2-retro-item-20-reihenfolgefalle-in-smoke-zugang-ts-ents"
+    epic: 2
+    action: "Reihenfolgefalle in smoke-zugang.ts entschaerfen, bevor Epic 3 Behauptungen
+      anhaengt (G2)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
+  - id: "epic-2-retro-item-21-entscheid-plausibilitaetsschranke-an-fae"
+    epic: 2
+    action: "Entscheid: Plausibilitaetsschranke an Faellig bis - abweisen, warnen
+      oder Obergrenze (S1)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
+  - id: "epic-2-retro-item-22-entscheid-wortlaut-seit-n-wochen-offen-g"
+    epic: 2
+    action: "Entscheid: Wortlaut seit N Wochen offen gegen seit N Wochen ueberfaellig
+      (S2)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
+  - id: "epic-2-retro-item-23-entscheid-pruefwerkzeug-in-die-architekt"
+    epic: 2
+    action: "Entscheid: Pruefwerkzeug in die Architektur aufnehmen oder zurueckbauen,
+      6512 Zeilen (G1)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
+  - id: "epic-2-retro-item-24-src-lib-zeit-ts-und-src-lib-aufgabentext"
+    epic: 2
+    action: "src/lib/zeit.ts und src/lib/aufgabentext.ts in den Quellbaum der ARCHITECTURE-SPINE.md
+      aufnehmen (A1)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
+  - id: "epic-2-retro-item-25-experience-md-79-101-von-colors-warn-auf"
+    epic: 2
+    action: "EXPERIENCE.md:79,101 von {colors.warn} auf {colors.overdue} korrigieren,
+      :102 fuer Epic 3 mitentscheiden (S3)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
+  - id: "epic-2-retro-item-26-offene-plan-ist-abweichungen-aus-epic-1"
+    epic: 2
+    action: "Offene Plan-Ist-Abweichungen aus Epic 1 in einem Durchgang nachziehen
+      (Epic-1-Punkte 5, 6, 8)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
+  - id: "epic-2-retro-item-27-abgleich-schritt-zwischen-die-epics-setz"
+    epic: 2
+    action: "Abgleich-Schritt zwischen die Epics setzen, damit der Spec-Abgleich ueberhaupt
+      ausfuehrbar wird (P1)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
+  - id: "epic-2-retro-item-28-deferred-work-md-vor-epic-3-triagieren-u"
+    epic: 2
+    action: "deferred-work.md vor Epic 3 triagieren und den Story-Start um einen Lesepunkt
+      ergaenzen (P2)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
+  - id: "epic-2-retro-item-29-barrierefreiheit-der-abnahme-sichtbar-ma"
+    epic: 2
+    action: "Barrierefreiheit der Abnahme sichtbar machen: Pruefstufe oder einzeln
+      als ungeprueft abnehmen (P3)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
+  - id: "epic-2-retro-item-30-sitzungsprotokolle-festhalten-wenigstens"
+    epic: 2
+    action: "Sitzungsprotokolle festhalten, wenigstens die Wendungen (P4)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
