@@ -116,18 +116,27 @@ export const handle: Handle = async ({ event, resolve }) => {
  * redirect() schon in render_endpoint und gibt die Antwort durch resolve zurück
  * — am laufenden Server bestätigt, samt set-cookie.
  *
- * **Zwei** Antworten erreicht die Kopfzeile nicht, und die zweite ist die
- * unangenehmere: die 403 des Wächters und die 403 der Einlöseroute. Beide
- * entstehen auf dem Fatal-Pfad, ausserhalb von resolve, und dort fällt jede über
- * setHeaders oder die Antwort gesetzte Kopfzeile weg. Die zweite ist genau die
- * tokentragende Anfrage — dort steht das Token im Pfad des Dokuments, das der
- * Browser anzeigt.
+ * **Genau eine** Antwort erreicht die Kopfzeile nicht: die 403 des Wächters. Ihr
+ * Wurf steht in dieser Funktion, also neben resolve — SvelteKit führt ihn über
+ * handle_fatal_error, und dort fällt jede über setHeaders oder die Antwort
+ * gesetzte Kopfzeile weg. Dasselbe gilt für ein Cookie: ein cookies.set vor
+ * diesem Wurf erreicht den Browser nicht, gemessen in Story 3.0.
  *
- * Unschädlich bleibt es nur, weil src/error.html keinen einzigen externen
- * Verweis trägt: es gibt nichts nachzuladen, das einen Referrer mitnehmen
- * könnte. Damit das auch dann gilt, wenn dort je etwas dazukommt, steht in der
- * Vorlage zusätzlich <meta name="referrer" content="no-referrer">, und
- * scripts/smoke-zugang.ts behauptet beides.
+ * Die 403 der **Einlöseroute** trägt sie dagegen. Bis Story 3.0 stand hier das
+ * Gegenteil, und ausgerechnet die tokentragende Antwort war als die
+ * „unangenehmere" der zwei ungedeckten geführt. Am gebauten Server gemessen ist
+ * sie die gedeckte: ihr error(403) wirft **innerhalb** des GET-Handlers, also
+ * innerhalb von resolve, SvelteKit macht daraus schon in render_endpoint eine
+ * Antwort, und die kommt hier durch mitKopfzeilen zurück — derselbe Weg, den die
+ * 303 des Einlösens nimmt. Beide Zustände behauptet scripts/smoke-http.ts jetzt
+ * einzeln, damit ein Rückfall in die eine wie in die andere Richtung auffällt.
+ *
+ * Für die verbleibende Lücke des Wächters gilt weiter: unschädlich, weil
+ * src/error.html keinen einzigen externen Verweis trägt — es gibt nichts
+ * nachzuladen, das einen Referrer mitnehmen könnte. Damit das auch dann gilt,
+ * wenn dort je etwas dazukommt, steht in der Vorlage zusätzlich
+ * <meta name="referrer" content="no-referrer">, und scripts/smoke-zugang.ts
+ * behauptet beides.
  */
 function mitKopfzeilen(antwort: Response): Response {
 	antwort.headers.set('Referrer-Policy', 'no-referrer');

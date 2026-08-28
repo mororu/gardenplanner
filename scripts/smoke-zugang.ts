@@ -9,8 +9,15 @@
  * Fehlerseite. Jede nachgestellte Grenze kann Behauptungen erzeugen, die sich
  * selbst bestätigen — das ist die Fehlerklasse, die drei Prüfrunden hier
  * gefunden haben. Der User hat entschieden, die Bauform zu behalten und die
- * Lücken einzeln zu flicken; die Empfehlung, stattdessen gegen einen echten
- * Server zu fahren, steht für eine spätere Story in der Spezifikation.
+ * Lücken einzeln zu flicken.
+ *
+ * Seit Story 3.0 steht die Empfehlung nicht mehr nur da: scripts/smoke-http.ts
+ * fährt den **gebauten** Baum auf einem freien Port und misst dieselben Grenzen
+ * an echten Antworten. Die zwei Skripte ersetzen einander nicht — dieses hier
+ * kommt an Innenwerte, an die über HTTP niemand herankommt (der Inhalt eines
+ * Optionsobjekts bei cookies.set, der Wurf einer action, die Reihenfolge in
+ * einer load), und jenes an alles, was erst zwischen resolve und Steckdose
+ * entsteht. Wo beide dieselbe Zusage berühren, gilt die Messung am Server.
  *
  * Damit eine Behauptung nicht bloss ihre eigene Vorbereitung liest, gilt hier:
  *
@@ -34,27 +41,36 @@
  *     das Skript sonst mit einem TypeError abgebrochen, statt geprüft zu werden.
  *   - Ein **unerwarteter Wurf ist ein Befund**, kein Absturz: der Rahmen unten
  *     benennt ihn, räumt die Wegwerfverzeichnisse weg und endet mit 1 — dasselbe
- *     Versprechen, das scripts/gate.mjs schon gibt.
+ *     Versprechen, das scripts/gate.mjs schon gibt. Das Benennen, das Zählen und
+ *     das Wegräumen liegen seit Story 3.0 in scripts/pruefhelfer.ts, damit die
+ *     zwei Prüfskripte gleich melden.
  *   - Die POST-Behauptungen fahren **echte** Formulardaten: das Ereignis baut
  *     `new Request(url, { method: 'POST', body: FormData })`, damit
  *     `await request.formData()` in der action wirklich etwas zu parsen hat.
  *     Ohne Rumpf bekäme jede action eine leere Menge und die Prüfung läse nur
  *     ihre eigene Vorbereitung.
  *
- * Nicht abgedeckt bleibt respond.js — die Schicht, die den Wurf in die Vorlage
- * überführt, Kopfzeilen anhängt und Cookies ausliefert. Ihr Verhalten ist am
- * laufenden Server gemessen und in der Spezifikation festgehalten; hier steht
- * ausdrücklich keine Behauptung darüber.
+ * Nicht abgedeckt bleibt hier respond.js — die Schicht, die den Wurf in die
+ * Vorlage überführt, Kopfzeilen anhängt und Cookies ausliefert. Hier steht
+ * ausdrücklich keine Behauptung darüber; sie stehen seit Story 3.0 in
+ * scripts/smoke-http.ts, ausgeführt statt festgehalten.
  *
  * Am Ende zählt das Skript, wie viele Behauptungen tatsächlich gelaufen sind,
  * und vergleicht mit einer festen Zahl. Eine Behauptung, die in einem `if`
  * stillschweigend ausfällt, fällt damit auf.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import {
+	aufraeumen,
+	pruefen,
+	pruefenGleich,
+	unerwarteterWurf,
+	wegwerfVerzeichnis,
+	zaehlerstand,
+} from './pruefhelfer.ts';
 import Database from 'better-sqlite3';
 import { eq } from 'drizzle-orm';
 import { isActionFailure, isHttpError, isRedirect, text } from '@sveltejs/kit';
@@ -127,53 +143,10 @@ const wurzel = fileURLToPath(new URL('..', import.meta.url));
 // aufgerufen werden.
 process.chdir(wurzel);
 
-/**
- * Jedes Wegwerfverzeichnis wird hier vermerkt, damit der Rahmen unten es auch
- * dann wegräumt, wenn mitten in der Prüfliste etwas Unerwartetes wirft. Die
- * Aufräumzeilen an den einzelnen Stellen bleiben trotzdem stehen: `force: true`
- * macht ein zweites Entfernen zum Nichts, und je früher ein Verzeichnis weg
- * ist, desto weniger kann es einen späteren Lauf verwirren.
- */
-const wegwerfverzeichnisse: string[] = [];
-
-function wegwerfVerzeichnis(vorsilbe: string): string {
-	const pfad = mkdtempSync(join(tmpdir(), vorsilbe));
-	wegwerfverzeichnisse.push(pfad);
-	return pfad;
-}
-
-function aufraeumen(): void {
-	for (const pfad of wegwerfverzeichnisse) {
-		try {
-			rmSync(pfad, { recursive: true, force: true });
-		} catch {
-			// Ein Verzeichnis, das sich nicht entfernen lässt, ist kein Befund über
-			// die Zugangsschicht. Der Ablagebereich des Systems räumt selbst auf.
-		}
-	}
-}
-
 const arbeit = wegwerfVerzeichnis('gartenplaner-smoke-');
 process.env.DATABASE_PATH = join(arbeit, 'smoke.sqlite');
 process.env.SESSION_SECRET = GUTES_GEHEIMNIS;
 process.env.ORIGIN = HERKUNFT;
-
-let gescheitert = 0;
-let gelaufen = 0;
-
-function pruefen(name: string, bedingung: boolean, hinweis?: string): void {
-	gelaufen += 1;
-	if (bedingung) {
-		console.log(`ok      ${name}`);
-		return;
-	}
-	gescheitert += 1;
-	console.error(`FEHLER  ${name}${hinweis === undefined ? '' : ` — ${hinweis}`}`);
-}
-
-function pruefenGleich(name: string, ist: unknown, soll: unknown): void {
-	pruefen(name, ist === soll, `war ${JSON.stringify(ist)}, erwartet ${JSON.stringify(soll)}`);
-}
 
 /** Ein Unterprozess mit Zeitschranke und Prüfung auf einen Startfehler. */
 function starten(argumente: string[], umgebung: Record<string, string | undefined>) {
@@ -4328,48 +4301,28 @@ try {
 		`verletzt: ${fehlendeTeile(timerTeile).join(', ')}`
 	);
 } catch (fehler) {
-	/*
-	 * Ein unerwarteter Wurf ist ein Befund wie jeder andere und wird benannt.
-	 *
-	 * Ausgegeben werden Art und Meldung und — auf einer eigenen, beschrifteten
-	 * Zeile — die innerste Quellstelle aus dem Stapel. Ein vollständiger
-	 * Stacktrace bleibt aussen vor, wie überall in diesem Projekt; eine einzelne
-	 * Fundstelle ist keine Ablage, sondern der Unterschied zwischen einer
-	 * Meldung, mit der man arbeiten kann, und einer, die nur "ist keine Funktion"
-	 * sagt.
-	 */
-	gescheitert += 1;
-	const art = fehler instanceof Error ? fehler.name : typeof fehler;
-	const meldung = fehler instanceof Error ? fehler.message : String(fehler);
-	console.error(`VERSTOSS smoke  unerwarteter Wurf (${art}): ${meldung}`);
-
-	const stelle =
-		fehler instanceof Error && typeof fehler.stack === 'string'
-			? (fehler.stack.split('\n').find((zeile) => zeile.trim().startsWith('at ')) ?? '')
-			: '';
-	if (stelle.trim() !== '') {
-		console.error(`         Fundstelle: ${stelle.trim()}`);
-	}
-	console.error(
-		'         Die Prüfliste ist damit abgebrochen — die Schlusszählung darunter\n' +
-			'         sagt, wie viele Behauptungen noch gelaufen sind.'
-	);
+	unerwarteterWurf('smoke', fehler);
 } finally {
 	aufraeumen();
 }
 
 // Eine Behauptung, die in einem if stillschweigend ausfällt, fällt hier auf.
-const abgelegt = gelaufen;
+// Der Stand wird **vor** der Schlussbehauptung gelesen: sie zählt sich selbst
+// nicht mit, sonst wäre die Zahl immer um eins daneben.
+const abgelegt = zaehlerstand().gelaufen;
 pruefen(
 	`alle ${ERWARTETE_BEHAUPTUNGEN} Behauptungen sind gelaufen`,
 	abgelegt === ERWARTETE_BEHAUPTUNGEN,
 	`es liefen ${abgelegt}`
 );
 
-if (gescheitert > 0) {
-	console.error(`\nsmoke: ${gescheitert} von ${gelaufen} Behauptung(en) nicht erfüllt.`);
+const stand = zaehlerstand();
+if (stand.gescheitert > 0) {
+	console.error(
+		`\nsmoke: ${stand.gescheitert} von ${stand.gelaufen} Behauptung(en) nicht erfüllt.`
+	);
 	process.exit(1);
 }
 console.log(
-	`\nsmoke: ${gelaufen} Behauptungen der Zugangs- und Aufgabenschicht ausgeführt belegt.`
+	`\nsmoke: ${stand.gelaufen} Behauptungen der Zugangs- und Aufgabenschicht ausgeführt belegt.`
 );

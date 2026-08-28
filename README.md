@@ -720,22 +720,24 @@ docker compose logs nginx --tail 50
 
 ## Skripte
 
-| Skript                      | Zweck                                                                                                                |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `npm run dev`               | Entwicklungsserver mit Hot Reload.                                                                                   |
-| `npm run build`             | Produktionsbau nach `build/` über `adapter-node`.                                                                    |
-| `npm run preview`           | Vites Vorschau des vorhandenen Baus — zum Anschauen, nicht zum Betreiben.                                            |
-| `npm start`                 | Produktionsstart: `node build/index.js`.                                                                             |
-| `npm run check`             | `svelte-check` mit `--fail-on-warnings`, dann `tsc -p tsconfig.scripts.json` für `scripts/` und `drizzle.config.ts`. |
-| `npm run gate`              | Prüft die neun Regeln des Gestaltungsrahmens und der Schichtgrenze (siehe unten).                                    |
-| `npm run gate:selftest`     | Richtet das Tor auf `scripts/gate-fixtures/` und beweist, dass jede der neun Regeln beisst.                          |
-| `npm run db:generate`       | Erzeugt die nächste Migration aus `schema.ts` nach `drizzle/`. Braucht `DATABASE_PATH`.                              |
-| `npm run db:check`          | Führt `drizzle.config.ts` aus und vergleicht `schema.ts` mit `drizzle/`.                                             |
-| `npm run db:check:selftest` | Richtet `db:check` auf `scripts/db-check-fixtures/` und beweist, dass es beisst.                                     |
-| `npm run create-admin`      | Legt das erste Admin-Mitglied an und gibt seinen Einladungslink genau einmal aus.                                    |
-| `npm run smoke`             | Führt die Zusagen der Zugangsschicht aus und prüft sie (siehe unten).                                                |
-| `npm run lint`              | `prettier --check`, `eslint`, `gate`, `gate:selftest`, `db:check`, `db:check:selftest`, `smoke`.                     |
-| `npm run format`            | Schreibt die Formatierung mit Prettier.                                                                              |
+| Skript                      | Zweck                                                                                                                                                                                                                |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`               | Entwicklungsserver mit Hot Reload.                                                                                                                                                                                   |
+| `npm run build`             | Produktionsbau nach `build/` über `adapter-node`.                                                                                                                                                                    |
+| `npm run preview`           | Vites Vorschau des vorhandenen Baus — zum Anschauen, nicht zum Betreiben.                                                                                                                                            |
+| `npm start`                 | Produktionsstart: `node build/index.js`.                                                                                                                                                                             |
+| `npm run check`             | `svelte-check` mit `--fail-on-warnings`, dann `tsc -p tsconfig.scripts.json` für `scripts/` und `drizzle.config.ts`.                                                                                                 |
+| `npm run gate`              | Prüft die neun Regeln des Gestaltungsrahmens und der Schichtgrenze (siehe unten).                                                                                                                                    |
+| `npm run gate:selftest`     | Richtet das Tor auf `scripts/gate-fixtures/` und beweist, dass jede der neun Regeln beisst.                                                                                                                          |
+| `npm run db:generate`       | Erzeugt die nächste Migration aus `schema.ts` nach `drizzle/`. Braucht `DATABASE_PATH`.                                                                                                                              |
+| `npm run db:check`          | Führt `drizzle.config.ts` aus und vergleicht `schema.ts` mit `drizzle/`.                                                                                                                                             |
+| `npm run db:check:selftest` | Richtet `db:check` auf `scripts/db-check-fixtures/` und beweist, dass es beisst.                                                                                                                                     |
+| `npm run create-admin`      | Legt das erste Admin-Mitglied an und gibt seinen Einladungslink genau einmal aus.                                                                                                                                    |
+| `npm run smoke`             | Führt die Zusagen der Zugangsschicht aus und prüft sie (siehe unten).                                                                                                                                                |
+| `npm run smoke:http`        | Startet den **gebauten** Baum auf einem freien Port und misst seine echten Antworten (siehe unten). Braucht `npm run build`.                                                                                         |
+| `npm run smoke:selftest`    | Beweist an Unterprozessen, dass der geteilte Prüfkern `scripts/pruefhelfer.ts` wirklich beisst.                                                                                                                      |
+| `npm run lint`              | `prettier --check`, `eslint`, `gate`, `gate:selftest`, `db:check`, `db:check:selftest`, `smoke`, `smoke:selftest`, `smoke:http`. **Braucht einen aktuellen `npm run build`** — `smoke:http` misst den gebauten Baum. |
+| `npm run format`            | Schreibt die Formatierung mit Prettier.                                                                                                                                                                              |
 
 Ein Skript steht nicht in dieser Tabelle, weil es kein npm-Skript ist:
 `sh scripts/backup.sh` zieht eine Sicherung der SQLite-Datei aus dem
@@ -750,8 +752,10 @@ npm run build && npm run lint && npm run check
 
 Dazu kommt der Blick von Hand auf `/` bei 375px Breite, in Hell und in Dunkel.
 Es gibt bewusst kein Testframework — deshalb muss das Tor sich selbst prüfen
-(`npm run gate:selftest`), und deshalb führt `npm run smoke` die Zusagen der
-Zugangsschicht aus statt sie zu behaupten.
+(`npm run gate:selftest`), und deshalb führen `npm run smoke` und
+`npm run smoke:http` die Zusagen der Zugangsschicht aus statt sie zu behaupten.
+Die Reihenfolge des Tors ist bindend: `smoke:http` misst den Bau und stellt ihn
+bewusst nicht selbst her, läuft also ins Leere, wenn `npm run build` fehlt.
 
 ### Zwei Typprüf-Programme
 
@@ -1176,10 +1180,10 @@ dasselbe Versprechen, das `scripts/gate.mjs` schon gibt. Die Schlusszählung
 sagt dann, wie viele Behauptungen noch gelaufen sind.
 
 Nicht abgedeckt ist `respond.js`, die Schicht, die den Wurf in die Vorlage
-überführt, Kopfzeilen anhängt und Cookies ausliefert. Ihr Verhalten ist am
-laufenden Server gemessen und in der Spezifikation festgehalten; im Skript steht
-darüber ausdrücklich keine Behauptung. Die Empfehlung, das Skript stattdessen
-gegen einen echten Server zu fahren, ist für eine spätere Story notiert.
+überführt, Kopfzeilen anhängt und Cookies ausliefert. In **diesem** Skript steht
+darüber ausdrücklich keine Behauptung. Seit Story 3.0 steht sie in
+`npm run smoke:http`, ausgeführt statt festgehalten — siehe den eigenen
+Abschnitt unten.
 
 Am Ende zählt das Skript, wie viele Behauptungen tatsächlich gelaufen sind, und
 vergleicht mit einer festen Zahl. Eine Behauptung, die in einem `if`
@@ -1189,62 +1193,198 @@ Der Grund für all das ist gemessen. Die Tabelle nennt nur Mutationen, die
 **vorher grün** blieben — eine Mutation, die schon vorher rot war, beweist nichts
 über die Prüfung, die dazukam:
 
-| Mutation                                                        | War grün bis | Wird heute rot in                                                                                                                                                                                                          |
-| --------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `\|\| !mitglied.isActive` aus der **Einlöseroute** entfernt     | Iteration 2  | widerrufenes gespeichertes Token                                                                                                                                                                                           |
-| `httpOnly: true` aus den Cookie-Optionen entfernt               | Iteration 2  | drei Cookie-Attribut-Behauptungen                                                                                                                                                                                          |
-| Wächter schlägt jedes Mitglied nur einmal pro Prozess nach      | Iteration 2  | Widerruf einer lebenden Sitzung                                                                                                                                                                                            |
-| `secure: false` in den Cookie-Optionen                          | Iteration 3  | drei Cookie-Attribut-Behauptungen                                                                                                                                                                                          |
-| die beiden Konstanten in `handleError` getauscht                | Iteration 3  | zwei `handleError`-Behauptungen                                                                                                                                                                                            |
-| ein Aufruf in `startPruefen` in ein schluckendes `catch`        | Iteration 3  | `startPruefen` und der `init`-Unterprozess                                                                                                                                                                                 |
-| `setHeaders` an **einer** der beiden 403-Wurfstellen            | Iteration 3  | Kopfzeilen-Behauptung und beide Abdrücke                                                                                                                                                                                   |
-| `?? './data/dev.sqlite'` statt Fail-Fast in `drizzle.config.ts` | Iteration 3  | `db:check`, Prüfung Fail-Fast                                                                                                                                                                                              |
-| ein Befund in `db:check` zur Warnung gemacht                    | Iteration 3  | `db:check:selftest`, zwei von drei Proben                                                                                                                                                                                  |
-| Zeilenkommentare wieder in **jeder** Datei ausgeblendet         | Iteration 3  | `gate:selftest`, Probe `regel-1b`                                                                                                                                                                                          |
-| `invalidateAll: false` aus dem Rückruf auf `/` entfernt         | Story 1.4    | die Textprüfung an `+page.svelte`                                                                                                                                                                                          |
-| ein `<label>` um den Aufgabentext                               | Story 1.4    | die Textprüfung an `+page.svelte`                                                                                                                                                                                          |
-| `completed_at IS NULL` aus `aufgabeAbhaken` entfernt            | Story 1.4    | zweites `abhaken`, der erste Abhakende                                                                                                                                                                                     |
-| `completed_by` in die Projektion der offenen Aufgaben           | Story 1.4    | zwei Seitendaten-Behauptungen, `check`                                                                                                                                                                                     |
-| ein rohes `140ms` in einem Komponenten-`<style>`                | Story 1.4    | `gate`, Regel 1                                                                                                                                                                                                            |
-| die Längenprüfung aus `ablegen` entfernt                        | Story 1.5    | `smoke`, 201 Codepoints                                                                                                                                                                                                    |
-| `returning()` statt `returning(sichtbareSpalten)`               | Story 1.5    | `check`, die Annotation `NurSichtbar`                                                                                                                                                                                      |
-| `action="?/ablegen"` verschrieben                               | Story 1.5    | `gate`, Regel 11                                                                                                                                                                                                           |
-| `name="text"` am Feld in `name="aufgabentext"` umbenannt        | Story 1.5    | `smoke`, die Verdrahtung des Formulars                                                                                                                                                                                     |
-| `+ Aufgabe` in den `{:else}`-Zweig geschoben                    | Story 1.5    | `smoke`, die Verortung des Ankers                                                                                                                                                                                          |
-| `tabindex="-1"` an der Meldungsregion entfernt                  | Story 1.5    | `smoke`, tabindex und bind:this                                                                                                                                                                                            |
-| `maxlength` am Feld von der Konstante abgekoppelt               | Story 1.5    | `smoke`, das Band zur Längengrenze                                                                                                                                                                                         |
-| die `load` von `/` liest `locals`                               | Story 1.5    | `smoke`, das werfende Ereignis                                                                                                                                                                                             |
-| `dueAt` aus `sichtbareSpalten` entfernt                         | Story 2.1    | `check`, `satisfies` auf der Spaltenauswahl                                                                                                                                                                                |
-| `action="?/ablegen"` auf `/monatsplan` verschrieben             | Story 2.1    | `gate`, Regel 11                                                                                                                                                                                                           |
-| Tagesende durch Mitternacht UTC ersetzt                         | Story 2.1    | `smoke`, das gemeinsame `due_at`                                                                                                                                                                                           |
-| `due_at` je Zeile um eins erhöht                                | Story 2.1    | `smoke`, das gemeinsame `due_at`                                                                                                                                                                                           |
-| die Zeilenlängen-Prüfung aus `ablegen` entfernt                 | Story 2.1    | `smoke`, zwei Zeilen zu 201 Codepoints                                                                                                                                                                                     |
-| `use:enhance` am Monatsplan-Formular entfernt                   | Story 2.1    | `smoke`, die Verdrahtung des Formulars                                                                                                                                                                                     |
-| das `×` als `<span role="button">` statt als `<button>`         | Story 2.1    | `smoke`, das × ist ein echter Knopf                                                                                                                                                                                        |
-| `zeilenListe.length === 0` aus dem Ablegen-Knopf entfernt       | Story 2.1    | `smoke`, der Knopf sperrt bei null Zeilen                                                                                                                                                                                  |
-| `zurueck` setzt das Textfeld zusätzlich zurück                  | Story 2.1    | `smoke`, `Zurück zum Text`                                                                                                                                                                                                 |
-| leere Zeilen fallen in `zeilenErkennen` nicht mehr weg          | Story 2.1    | `smoke`, die 24 aus 27 Zeilen                                                                                                                                                                                              |
-| die Versatzrechnung in `zeit.ts` durch `annahme - 7200` ersetzt | Story 2.1    | `smoke`, Winterzeit und beide Umstellungstage                                                                                                                                                                              |
-| `PLAN_HOECHSTZAHL` zurück in die Route statt ins geteilte Modul | Story 2.1    | `check`, der Import in der Komponente                                                                                                                                                                                      |
-| die Datumssperre aus `weiterGesperrt` entfernt                  | Story 2.1    | `smoke`, `Weiter` sperrt aus drei Gründen                                                                                                                                                                                  |
-| `quittiert = false` vor dem Versand entfernt                    | Story 2.1    | `smoke`, der Fehlersatz wird quittiert                                                                                                                                                                                     |
-| der Fokusgriff in `entfernen` entfernt                          | Story 2.1    | `smoke`, das Entfernen lässt den Fokus stehen                                                                                                                                                                              |
-| das `<noscript>` entfernt                                       | Story 2.1    | `smoke`, /monatsplan sagt es ohne JavaScript                                                                                                                                                                               |
-| die Leerheits-Wache aus `aufgabenStapelAnlegen` entfernt        | Story 2.1    | `smoke`, unerwarteter Wurf aus `values([])`                                                                                                                                                                                |
-| `aria-describedby` vom Zähler am Textfeld entfernt              | Story 2.1    | `smoke`, beide Felder sind beschrieben                                                                                                                                                                                     |
-| das `<=` in `wochenOffenSeit` durch `<` ersetzt                 | Story 2.2    | `smoke`, `wochenOffenSeit` und die feste Uhr an der Schwelle (zwei Behauptungen; die dritte, an der echten Uhr, wird nur rot, wenn Saat und `load` in dieselbe Sekunde fallen — ihre benannte Toleranz lässt sonst `3` zu) |
-| `dueAt ?? createdAt` auf `createdAt` verkürzt                   | Story 2.2    | `smoke`, drei Zeilen der Überfälligkeitsmatrix plus die `load`-Behauptung                                                                                                                                                  |
-| `aria-describedby` aufs wiederOeffnen-Kästchen verschoben       | Story 2.2    | `smoke`, die formularweise geschnittene Beschreibungs-Behauptung                                                                                                                                                           |
-| der `{#if istUeberfaellig}`-Block vor den Aufgabentext gestellt | Story 2.2    | `smoke`, die Reihenfolge im Spaltencontainer                                                                                                                                                                               |
-| `flex-direction: column` aus `.zeile__spalte` entfernt          | Story 2.2    | `smoke`, der Rumpf der Spaltenregel                                                                                                                                                                                        |
-| `min-width: 0` aus `.zeile__spalte` entfernt                    | Story 2.2    | `smoke`, der Rumpf der Spaltenregel                                                                                                                                                                                        |
-| ein nackter `21 * 24 * 60 * 60` in `queries/tasks.ts`           | Story 2.2    | `smoke`, die Schwelle über den ganzen Baum                                                                                                                                                                                 |
-| ein `setImmediate` in der Komponente                            | Story 2.2    | `smoke`, die Timer-Wache über `src/`                                                                                                                                                                                       |
-| eine Spalte `ueberfaellig_seit` im Schema                       | Story 2.2    | `smoke`, das Spaltenverbot über Schema und Migrationen                                                                                                                                                                     |
-| `!istErledigt` aus der Bedingung der zweiten Zeile entfernt     | Story 2.2    | `smoke`, die Überfälligkeitszeile                                                                                                                                                                                          |
+| Mutation                                                          | War grün bis       | Wird heute rot in                                                                                                                                                                                                          |
+| ----------------------------------------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `\|\| !mitglied.isActive` aus der **Einlöseroute** entfernt       | Iteration 2        | widerrufenes gespeichertes Token                                                                                                                                                                                           |
+| `httpOnly: true` aus den Cookie-Optionen entfernt                 | Iteration 2        | drei Cookie-Attribut-Behauptungen                                                                                                                                                                                          |
+| Wächter schlägt jedes Mitglied nur einmal pro Prozess nach        | Iteration 2        | Widerruf einer lebenden Sitzung                                                                                                                                                                                            |
+| `secure: false` in den Cookie-Optionen                            | Iteration 3        | drei Cookie-Attribut-Behauptungen                                                                                                                                                                                          |
+| die beiden Konstanten in `handleError` getauscht                  | Iteration 3        | zwei `handleError`-Behauptungen                                                                                                                                                                                            |
+| ein Aufruf in `startPruefen` in ein schluckendes `catch`          | Iteration 3        | `startPruefen` und der `init`-Unterprozess                                                                                                                                                                                 |
+| `setHeaders` an **einer** der beiden 403-Wurfstellen              | Iteration 3        | Kopfzeilen-Behauptung und beide Abdrücke                                                                                                                                                                                   |
+| `?? './data/dev.sqlite'` statt Fail-Fast in `drizzle.config.ts`   | Iteration 3        | `db:check`, Prüfung Fail-Fast                                                                                                                                                                                              |
+| ein Befund in `db:check` zur Warnung gemacht                      | Iteration 3        | `db:check:selftest`, zwei von drei Proben                                                                                                                                                                                  |
+| Zeilenkommentare wieder in **jeder** Datei ausgeblendet           | Iteration 3        | `gate:selftest`, Probe `regel-1b`                                                                                                                                                                                          |
+| `invalidateAll: false` aus dem Rückruf auf `/` entfernt           | Story 1.4          | die Textprüfung an `+page.svelte`                                                                                                                                                                                          |
+| ein `<label>` um den Aufgabentext                                 | Story 1.4          | die Textprüfung an `+page.svelte`                                                                                                                                                                                          |
+| `completed_at IS NULL` aus `aufgabeAbhaken` entfernt              | Story 1.4          | zweites `abhaken`, der erste Abhakende                                                                                                                                                                                     |
+| `completed_by` in die Projektion der offenen Aufgaben             | Story 1.4          | zwei Seitendaten-Behauptungen, `check`                                                                                                                                                                                     |
+| ein rohes `140ms` in einem Komponenten-`<style>`                  | Story 1.4          | `gate`, Regel 1                                                                                                                                                                                                            |
+| die Längenprüfung aus `ablegen` entfernt                          | Story 1.5          | `smoke`, 201 Codepoints                                                                                                                                                                                                    |
+| `returning()` statt `returning(sichtbareSpalten)`                 | Story 1.5          | `check`, die Annotation `NurSichtbar`                                                                                                                                                                                      |
+| `action="?/ablegen"` verschrieben                                 | Story 1.5          | `gate`, Regel 11                                                                                                                                                                                                           |
+| `name="text"` am Feld in `name="aufgabentext"` umbenannt          | Story 1.5          | `smoke`, die Verdrahtung des Formulars                                                                                                                                                                                     |
+| `+ Aufgabe` in den `{:else}`-Zweig geschoben                      | Story 1.5          | `smoke`, die Verortung des Ankers                                                                                                                                                                                          |
+| `tabindex="-1"` an der Meldungsregion entfernt                    | Story 1.5          | `smoke`, tabindex und bind:this                                                                                                                                                                                            |
+| `maxlength` am Feld von der Konstante abgekoppelt                 | Story 1.5          | `smoke`, das Band zur Längengrenze                                                                                                                                                                                         |
+| die `load` von `/` liest `locals`                                 | Story 1.5          | `smoke`, das werfende Ereignis                                                                                                                                                                                             |
+| `dueAt` aus `sichtbareSpalten` entfernt                           | Story 2.1          | `check`, `satisfies` auf der Spaltenauswahl                                                                                                                                                                                |
+| `action="?/ablegen"` auf `/monatsplan` verschrieben               | Story 2.1          | `gate`, Regel 11                                                                                                                                                                                                           |
+| Tagesende durch Mitternacht UTC ersetzt                           | Story 2.1          | `smoke`, das gemeinsame `due_at`                                                                                                                                                                                           |
+| `due_at` je Zeile um eins erhöht                                  | Story 2.1          | `smoke`, das gemeinsame `due_at`                                                                                                                                                                                           |
+| die Zeilenlängen-Prüfung aus `ablegen` entfernt                   | Story 2.1          | `smoke`, zwei Zeilen zu 201 Codepoints                                                                                                                                                                                     |
+| `use:enhance` am Monatsplan-Formular entfernt                     | Story 2.1          | `smoke`, die Verdrahtung des Formulars                                                                                                                                                                                     |
+| das `×` als `<span role="button">` statt als `<button>`           | Story 2.1          | `smoke`, das × ist ein echter Knopf                                                                                                                                                                                        |
+| `zeilenListe.length === 0` aus dem Ablegen-Knopf entfernt         | Story 2.1          | `smoke`, der Knopf sperrt bei null Zeilen                                                                                                                                                                                  |
+| `zurueck` setzt das Textfeld zusätzlich zurück                    | Story 2.1          | `smoke`, `Zurück zum Text`                                                                                                                                                                                                 |
+| leere Zeilen fallen in `zeilenErkennen` nicht mehr weg            | Story 2.1          | `smoke`, die 24 aus 27 Zeilen                                                                                                                                                                                              |
+| die Versatzrechnung in `zeit.ts` durch `annahme - 7200` ersetzt   | Story 2.1          | `smoke`, Winterzeit und beide Umstellungstage                                                                                                                                                                              |
+| `PLAN_HOECHSTZAHL` zurück in die Route statt ins geteilte Modul   | Story 2.1          | `check`, der Import in der Komponente                                                                                                                                                                                      |
+| die Datumssperre aus `weiterGesperrt` entfernt                    | Story 2.1          | `smoke`, `Weiter` sperrt aus drei Gründen                                                                                                                                                                                  |
+| `quittiert = false` vor dem Versand entfernt                      | Story 2.1          | `smoke`, der Fehlersatz wird quittiert                                                                                                                                                                                     |
+| der Fokusgriff in `entfernen` entfernt                            | Story 2.1          | `smoke`, das Entfernen lässt den Fokus stehen                                                                                                                                                                              |
+| das `<noscript>` entfernt                                         | Story 2.1          | `smoke`, /monatsplan sagt es ohne JavaScript                                                                                                                                                                               |
+| die Leerheits-Wache aus `aufgabenStapelAnlegen` entfernt          | Story 2.1          | `smoke`, unerwarteter Wurf aus `values([])`                                                                                                                                                                                |
+| `aria-describedby` vom Zähler am Textfeld entfernt                | Story 2.1          | `smoke`, beide Felder sind beschrieben                                                                                                                                                                                     |
+| das `<=` in `wochenOffenSeit` durch `<` ersetzt                   | Story 2.2          | `smoke`, `wochenOffenSeit` und die feste Uhr an der Schwelle (zwei Behauptungen; die dritte, an der echten Uhr, wird nur rot, wenn Saat und `load` in dieselbe Sekunde fallen — ihre benannte Toleranz lässt sonst `3` zu) |
+| `dueAt ?? createdAt` auf `createdAt` verkürzt                     | Story 2.2          | `smoke`, drei Zeilen der Überfälligkeitsmatrix plus die `load`-Behauptung                                                                                                                                                  |
+| `aria-describedby` aufs wiederOeffnen-Kästchen verschoben         | Story 2.2          | `smoke`, die formularweise geschnittene Beschreibungs-Behauptung                                                                                                                                                           |
+| der `{#if istUeberfaellig}`-Block vor den Aufgabentext gestellt   | Story 2.2          | `smoke`, die Reihenfolge im Spaltencontainer                                                                                                                                                                               |
+| `flex-direction: column` aus `.zeile__spalte` entfernt            | Story 2.2          | `smoke`, der Rumpf der Spaltenregel                                                                                                                                                                                        |
+| `min-width: 0` aus `.zeile__spalte` entfernt                      | Story 2.2          | `smoke`, der Rumpf der Spaltenregel                                                                                                                                                                                        |
+| ein nackter `21 * 24 * 60 * 60` in `queries/tasks.ts`             | Story 2.2          | `smoke`, die Schwelle über den ganzen Baum                                                                                                                                                                                 |
+| ein `setImmediate` in der Komponente                              | Story 2.2          | `smoke`, die Timer-Wache über `src/`                                                                                                                                                                                       |
+| eine Spalte `ueberfaellig_seit` im Schema                         | Story 2.2          | `smoke`, das Spaltenverbot über Schema und Migrationen                                                                                                                                                                     |
+| `!istErledigt` aus der Bedingung der zweiten Zeile entfernt       | Story 2.2          | `smoke`, die Überfälligkeitszeile                                                                                                                                                                                          |
+| `redirect(303, '/')` der Einlöseroute auf `302`                   | Story 3.0          | `smoke:http`, der Status des Einlösens                                                                                                                                                                                     |
+| `sameSite: 'lax'` auf `'strict'`                                  | Story 3.0          | `smoke:http`, das Cookie an der echten Antwort                                                                                                                                                                             |
+| `secure` in den Cookie-Optionen auf `false`                       | Story 3.0          | `smoke:http`, das Cookie an der echten Antwort                                                                                                                                                                             |
+| `maxAge: LAUFZEIT_SEKUNDEN` auf `60`                              | Story 3.0          | `smoke:http`, die Jahreslaufzeit                                                                                                                                                                                           |
+| `mitKopfzeilen` vom **Einlösepfad** genommen                      | Story 3.0          | `smoke:http`, die `Referrer-Policy` auf der 403 der Einlöseroute                                                                                                                                                           |
+| `mitKopfzeilen` vom **normalen** Pfad genommen                    | Story 3.0          | `smoke:http`, die `Referrer-Policy` auf `/`                                                                                                                                                                                |
+| `Fehler %sveltekit.status%` in `src/error.html` umformuliert      | Story 3.0          | `smoke:http`, der Status im Text der Hülle                                                                                                                                                                                 |
+| `error(403, KEIN_ZUGANG)` im Wächter auf einen eigenen Satz       | Story 3.0          | `smoke:http`, fünf Behauptungen: Byte-Gleichheit, `title`, `h1`, das JSON-Feld und die Ununterscheidbarkeit der zwei 403                                                                                                   |
+| `error(403, …)` im Wächter auf `401`                              | Story 3.0          | `smoke:http`, fünf Behauptungen: beide Statusprüfungen, Byte-Gleichheit, `Fehler 403` und die Ununterscheidbarkeit                                                                                                         |
+| `%sveltekit.head%` wörtlich in einen Kommentar von `src/app.html` | Story 3.0          | `smoke:http`, sechs Behauptungen: Platzhalter und Kommentarmarken auf **allen drei** Seiten                                                                                                                                |
+| `inviteTokenHash` in die Spaltenliste von `/verwaltung`           | Story 3.0          | `smoke:http`, der Token-Hash im ausgelieferten HTML                                                                                                                                                                        |
+| `!mitglied.isAdmin` aus `adminOderWeg` entfernt                   | Story 3.0          | `smoke:http`, die Adminweiche über HTTP, zwei Behauptungen                                                                                                                                                                 |
+| `istAdmin` auf `/mehr` fest auf `true`                            | Story 3.0          | `smoke:http`, `/mehr` ohne Verwaltungs-Eintrag                                                                                                                                                                             |
+| `<title>Mehr</title>` geleert                                     | Story 3.0          | `smoke:http`, die Titel-Gegenprobe                                                                                                                                                                                         |
+| ein `, aufgenommen am` ins Markup von `/verwaltung`               | Story 3.0          | `smoke:http`, das Bruchstück des Bestätigungstexts                                                                                                                                                                         |
+| `build/` beiseitegeschoben                                        | Story 3.0          | `smoke:http`, beide Bau-Behauptungen samt benannter Meldung                                                                                                                                                                |
+| eine Datei unter `src/` nach dem Bau angefasst                    | Story 3.0          | `smoke:http`, die Aktualität des Baus                                                                                                                                                                                      |
+| `redirect(303, '/')` auf `'/mehr'` umgelenkt                      | Story 3.0 (Review) | `smoke:http`, das Ziel der 303                                                                                                                                                                                             |
+| `const COOKIE = 'sitzung'` in `'zugang'` umbenannt                | Story 3.0 (Review) | `smoke:http`, 18 Behauptungen — der Cookie-Name und alles, was danach ein Cookie braucht                                                                                                                                   |
+| `path: '/'` in den Cookie-Optionen auf `'/i'`                     | Story 3.0 (Review) | `smoke:http`, `Path=/`                                                                                                                                                                                                     |
+| ein `console.error` in den Wächter gestellt                       | Story 3.0 (Review) | `smoke:http`, die stille Fehlerausgabe des Servers                                                                                                                                                                         |
+| `gescheitert += 1` aus `pruefen` entfernt                         | Story 3.0 (Review) | `smoke:selftest`, drei Behauptungen — **`smoke` und `smoke:http` bleiben dabei grün**, genau das ist der Grund für den Selbsttest                                                                                          |
+| `gelaufen += 1` aus `pruefen` entfernt                            | Story 3.0 (Review) | `smoke:selftest`                                                                                                                                                                                                           |
+| `gescheitert += 1` aus `unerwarteterWurf` entfernt                | Story 3.0 (Review) | `smoke:selftest`                                                                                                                                                                                                           |
+| `klartexte` im Prüfskript auf einen Wert gesetzt, der dasteht     | Story 3.0 (Review) | `smoke:http`, fünf Klartext-Behauptungen — die Gegenprobe, dass die Suche nicht ins Leere greift                                                                                                                           |
 
 `\|\| !mitglied.isActive` aus dem **Wächter** entfernt steht bewusst **nicht** in
 der Tabelle: diese Mutation war schon vor Iteration 2 rot.
+
+Eine Mutation ist beim Nachweis von Story 3.0 **grün geblieben**, und sie steht
+hier, weil das Grün richtig ist: den Satz `KEIN_ZUGANG` in `src/lib/texte.ts`
+umzuformulieren bricht keine Behauptung von `smoke:http`. Das Skript importiert
+die Konstante, statt den Satz abzuschreiben — beide Seiten wandern also
+zusammen. Die Zusage lautet nicht „dieser Wortlaut", sondern „was der Code als
+den einen Satz führt, liefert der Server auch aus", und **die** bricht, sobald
+die Wurfstelle sich von der Konstante löst (zwei Zeilen weiter oben in der
+Tabelle). Der Wortlaut selbst ist eine Produktentscheidung und gehört keiner
+Prüfung.
+
+Eine zweite Mutation bleibt grün und ist ebenfalls ein Befund statt eines Lochs:
+ein `cookies.set(…)` **vor** dem `error(403)` des Wächters erreicht den Browser
+nicht. Die Behauptung „die Abweisung setzt kein Cookie" lässt sich von `src/` aus
+also gar nicht brechen — sie hält eine Eigenschaft von SvelteKits Fatal-Pfad
+fest, die `src/hooks.server.ts` beschreibt und die hier zum ersten Mal gemessen
+ist. Wer sie eines Tages rot sieht, hat SvelteKit gewechselt, nicht die
+Anwendung.
+
+### Was `npm run smoke:http` prüft
+
+`scripts/smoke-http.ts` beantwortet die Frage, die `smoke` nicht beantworten
+kann: **was kommt tatsächlich aus der Steckdose?** Es startet `build/index.js`
+als Unterprozess auf einem freien Port gegen eine Wegwerf-Datenbank, sät zwei
+Mitglieder über die echte Datenschicht und legt 76 Behauptungen an echten
+Antworten ab — Status, Kopfzeilen, `set-cookie` und Bytes, nichts davon von
+einer Attrappe entschieden. Kein Browser, keine neue Abhängigkeit, reines Node;
+`pruefen`, `pruefenGleich`, `wegwerfVerzeichnis` und der Abbruchrahmen kommen
+seit dieser Story aus `scripts/pruefhelfer.ts` und stehen damit nicht zweimal
+im Baum.
+
+Belegt sind: das Einlösen antwortet mit `303` auf `/` und setzt **genau ein**
+Cookie mit `HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure` und einem Jahr
+`Max-Age`, gelesen an der Antwort des Servers und nicht an einem selbstgebauten
+Objekt; eine zweite Anfrage mit diesem Cookie bekommt `200`; die Abweisung ohne
+Cookie ist Byte für Byte die aus `src/error.html` gebaute Hülle mit ersetzten
+Platzhaltern; die 403 der Einlöseroute ist von der des Wächters nicht zu
+unterscheiden; `/verwaltung` weist ein Mitglied ohne Adminrechte mit `303` weg
+und lässt die Adminperson mit `200` durch, und `/mehr` trägt den
+Verwaltungs-Eintrag nur für sie — mit Gegenprobe in beide Richtungen. Auf dem
+ausgelieferten HTML **jeder** gerenderten Seite (`/`, `/verwaltung`, `/mehr`,
+`/monatsplan`, `/aufgabe`) steht ausserdem: kein unersetzter
+`%sveltekit.…%`-Platzhalter, keine aufgebrochene Kommentarmarke, kein Bruchstück
+des Bestätigungstexts, kein Token-Hash und kein Klartext-Token — je mit dem
+erwarteten `<title>` als Gegenprobe, damit keine dieser Abwesenheiten sich an
+einer leeren Antwort selbst bestätigt. Das sind genau die zwei Fehler der Klasse
+A aus Story 1.3, jetzt ausgeführt geprüft statt beschrieben. Zuletzt wird
+behauptet, dass der Server während des ganzen Laufs **nichts** auf die
+Fehlerausgabe gesagt hat: `handleError` protokolliert jeden unerwarteten Wurf ab
+500, und ohne diese eine Zeile bliebe er hinter lauter grünen Statuscodes
+unsichtbar.
+
+**Zwei Dinge hat erst der echte Server gezeigt**, und beide stehen deshalb als
+Behauptung fest:
+
+1. Der `content-type` der Abweisung hängt am `Accept`-Kopf. Ohne
+   `Accept: text/html` antwortet SvelteKits Fatal-Pfad mit `application/json`
+   und dem Satz im Feld `message`; erst mit dem Kopf eines Browsers kommt die
+   Hülle. Beide Fassungen werden gemessen — wer nur die eine prüft, prüft die
+   falsche Zusage.
+2. Die `Referrer-Policy` erreicht die 403 der **Einlöseroute** sehr wohl, nur
+   die des Wächters nicht. Der Kommentar in `src/hooks.server.ts` führte bis
+   Story 3.0 beide als ungedeckt und nannte ausgerechnet die tokentragende die
+   „unangenehmere"; gemessen ist sie die gedeckte, weil ihr Wurf **innerhalb**
+   von `resolve` liegt. Der Kommentar ist richtiggestellt, und beide Zustände
+   sind einzeln behauptet.
+
+Zwei Behauptungen gelten dem Prüfgegenstand selbst: `build/index.js` muss da
+**und** nicht älter als die jüngste Datei unter `src/` sein. Die zweite ist die
+wichtigere — ein veralteter Bau lieferte grüne Behauptungen über Bytes, die
+niemand mehr schreibt, und das sähe wie Deckung aus. Das Skript baut bewusst
+nicht selbst: wer seinen eigenen Prüfgegenstand herstellt, verdeckt jeden
+Baufehler. Der freie Port wird durch kurzes Binden auf `0` ermittelt; das Rennen
+um ihn wird nicht weggeredet, sondern gemessen — der Server meldet die
+tatsächlich gebundene Adresse, und eine Behauptung hält sie gegen die
+angeforderte. Unterprozess und Wegwerfverzeichnis fallen in einem `finally`, auch
+wenn eine Behauptung rot ist oder etwas Unerwartetes wirft.
+
+**Ausdrücklich nicht enthalten:** POST und `form actions` — `ORIGIN` und der
+freie Port fallen zwangsläufig auseinander, und ein CSRF-Verstoss wäre eine
+Aussage über die Prüfanlage statt über die Anwendung; die actions belegt `smoke`.
+Und kein kopfloser Browser: `showModal()`-Fokus, die Ansage der Live-Regionen
+und die Sperre gegen Doppelversand bleiben ungedeckt und sind als Stufe C an
+ihre eigene Auslösebedingung gebunden.
+
+### Was `npm run smoke:selftest` prüft
+
+Seit Story 3.0 entscheidet **ein** Modul über Rot und Grün für die ganze
+ausgeführte Prüfkette: `scripts/pruefhelfer.ts`, gemeinsam benutzt von `smoke`
+und `smoke:http`. Damit war es der einzige ungeprüfte Code darin — und sein
+Ausfall sähe wie ein grüner Lauf aus, nicht wie ein Absturz. Gemessen an einer
+Kopie: nimmt man das `gescheitert += 1` aus `pruefen`, meldet jede gebrochene
+Zusage weiter „FEHLER" auf die Fehlerausgabe, die Schlusszählung bleibt grün,
+und `npm run smoke` endet mit **0** — 373 Behauptungen auf einen Schlag
+entwaffnet, ohne dass irgendetwas im Baum es bemerkt.
+
+`scripts/pruefhelfer-selftest.ts` schliesst diese Lücke, in derselben Bauform wie
+`gate:selftest` und `db:check:selftest`: fünf Proben, jede ein eigener
+Node-Prozess, behauptet wird über **Exit-Code und Ausgabe** des fremden
+Prozesses. Belegt sind: eine Prüfliste ohne Befund endet mit 0 und meldet keine
+`FEHLER`-Zeile; eine mit einem Befund endet mit 1 und nennt Namen und Hinweis;
+`pruefenGleich` vergleicht wirklich und nennt Ist und Soll; ein unerwarteter Wurf
+wird benannt statt als Stacktrace ausgeworfen und zählt als gescheitert, aber
+nicht als gelaufene Behauptung; und `aufraeumen` entfernt ein
+Wegwerfverzeichnis tatsächlich.
+
+Zähler und Ausgabe dieses einen Skripts stehen **eigenständig** und benutzen den
+Prüfling nicht. Das ist die einzige gewollte Verdopplung im Prüfwerkzeug dieses
+Projekts, und sie ist nicht theoretisch: der erste Entwurf meldete über `pruefen`
+und behauptete mit entwaffnetem Kern fröhlich „der geteilte Prüfkern beisst
+nachweislich". Was geprüft wird, darf nicht zugleich das Urteil sprechen.
 
 ### Was `npm run db:check` prüft
 
