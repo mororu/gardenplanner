@@ -1,5 +1,5 @@
-import { fail } from '@sveltejs/kit';
 import type { Actions, RequestEvent, ServerLoadEvent } from '@sveltejs/kit';
+import { abweisen } from '../lib/server/abweisen.ts';
 import {
 	aufgabeAbhaken,
 	aufgabeWiederOeffnen,
@@ -28,11 +28,6 @@ import { AUFGABE_NICHT_ANSPRECHBAR } from '../lib/texte.ts';
  * kein JSON-Endpunkt, und im Markup zwei Formulare mit **literalem** action —
  * ein dynamisches action={…} würde Gate-Regel 11 blind machen.
  */
-
-/** Ein Fehlschlag mit 400 und dem einen Satz. Vier Zustände, keine Verzweigung. */
-function abweisen() {
-	return fail(400, { art: 'fehler' as const, meldung: AUFGABE_NICHT_ANSPRECHBAR });
-}
 
 /**
  * Liest die aufgabeId aus dem Formular, oder null.
@@ -130,6 +125,18 @@ export function load({ url }: ServerLoadEvent): {
 	return { aufgaben: offeneAufgabenAuflisten(jetztSekunden), abgelegt: abgelegtLesen(url) };
 }
 
+/*
+ * Wie diese Seite abweist — die Funktion steht in ../lib/server/abweisen.ts und
+ * ist für alle vier Seiten dieselbe.
+ *
+ * Diese Seite lässt beide Zusatzangaben leer: sie hat kein Feld, in das eine
+ * Meldung zeigen könnte, und keine Eingabe, die zurückreisen müsste — ein
+ * Kästchen und eine Id. Fünf Zustände fallen darum auf **einen** Satz zusammen,
+ * ohne jede Verzweigung: fehlende Id, nicht numerische Id, unbekannte Id,
+ * falscher Erledigt-Zustand und eine Zeile, die inzwischen jemand anders
+ * angefasst hat. Wer eine Aufgabe nicht abhaken kann, braucht keine Diagnose,
+ * sondern die aktuelle Liste — und die kommt mit der nächsten load.
+ */
 export const actions = {
 	/**
 	 * Hakt eine offene Aufgabe ab. Genau eine Interaktion, keine Rückfrage.
@@ -147,19 +154,19 @@ export const actions = {
 		// überall: ohne Identität gibt es niemanden, der abgehakt hätte, und
 		// verändert wird nichts.
 		if (mitglied === null) {
-			return abweisen();
+			return abweisen(AUFGABE_NICHT_ANSPRECHBAR);
 		}
 
 		const formular = await request.formData();
 		const id = idLesen(formular.get('aufgabeId'));
 		if (id === null) {
-			return abweisen();
+			return abweisen(AUFGABE_NICHT_ANSPRECHBAR);
 		}
 
 		const aufgabe = aufgabeAbhaken(id, mitglied.id);
 		// Unbekannt und schon erledigt fallen hier zusammen.
 		if (aufgabe === null) {
-			return abweisen();
+			return abweisen(AUFGABE_NICHT_ANSPRECHBAR);
 		}
 
 		// `art` ist der Diskriminator, den der Rückruf im Markup liest — wie in
@@ -184,13 +191,13 @@ export const actions = {
 		const formular = await request.formData();
 		const id = idLesen(formular.get('aufgabeId'));
 		if (id === null) {
-			return abweisen();
+			return abweisen(AUFGABE_NICHT_ANSPRECHBAR);
 		}
 
 		const aufgabe = aufgabeWiederOeffnen(id);
 		// Unbekannt und noch offen fallen hier zusammen.
 		if (aufgabe === null) {
-			return abweisen();
+			return abweisen(AUFGABE_NICHT_ANSPRECHBAR);
 		}
 
 		return {

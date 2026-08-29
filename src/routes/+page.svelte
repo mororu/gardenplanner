@@ -5,6 +5,7 @@
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 	import { resolve } from '$app/paths';
 	import type { PageProps } from './$types';
+	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
 
 	const { data, form }: PageProps = $props();
 
@@ -69,7 +70,22 @@
 	});
 
 	/** Der eine Satz für alle vier nicht ansprechbaren Zustände. */
-	const fehlerOben = $derived(form !== null && form.art === 'fehler' ? form.meldung : '');
+	/*
+		Ein Wurf in einer action, abgefangen im Rückruf unten statt an die
+		Fehlergrenze weitergereicht. Eigener Zustand und nicht aus `form`
+		abgeleitet: bei `result.type === 'error'` läuft update() gar nicht, `form`
+		bleibt also auf dem Stand davor stehen. Der nächste Versand setzt ihn
+		zurück — der neue Ausgang ist der jüngere und gewinnt.
+	*/
+	let versandFehler = $state('');
+
+	const fehlerOben = $derived(
+		versandFehler !== ''
+			? versandFehler
+			: form !== null && form.art === 'fehler'
+				? form.meldung
+				: ''
+	);
 
 	let meldungKasten = $state<HTMLElement | null>(null);
 
@@ -172,6 +188,7 @@
 				return;
 			}
 			imFlug = true;
+			versandFehler = '';
 			return async ({ update, result }) => {
 				/*
 					try/finally: bricht update() ab — ein abgerissenes Netz, ein Fehler
@@ -184,9 +201,28 @@
 					`erledigt`.
 				*/
 				try {
-					await update({ reset: false, invalidateAll: false });
+					/*
+						Ein Wurf in der action kommt als `result.type === 'error'` zurück,
+						und das gereichte update() reicht ihn an applyAction weiter — die
+						Fehlergrenze ersetzte dann die Seite. Statt dessen ein Satz in der
+						Live-Region, die hier ohnehin steht. Der Wurf selbst bleibt
+						unberührt: er hat handleError auf dem Server längst erreicht.
+						Einheitlich auf allen vier Seiten, entschieden am 2026-08-28 zu
+						Eintrag 32 der zurückgestellten Arbeit.
+					*/
+					if (result.type === 'error') {
+						versandFehler = VERSAND_FEHLGESCHLAGEN;
+					} else {
+						await update({ reset: false, invalidateAll: false });
+					}
 				} finally {
 					imFlug = false;
+				}
+				// Nach einem Wurf hat sich nichts geändert: das Kästchen zurück auf den
+				// Zustand, den der Server kennt.
+				if (versandFehler !== '') {
+					kaestchenNachZustand(formElement, id);
+					return;
 				}
 				const gewechselt = zustandUebernehmen(result, id);
 				if (!gewechselt) kaestchenNachZustand(formElement, id);
@@ -413,24 +449,6 @@
 </div>
 
 <style>
-	.seite {
-		display: flex;
-		flex-direction: column;
-		/* Abstand zwischen Geschwistern über gap, nie über Aussenabstände */
-		gap: var(--space-4);
-	}
-
-	/* Genau ein h1 pro Seite, und nur dieses trägt die display-Rolle */
-	.seitentitel {
-		margin: 0;
-		color: var(--ink-primary);
-		font-family: var(--display-font);
-		font-size: var(--display-size);
-		font-weight: var(--display-weight);
-		line-height: var(--display-line);
-		letter-spacing: var(--display-tracking);
-	}
-
 	/*
 		Die Abschnittsmarke in der label-Rolle: 12px, Grossbuchstaben über
 		text-transform. Im Markup steht `Offen` und nicht `OFFEN` — ein
@@ -467,32 +485,6 @@
 		font-size: var(--body-size);
 		font-weight: var(--body-weight);
 		line-height: var(--body-line);
-	}
-
-	/*
-		Der Fehlersatz ist keine Farbaussage: er steht als Satz da und trägt darum
-		die gewöhnliche Textfarbe. Rot ist in dieser Anwendung dem zerstörenden
-		Knopf vorbehalten.
-	*/
-	.fehler {
-		margin: 0;
-		color: var(--ink-primary);
-		font-family: var(--body-font);
-		font-size: var(--body-size);
-		font-weight: var(--body-weight);
-		line-height: var(--body-line);
-	}
-
-	/*
-		Eine leere Live-Region bleibt im Baum und verlässt nur den Fluss. Mit
-		display: none wäre sie für einen Teil der Hilfsmittel gar nicht vorhanden
-		und die Ansage fiele wieder aus.
-	*/
-	.live:empty {
-		position: absolute;
-		block-size: 0;
-		inline-size: 0;
-		overflow: hidden;
 	}
 
 	.liste {
@@ -613,9 +605,11 @@
 		aufzuspannen: ohne die Zeile schöbe ein langes Wort ohne Trennstelle die
 		ganze Zeile breiter, und das Kästchen links wanderte mit aus dem Blickfeld.
 
-		Was min-width: 0 **nicht** tut, ist umbrechen. Das Wort läuft dann aus der
-		Box heraus — im ganzen Baum steht keine Umbruchregel, und eine hier wäre die
-		erste. Das ist ein eigener Posten und keine Aufgabe dieser Story.
+		Was min-width: 0 **nicht** tut, ist umbrechen — das besorgt die Regel
+		`overflow-wrap: anywhere` an .zeile__text in bedienelemente.css. Die zwei
+		gehören zusammen: min-width: 0 erlaubt der Spalte zu schrumpfen, und erst
+		`anywhere` gibt dem langen Wort eine Trennstelle, an der es das auch kann.
+		Wer eine der beiden entfernt, bekommt den seitlichen Überlauf zurück.
 	*/
 	.zeile__spalte {
 		display: flex;

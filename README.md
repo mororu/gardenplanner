@@ -728,7 +728,7 @@ docker compose logs nginx --tail 50
 | `npm start`                 | Produktionsstart: `node build/index.js`.                                                                                                                                                                             |
 | `npm run check`             | `svelte-check` mit `--fail-on-warnings`, dann `tsc -p tsconfig.scripts.json` für `scripts/` und `drizzle.config.ts`.                                                                                                 |
 | `npm run gate`              | Prüft die neun Regeln des Gestaltungsrahmens und der Schichtgrenze (siehe unten).                                                                                                                                    |
-| `npm run gate:selftest`     | Richtet das Tor auf `scripts/gate-fixtures/` und beweist, dass jede der neun Regeln beisst.                                                                                                                          |
+| `npm run gate:selftest`     | Richtet das Tor auf `scripts/gate-fixtures/` und beweist, dass jede der dreizehn Regeln beisst.                                                                                                                      |
 | `npm run db:generate`       | Erzeugt die nächste Migration aus `schema.ts` nach `drizzle/`. Braucht `DATABASE_PATH`.                                                                                                                              |
 | `npm run db:check`          | Führt `drizzle.config.ts` aus und vergleicht `schema.ts` mit `drizzle/`.                                                                                                                                             |
 | `npm run db:check:selftest` | Richtet `db:check` auf `scripts/db-check-fixtures/` und beweist, dass es beisst.                                                                                                                                     |
@@ -853,11 +853,23 @@ CSS-Kommentare vorher aus. Zwölf Regeln:
     verschriebener Name passiert `check`, `eslint` und `smoke` grün, und der
     Knopf tut am laufenden Server nichts. Die Form `action="/pfad?/name"` deutet
     die Regel bewusst nicht.
-12. In keinem HTML-Kommentar unter `src/` steht eine SvelteKit-Marke wie
-    `%sveltekit.head%`. Die Ersetzung fragt nicht, wo die Marke steht; der
-    eingesetzte Kopfbereich bringt eigene Kommentarmarken mit, und deren Ende
-    schliesst den umgebenden Kommentar vorzeitig. Gefunden hat das kein
-    Werkzeug, sondern das Auge des Users.
+12. Zwei Dinge, die in einem Kommentar der ausgelieferten Hülle nichts zu
+    suchen haben. **Erstens** eine SvelteKit-Marke wie `%sveltekit.head%`: die
+    Ersetzung fragt nicht, wo die Marke steht; der eingesetzte Kopfbereich
+    bringt eigene Kommentarmarken mit, und deren Ende schliesst den umgebenden
+    Kommentar vorzeitig. Gefunden hat das kein Werkzeug, sondern das Auge des
+    Users. **Zweitens** ein interner Pfad wie `src/routes/` oder
+    `scripts/gate.mjs`, in einem HTML- wie in einem CSS-Kommentar: `src/app.html`
+    und `src/error.html` gehen als ganzer Text an jeden Besucher, Kommentare
+    eingeschlossen — weder vite noch der Adapter entfernen sie. In app.html
+    standen so zehn Zeilen Entwicklerprosa mit Dateipfaden in der Auslieferung,
+    und sie waren veraltet obendrein: sie zählten die Seiten mit eigenem
+    `<title>` auf und kannten `/monatsplan` nicht. Der Pfad ist das Merkmal, das
+    eine Erklärung für Entwickelnde von einer Notiz am Markup unterscheidet, und
+    er ist mechanisch fassbar; ein Kommentar ohne Verweis auf den Quellbaum darf
+    bleiben. Der Sachverhalt jenes Kommentars — warum in app.html kein
+    `title`-Element steht und warum jede Seite ihren Titel selbst setzt — steht
+    seither im Regelkopf von `scripts/gate.mjs`.
 
 Kommentare werden vor jeder Auswertung ausgeblendet: Block- und
 HTML-Kommentare überall, **Zeilenkommentare nur dort, wo `//` wirklich ein

@@ -132,7 +132,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 373;
+const ERWARTETE_BEHAUPTUNGEN = 377;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -1602,7 +1602,7 @@ try {
 	pruefen('und lässt kein Token nach draussen', !traegtToken(datenVon(leererName)));
 	pruefenGleich(
 		'die Eingabe kommt unverändert zum Feld zurück',
-		textFeld(datenVon(leererName), 'nameEingabe'),
+		textFeld(datenVon(leererName), 'eingabe'),
 		'   '
 	);
 
@@ -3528,7 +3528,16 @@ try {
 			'disabled am primären Knopf',
 			/<button[^>]*class="button-primary"[^>]*disabled=\{imFlug/.test(schrittZwei),
 		],
-		['try/finally um update()', /try \{\s*await update\(/.test(planCode)],
+		/*
+			Die Zusage ist nicht „try steht vor update", sondern „update läuft im
+			try, und das finally gibt die Sperre zurück". Die erste Fassung prüfte
+			die Nachbarschaft der zwei Zeilen und wurde rot, als das Abfangen eines
+			Wurfs dazwischentrat — ohne dass die Zusage gebrochen war.
+		*/
+		[
+			'try/finally um update()',
+			/try \{[\s\S]*?await update\([\s\S]*?\} finally \{\s*imFlug = false;/.test(planCode),
+		],
 	] as const;
 	pruefen(
 		'/monatsplan trägt die Doppelsperre vollständig — die drei zusammen sind sie, einzeln nicht',
@@ -4299,6 +4308,122 @@ try {
 		'kein Timer in src/ zieht die Wochenzahl nach — sie entsteht allein in der load',
 		fehlendeTeile(timerTeile).length === 0,
 		`verletzt: ${fehlendeTeile(timerTeile).join(', ')}`
+	);
+	// -----------------------------------------------------------------------
+	// Die Nacharbeit aus den Retrospektiven zu Epic 1 und 2
+	// -----------------------------------------------------------------------
+	/*
+	 * Vier Behauptungen über Zusammengelegtes.
+	 *
+	 * Sie prüfen kein Verhalten, sondern eine **Zahl**: wie oft dieselbe Sache im
+	 * Baum steht. Das ist ungewöhnlich für dieses Skript und hier der Punkt. Die
+	 * Retrospektive zu Epic 2 hat die Drift nicht gefunden, weil etwas kaputt war,
+	 * sondern weil jemand zwei Seiten nebeneinandergelegt und gezählt hat — und
+	 * genau deshalb ist sie zwei Epics lang gewachsen: von drei Kopien auf vier,
+	 * von drei abweisen-Formen auf vier. Epic 3 bringt zwei weitere Seiten mit;
+	 * ohne eine Zahl, die rot wird, stünden dort acht und sechs.
+	 *
+	 * Gelesen wird kommentarfrei. Die Begründungen zu dieser Nacharbeit nennen die
+	 * alten Formen wörtlich — auf dem Rohtext wären die Behauptungen an ihrer
+	 * eigenen Begründung rot geworden.
+	 */
+	const quelltext = (...teile: string[]) =>
+		kommentarfrei(readFileSync(join(wurzel, ...teile), 'utf8'));
+	const seitenServer = [
+		['/', quelltext('src', 'routes', '+page.server.ts')],
+		['/aufgabe', quelltext('src', 'routes', 'aufgabe', '+page.server.ts')],
+		['/monatsplan', quelltext('src', 'routes', 'monatsplan', '+page.server.ts')],
+		['/verwaltung', quelltext('src', 'routes', 'verwaltung', '+page.server.ts')],
+	] as const;
+	const seitenKomponenten = [
+		['/', quelltext('src', 'routes', '+page.svelte')],
+		['/aufgabe', quelltext('src', 'routes', 'aufgabe', '+page.svelte')],
+		['/monatsplan', quelltext('src', 'routes', 'monatsplan', '+page.svelte')],
+		['/verwaltung', quelltext('src', 'routes', 'verwaltung', '+page.svelte')],
+	] as const;
+
+	const abweisenTeile = [
+		[
+			'die eine Form steht in src/lib/server/abweisen.ts',
+			/export function abweisen</.test(quelltext('src', 'lib', 'server', 'abweisen.ts')),
+		],
+		[
+			'keine Seite erklärt eine eigene',
+			!seitenServer.some(([, text]) => /function abweisen\s*[(<]/.test(text)),
+		],
+		[
+			'alle vier ziehen sie aus dem Modul',
+			seitenServer.every(([, text]) =>
+				/import \{ abweisen \} from '[^']*\/abweisen\.ts';/.test(text)
+			),
+		],
+	] as const;
+	pruefen(
+		'abweisen hat eine Form und eine Wurfstelle, nicht vier',
+		fehlendeTeile(abweisenTeile).length === 0,
+		`verletzt: ${fehlendeTeile(abweisenTeile).join(', ')}`
+	);
+
+	/*
+	 * Die Seitenform steht in bedienelemente.css und **nirgends sonst**. Gesucht
+	 * wird der Regelkopf `.name {`, nicht das Wort: `class="fehler live"` im
+	 * Markup ist keine Kopie, sondern die Benutzung.
+	 */
+	const SEITENFORM = [
+		['.seite', /^[ \t]*\.seite\s*\{/m],
+		['.seitentitel', /^[ \t]*\.seitentitel\s*\{/m],
+		['.fehler', /^[ \t]*\.fehler\s*\{/m],
+		['.live:empty', /^[ \t]*\.live:empty\s*\{/m],
+	] as const;
+	const STILBLATT = join('src', 'lib', 'styles', 'bedienelemente.css');
+	const unterSrc = baum.filter((datei) => datei.pfad.startsWith(join('src', '')));
+	const formTeile = SEITENFORM.map(([name, muster]) => {
+		const treffer = unterSrc.filter((datei) => muster.test(datei.text)).map((d) => d.pfad);
+		return [
+			`${name} steht genau einmal, im geteilten Stilblatt (gefunden: ${treffer.join(', ') || 'nirgends'})`,
+			treffer.length === 1 && treffer[0].endsWith(STILBLATT),
+		] as const;
+	});
+	pruefen(
+		'die Seitenform liegt an einer Stelle — keine Kopie je Seite',
+		fehlendeTeile(formTeile).length === 0,
+		`verletzt: ${fehlendeTeile(formTeile).join(' | ')}`
+	);
+
+	/*
+	 * Ein Wurf in einer action ersetzt die Seite nicht mehr durch die
+	 * Fehlergrenze. Die Behauptung nagelt beide Hälften fest: den abgefangenen
+	 * Fall und den Satz, den er zeigt — ein `if` ohne Satz wäre ein stiller
+	 * Fehlschlag, und ein eigener Satz je Seite wäre die nächste Drift.
+	 */
+	const wurfTeile = seitenKomponenten.map(
+		([name, text]) =>
+			[
+				`${name} fängt result.type === 'error' ab und zeigt den geteilten Satz`,
+				/if \(result\.type === 'error'\) \{/.test(text) &&
+					/versandFehler = VERSAND_FEHLGESCHLAGEN;/.test(text) &&
+					/import \{ VERSAND_FEHLGESCHLAGEN \} from '\$lib\/texte';/.test(text),
+			] as const
+	);
+	pruefen(
+		'alle vier use:enhance-Rückrufe fangen einen Wurf ab, mit einem Satz für alle',
+		fehlendeTeile(wurfTeile).length === 0,
+		`verletzt: ${fehlendeTeile(wurfTeile).join(', ')}`
+	);
+
+	/*
+	 * Der Feldfehler auf /verwaltung, wortgleich zur Behauptung über
+	 * /monatsplan weiter oben — das war der Sinn des Retro-Postens: dieselbe
+	 * Bauform an beiden Stellen, und beide gemessen.
+	 */
+	const verwaltungCode = seitenKomponenten[3][1];
+	const nameFehlerTag = /<p\b[^>]*\bid="name-fehler"[^>]*>/.exec(verwaltungCode)?.[0] ?? '';
+	pruefen(
+		'der Satz am Namensfeld auf /verwaltung ist eine immer vorhandene Live-Region',
+		/class="fehler live"/.test(nameFehlerTag) &&
+			/aria-live=/.test(nameFehlerTag) &&
+			!/\{#if fehlerAmNamen/.test(verwaltungCode),
+		nameFehlerTag === '' ? 'kein <p id="name-fehler"> gefunden' : nameFehlerTag
 	);
 } catch (fehler) {
 	unerwarteterWurf('smoke', fehler);

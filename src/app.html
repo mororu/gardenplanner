@@ -10,22 +10,6 @@
 		-->
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-		<!--
-			**Hier steht kein title-Element.** Es stand hier und war der Grund, dass
-			jeder Seitentitel aus svelte:head wirkungslos blieb: bei mehreren
-			title-Elementen nimmt der Browser das erste, und dieses stand vor der
-			Einfügemarke für den Kopfbereich. Zwei title-Elemente sind zudem kein
-			gültiges HTML. Jede Seite trägt ihren eigenen Titel —
-			src/routes/+page.svelte, mehr/+page.svelte, verwaltung/+page.svelte und
-			+error.svelte. Eine neue Seite braucht darum einen, sonst zeigt der
-			Reiter ihre Adresse. Die rahmenlose src/error.html hat ihren eigenen.
-
-			In diesem Kommentar darf die Einfügemarke nicht wörtlich stehen: SvelteKit
-			ersetzt sie auch innerhalb eines Kommentars, der eingesetzte Kopfbereich
-			enthält selbst Kommentarmarken, und deren Ende schliesst diesen Kommentar
-			vorzeitig — der Rest des Textes stünde dann sichtbar über der Titelleiste.
-			Genau das ist am 2026-08-27 passiert. Gate-Regel 12 hält es fest.
-		-->
 		<meta
 			name="description"
 			content="Aufgabenliste für den Gemeinschaftsgarten: sehen, was offen ist, und mit einem Griff abhaken."
@@ -35,8 +19,7 @@
 		<link rel="icon" href="/favicon.ico" sizes="32x32" />
 		<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon-180.png" />
 
-		<!-- Unqualifiziert für Browser ohne media-Unterstützung, danach das Paar je Schema.
-		     scripts/gate.mjs vergleicht diese drei Werte mit --accent aus dem Token-Block. -->
+		<!-- Unqualifiziert für Browser ohne media-Unterstützung, danach das Paar je Schema. -->
 		<meta name="theme-color" content="#2F6B3F" />
 		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#2F6B3F" />
 		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#7FBB8C" />
@@ -53,8 +36,8 @@
 			 * ausschliesslich über CSS Custom Properties und immer ohne Fallback.
 			 * Werte gerechnet aus DESIGN.md, Grössen in rem bei 16px Wurzel, damit
 			 * die systemweite Vergrösserung greift.
-			 * scripts/gate.mjs prüft beide Richtungen: kein Farb- oder Massliteral in
-			 * einer Komponente, kein benutztes Token ohne Deklaration hier, und kein
+			 * Das Tor prüft beide Richtungen: kein Farb- oder Massliteral in einer
+			 * Komponente, kein benutztes Token ohne Deklaration hier, und kein
 			 * Farb-Token ohne Wert im Dunkel-Block.
 			 */
 			:root {
@@ -100,7 +83,7 @@
 				 */
 				--danger: #a32e22;
 
-				/* Schriftfamilien — selbst gehostet, siehe src/lib/styles/fonts.css */
+				/* Schriftfamilien — selbst gehostet, geladen aus dem eigenen Stilblatt */
 				--font-heading: 'Figtree Variable', 'Figtree', system-ui, sans-serif;
 				--font-text: 'Inter Variable', 'Inter', system-ui, sans-serif;
 

@@ -1,6 +1,7 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { redirect } from '@sveltejs/kit';
 import type { Actions, RequestEvent } from '@sveltejs/kit';
 import { AUFGABE_HOECHSTLAENGE, PLAN_HOECHSTZAHL, zeilenErkennen } from '../../lib/aufgabentext.ts';
+import { abweisen } from '../../lib/server/abweisen.ts';
 import { aufgabenStapelAnlegen } from '../../lib/server/db/queries/tasks.ts';
 import { monatsendeAlsFeldwert, tagesendeInUnixSekunden } from '../../lib/zeit.ts';
 
@@ -67,25 +68,6 @@ function zuLangSatz(anzahl: number): string {
 }
 
 /**
- * Ein Fehlschlag mit 400.
- *
- * `feld` benennt, wohin die Meldung gehört, und die Komponente **liest es**:
- * diese Seite hat zwei Felder, und eine Meldung über das Datum gehört an das
- * Datumsfeld, nicht unter die Liste. Anders als auf /aufgabe, wo es genau ein
- * Feld gibt und die Zuordnung darum ein toter Zweig wäre.
- *
- * Die Eingabe reist **nicht** zurück: der Text steht im $state der Komponente
- * und ist nach einem abgewiesenen Versand unverändert da — anders als auf
- * /aufgabe, wo der serverseitig gerenderte Feldwert die einzige Quelle ist.
- *
- * Ein abgewiesener Versand legt **nichts** an: aufgabenStapelAnlegen wird auf
- * diesem Weg nie erreicht.
- */
-function abweisen(meldung: string, feld: 'datum' | 'zeilen') {
-	return fail(400, { art: 'fehler' as const, meldung, feld });
-}
-
-/**
  * Die Seitendaten: **nur** die Vorbelegung des Datumsfeldes.
  *
  * `Fällig bis` ist Pflicht und mit dem Ende des laufenden Monats vorbelegt. Eine
@@ -104,6 +86,23 @@ export function load(): { faelligBisVorgabe: string } {
 	return { faelligBisVorgabe: monatsendeAlsFeldwert(Math.floor(Date.now() / 1000)) };
 }
 
+/*
+ * Wie diese Seite abweist — die Funktion selbst steht in
+ * ../../lib/server/abweisen.ts und ist für alle vier Seiten dieselbe.
+ *
+ * `feld` benennt, wohin die Meldung gehört, und die Komponente **liest es**:
+ * diese Seite hat zwei Felder, und eine Meldung über das Datum gehört an das
+ * Datumsfeld, nicht unter die Liste. Anders als auf /aufgabe, wo es genau ein
+ * Feld gibt und die Zuordnung darum ein toter Zweig wäre.
+ *
+ * Die Eingabe reist **nicht** zurück und bleibt darum leer: der Text steht im
+ * $state der Komponente und ist nach einem abgewiesenen Versand unverändert da
+ * — anders als auf /aufgabe, wo der serverseitig gerenderte Feldwert die einzige
+ * Quelle ist.
+ *
+ * Ein abgewiesener Versand legt **nichts** an: aufgabenStapelAnlegen wird auf
+ * diesem Weg nie erreicht.
+ */
 export const actions = {
 	/**
 	 * Legt den ganzen Stapel ab und leitet auf die Liste zurück.

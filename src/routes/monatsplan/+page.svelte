@@ -7,6 +7,7 @@
 	import { PLAN_HOECHSTZAHL, zeilenErkennen } from '$lib/aufgabentext';
 	import { datumLang } from '$lib/client/utils/date';
 	import { tagesendeInUnixSekunden } from '$lib/zeit';
+	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
 	import type { PageProps } from './$types';
 
 	const { data, form }: PageProps = $props();
@@ -169,7 +170,18 @@
 	const fehlschlag = $derived(!quittiert && form !== null && form.art === 'fehler' ? form : null);
 
 	/** Der Satz der abgewiesenen action. Eine Region für beide Felder. */
-	const fehler = $derived(fehlschlag === null ? '' : fehlschlag.meldung);
+	/*
+		Ein Wurf in einer action, abgefangen im Rückruf unten statt an die
+		Fehlergrenze weitergereicht. Eigener Zustand und nicht aus `form`
+		abgeleitet: bei `result.type === 'error'` läuft update() gar nicht, `form`
+		bleibt also auf dem Stand davor stehen. Der nächste Versand setzt ihn
+		zurück — der neue Ausgang ist der jüngere und gewinnt.
+	*/
+	let versandFehler = $state('');
+
+	const fehler = $derived(
+		versandFehler !== '' ? versandFehler : fehlschlag === null ? '' : fehlschlag.meldung
+	);
 
 	/** Gehört der Satz an das Datumsfeld? Dann wird dessen Kante breiter. */
 	const fehlerAmDatum = $derived(fehlschlag !== null && fehlschlag.feld === 'datum');
@@ -312,6 +324,7 @@
 		// Der nächste Ausgang soll sichtbar werden, auch wenn er wortgleich mit dem
 		// eben quittierten ist.
 		quittiert = false;
+		versandFehler = '';
 		return async ({ update, result }) => {
 			/*
 				try/finally und nicht zwei Zeilen hintereinander: bricht update()
@@ -321,10 +334,25 @@
 				wäre fort. Retro-Posten B1 aus Epic 1.
 			*/
 			try {
-				await update({ reset: false });
+				/*
+					Ein Wurf in der action kommt als `result.type === 'error'` zurück, und
+					das gereichte update() reicht ihn an applyAction weiter — die
+					Fehlergrenze ersetzte dann die Seite. Statt dessen ein Satz in der
+					Live-Region, die hier ohnehin steht. Der Wurf selbst bleibt unberührt:
+					er hat handleError auf dem Server längst erreicht. Einheitlich auf allen
+					vier Seiten, entschieden am 2026-08-28 zu Eintrag 32 der
+					zurückgestellten Arbeit.
+				*/
+				if (result.type === 'error') {
+					versandFehler = VERSAND_FEHLGESCHLAGEN;
+				} else {
+					await update({ reset: false });
+				}
 			} finally {
 				imFlug = false;
 			}
+			// Ein abgefangener Wurf trägt kein Feld — feldVon gibt dann undefined, der
+			// Schritt bleibt stehen, und der Satz steht ohnehin über beiden.
 			if (feldVon(result) === 'datum') void schrittWechseln(1);
 		};
 	};
@@ -534,56 +562,6 @@
 </div>
 
 <style>
-	/*
-		.seite, .seitentitel, .fehler und .live:empty stehen pro Seite und nicht
-		global: sie sind die Seitenform, kein Bedienelement. Dies ist die vierte
-		Kopie; die Zusammenlegung nach bedienelemente.css ist offener Retro-Posten
-		B5 und betrifft auch /verwaltung — sie gehört nicht in diese Story.
-	*/
-	.seite {
-		display: flex;
-		flex-direction: column;
-		/* Abstand zwischen Geschwistern über gap, nie über Aussenabstände */
-		gap: var(--space-4);
-	}
-
-	/* Genau ein h1 pro Seite, und nur dieses trägt die display-Rolle */
-	.seitentitel {
-		margin: 0;
-		color: var(--ink-primary);
-		font-family: var(--display-font);
-		font-size: var(--display-size);
-		font-weight: var(--display-weight);
-		line-height: var(--display-line);
-		letter-spacing: var(--display-tracking);
-	}
-
-	/*
-		Der Fehlersatz ist keine Farbaussage: er steht als Satz da und trägt darum
-		die gewöhnliche Textfarbe. Rot ist in dieser Anwendung dem zerstörenden
-		Knopf vorbehalten.
-	*/
-	.fehler {
-		margin: 0;
-		color: var(--ink-primary);
-		font-family: var(--body-font);
-		font-size: var(--body-size);
-		font-weight: var(--body-weight);
-		line-height: var(--body-line);
-	}
-
-	/*
-		Eine leere Live-Region bleibt im Baum und verlässt nur den Fluss. Mit
-		display: none wäre sie für einen Teil der Hilfsmittel gar nicht vorhanden
-		und die Ansage fiele wieder aus. Wortgleich mit der Regel auf `/`.
-	*/
-	.live:empty {
-		position: absolute;
-		block-size: 0;
-		inline-size: 0;
-		overflow: hidden;
-	}
-
 	.schreiben,
 	.pruefen {
 		display: flex;

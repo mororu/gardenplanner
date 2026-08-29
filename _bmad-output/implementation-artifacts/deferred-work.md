@@ -243,7 +243,13 @@ Protokoll unverändert stehen.
     Bedeutung — und darf den Wurf nicht schlucken. Die Fehlergrenze behält ihre Aufgabe für alles,
     was keine Formularübermittlung ist. Es sind auf jeder Seite dieselben fünf Zeilen; damit ist es
     derselbe Durchgang, in dem die vier `abweisen`-Signaturen zusammengehen (Retro-Punkt 3).
-  status: entschieden, Umsetzung offen
+  status: **erledigt am 2026-08-29.** `VERSAND_FEHLGESCHLAGEN` in `src/lib/texte.ts`, abgefangen in
+    allen vier `use:enhance`-Rückrufen; der Satz landet in der Live-Region, die auf jeder der vier
+    Seiten schon stand. Der Satz sagt ausdrücklich **nicht**, dass nichts entstanden sei — auf
+    `/verwaltung` wäre das falsch, wenn `aufnehmen` nach `mitgliedAnlegen` abbricht —, sondern
+    schickt zum Nachsehen. Belegt: `smoke` behauptet alle vier Rückrufe zugleich, und die Gegenprobe
+    (`if (false)` statt der Bedingung auf `/monatsplan`) macht sie rot. Zusammen mit den vier
+    `abweisen`-Signaturen umgesetzt, wie hier vorgesehen.
 
 **Nebenbei geschlossen:** `EXPERIENCE.md:79` und `:101` verwiesen auf ein Token `{colors.warn}`,
 das es nicht gibt (Eintrag 35, Zeile 122). Beide Zeilen wurden für den Wortlaut ohnehin angefasst
@@ -338,3 +344,72 @@ eine Gestaltungsfrage und muss vor Story 3.1 beantwortet werden.
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-0-das-ausgelieferte-html-gegen-einen-echten-server-pruefen.md`
   summary: `GUTES_GEHEIMNIS` steht in `smoke-zugang.ts` und `smoke-http.ts` getrennt, obwohl `pruefhelfer.ts` gerade gegen solche Doppel angelegt wurde.
   evidence: Zwei verschiedene Zeichenketten mit demselben Zweck — ein Wert, der `sitzungsgeheimnisPruefen()` besteht. Die Verdopplung ist harmlos (die Werte müssen sich nicht decken, und ein Prüfgeheimnis ist kein Gestaltungswert), fällt aber auf, seit die anderen geteilten Stücke an einem Ort liegen. Wenn es angefasst wird, dann zusammen mit der Frage, ob `pruefhelfer.ts` überhaupt Projektwissen tragen darf — heute ist es ausdrücklich frei von Projektimporten, und genau das macht es von nacktem Node ladbar.
+
+## Erledigt am 2026-08-29: die vier Posten „jetzt beheben" aus der Retrospektive zu Epic 2
+
+Ein Durchgang, vier Posten, weil sie dieselben Dateien anfassen — D1 und D2 waren in der
+Retrospektive ausdrücklich als **ein** Durchgang disponiert, und der Entscheid zu Eintrag 32 hängt
+sich mit derselben Begründung an. Betroffen sind die Retro-Punkte 2, 4, 9, 10 (Epic 1) und 15, 16,
+17, 18, 35 (Epic 2).
+
+- betrifft: Einträge 27 und 38 (Zeilen 95, 134), Bucket B3 der Triage, sowie Retro-Befund D1
+  fassung: Die Seitenform — `.seite`, `.seitentitel`, `.fehler`, `.live:empty` — liegt jetzt in
+    `src/lib/styles/bedienelemente.css` und in **keiner** Komponente mehr. Sechs Kopien von
+    `.seitentitel`, fünf von `.seite` und je vier der anderen zwei sind auf je eine geschmolzen.
+    Der Gap-Drift ist zugunsten von `--space-4` aufgelöst; `/verwaltung` stand als einzige Seite
+    auf `--space-5`, ohne dass irgendwo ein Grund dafür stand.
+  mitgenommen: Eintrag 38 — die fehlende Umbruchregel. `overflow-wrap: anywhere` an `.zeile__text`
+    steht im selben Stilblatt, weil derselbe Aufgabentext auf `/` und in der Prüfliste von
+    `/monatsplan` erscheint und beide ihn gleich brechen müssen. Der Kommentar an `min-width: 0`
+    in `+page.svelte` sagt jetzt, dass die zwei zusammengehören, statt dass eine Regel fehlt.
+  belegt: `smoke` behauptet je Selektor „genau einmal, im geteilten Stilblatt" und nennt im roten
+    Fall die Fundstellen. Gegenprobe ausgeführt: eine wiedereingesetzte `.seite`-Regel in
+    `/mehr` macht die Behauptung rot und zeigt beide Pfade.
+  status: erledigt
+
+- betrifft: Retro-Befund D2, Epic-1-Punkt 10 und Epic-2-Punkt 17
+  fassung: `abweisen` steht in `src/lib/server/abweisen.ts` und hat eine Signatur
+    `(meldung, feld?, eingabe?)`. Vorlage war `/monatsplan`, um den Rückweg der Eingabe erweitert,
+    den `/aufgabe` und `/verwaltung` brauchen. `feld` ist generisch, damit die ActionData jeder
+    Seite weiterhin genau ihre eigenen Feldnamen trägt und ein Tippfehler im Markup ein Typfehler
+    bleibt. `nameEingabe` heisst überall `eingabe`.
+  preis: Zwei Seiten lassen zwei der drei Angaben leer — `/` hat kein Feld und keine Eingabe,
+    `/monatsplan` hält seinen Text im `$state`. Das ist benannt und abgenommen: eine leere Angabe
+    kostet ein Feld in der Nutzlast, eine eigene Signatur kostet die nächste Drift.
+  belegt: `smoke` behauptet die drei Hälften zusammen (Modul, keine eigene Form je Seite, alle vier
+    ziehen aus dem Modul). Gegenprobe ausgeführt: eine wieder lokal erklärte `abweisen`-Form in
+    `/monatsplan` macht sie rot.
+  status: erledigt
+
+- betrifft: Retro-Befund M2, Epic-1-Punkt 2 und Epic-2-Punkt 15
+  fassung: Der Satz am Namensfeld auf `/verwaltung` steht **immer** im Markup, mit `role="alert"`
+    und `aria-live="assertive"` — dieselbe Bauform wie der Fehlersatz auf `/monatsplan`, der in
+    Epic 2 als Muster festgehalten wurde. Das `aria-describedby` am Feld bleibt bedingt: eine
+    Beschreibung, die auf ein leeres Element zeigt, sagt nichts.
+  belegt: `smoke` behauptet es wortgleich zur bestehenden Behauptung über `/monatsplan`.
+    Gegenprobe ausgeführt: zurück hinter ein `{#if}` und ohne `aria-live` macht sie rot.
+  status: erledigt
+
+- betrifft: Retro-Befund S4, Epic-1-Punkt 4 und Epic-2-Punkt 18
+  fassung: Die zehn Zeilen Entwicklerprosa in `src/app.html` sind fort. Gate-Regel 12 hat eine
+    zweite Hälfte bekommen: **kein interner Pfad in einem Kommentar der ausgelieferten Hülle**, in
+    HTML- wie in CSS-Kommentaren. Der Pfad ist das Merkmal, das eine Erklärung für Entwickelnde von
+    einer Notiz am Markup unterscheidet, und er ist mechanisch fassbar — die Begründung an
+    `viewport-fit=cover` darf bleiben. Vier weitere Fundstellen fielen dabei auf und sind
+    mitgenommen (drei in `app.html`, eine in `error.html`).
+  wohin damit: Der Sachverhalt jenes Kommentars — warum in `app.html` kein `title`-Element steht
+    und warum jede Seite ihren Titel selbst setzt — steht jetzt im Regelkopf von `scripts/gate.mjs`
+    und in `README.md`, also dort, wo ihn liest, wer ihn braucht.
+  belegt: Zwei neue Proben im `gate:selftest`, `regel-12b-pfad-im-kommentar` (2 von 2) und die
+    Gegenprobe `regel-12b-pfad-ausserhalb` (0 von 0, mit einem Pfad im Attributwert und einem im
+    sichtbaren Text). 29 Fehlerproben statt 27.
+  nebenbei: Die Skripttabelle in `README.md` sagte „neun Regeln" für `gate` und `gate:selftest` und
+    sagt jetzt dreizehn — der letzte Eintrag dieser Datei, im selben Zug geschlossen.
+  status: erledigt
+
+**Nicht mitgenommen, obwohl die Dateien offen waren:** die CSS-Kommentare im Token-Block von
+`src/app.html` gehen mit rund 5 100 Zeichen ebenfalls an jeden Besucher. Sie tragen die Begründung
+zu jedem Token unmittelbar am Wert, und sie zu verlagern ist ein Abwägen zwischen ausgelieferten
+Bytes und dem Ort des Gestaltungsprotokolls — eine Entscheidung, keine Nacharbeit. Hier nur
+gemessen festgehalten. Die neue Regelhälfte fasst sie nicht, weil sie keine internen Pfade mehr
+nennen.

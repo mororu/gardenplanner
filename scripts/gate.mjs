@@ -1196,7 +1196,8 @@ const torPrüfen = (ziel) => {
 	}
 
 	// -------------------------------------------------------------------
-	// Regel 12: kein SvelteKit-Platzhalter innerhalb eines HTML-Kommentars
+	// Regel 12: was in einem Kommentar der ausgelieferten Hülle nichts zu
+	//           suchen hat — eine SvelteKit-Marke oder ein interner Pfad
 	// -------------------------------------------------------------------
 	/*
 	 * SvelteKit ersetzt %sveltekit.head% und %sveltekit.body% durch Text, ohne zu
@@ -1209,6 +1210,16 @@ const torPrüfen = (ziel) => {
 	 * dort kein title-Element steht, und nannte die Marke wörtlich. Weder check
 	 * noch lint noch eine der elf anderen Regeln sahen es; aufgefallen ist es am
 	 * laufenden Server, mit dem Auge — und das ist der teuerste Weg.
+	 *
+	 * Der Sachverhalt, den jener Kommentar festhielt, steht seit der zweiten
+	 * Hälfte dieser Regel hier statt in der Auslieferung: **in app.html steht kein
+	 * title-Element.** Es stand dort und war der Grund, dass jeder Titel aus
+	 * svelte:head wirkungslos blieb — bei mehreren title-Elementen nimmt der
+	 * Browser das erste, und dieses stand vor der Einfügemarke für den
+	 * Kopfbereich; zwei title-Elemente sind ausserdem kein gültiges HTML. Jede
+	 * Seite setzt darum ihren eigenen Titel in svelte:head, und eine neue Seite
+	 * ohne einen zeigt im Reiter ihre Adresse. Die rahmenlose Fehlerhülle hat
+	 * ihren eigenen.
 	 *
 	 * Geprüft wird mit der Regel des Browsers: das erste --> nach einem <!--
 	 * schliesst den Kommentar, ein nicht geschlossener Kommentar reicht bis zum
@@ -1233,6 +1244,47 @@ const torPrüfen = (ziel) => {
 				);
 			}
 			von = bis === -1 ? -1 : roh.indexOf('<!--', bis + 3);
+		}
+
+		/*
+		 * Zweite Hälfte, seit Retro-Posten S4 aus Epic 2.
+		 *
+		 * src/app.html und src/error.html sind die zwei Dateien, deren Text
+		 * **vollständig** an jeden Besucher geht — Kommentare eingeschlossen, denn
+		 * weder vite noch der Adapter entfernen sie. In app.html standen darum zehn
+		 * Zeilen Entwicklerprosa mit internen Dateipfaden in der Auslieferung, und
+		 * sie waren obendrein veraltet: sie zählten die Seiten mit eigenem <title>
+		 * auf und kannten /monatsplan nicht, das seit Story 2.1 einen hat. Beides
+		 * ist dieselbe Ursache — eine Erklärung, die in der Hülle steht, wird von
+		 * niemandem gelesen, der sie pflegen könnte, und von allen, die sie nichts
+		 * angeht.
+		 *
+		 * Geprüft wird auf den **internen Pfad** und nicht auf die Länge oder den
+		 * Ton eines Kommentars: der Pfad ist das Merkmal, das eine Erklärung für
+		 * Entwickelnde von einer Notiz am Markup unterscheidet, und er ist
+		 * mechanisch fassbar. Ein Kommentar, der ohne Verweis auf den Quellbaum
+		 * auskommt, darf bleiben — die Begründung an `viewport-fit=cover` etwa
+		 * gehört an die Zeile, die sie erklärt.
+		 *
+		 * Beide Kommentarformen zählen. Der Token-Block steht in einem <style>, und
+		 * ein CSS-Kommentar darin geht denselben Weg wie ein HTML-Kommentar.
+		 */
+		for (const block of roh.matchAll(/<!--[\s\S]*?(?:-->|$)|\/\*[\s\S]*?(?:\*\/|$)/g)) {
+			for (const pfad of block[0].matchAll(
+				/\b(?:src|scripts|static|drizzle|nginx|build)\/[A-Za-z0-9_./[\]-]+/g
+			)) {
+				// Der Punkt am Satzende gehört nicht zum Pfad und soll nicht in der
+				// Meldung stehen — `src/routes/` mit seinem Schrägstrich schon.
+				const pfadtext = pfad[0].replace(/\.+$/, '');
+				melden(
+					12,
+					datei,
+					zeileVon(roh, (block.index ?? 0) + (pfad.index ?? 0)),
+					`\`${pfadtext}\` steht in einem Kommentar dieser Datei, und ihr Text geht ` +
+						'vollständig an jeden Besucher — interne Pfade gehören in den Quellbaum ' +
+						'oder in die Regel, die sie festhält, nicht in die ausgelieferte Hülle'
+				);
+			}
 		}
 	}
 
@@ -1608,6 +1660,28 @@ const proben = [
 			'nichts davon darf fallen, also null Treffer',
 		art: 'Verstoss',
 		beschreibung: 'Marken ausserhalb von Kommentaren und Prosa ohne Marke dürfen nicht fallen',
+	},
+	{
+		regel: 12,
+		verzeichnis: 'regel-12b-pfad-im-kommentar',
+		erwartet: 2,
+		begruendung:
+			'2 interne Pfade in Kommentaren der Hülle, je einer pro Kommentarform: ' +
+			'scripts/gate.mjs in einem CSS-Kommentar des Token-Blocks und src/routes/ in ' +
+			'einem HTML-Kommentar — beide Formen gehen an jeden Besucher',
+		art: 'Verstoss',
+		beschreibung: 'Interner Pfad in einem Kommentar der ausgelieferten Hülle',
+	},
+	{
+		regel: 12,
+		verzeichnis: 'regel-12b-pfad-ausserhalb',
+		erwartet: 0,
+		begruendung:
+			'Gegenprobe: ein Pfad in einem Attributwert, ein Pfad im sichtbaren Text und zwei ' +
+			'Kommentare ohne jeden Pfad — die Regel liest Kommentare und nicht die Datei, ' +
+			'also null Treffer',
+		art: 'Verstoss',
+		beschreibung: 'Pfade ausserhalb von Kommentaren und Kommentare ohne Pfad dürfen nicht fallen',
 	},
 	{
 		regel: 9,

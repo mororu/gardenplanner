@@ -1,5 +1,5 @@
-import { fail } from '@sveltejs/kit';
 import type { Actions, RequestEvent, ServerLoadEvent } from '@sveltejs/kit';
+import { abweisen } from '../../lib/server/abweisen.ts';
 import { adminOderWeg } from '../../lib/server/adminschranke.ts';
 import {
 	einladungNeuAusstellen,
@@ -120,15 +120,6 @@ function linkBauen(url: URL, token: string): string {
 	return `${url.origin}/i/${token}`;
 }
 
-/**
- * Ein Fehlschlag mit 400. `feld` sagt der Oberfläche, ob die Meldung an das
- * Namensfeld gehört; `nameEingabe` trägt die Eingabe zurück, damit sie
- * stehenbleibt.
- */
-function abweisen(meldung: string, feld: 'name' | null = null, nameEingabe = '') {
-	return fail(400, { art: 'fehler' as const, meldung, feld, nameEingabe });
-}
-
 export function load({ locals }: ServerLoadEvent): {
 	ichId: number;
 	mitglieder: AngemeldetesMitglied[];
@@ -139,6 +130,17 @@ export function load({ locals }: ServerLoadEvent): {
 	return { ichId: ich.id, mitglieder: mitgliederAuflisten() };
 }
 
+/*
+ * Wie diese Seite abweist — die Funktion steht in ../../lib/server/abweisen.ts
+ * und ist für alle vier Seiten dieselbe.
+ *
+ * Diese Seite ist die einzige, die beide Zusatzangaben braucht: `feld: 'name'`
+ * schickt die Meldung an das Namensfeld der Aufnahme, `feld: null` lässt sie in
+ * der Live-Region des Seitenkopfs stehen — dort, wo die Meldungen zu einer Zeile
+ * der Mitgliederliste hingehören, die kein eigenes Feld hat. `eingabe` trägt den
+ * abgewiesenen Namen zurück, damit er nach einem Fehlschlag nicht neu getippt
+ * werden muss.
+ */
 export const actions = {
 	/**
 	 * Nimmt jemanden auf und gibt den Klartext-Link genau einmal zurück.

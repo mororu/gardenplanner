@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-26-2026 13:20
-last_updated: 08-28-2026 17:20
+last_updated: 08-29-2026 12:00
 project: Gemeinschaftsgarten
 project_key: NOKEY
 tracking_system: file-system
@@ -50,7 +50,7 @@ development_status:
   epic-2-retrospective: done
 
   epic-3: in-progress
-  3-0-das-ausgelieferte-html-gegen-einen-echten-server-prüfen: review
+  3-0-das-ausgelieferte-html-gegen-einen-echten-server-prüfen: done
   3-1-dienstplan-mit-namen-und-laufender-woche: backlog
   3-2-einzelaufgabe-ausschreiben-und-übernehmen: backlog
   epic-3-retrospective: optional
@@ -70,7 +70,7 @@ action_items:
     action: "Fehlersatz in verwaltung/+page.svelte immer ins DOM mit role=alert und
       aria-live (B2)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
   - id: "epic-1-retro-item-3-namenspruefung-in-scripts-create-admin-t"
     epic: 1
@@ -84,7 +84,7 @@ action_items:
     action: "Entwicklerkommentar aus src/app.html entfernen, Gate-Regel 12 weiter
       fassen (B4)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
   - id: "epic-1-retro-item-5-ad-12-und-stack-tabelle-auf-die-gebaute"
     epic: 1
@@ -116,13 +116,13 @@ action_items:
     epic: 1
     action: "Geteilte Stile nach bedienelemente.css ziehen, Gap-Drift aufloesen (B5)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
   - id: "epic-1-retro-item-10-die-drei-abweisen-signaturen-auf-eine-fo"
     epic: 1
     action: "Die drei abweisen-Signaturen auf eine Form bringen (B5)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
   - id: "epic-1-retro-item-11-die-30-eintraege-in-deferred-work-md-tri"
     epic: 1
@@ -154,28 +154,28 @@ action_items:
     action: "Fehlersatz in verwaltung/+page.svelte:345-346 immer ins DOM, mit role=alert
       und aria-live=assertive (M2)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-16-geteilte-stile-seite-seitentitel-fehler"
     epic: 2
     action: "Geteilte Stile (.seite, .seitentitel, .fehler, .live:empty) nach bedienelemente.css
       ziehen, Gap-Drift in verwaltung:455 aufloesen (D1)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-17-die-vier-abweisen-signaturen-auf-eine-fo"
     epic: 2
     action: "Die vier abweisen-Signaturen auf eine Form bringen, Vorlage ist /monatsplan
       (D2)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-18-entwicklerkommentar-aus-src-app-html-13"
     epic: 2
     action: "Entwicklerkommentar aus src/app.html:13-28 entfernen, Gate-Regel 12 auf
       ausgelieferte Entwicklerprosa erweitern (S4)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-19-namenspruefung-in-scripts-create-admin-t"
     epic: 2
@@ -294,5 +294,5 @@ action_items:
       generischer Satz in die bestehende Live-Region, zusammen mit den vier abweisen-Signaturen
       (Entscheid zu Eintrag 32)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/deferred-work-triage-2026-08-28.md"

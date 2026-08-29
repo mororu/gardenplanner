@@ -44,23 +44,6 @@
 </div>
 
 <style>
-	.seite {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-4);
-	}
-
-	/* Genau ein h1 pro Seite, und nur dieses trägt die display-Rolle */
-	.seitentitel {
-		margin: 0;
-		color: var(--ink-primary);
-		font-family: var(--display-font);
-		font-size: var(--display-size);
-		font-weight: var(--display-weight);
-		line-height: var(--display-line);
-		letter-spacing: var(--display-tracking);
-	}
-
 	.angemeldet {
 		margin: 0;
 		color: var(--ink-secondary);

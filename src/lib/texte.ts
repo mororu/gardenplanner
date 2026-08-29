@@ -103,3 +103,35 @@ export const MITGLIED_NICHT_ANSPRECHBAR =
  */
 export const AUFGABE_NICHT_ANSPRECHBAR =
 	'Diese Aufgabe lässt sich nicht ansprechen. Lade die Liste neu.';
+
+/**
+ * Ein Wurf in einer action. **Vier** Wurfstellen: die use:enhance-Rückrufe auf
+ * `/`, `/aufgabe`, `/monatsplan` und `/verwaltung`.
+ *
+ * Der Satz vertritt einen Fall, den bis dahin niemand vertrat. Ohne ihn reicht
+ * das gereichte update() ein `result.type === 'error'` an applyAction weiter,
+ * und die Fehlergrenze ersetzt die Seite: auf `/` kostet das einen Griff, auf
+ * `/monatsplan` vierzig Zeilen, die jemand gerade aus einer Notiz übertragen und
+ * von Hand durchgesehen hat. Der Verlust wiegt dort genau so viel schwerer, wie
+ * die Seite Zeit sparen soll. Entschieden am 2026-08-28 zu Eintrag 32 der
+ * zurückgestellten Arbeit: abfangen, einheitlich auf allen vier Seiten, mit
+ * einem generischen Satz in der Live-Region, die dort ohnehin schon steht.
+ *
+ * **Generisch, und das ist Absicht.** Ein SQLITE_BUSY unter WAL oder eine volle
+ * Platte hat für die lesende Person keine Bedeutung. Die genaue Ursache erreicht
+ * weiterhin handleError und damit das Protokoll — abgefangen wird die
+ * **Navigation**, nicht der Wurf.
+ *
+ * Der Satz sagt ausdrücklich **nicht**, dass nichts entstanden sei. Das wäre für
+ * die meisten Wurfstellen wahr und für eine nicht: bricht `aufnehmen` auf
+ * /verwaltung nach mitgliedAnlegen ab, steht die Zeile in der Datenbank und der
+ * Klartext des Links ist fort — der einzige Fall, in dem die Person danach
+ * wirklich etwas vorfindet. Ein Satz, der über alle vier Seiten dasselbe
+ * behauptet, muss auf der schwächsten stimmen. Er schickt darum zum Nachsehen,
+ * wie MITGLIED_NICHT_ANSPRECHBAR und AUFGABE_NICHT_ANSPRECHBAR es tun.
+ *
+ * Die Fehlergrenze behält ihre Aufgabe für alles, was keine Formularübermittlung
+ * ist.
+ */
+export const VERSAND_FEHLGESCHLAGEN =
+	'Das hat gerade nicht geklappt. Lade die Seite neu und sieh nach, bevor du es noch einmal versuchst.';

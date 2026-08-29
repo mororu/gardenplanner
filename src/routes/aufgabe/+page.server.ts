@@ -1,6 +1,7 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { redirect } from '@sveltejs/kit';
 import type { Actions, RequestEvent } from '@sveltejs/kit';
 import { AUFGABE_HOECHSTLAENGE, aufgabentextFalten } from '../../lib/aufgabentext.ts';
+import { abweisen } from '../../lib/server/abweisen.ts';
 import { aufgabeAnlegen } from '../../lib/server/db/queries/tasks.ts';
 
 /*
@@ -68,17 +69,21 @@ function textPruefen(eingabe: string): { text: string } | { fehler: string } {
 	return { text };
 }
 
-/**
- * Ein Fehlschlag mit 400.
+/*
+ * Wie diese Seite abweist — die Funktion selbst steht in
+ * ../../lib/server/abweisen.ts und ist für alle vier Seiten dieselbe.
  *
- * `eingabe` trägt das Getippte zurück, damit es im Feld stehenbleibt.
+ * `eingabe` trägt hier das Getippte zurück, und das ist nicht optional: der
+ * Feldwert wird serverseitig gerendert und ist nach einem abgewiesenen Versand
+ * sonst leer. Anders als auf /monatsplan, wo der Text im $state der Komponente
+ * steht und von selbst stehenbleibt.
  *
- * `feld` benennt, wohin die Meldung gehört — und die Komponente **liest es
- * heute nicht**. Sie muss nicht: diese Seite hat genau ein Feld, jede Meldung
- * dieser action gehört dorthin, und eine Verzweigung über einen Wert, der immer
- * derselbe ist, wäre ein toter Zweig. Anders als auf /verwaltung, wo eine
- * Meldung an das Namensfeld und eine andere an den Seitenkopf gehört; dort
- * unterscheidet die Oberfläche wirklich.
+ * `feld` ist 'text' — und die Komponente **liest es heute nicht**. Sie muss
+ * nicht: diese Seite hat genau ein Feld, jede Meldung dieser action gehört
+ * dorthin, und eine Verzweigung über einen Wert, der immer derselbe ist, wäre
+ * ein toter Zweig. Anders als auf /verwaltung, wo eine Meldung an das Namensfeld
+ * und eine andere an den Seitenkopf gehört; dort unterscheidet die Oberfläche
+ * wirklich.
  *
  * Es steht trotzdem da, aus zwei Gründen: es ist der von der Spezifikation
  * festgelegte Rückgabewert dieser action, und es ist die Stelle, an der ein
@@ -89,10 +94,6 @@ function textPruefen(eingabe: string): { text: string } | { fehler: string } {
  * Ein abgewiesener Versand legt **nichts** an: aufgabeAnlegen wird auf diesem
  * Weg nie erreicht.
  */
-function abweisen(meldung: string, eingabe: string) {
-	return fail(400, { art: 'fehler' as const, meldung, feld: 'text' as const, eingabe });
-}
-
 export const actions = {
 	/**
 	 * Legt eine Aufgabe ab und leitet auf die Liste zurück.
@@ -127,7 +128,7 @@ export const actions = {
 		const getippt = typeof roh === 'string' ? roh : '';
 		const geprueft = textPruefen(getippt);
 		if ('fehler' in geprueft) {
-			return abweisen(geprueft.fehler, getippt);
+			return abweisen(geprueft.fehler, 'text', getippt);
 		}
 
 		aufgabeAnlegen(geprueft.text);

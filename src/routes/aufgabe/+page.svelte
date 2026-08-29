@@ -4,6 +4,7 @@
 	// enhance selbst ausgeführt, der Typ liegt im Hauptmodul.
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { PageProps } from './$types';
+	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
 
 	const { form }: PageProps = $props();
 
@@ -23,8 +24,21 @@
 	/** Die Eingabe bleibt nach einem Fehlschlag stehen. */
 	const eingabe = $derived(form !== null && form.art === 'fehler' ? form.eingabe : '');
 
+	/*
+		Ein Wurf in einer action, abgefangen im Rückruf unten statt an die
+		Fehlergrenze weitergereicht. Eigener Zustand und nicht aus `form`
+		abgeleitet: bei `result.type === 'error'` läuft update() gar nicht, `form`
+		bleibt also auf dem Stand davor stehen. Der nächste Versand setzt ihn
+		zurück — der neue Ausgang ist der jüngere und gewinnt.
+	*/
+	let versandFehler = $state('');
+
+	/** Was die Live-Region zeigt: der Wurf gewinnt, sonst die Meldung am Feld. */
+	const fehlersatz = $derived(versandFehler !== '' ? versandFehler : fehlerAmText);
+
 	/**
-	 * Der Rückruf ruft **nur** update().
+	 * Der Rückruf ruft update() — und fängt davor den einen Fall ab, in dem er
+	 * es nicht darf: einen Wurf in der action.
 	 *
 	 * Den Redirect erledigt use:enhance darin von selbst: das gereichte update()
 	 * ist der Rückfall-Rückruf, und der ruft bei einem Ergebnis vom Typ
@@ -44,7 +58,8 @@
 			return;
 		}
 		imFlug = true;
-		return async ({ update }) => {
+		versandFehler = '';
+		return async ({ update, result }) => {
 			/*
 				try/finally und nicht zwei Zeilen hintereinander: bricht update()
 				ab — ein abgerissenes Netz, ein Fehler in applyAction —, bliebe
@@ -55,7 +70,20 @@
 				Seite.
 			*/
 			try {
-				await update();
+				/*
+					Ein Wurf in der action kommt als `result.type === 'error'` zurück, und
+					das gereichte update() reicht ihn an applyAction weiter — die
+					Fehlergrenze ersetzte dann die Seite. Statt dessen ein Satz in der
+					Live-Region, die hier ohnehin steht. Der Wurf selbst bleibt unberührt:
+					er hat handleError auf dem Server längst erreicht. Einheitlich auf allen
+					vier Seiten, entschieden am 2026-08-28 zu Eintrag 32 der
+					zurückgestellten Arbeit.
+				*/
+				if (result.type === 'error') {
+					versandFehler = VERSAND_FEHLGESCHLAGEN;
+				} else {
+					await update();
+				}
 			} finally {
 				imFlug = false;
 			}
@@ -125,7 +153,7 @@
 			`assertive` und nicht `polite`: der Satz ist die Antwort auf einen
 			eben abgeschickten Versand, und er wird von nichts anderem überholt.
 		-->
-		<p class="fehler live" id="text-fehler" role="alert" aria-live="assertive">{fehlerAmText}</p>
+		<p class="fehler live" id="text-fehler" role="alert" aria-live="assertive">{fehlersatz}</p>
 		<!-- Der einzige primäre Knopf dieser Seite. Sein Verb kehrt als Meldung
 		     `Abgelegt.` auf `/` wieder. -->
 		<button class="button-primary" type="submit" disabled={imFlug}>Ablegen</button>
@@ -133,57 +161,9 @@
 </div>
 
 <style>
-	/*
-		.seite und .seitentitel stehen pro Seite und nicht global: sie sind die
-		Seitenform, kein Bedienelement, und eine dritte Kopie ist billiger als ein
-		Stilblatt, das jede Seite mitzieht.
-	*/
-	.seite {
-		display: flex;
-		flex-direction: column;
-		/* Abstand zwischen Geschwistern über gap, nie über Aussenabstände */
-		gap: var(--space-4);
-	}
-
-	/* Genau ein h1 pro Seite, und nur dieses trägt die display-Rolle */
-	.seitentitel {
-		margin: 0;
-		color: var(--ink-primary);
-		font-family: var(--display-font);
-		font-size: var(--display-size);
-		font-weight: var(--display-weight);
-		line-height: var(--display-line);
-		letter-spacing: var(--display-tracking);
-	}
-
 	.erfassen {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-3);
-	}
-
-	/*
-		Eine leere Live-Region bleibt im Baum und verlässt nur den Fluss. Mit
-		display: none wäre sie für einen Teil der Hilfsmittel gar nicht vorhanden
-		und die Ansage fiele wieder aus. Wortgleich mit der Regel auf `/`.
-	*/
-	.live:empty {
-		position: absolute;
-		block-size: 0;
-		inline-size: 0;
-		overflow: hidden;
-	}
-
-	/*
-		Der Fehlersatz ist keine Farbaussage: er steht als Satz da und trägt darum
-		die gewöhnliche Textfarbe.
-	*/
-	.fehler {
-		margin: 0;
-		color: var(--ink-primary);
-		font-family: var(--body-font);
-		font-size: var(--body-size);
-		font-weight: var(--body-weight);
-		line-height: var(--body-line);
 	}
 </style>

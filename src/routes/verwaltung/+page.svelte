@@ -5,6 +5,7 @@
 	// enhance selbst ausgeführt, der Typ liegt im Hauptmodul.
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 	import { datumLang } from '$lib/client/utils/date';
+	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
 	import type { ActionData, PageProps } from './$types';
 
 	const { data, form }: PageProps = $props();
@@ -64,9 +65,22 @@
 		return '';
 	});
 
+	/*
+		Ein Wurf in einer action, abgefangen im Rückruf unten statt an die
+		Fehlergrenze weitergereicht. Eigener Zustand und nicht aus `form`
+		abgeleitet: bei `result.type === 'error'` läuft update() gar nicht, `form`
+		bleibt also auf dem Stand davor stehen. Der nächste Versand setzt ihn
+		zurück — der neue Ausgang ist der jüngere und gewinnt.
+	*/
+	let versandFehler = $state('');
+
 	/** Die Meldung eines Fehlschlags, der nicht an das Namensfeld gehört. */
 	const fehlerOben = $derived(
-		form !== null && form.art === 'fehler' && form.feld === null ? form.meldung : ''
+		versandFehler !== ''
+			? versandFehler
+			: form !== null && form.art === 'fehler' && form.feld === null
+				? form.meldung
+				: ''
 	);
 
 	/** Die Meldung am Namensfeld, im Formular selbst. */
@@ -75,7 +89,7 @@
 	);
 
 	/** Die Eingabe bleibt nach einem Fehlschlag stehen. */
-	const nameEingabe = $derived(form !== null && form.art === 'fehler' ? form.nameEingabe : '');
+	const nameEingabe = $derived(form !== null && form.art === 'fehler' ? form.eingabe : '');
 
 	// -------------------------------------------------------------------
 	// Versand: eine Sperre für die ganze Seite, plus Fokus danach
@@ -131,6 +145,7 @@
 			return;
 		}
 		imFlug = true;
+		versandFehler = '';
 		return async ({ update, result }) => {
 			/*
 				Zuerst den Dialog schliessen.
@@ -158,12 +173,32 @@
 				aufgabe/+page.svelte, wo sie zuerst entstand.
 			*/
 			try {
-				await update();
+				/*
+					Ein Wurf in der action kommt als `result.type === 'error'` zurück, und
+					das gereichte update() reicht ihn an applyAction weiter — die
+					Fehlergrenze ersetzte dann die Seite. Statt dessen ein Satz in der
+					Live-Region, die hier ohnehin steht. Der Wurf selbst bleibt unberührt:
+					er hat handleError auf dem Server längst erreicht. Einheitlich auf allen
+					vier Seiten, entschieden am 2026-08-28 zu Eintrag 32 der
+					zurückgestellten Arbeit.
+				*/
+				if (result.type === 'error') {
+					versandFehler = VERSAND_FEHLGESCHLAGEN;
+				} else {
+					await update();
+				}
 			} finally {
 				imFlug = false;
 			}
 			// Nach dem Rendern, sonst gibt es das Ziel noch nicht.
 			await tick();
+			// Ein abgefangener Wurf steht in derselben Region wie ein Fehlschlag der
+			// action; fokusNach findet ihn nur nicht, weil in `result` keine Daten
+			// stehen. Derselbe Weg, eine Zeile davor.
+			if (versandFehler !== '') {
+				fehlerKasten?.focus();
+				return;
+			}
 			fokusNach(result);
 		};
 	};
@@ -265,7 +300,9 @@
 	<h1 class="seitentitel">Verwaltung</h1>
 
 	<!--
-		Die zwei Live-Regionen stehen **immer** im Markup, auch leer.
+		Die Live-Regionen stehen **immer** im Markup, auch leer — diese zwei hier
+		und seit der Auflösung von Retro-Posten B2 auch der Satz am Namensfeld
+		weiter unten.
 
 		Ein Element, das erst mit seinem Text in den DOM kommt, liest ein
 		Screenreader in der Regel nicht vor: die Region muss schon da sein, wenn
@@ -342,9 +379,27 @@
 				aria-describedby={fehlerAmNamen === '' ? undefined : 'name-fehler'}
 			/>
 		</div>
-		{#if fehlerAmNamen !== ''}
-			<p class="fehler" id="name-fehler">{fehlerAmNamen}</p>
-		{/if}
+		<!--
+			Der Satz am Namensfeld steht **immer** im Markup, auch leer, und trägt
+			dieselbe Bauform wie die Live-Region oben.
+
+			Bis hierher stand er hinter einem {#if} und ohne role und aria-live. Ein
+			Element, das erst mit seinem Text in den DOM kommt, liest ein
+			Screenreader in der Regel nicht vor, und mit use:enhance gibt es keine
+			Navigation, die den Fehlschlag sonst ansagte: wer die Aufnahme mit
+			leerem Namen abschickte, bekam sichtbar eine Kante am Feld und hörte
+			nichts. Retro-Posten B2 aus Epic 1, in Epic 2 als M2 wiederholt; die
+			Vorlage ist der Fehlersatz auf /monatsplan.
+
+			`assertive` und nicht `polite`: der Satz ist die Antwort auf einen eben
+			abgeschickten Versand. Dass die Seite damit zwei assertive Regionen hat,
+			ist unbedenklich — `feld === null` und `feld === 'name'` schliessen
+			einander aus, und es spricht nie mehr als eine.
+
+			Das aria-describedby am Feld bleibt **bedingt**: eine Beschreibung, die
+			auf ein leeres Element zeigt, sagt nichts.
+		-->
+		<p class="fehler live" id="name-fehler" role="alert" aria-live="assertive">{fehlerAmNamen}</p>
 		<button class="button-primary" type="submit" disabled={imFlug}>Aufnehmen</button>
 	</form>
 
@@ -452,23 +507,6 @@
 </dialog>
 
 <style>
-	.seite {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-5);
-	}
-
-	/* Genau ein h1 pro Seite, und nur dieses trägt die display-Rolle */
-	.seitentitel {
-		margin: 0;
-		color: var(--ink-primary);
-		font-family: var(--display-font);
-		font-size: var(--display-size);
-		font-weight: var(--display-weight);
-		line-height: var(--display-line);
-		letter-spacing: var(--display-tracking);
-	}
-
 	/* Abschnittstitel in der section-Rolle — keine zweite display-Grösse */
 	.abschnittstitel {
 		margin: 0;
@@ -478,19 +516,6 @@
 		font-weight: var(--section-weight);
 		line-height: var(--section-line);
 		letter-spacing: var(--section-tracking);
-	}
-
-	/*
-		Eine leere Live-Region bleibt im Baum und verlässt nur den Fluss. Mit
-		display: none wäre sie für einen Teil der Hilfsmittel gar nicht vorhanden
-		und die Ansage fiele wieder aus; so ändert sich nur ihr Inhalt, und genau
-		das hören sie.
-	*/
-	.live:empty {
-		position: absolute;
-		block-size: 0;
-		inline-size: 0;
-		overflow: hidden;
 	}
 
 	/* Tiefe nur tonal: aufgehellte Fläche plus Haarlinie, kein Schatten. */
@@ -526,21 +551,6 @@
 	.meldung {
 		margin: 0;
 		color: var(--accent);
-		font-family: var(--body-font);
-		font-size: var(--body-size);
-		font-weight: var(--body-weight);
-		line-height: var(--body-line);
-	}
-
-	/*
-		Der Fehlersatz ist keine Farbaussage: er steht als Satz da und trägt
-		darum die gewöhnliche Textfarbe. Rot ist in dieser Anwendung dem
-		zerstörenden Knopf vorbehalten und sagt „das hier zerstört etwas", nicht
-		„das hier ging schief".
-	*/
-	.fehler {
-		margin: 0;
-		color: var(--ink-primary);
 		font-family: var(--body-font);
 		font-size: var(--body-size);
 		font-weight: var(--body-weight);
