@@ -2,7 +2,7 @@
 title: 'Story 3.0.1: Einen Mitgliedsnamen korrigieren'
 type: 'feature'
 created: '2026-08-29'
-status: 'in-review' # draft | ready-for-dev | in-progress | in-review | done
+status: 'done' # draft | ready-for-dev | in-progress | in-review | done
 review_loop_iteration: 2
 baseline_commit: '237ba1873ef36e133a26544c9a0c0abbd60daf03'
 context: ['{project-root}/_bmad-output/implementation-artifacts/epic-3-context.md']
