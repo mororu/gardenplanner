@@ -266,21 +266,21 @@ action_items:
     action: "Fenster von einem Jahr in jede Richtung an Faellig bis bauen, Konstante
       nach src/lib/zeit.ts, min/max am Feld (Entscheid zu Eintrag 31)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/deferred-work-triage-2026-08-28.md"
   - id: "epic-2-retro-item-32-wortlaut-seit-n-wochen-ueberfaellig-im-c"
     epic: 2
     action: "Wortlaut seit N Wochen ueberfaellig im Code nachziehen - Plandokumente
       sind schon umgestellt (Entscheid zu Eintrag 39)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/deferred-work-triage-2026-08-28.md"
   - id: "epic-2-retro-item-33-stufe-a-bauen-zweites-pruefskript-gegen"
     epic: 2
     action: "Stufe A bauen: zweites Pruefskript gegen einen echten Server, als eigene
       Story vor Epic 3 (Entscheid zu Eintrag 15)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/deferred-work-triage-2026-08-28.md"
   - id: "epic-2-retro-item-34-umbenennen-action-auf-verwaltung-vor-ode"
     epic: 2

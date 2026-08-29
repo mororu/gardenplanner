@@ -62,21 +62,29 @@ Zwei Termine daraus sind schon verstrichen oder treffen jetzt:
 Seit der Formulierung sind zwei Gegenstände dazugekommen (Einträge 36, 37): die Zeilenhöhe auf `/` hängt seit Story 2.2 an `.zeile__spalte`, und der Spaltencontainer ändert die Geometrie **jeder** Zeile, nicht nur der überfälligen. Beides deckt nur Stufe C.
 **Was zu tun ist:** Entscheid (siehe C) und, wenn Stufe A kommt, eine eigene Story davor.
 
+**Stand 2026-08-29.** Stufe A ist als Story 3.0 gebaut und abgenommen; damit sind die Einträge 9, 17 und 36/37 in dem Umfang gedeckt, den ein Skript ohne Browser decken kann — `smoke:http` steht bei 122 Behauptungen am gebauten Server. Stufe C bleibt an ihrer neu gefassten Bedingung. Eintrag 5 (die Attrappen-Bauform in `smoke-zugang.ts`) bleibt stehen: `smoke:http` tritt **neben** das Attrappen-Skript und ersetzt es nicht.
+
 ### B3 · Geteilte Stile nach `bedienelemente.css` — **zwei neue Seiten in Epic 3** *(Einträge 27, 38 — Zeilen 95, 134)*
 
 Gemessen heute: `.seitentitel` 6 Kopien, `.seite` 5, `.fehler` 4, `.live:empty` 4 (Retro-Befund D1). `/dienstplan` und `/einzelaufgaben` machen daraus 8/7/6/6. Der Gap-Drift in `verwaltung/+page.svelte:455` (`--space-5` gegen `--space-4` überall sonst) besteht seit Epic 1.
 **Mitzunehmen, wenn die Datei ohnehin offen ist:** Eintrag 38 — im ganzen Baum steht **keine** Umbruchregel (nachgeprüft: null Treffer für `overflow-wrap`, `word-break`, `hyphens` in `src/`), und `AUFGABE_HOECHSTLAENGE = 200` erlaubt 200 Codepoints ohne ein Leerzeichen. Der Eintrag nennt als Ort selbst „eine geteilte Regel, vermutlich in `src/lib/styles/bedienelemente.css`". Zwei Posten, ein Handgriff.
+
+**Erledigt am 2026-08-29**, in zwei Zügen: die Seitenform und die Umbruchregel am 2026-08-29 vormittags (Retro-Posten D1), und `.hinweis` am selben Tag nachmittags — der Review zu Story 3.1 hatte die Kopie gefunden, die beim ersten Zug noch nicht bestand. `.hinweis` steht jetzt mit in der SEITENFORM-Behauptung; damit ist die Stelle bewacht, an der D1 sonst nachwächst.
 
 ### B4 · Navigationsleiste ohne aktives Ziel auf Formularrouten *(Eintrag 28, Zeile 98)*
 
 `istAktiv` in `NavBar.svelte:19-22` trifft bei `pfad === href` oder `${href}/`-Präfix. `/aufgabe` und seit Epic 2 auch `/monatsplan` gehören zu einem Navigationsziel, ohne unter dessen Pfad zu liegen — kein Eintrag ist markiert.
 **Warum jetzt:** Der Eintrag sagt es selbst voraus („Betrifft künftig jede weitere Formularroute (Monatsplan, Ausschreiben)"). Epic 3 bringt `/dienstplan` als **echtes** Navigationsziel und die Ausschreib-Route als dritte Formularroute. Danach ist es eine Gestaltungsentscheidung über vier Routen statt über zwei.
 
+**Erledigt am 2026-08-29.** `gehoertDazu` nennt je Ziel die zugehörigen Routen, zugeordnet nach dem Weg dorthin. Mitentschieden: `aria-current` trägt `page` für die angezeigte Seite und `true` für den laufenden Abschnitt — zwei Werte, weil es zwei Aussagen sind. `smoke` liest die Routen aus dem Baum und hält sie gegen die Liste; eine neue Route ohne Eintrag macht die Prüfliste rot, und Story 3.2 legt zwei an. Einzelheiten in `deferred-work.md`.
+
 ### B5 · Faltungskette und unsichtbare Zeichen — **dritte Freitext-Wurfstelle in Story 3.2** *(Einträge 23, 24 — Zeilen 83, 86)*
 
 Zwei Lücken derselben Kette: `NULLBREITE` entfernt U+200D bedingungslos und zerlegt Emoji-ZWJ-Folgen (`👨‍🌾` wird zu zwei Glyphen), und ausser den fünf Nullbreiten-Zeichen kommt kein weiteres unsichtbares Zeichen durch — U+00AD, U+2800 (Braille-Leerzeichen, das `trim()` nicht als Leerraum sieht), U+3164, U+202A–U+202E. Nachgeprüft: null Treffer für diese Codepoints in `src/`. Ein Text aus lauter U+2800 legt eine sichtbar leere Zeile an, und es gibt keine Löschen-Aktion.
 Die Regel liegt heute an zwei Stellen: `src/lib/aufgabentext.ts:55` (seit Story 2.1 geteilt) und `verwaltung/+page.server.ts:68` (bewusst verdoppelt, weil es um Namen und nicht um Aufgabentexte geht).
 **Warum jetzt:** Story 3.2 bringt den Titel einer Einzelaufgabe als **dritte** Wurfstelle. Beide Einträge sagen „gehört an alle Stellen zugleich" — der Moment davor ist der billigste.
+
+**Erledigt am 2026-08-29.** Die Zeichenklasse liegt in `src/lib/unsichtbar.ts` und hat zwei Leser; `U+200D` fällt nur noch ausserhalb einer Emoji-Folge, und U+00AD, U+180E, U+202A–U+202E, U+2066–U+2069, U+2800, U+3164 und U+FFA0 fallen jetzt mit. Die Verdopplung der zwei Domänenmodule bleibt begründet bestehen — sie gilt den Regeln, nicht der Zeichenklasse. Damit ist „an beide Stellen zugleich" keine Zusage mehr, sondern der Bau, und eine dritte Wurfstelle in Story 3.2 erbt sie geschenkt. Einzelheiten in `deferred-work.md`.
 
 ### B6 · `{colors.warn}` in `EXPERIENCE.md` — **Story 3.1 braucht die Antwort** *(Eintrag 35, Zeile 122)*
 
@@ -141,16 +149,24 @@ der ersten Fassung sind erledigt; was bleibt, ist Bauen — in dieser Ordnung.
    **Aufgesetzt am 2026-08-28 als Story 3.0** („Das ausgelieferte HTML gegen einen echten Server
    prüfen", `epics.md`), im Sprint-Status als `backlog` geführt und im Epic-3-Kontext als Vorarbeit
    vor 3.1 vermerkt. Geschrieben, nicht gebaut — die Umsetzung steht noch aus.
-4. **Ein Durchgang durch die geteilten Stellen: B3 + B4 + B5 + Retro-Punkte 1, 2, 3 + Entscheid 32.**
+4. ~~**Ein Durchgang durch die geteilten Stellen: B3 + B4 + B5 + Retro-Punkte 1, 2, 3 + Entscheid 32.**~~ — erledigt: die vier Retro-Posten am 2026-08-29 vormittags, B4, B5 und der Rest von B3 (`.hinweis`) am selben Tag nachmittags.
    Sie hängen alle an denselben vier Seiten und teilweise an denselben Zeilen — der Fehlerfall
    `result.type === 'error'` und die vier `abweisen`-Signaturen sind derselbe Handgriff, `/verwaltung`
    wird für Retro-Punkt 1 ohnehin geöffnet (und nimmt Stufe B mit), und `bedienelemente.css` ist
    offen, sobald die Stile zusammengehen (dann auch die Umbruchregel aus Eintrag 38).
-5. **Wortlaut im Code nachziehen** (Entscheid zu Eintrag 39). Die Plandokumente sagen es schon; bis
-   der Code folgt, ist es eine benannte, verfolgte Plan-Ist-Abweichung.
-6. **Fenster an `Fällig bis`** (Entscheid zu Eintrag 31) — klein und unabhängig, passt in jeden Zug.
-7. **`umbenennen`-action auf `/verwaltung`** (Entscheid zu Eintrag 11), vor oder mit Story 3.1; nimmt
-   Epic-1-Punkt 3 (`create-admin.ts`) mit.
+5. ~~**Wortlaut im Code nachziehen**~~ (Entscheid zu Eintrag 39) — erledigt am 2026-08-29. Der Satz
+   heisst `seit N Wochen überfällig`, und `smoke:http` misst ihn seither am ausgelieferten HTML.
+6. ~~**Fenster an `Fällig bis`**~~ (Entscheid zu Eintrag 31) — erledigt am 2026-08-29.
+   `FRIST_FENSTER_TAGE` in `src/lib/zeit.ts`, `min`/`max` am Feld, die Prüfung in der action.
+7. ~~**`umbenennen`-action auf `/verwaltung`**~~ (Entscheid zu Eintrag 11) — erledigt als Story 3.0.1.
+   Die zwei Posten, die ihr Review zurückstellte (der zeilenlose Screenreader-Name, die verlorene
+   Änderung im veralteten Tab), sind am 2026-08-29 nachgezogen.
+
+**Damit ist die empfohlene Reihenfolge abgearbeitet.** Was aus `deferred-work.md` offen bleibt, steht
+dort unter „Erledigt am 2026-08-29" am Ende: Eintrag 4 (braucht ein Telefon), die fünfzehn bewusst
+getragenen Einträge aus Bucket D, zwei Posten aus dem Review zu Story 3.1, die ausdrücklich einer
+späteren Story gehören, und Retro-Punkt 15 — die Barrierefreiheit ist weiterhin mitgenickt und nicht
+abgenommen.
 
 ## Was mit `deferred-work.md` geschehen soll
 

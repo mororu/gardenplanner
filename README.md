@@ -1470,7 +1470,8 @@ war:
 `scripts/smoke-http.ts` beantwortet die Frage, die `smoke` nicht beantworten
 kann: **was kommt tatsächlich aus der Steckdose?** Es startet `build/index.js`
 als Unterprozess auf einem freien Port gegen eine Wegwerf-Datenbank, sät zwei
-Mitglieder über die echte Datenschicht und legt 103 Behauptungen an echten
+Mitglieder und eine überfällige Planaufgabe über die echte Datenschicht und legt
+122 Behauptungen an echten
 Antworten ab — Status, Kopfzeilen, `set-cookie` und Bytes, nichts davon von
 einer Attrappe entschieden. Kein Browser, keine neue Abhängigkeit, reines Node;
 `pruefen`, `pruefenGleich`, `wegwerfVerzeichnis` und der Abbruchrahmen kommen
@@ -1560,7 +1561,7 @@ und `smoke:http`. Damit war es der einzige ungeprüfte Code darin — und sein
 Ausfall sähe wie ein grüner Lauf aus, nicht wie ein Absturz. Gemessen an einer
 Kopie: nimmt man das `gescheitert += 1` aus `pruefen`, meldet jede gebrochene
 Zusage weiter „FEHLER" auf die Fehlerausgabe, die Schlusszählung bleibt grün,
-und `npm run smoke` endet mit **0** — 476 Behauptungen auf einen Schlag
+und `npm run smoke` endet mit **0** — 537 Behauptungen auf einen Schlag
 entwaffnet, ohne dass irgendetwas im Baum es bemerkt.
 
 `scripts/pruefhelfer-selftest.ts` schliesst diese Lücke, in derselben Bauform wie

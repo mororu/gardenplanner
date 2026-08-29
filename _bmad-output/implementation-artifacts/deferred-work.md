@@ -472,3 +472,161 @@ nennen.
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-1-dienstplan-mit-namen-und-laufender-woche.md`
   summary: `select.feld { appearance: auto }` trägt keine Behauptung.
   evidence: Die neue Regel in `src/lib/styles/bedienelemente.css` nimmt `appearance: none` für `<select>` zurück, damit die Auswahl ihren Pfeil behält — die einzige Anzeige, dass sich hier etwas aufklappt. Weder `smoke` noch `smoke:http` misst sie; sie steht allein auf der manuellen Prüfliste. Zurückgestellt, weil gerechnete Darstellung von keinem der beiden Skripte erreichbar ist: das wäre Stufe C (kopfloser Browser), die ausdrücklich an eine eigene Auslösebedingung gebunden bleibt.
+
+## Erledigt am 2026-08-29: sieben Posten aus der Triage vor Epic 3
+
+Ein Durchgang durch die offene Arbeit dieser Datei, in der Reihenfolge, die
+`deferred-work-triage-2026-08-28.md` unter „Empfohlene Reihenfolge" festgelegt
+hat. Punkt 1 bis 3 jener Liste waren schon erledigt (das Token `--warn`, die
+Reihenfolgefalle in `smoke-zugang.ts`, Stufe A als Story 3.0), Punkt 7
+ebenfalls (die `umbenennen`-action aus Story 3.0.1). Erledigt sind jetzt die
+Punkte 4, 5 und 6 samt der Posten, die im Review zu den Stories 3.0.1 und 3.1
+dazugekommen waren.
+
+Gemeinsam für alle sieben: `npm run lint` und `npm run check` mit Exit 0,
+`smoke` bei 537 Behauptungen (vorher 476), `smoke:http` bei 122 (vorher 103).
+Jede neue Zusage ist durch **mindestens eine ausgeführte Mutationsprobe** rot
+belegt; die Proben stehen einzeln in der Tabelle in `README.md`.
+
+- betrifft: Eintrag 31 (Zeile 107), Entscheid vom 2026-08-28, Retro-Punkt 31
+  fassung: `FRIST_FENSTER_TAGE = 365` steht in `src/lib/zeit.ts` neben ZEITZONE
+    und UEBERFAELLIG_SEKUNDEN und hat zwei Leser: `fristfenster` macht daraus die
+    zwei Feldwerte für `min`/`max` am Datumsfeld, `istImFristfenster` die Prüfung
+    in der action. Das Feld ist die Bequemlichkeit, die action die Instanz —
+    dasselbe Verhältnis wie `maxlength` zu AUFGABE_HOECHSTLAENGE. Die Komponente
+    sperrt zusätzlich `Weiter`; der vierte Sperrgrund neben den drei bestehenden.
+  gerechnet wird auf Kalendertagen in der Zone: eine Sekundendifferenz liesse die
+    Grenze im Lauf des Tages um Stunden wandern, weil `faelligAm` das Tagesende
+    ist und `jetzt` irgendwann davor liegt.
+  mitgenommen: Die zwei Sätze über das Datum stehen jetzt in `src/lib/texte.ts`.
+    Der neue Satz wäre sonst das **zweite** Paar wortgleicher Literale zwischen
+    Route und Komponente gewesen — genau das Muster, aus dem Drift entsteht.
+  belegt: `smoke` misst die Grenzen an **fester** Uhr, weil eine Grenzprobe an
+    der laufenden einmal im Jahr rot wäre; eine zweite Uhr über einem Schalttag
+    belegt, dass in Tagen und nicht in Jahren gezählt wird. `smoke:http` misst die
+    ausgelieferten `min`/`max` am gebauten Server und dass die Vorbelegung
+    zwischen den eigenen Grenzen liegt. Vier Gegenproben rot gesehen.
+  status: erledigt
+
+- betrifft: Eintrag 39 (Zeile 137), Entscheid vom 2026-08-28, Retro-Punkt 32
+  fassung: Die gerenderte Zeichenkette heisst `seit N Wochen überfällig`. Die
+    rund zwanzig Prosastellen in `zeit.ts`, `+page.svelte`, `smoke-zugang.ts` und
+    `README.md` sind **mitgeschrieben und nicht ersetzt** — mehrere von ihnen
+    argumentierten für die alte Fassung und tun es jetzt für die neue, mit dem
+    Datum der Umstellung als Anker.
+  bewusst nicht mitgewandert: die Bezeichner `wochenOffenSeit` und `wochenOffen`.
+    Sie benennen die **Rechnung** (die Wochen seit dem Zählbeginn), der Satz
+    benennt den **Zustand**. Eine Umbenennung ginge quer durch Schema, Abfrage
+    und Prüfliste, ohne dass eine Aussage dadurch wahrer würde; die Begründung
+    steht im Modulkopf von `zeit.ts`, damit es nicht wie ein Versehen aussieht.
+  belegt: `smoke:http` misst den Satz zum ersten Mal am **ausgelieferten** HTML
+    statt am Quelltext — dafür sät das Skript eine überfällige Planaufgabe. Das
+    war bis dahin eine echte Lücke: der einzige gerenderte Satz dieser Story hing
+    an einer Textprüfung über die `.svelte`-Datei. Gegenprobe rot gesehen.
+  status: erledigt
+
+- betrifft: Eintrag 28 (Zeile 98), Bucket B4 der Triage
+  fassung: Jedes Ziel der Navigationsleiste nennt in `gehoertDazu` die Routen,
+    die zu ihm gehören, ohne unter seinem Pfad zu liegen: `/aufgabe` zu `/`,
+    `/monatsplan` und `/verwaltung` zu `/mehr`. Zugeordnet nach dem **Weg
+    dorthin** und nicht nach dem Thema.
+  entschieden dabei: `aria-current` trägt zwei Werte, weil es zwei Aussagen sind.
+    `page` heisst „das hier ist die angezeigte Seite" und wäre auf `/aufgabe` am
+    Eintrag `Aufgaben` eine Falschaussage; `true` heisst „das hier ist der
+    laufende Eintrag" und ist die schwächere Aussage, die dort stimmt. Sichtbar
+    sind beide Zustände derselbe.
+  belegt: `smoke` liest die gerenderten Routen aus dem **Baum** und hält sie
+    gegen die Liste in der Komponente — eine neue Route ohne Eintrag macht die
+    Prüfliste rot. Das ist die eigentliche Zusage: Story 3.2 legt zwei Routen an.
+    `smoke:http` misst beide `aria-current`-Werte am ausgelieferten Dokument.
+    Drei Gegenproben rot gesehen.
+  status: erledigt
+
+- betrifft: Einträge 23 und 24 (Zeilen 83, 86), Bucket B5 der Triage
+  fassung: Die Zeichenklasse liegt in `src/lib/unsichtbar.ts` und hat zwei
+    Leser. `U+200D` fällt nur noch **ausserhalb** einer Emoji-Folge — die
+    Hautton-Modifikatoren und der Variationsselektor stehen in der Ausnahme
+    ausdrücklich, weil sie selbst nicht `Extended_Pictographic` sind. Dazu
+    ausgesiebt werden jetzt U+00AD, U+180E, die Bidi-Steuerzeichen
+    U+202A–U+202E und U+2066–U+2069, U+2800 und die zwei Hangul-Füller U+3164
+    und U+FFA0.
+  zur Verdopplung: `aufgabentext.ts` und `mitgliedsname.ts` bleiben getrennt,
+    und ihre Begründung dafür bleibt gültig — sie gilt den **Domänenregeln**.
+    Für die Zeichenklasse trägt sie nicht: welche Zeichen keine Breite haben,
+    ist eine Aussage über Unicode. Beide Einträge verlangten „gehört an beide
+    Stellen zugleich"; das ist jetzt keine Zusage mehr, sondern der Bau.
+  belegt: fünfzehn Zeichenproben, **jede durch beide Leser** — eine Probe an nur
+    einem bliebe grün, wenn das geteilte Modul wieder auseinanderfiele. Dazu eine
+    Baumbehauptung, dass die Liste unter `src/` genau einmal steht. Drei
+    Gegenproben rot gesehen.
+  status: erledigt
+
+- betrifft: `.hinweis` als zweite Kopie derselben Nebentext-Regel (Review 3.1)
+  fassung: `.hinweis` steht in `src/lib/styles/bedienelemente.css`, der
+    Grundfall ohne Aussenabstand wie jede andere Regel dort.
+    `.hinweis--am-feld` setzt den einen Schritt, den ein Nebentext unmittelbar
+    unter einem Feld braucht — dort gibt es keinen `gap`-Container, sondern nur
+    das Label mit seinem eigenen `margin-bottom`. Der Unterschied ist damit
+    benannt statt verdoppelt.
+  mitgenommen: `.zaehler` auf `/monatsplan` war die **dritte** Kopie derselben
+    fünf meta-Eigenschaften und ist fort; seine Kennung `plan-zaehler` bleibt,
+    denn daran hängt das `aria-describedby` des Textfeldes. Die Behauptung
+    darüber schneidet seither über die Kennung statt über die Klasse — der
+    bessere Anker, weil er die Identität misst und nicht die Gestaltung.
+  belegt: `.hinweis` steht jetzt in der SEITENFORM-Liste. Genau die Wache, die
+    der Review vermisst hat („von nichts bewacht"). Gegenprobe rot gesehen.
+  status: erledigt
+
+- betrifft: der zeilenlose Screenreader-Name (zurückgestellt aus Story 3.0.1 und
+    noch einmal aus dem Review zu Story 3.1)
+  fassung: Alle vier Zeilenarten in einem Zug, wie beide Einträge es verlangt
+    hatten. Jede Zeilen-Aktion zeigt mit `aria-labelledby` auf sich selbst und
+    dann auf die Kennung ihrer Zeile: `Umbenennen Anna Meier`,
+    `Besetzen KW 36 2026`. Die eigene Kennung **zuerst**, damit die sichtbare
+    Beschriftung der Anfang des Namens bleibt — wer per Sprache bedient, sagt,
+    was er sieht.
+  belegt: `smoke:http` misst es am ausgelieferten HTML und nicht am Quelltext.
+    Der Grund ist genau: die Kennungen tragen den Zeilenschlüssel als
+    Interpolation, und ob daraus ein **auflösbarer** Verweis wird, sieht man
+    erst im Dokument. Ein `aria-labelledby` ins Leere ist stiller als gar keins.
+  nebenbei gefunden: der Bestätigungsdialog zeigt auf eine Überschrift, die erst
+    mit der gewählten Zeile entsteht. Das ist richtig so — der Dialog ist
+    geschlossen, und sein Inhalt stünde sonst als leerer Satz im Quelltext jedes
+    Besuchers. Als benannte Ausnahme in der Prüfung festgehalten. Drei
+    Gegenproben rot gesehen.
+  status: erledigt
+
+- betrifft: die verlorene Änderung beim Umbenennen (zurückgestellt aus Story
+    3.0.1)
+  fassung: `bekannterName` reist als verstecktes Feld mit und entscheidet in der
+    `where`-Klausel des `UPDATE`, nicht in der Route — dieselbe Bauform, mit der
+    `abhaken` seit Story 1.4 das Wettrennen zweier Abhakender entscheidet.
+    Passt der Abdruck nicht mehr, fällt der Versuch auf MITGLIED_NICHT_ANSPRECHBAR;
+    `Lade die Liste neu.` ist auf diesen Fall die richtige Auskunft, und ein
+    eigener Satz wäre der Aufzählungskanal, gegen den dieser Satz steht.
+  belegt: `smoke` stellt den Fall nach — der erste Tab benennt auf `Anna Berger`
+    um, der zweite schickt seinen Stand `Anna Meier` ab. Die Gegenprobe ohne die
+    Bedingung im `UPDATE` zeigt genau den ursprünglichen Fehler: danach steht
+    wieder `Anna Meier` in der Zeile. `smoke:http` misst das versteckte Feld am
+    ausgelieferten Formular.
+  status: erledigt
+
+**Was aus dieser Datei offen bleibt** und warum:
+
+- **Eintrag 4** (Zeile 19) — die Installation zum Home-Bildschirm ist auf keinem
+  echten Gerät geprüft. Braucht ein Telefon, sonst nichts. Unverändert offen.
+- **Bucket D der Triage**, fünfzehn bewusst getragene Einträge. Zwei ihrer
+  Zähler haben sich mit diesem Durchgang **nicht** bewegt: `request.formData()`
+  ohne try/catch steht weiterhin an sieben Stellen (Eintrag 21/25), harte
+  Redirect-Pfade an sechs (Eintrag 26).
+- **Die Dienstart ist unmessbar** (Review 3.1) — ausdrücklich der Story
+  vorbehalten, die die zweite Art einführt: dort ist die Behauptung eine Zusage,
+  hier wäre sie eine Vorwegnahme.
+- **`select.feld { appearance: auto }` trägt keine Behauptung** (Review 3.1) —
+  gerechnete Darstellung erreicht keines der zwei Skripte. Das wäre Stufe C, und
+  die bleibt an ihre eigene Auslösebedingung gebunden.
+- **Retro-Punkt 15 / Befund P3**: die Barrierefreiheit ist weiterhin
+  mitgenickt und nicht abgenommen. Dieser Durchgang hat zwei ihrer Posten
+  gebaut (der Zeilenbezug, die zwei `aria-current`-Werte) und beide **gemessen**
+  — abgenommen ist damit die Struktur im ausgelieferten Dokument, nicht das
+  Erlebnis mit einem Screenreader.
