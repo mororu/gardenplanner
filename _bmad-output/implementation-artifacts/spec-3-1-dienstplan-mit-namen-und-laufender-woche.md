@@ -3,7 +3,7 @@ title: 'Story 3.1: Dienstplan mit Namen und laufender Woche'
 type: 'feature'
 created: '2026-08-29'
 status: 'in-review' # draft | ready-for-dev | in-progress | in-review | done
-review_loop_iteration: 0
+review_loop_iteration: 1
 baseline_commit: '9770d9ced605694de00f6fa3489245284cb32756'
 context: ['{project-root}/_bmad-output/implementation-artifacts/epic-3-context.md']
 ---
@@ -98,6 +98,29 @@ context: ['{project-root}/_bmad-output/implementation-artifacts/epic-3-context.m
 - Given eine besetzte künftige Woche, when der Zugang der zuständigen Person beendet wird, then steht diese Woche als `— unbesetzt —`, ohne dass ein Datensatz verschwindet.
 - Given `npm run gate`, when die Story fertig ist, then meldet es `--warn` und `--border-marker` **nicht** mehr als unbenutzt.
 - Given die laufende Woche, when zwei verschiedene Mitglieder `/` laden, then ist ihre Aufgabenliste identisch und nur der Diensthinweis verschieden.
+
+## Spec Change Log
+
+**Durchgang 1 — die Vorbelegung war behauptet, nicht gemessen.** Die erste
+Fassung belegte die Vorbelegung der Auswahl nur an einer Textprüfung im
+Komponenten-Quelltext (`selected={mitglied.id === eintrag.mitgliedId}`). Ob
+Svelte daraus im **ausgelieferten** HTML ein `selected` am richtigen `<option>`
+macht, sagt das nicht — und ohne JavaScript ist genau dieses Attribut das
+Einzige, was die Zusage einlöst. Gemessen: das `selected` entfernt liess `smoke`
+grün. Nachgezogen sind drei Behauptungen in `smoke:http` (vorhanden, an der
+eingetragenen Person, genau eines) und eine vierte, dass `Bitte wählen` aus einer
+besetzten Zeile verschwindet — sonst stünde `required` gegen die Vorbelegung.
+
+**KEEP, was bei einer Neuableitung nicht verlorengehen darf:**
+
+- Die zwei Kalender-Fälle — Jahreswechsel und Zonengrenze — auf **festen**
+  Zeitpunkten statt auf `Date.now()`. Der interessante Fall tritt an vier Tagen
+  im Jahr ein; eine Prüfliste, die ihn nur dann sieht, sieht ihn nie.
+- Das Wochenfenster am **Montag** verankert statt an heute. Gemessen: an einem
+  Sonntag gab die erste Fassung fünfzehn Wochen statt dreizehn, weil die Grenze
+  am Wochentag des Aufrufs hing.
+- Die verhandelte Zusage über die `load` von `/` — **verengt, nicht gestrichen**.
+  Die Begründung steht in den Design Notes.
 
 ## Design Notes
 
