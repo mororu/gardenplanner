@@ -332,8 +332,8 @@
 					In der Datenbank fällt er mit dem Abhaken weg; in der Oberfläche nicht,
 					weil der Rückruf mit invalidateAll: false fährt und die Zeile samt
 					unverändertem `data` an ihrem Platz stehen bleibt. Bliebe die zweite
-					Zeile stehen, behauptete `seit 4 Wochen offen` „offen" über eine
-					Aufgabe, die gerade erledigt wurde — eine Falschaussage. Beim
+					Zeile stehen, behauptete `seit 4 Wochen überfällig` eine offene Frist
+					über eine Aufgabe, die gerade erledigt wurde — eine Falschaussage. Beim
 					Wieder-Öffnen kommt sie von selbst zurück, mit unveränderter Zahl:
 					`data` wurde nie neu geladen.
 
@@ -349,14 +349,19 @@
 					frische Zeile die Höhe einer Zeile, die sie nie zeigt, und wurde
 					darum nicht gebaut.
 
-					**Was die Zahl zählt, ist doppeldeutig, und der Wortlaut bleibt
-					trotzdem.** Bei einer Planaufgabe zählt `seit N Wochen offen` die
-					Wochen **seit der Fälligkeit** und nicht die, die die Aufgabe offen
-					liegt: eine vor 60 Tagen angelegte Aufgabe mit Fälligkeit vor 25 Tagen
-					zeigt `seit 3 Wochen offen` und nicht `seit 8 Wochen offen`. Der Satz
-					steht wörtlich so in den Akzeptanzkriterien des Epics und in
-					DESIGN.md und wird darum nicht umformuliert; festgehalten ist er hier,
-					damit niemand die Zahl als Liegedauer liest.
+					**Was die Zahl zählt, ist nicht die Liegedauer — und der Wortlaut sagt
+					das.** Bei einer Planaufgabe zählt `seit N Wochen überfällig` die Wochen
+					**seit der Fälligkeit** und nicht die, die die Aufgabe schon liegt: eine
+					vor 60 Tagen angelegte Aufgabe mit Fälligkeit vor 25 Tagen zeigt
+					`seit 3 Wochen überfällig` und nicht `seit 8 Wochen überfällig`.
+
+					Bis zum 2026-08-29 hiess der Satz `seit N Wochen offen`, und genau
+					dieser Absatz stand hier als Warnung vor seiner Doppeldeutigkeit: bei
+					der Planaufgabe war „offen" schlicht falsch, sie liegt seit 8,5 Wochen
+					offen und nicht seit 3. `überfällig` ist in **beiden** Fällen wahr —
+					bei der Planaufgabe seit der Fälligkeit, bei der vor Ort erfassten seit
+					der Anlage, die laut AD-8 die Ersatzfrist **ist**. Der Satz steht
+					wörtlich so in den Akzeptanzkriterien des Epics und in DESIGN.md.
 				-->
 				{@const istUeberfaellig = !istErledigt && aufgabe.wochenOffen !== null}
 				<li class="zeile" class:zeile--erledigt={istErledigt}>
@@ -428,7 +433,7 @@
 						nicht darin: das Kästchen holt seinen Namen über aria-labelledby
 						aus diesem Element, und ein verschachteltes <p> machte aus
 						`Beet 25 jäten, erledigen` ein
-						`Beet 25 jäten seit 4 Wochen offen, erledigen`. Die Überfälligkeit
+						`Beet 25 jäten seit 4 Wochen überfällig, erledigen`. Die Überfälligkeit
 						ist eine **Beschreibung** des Kästchens (aria-describedby) und kein
 						Teil seines Namens — ein Screenreader liest sie nach einer Pause und
 						lässt sie in einer Elementliste weg.
@@ -445,7 +450,7 @@
 						<span class="zeile__text" id="aufgabe-{aufgabe.id}">{aufgabe.text}</span>
 						{#if istUeberfaellig}
 							<p class="zeile__frist" id="frist-{aufgabe.id}">
-								seit {aufgabe.wochenOffen} Wochen offen
+								seit {aufgabe.wochenOffen} Wochen überfällig
 							</p>
 						{/if}
 					</div>
@@ -701,7 +706,7 @@
 
 		Der **Text** trägt die Aussage, die Farbe nie allein (UX-DR8): bei
 		ausgeschalteter Farbdarstellung oder Farbfehlsichtigkeit steht
-		`seit N Wochen offen` unverändert da.
+		`seit N Wochen überfällig` unverändert da.
 
 		Diese Regel steht ausdrücklich **nicht** in der Übergangsliste unten. Beim
 		Abhaken wird die Zeile aus dem DOM genommen und nicht überblendet — ein

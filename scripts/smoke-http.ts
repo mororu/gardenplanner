@@ -72,9 +72,11 @@ import {
 } from './pruefhelfer.ts';
 import { datenschichtStarten } from '../src/lib/server/db/index.ts';
 import { mitgliedAnlegen } from '../src/lib/server/db/queries/members.ts';
+import { aufgabenStapelAnlegen } from '../src/lib/server/db/queries/tasks.ts';
 import { tokenErzeugen, tokenHashen } from '../src/lib/server/token.ts';
 import { NAME_HOECHSTLAENGE, NAME_ZU_LANG } from '../src/lib/mitgliedsname.ts';
 import { KEIN_ZUGANG, MITGLIED_NICHT_ANSPRECHBAR } from '../src/lib/texte.ts';
+import { WOCHE_SEKUNDEN } from '../src/lib/zeit.ts';
 
 /**
  * So viele Behauptungen muss ein vollständiger Lauf ablegen, die Schlusszählung
@@ -82,7 +84,7 @@ import { KEIN_ZUGANG, MITGLIED_NICHT_ANSPRECHBAR } from '../src/lib/texte.ts';
  * mit — genau wie in scripts/smoke-zugang.ts. Eine Seite mehr in `seiten` sind
  * sieben Behauptungen mehr, und dieselbe Zahl steht in README.md.
  */
-const ERWARTETE_BEHAUPTUNGEN = 106;
+const ERWARTETE_BEHAUPTUNGEN = 109;
 
 const GUTES_GEHEIMNIS = 'smoke-http-geheimnis-mit-genug-verschiedenen-zeichen-0123456789';
 
@@ -252,6 +254,10 @@ type Saat = {
 	mitgliedToken: string;
 	hashes: string[];
 	klartexte: string[];
+	/** Der Text der überfälligen Planaufgabe — unten am ausgelieferten `/` gesucht. */
+	ueberfaelligText: string;
+	/** Und die Zahl, die über ihr stehen muss. */
+	ueberfaelligWochen: number;
 };
 
 /**
@@ -277,11 +283,35 @@ function saeen(): Saat {
 	mitgliedAnlegen({ name: 'Vera Verwaltung', inviteTokenHash: adminHash, isAdmin: true });
 	mitgliedAnlegen({ name: 'Manu Mitglied', inviteTokenHash: mitgliedHash, isAdmin: false });
 
+	/*
+	 * Eine überfällige Planaufgabe, ebenfalls über die echte Datenschicht.
+	 *
+	 * Sie ist die einzige Saat dieses Skripts, die nicht dem Zugang dient, und
+	 * sie hat einen genauen Grund: der Satz `seit N Wochen überfällig` war bis zum
+	 * 2026-08-29 allein von einer Textprüfung über den Quelltext der Komponente
+	 * gedeckt. Ob er wirklich **ausgeliefert** wird und mit welcher Zahl, hat nie
+	 * etwas gemessen — genau die Klasse, für die Story 3.0 dieses Skript gebaut
+	 * hat.
+	 *
+	 * Vier Wochen und nicht drei: an der Schwelle selbst ist eine Aufgabe noch
+	 * nicht überfällig, und eine Saat, die auf die Sekunde an der Grenze liegt,
+	 * hinge an der Laufzeit des Skripts. Gerechnet wird aus WOCHE_SEKUNDEN und
+	 * nicht aus einer eigenen 604800 — dieselbe Klammer wie in `smoke`.
+	 */
+	const ueberfaelligWochen = 4;
+	const ueberfaelligText = 'Tunnel 2 Blattläuse nachbehandeln';
+	aufgabenStapelAnlegen(
+		[ueberfaelligText],
+		Math.floor(Date.now() / 1000) - ueberfaelligWochen * WOCHE_SEKUNDEN
+	);
+
 	return {
 		adminToken,
 		mitgliedToken,
 		hashes: [adminHash, mitgliedHash],
 		klartexte: [adminToken, mitgliedToken],
+		ueberfaelligText,
+		ueberfaelligWochen,
 	};
 }
 
@@ -870,6 +900,43 @@ try {
 		'und die Vorbelegung liegt zwischen den beiden Grenzen',
 		vorgabe !== '' && vorgabe >= grenzeAus('min') && vorgabe <= grenzeAus('max'),
 		`Vorgabe ${JSON.stringify(vorgabe)} zwischen ${JSON.stringify(grenzeAus('min'))} und ${JSON.stringify(grenzeAus('max'))}`
+	);
+
+	// --- Der Satz über der überfälligen Zeile, am ausgelieferten HTML ---------
+	/*
+	 * Eintrag 39, entschieden am 2026-08-28: der Satz heisst `seit N Wochen
+	 * überfällig` und nicht mehr `seit N Wochen offen`. Hier wird er zum ersten
+	 * Mal am **ausgelieferten** HTML gemessen und nicht am Quelltext.
+	 *
+	 * Gesucht wird der ganze Absatz und nicht nur die Zeichenkette: die Zusage ist
+	 * `<p class="zeile__frist">` mit dem Satz darin, unter dem Aufgabentext. Eine
+	 * blosse Volltextsuche wäre auch dann grün, wenn der Satz im Kästchen-Namen
+	 * landete — genau der Fehler, gegen den die Komponente an dieser Stelle
+	 * ausführlich argumentiert.
+	 */
+	const startseiteHtml = await (await holen(port, '/', { keks: adminKeks })).text();
+	pruefen(
+		'die überfällige Zeile steht auf dem ausgelieferten /',
+		startseiteHtml.includes(saat.ueberfaelligText),
+		`gesucht: ${JSON.stringify(saat.ueberfaelligText)}`
+	);
+	/*
+	 * `class="zeile__frist svelte-…"`: Svelte hängt seine Bereichsklasse an, und
+	 * ein `class="zeile__frist"` am Stück fände darum nichts. Gesucht wird die
+	 * Klasse als **Wort** im Attribut — dieselbe Lesart, die ein Browser hat.
+	 */
+	const fristAbsatz = /<p class="[^"]*\bzeile__frist\b[^"]*"[^>]*>([\s\S]*?)<\/p>/.exec(
+		startseiteHtml
+	);
+	pruefenGleich(
+		'und darunter ein <p class="zeile__frist"> mit dem Satz und der Zahl',
+		(fristAbsatz?.[1] ?? '').replace(/\s+/g, ' ').trim(),
+		`seit ${saat.ueberfaelligWochen} Wochen überfällig`
+	);
+	pruefen(
+		'das Wort „offen" steht nirgends in diesem Satz — der Wortlaut ist umgestellt',
+		!/seit \d+ Wochen offen/.test(startseiteHtml),
+		(/seit \d+ Wochen offen/.exec(startseiteHtml) ?? [])[0]
 	);
 
 	// --- Die Adminweiche über HTTP --------------------------------------------

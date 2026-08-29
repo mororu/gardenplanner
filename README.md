@@ -10,7 +10,7 @@ Titelleiste, Navigationsleiste, das PWA-Manifest, die SQLite-Datenschicht mit
 Zugangsweg (`GET /i/<token>` löst die Einladung ein, ein Wächter lässt ohne
 gültige Sitzung niemanden weiter), die Verwaltung unter `/verwaltung`, auf `/`
 die ganze Schleife (die offenen Aufgaben, abgehakt mit einem Griff, unter einer
-seit drei Wochen liegenden Zeile der Satz `seit N Wochen offen`, und unter dem
+seit drei Wochen liegenden Zeile der Satz `seit N Wochen überfällig`, und unter dem
 Pool der Knopf `+ Aufgabe`, der auf `/aufgabe` führt), unter `/mehr` den
 Einstieg zu `/monatsplan`, wo die planende Person ihren ganzen Monatsplan in
 einem Zug ablegt — und den Compose-Stapel, der das alles auf einen Server
@@ -1655,10 +1655,10 @@ Platz: siehe
   liest `Beet 25 Nüsslisalat jäten, erledigen` mit der Rolle Kontrollkästchen.
   Bewusst **kein** `<label for>` — ein Label schaltet sein Bedienelement, und
   damit wäre der Text wieder antippbar. Diese Zusage gilt **auch** für eine
-  überfällige Zeile: `seit N Wochen offen` hängt über `aria-describedby` als
+  überfällige Zeile: `seit N Wochen überfällig` hängt über `aria-describedby` als
   **Beschreibung** am Kästchen und liegt ausdrücklich nicht in dem Element, auf
   das `aria-labelledby` zeigt — sonst hiesse das Kästchen
-  `Beet 25 Nüsslisalat jäten seit 4 Wochen offen, erledigen`.
+  `Beet 25 Nüsslisalat jäten seit 4 Wochen überfällig, erledigen`.
 - **Die Zeile bleibt an ihrem Platz stehen**, durchgestrichen und gedämpft,
   Kästchen gefüllt mit Haken. Sie verschwindet erst beim nächsten Laden — dann
   auch für alle anderen. So ist ein Fehlgriff sofort sichtbar. Der Preis dieser
@@ -1853,7 +1853,7 @@ Danach `303` auf `/` mit der Meldung im Perfekt desselben Verbs:
 Eine Aufgabe, die drei Wochen liegt, sieht in einer nackten Liste aus wie eine
 von heute — Liegengebliebenes fällt dann nur auf, wenn jemand mahnt. Auf `/`
 bekommt eine solche Zeile darum unter dem Aufgabentext einen zweiten Satz:
-`seit 4 Wochen offen`, in Nebentext-Grösse und im Lehmbraun aus `--overdue`.
+`seit 4 Wochen überfällig`, in Nebentext-Grösse und im Lehmbraun aus `--overdue`.
 
 - **Überfällig ist abgeleitet, nicht gespeichert.** Keine `is_overdue`-Spalte,
   kein Cron, kein Hintergrundjob: zwei Wahrheiten liefen auseinander, sobald ein
@@ -1868,29 +1868,35 @@ bekommt eine solche Zeile darum unter dem Aufgabentext einen zweiten Satz:
   damit die Prüfliste nicht grün bleibt, wenn jemand sie verschiebt. Der
   Vergleich ist **strikt**: genau an der Schwelle ist eine Aufgabe noch nicht
   überfällig, eine Sekunde darüber sind es drei Wochen. Damit ist `3` der
-  kleinste mögliche Wert, und `seit N Wochen offen` braucht keine Beugungsregel.
+  kleinste mögliche Wert, und `seit N Wochen überfällig` braucht keine
+  Beugungsregel.
   Der Preis: die drei Wochen stehen nirgends in der Oberfläche, und die Zeile ist
   die einzige **Deklaration**, nicht die einzige Abhängigkeit — fällt die Schwelle
-  je unter drei Wochen, kippt die Beugungsfreiheit mit, und `seit 1 Wochen offen`
-  steht da. Der Docblock an der Konstante zählt auf, was mitwandert.
+  je unter drei Wochen, kippt die Beugungsfreiheit mit, und
+  `seit 1 Wochen überfällig` steht da. Der Docblock an der Konstante zählt auf, was mitwandert.
 - **Die Frist zählt ab Fälligkeit, ersatzweise ab Anlage** (`dueAt ?? createdAt`).
   Ein Monatsplan mit Fälligkeit am Monatsende gilt darum nicht schon drei Wochen
   nach dem Ablegen als überfällig. Umgekehrt wird eine über `/aufgabe` erfasste
   Aufgabe 21 Tage nach der Erfassung überfällig, ohne dass jemand eine Frist
   gesetzt hat — und es gibt keinen Weg, diesen Zeitpunkt zu verschieben.
-- **Der Satz ist doppeldeutig, und der Wortlaut bleibt trotzdem.** Bei einer
-  Planaufgabe zählt `seit N Wochen offen` die Wochen **seit der Fälligkeit**, nicht
-  die Liegedauer: vor 60 Tagen angelegt, vor 25 Tagen fällig, angezeigt
-  `seit 3 Wochen offen`. Der Wortlaut steht so in den Akzeptanzkriterien des Epics
-  und in `DESIGN.md` und wird nicht umformuliert — hier steht nur, wie er zu lesen
-  ist.
+- **Der Satz zählt nicht die Liegedauer, und der Wortlaut sagt das.** Bei einer
+  Planaufgabe zählt `seit N Wochen überfällig` die Wochen **seit der Fälligkeit**,
+  nicht die Liegedauer: vor 60 Tagen angelegt, vor 25 Tagen fällig, angezeigt
+  `seit 3 Wochen überfällig`. Bis zum 2026-08-29 hiess der Satz
+  `seit N Wochen offen` und war damit bei einer Planaufgabe schlicht falsch — sie
+  liegt seit 8,5 Wochen offen, nicht seit 3. `überfällig` ist in **beiden** Fällen
+  wahr: bei der Planaufgabe seit der Fälligkeit, bei der vor Ort erfassten seit
+  der Anlage, die laut AD-8 die Ersatzfrist **ist**. Den Ton tragen ohnehin das
+  Lehmbraun, das fehlende Abzeichen und die unveränderte Sortierung, nicht das
+  Wort.
 - **Der Bezugszeitpunkt entsteht serverseitig in der `load`.** Ein `Date.now()` in
   der Komponente lief einmal beim Rendern und einmal beim Hydrieren und meldete
   einen Hydrierungsunterschied; zugleich wird so die ganze Liste an **einer** Uhr
   gemessen. Der Preis: die Zahl ist so alt wie der letzte Ladevorgang, und kein
   Timer zieht sie nach.
 - **Der Text trägt die Aussage, die Farbe nie allein.** Bei Farbfehlsichtigkeit
-  oder ausgeschalteter Farbdarstellung steht `seit N Wochen offen` unverändert da.
+  oder ausgeschalteter Farbdarstellung steht `seit N Wochen überfällig`
+  unverändert da.
   Und **kein Rot**: eine Aufgabe, die vier Wochen liegt, ist kein Fehler und keine
   Gefahr, und `--danger` bleibt allein dem Zerstörenden vorbehalten.
 - **Kein Abzeichen, keine Umsortierung, keine Eskalation.** Die Zeile bleibt an
@@ -1898,7 +1904,7 @@ bekommt eine solche Zeile darum unter dem Aufgabentext einen zweiten Satz:
   nichts verschwindet — offene Aufgaben verfallen nie. Der Preis: wer wissen will,
   wie viel liegt, liest die Liste; es gibt keine Zählung und keine Erinnerung.
 - **Beim Abhaken verschwindet die zweite Zeile.** `completed_at IS NULL` ist der
-  erste Konjunkt der Regel, und `seit 4 Wochen offen` unter einer gerade
+  erste Konjunkt der Regel, und `seit 4 Wochen überfällig` unter einer gerade
   erledigten Aufgabe wäre eine Falschaussage. Beim Wieder-Öffnen kommt sie mit
   **unveränderter** Zahl zurück, weil das Abhaken kein `invalidateAll()` auslöst —
   der Preis derselben Entscheidung, die die Zeile an ihrem Platz stehen lässt.
@@ -1908,11 +1914,14 @@ bekommt eine solche Zeile darum unter dem Aufgabentext einen zweiten Satz:
   so ist ein Fehlgriff sofort sichtbar" gilt damit nur noch für die angetippte
   Zeile. Den Platz freizuhalten kostete jede frische Zeile eine Zeilenhöhe, die
   sie nie zeigt.
-- **Der Satz wird nicht gekappt.** Ein vertipptes Jahr im Feld `Fällig bis`
-  erzeugt `seit ~1900 Wochen offen`, und genau diese absurde Zahl ist das
+- **Der Satz wird nicht gekappt.** Eine Frist weit in der Vergangenheit erzeugt
+  `seit ~1900 Wochen überfällig`, und genau diese absurde Zahl ist das
   Diagnosesignal. Eine Obergrenze liesse einen Stapel von 1990 aussehen wie einen,
-  der 14 Monate liegt. Der Preis: die Liste kann grotesk aussehen — eine
-  Eingabeschranke am Datumsfeld ist eine eigene, noch offene Produktentscheidung.
+  der 14 Monate liegt. Über das Datumsfeld ist dieser Fall seit dem Fenster an
+  `Fällig bis` nicht mehr erreichbar — es weist eine Frist mehr als ein Jahr
+  zurück ab, und die grösste Zahl, die hier noch entstehen kann, ist 52. Über
+  einen Eingriff von Hand an der Datenbank sehr wohl, und dann soll die absurde
+  Zahl dastehen.
 - **Die zweite Zeile ist eine Beschreibung, kein Name.** Sie hängt über
   `aria-describedby` am Kästchen und liegt ausdrücklich **nicht** in dem Element,
   auf das `aria-labelledby` zeigt: das Kästchen heisst weiter

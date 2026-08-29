@@ -4394,7 +4394,7 @@ try {
 	 *
 	 * Die Erwartungswerte stehen als Literale da und kommen nicht aus der
 	 * geprüften Funktion. Die 3 in der zweiten Zeile ist zugleich die Begründung
-	 * dafür, dass `seit N Wochen offen` keine Beugungsregel braucht: sie ist der
+	 * dafür, dass `seit N Wochen überfällig` keine Beugungsregel braucht: sie ist der
 	 * **kleinste** mögliche Rückgabewert, ein Singular kann nicht auftreten.
 	 * Gemessen, nicht vermutet: ersetzt man das `<=` in wochenOffenSeit durch ein
 	 * `<`, wird die erste Zeile rot — genau an der Schwelle ist eine Aufgabe noch
@@ -5190,7 +5190,7 @@ try {
 	/*
 	 * Sie laufen auf `startseitenCode`, also auf der Datei **ohne** Kommentare:
 	 * die Komponente erklärt an jeder dieser Stellen ausführlich, was dort zu
-	 * stehen hat — sie nennt `!istErledigt`, `seit 4 Wochen offen`, das
+	 * stehen hat — sie nennt `!istErledigt`, `seit 4 Wochen überfällig`, das
 	 * abhaken-Kästchen und die verbotene Verschachtelung wörtlich. Auf dem Rohtext
 	 * hätten sich die Behauptungen an der eigenen Begründung erfüllt.
 	 *
@@ -5283,7 +5283,7 @@ try {
 	 *
 	 * Gemessen: stellt man den `{#if istUeberfaellig}`-Block **vor** den
 	 * Aufgabentext, bleibt jede Suche über die ganze Datei grün, und
-	 * `seit N Wochen offen` steht über der Aufgabe. Behauptet wird darum die
+	 * `seit N Wochen überfällig` steht über der Aufgabe. Behauptet wird darum die
 	 * Reihenfolge **innerhalb** des geschnittenen Containers. Der erste `</div>`
 	 * nach dem Container schliesst ihn auch: darin liegen nur ein <span> und ein
 	 * <p>, kein weiteres <div>.
@@ -5346,7 +5346,7 @@ try {
 		],
 		[
 			'der Satz steht wörtlich im Markup',
-			/seit \{aufgabe\.wochenOffen\} Wochen offen/.test(startseitenCode),
+			/seit \{aufgabe\.wochenOffen\} Wochen überfällig/.test(startseitenCode),
 		],
 		['die Farbe kommt aus --overdue', /color: var\(--overdue\);/.test(fristRegel)],
 		['die Grösse aus der meta-Rolle', /font-size: var\(--meta-size\);/.test(fristRegel)],

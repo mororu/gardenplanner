@@ -2,9 +2,17 @@
  * Die Zeitzone, die zwei Umrechnungen, die ein Datumsfeld braucht, und die
  * Überfälligkeitsrechnung.
  *
- * **Die Schwelle der Überfälligkeit steht seit Story 2.2 ebenfalls hier**, ganz
- * unten, aus demselben Grund wie die Zone: an genau einer Stelle. Sie rechnet
+ * **Die Schwelle der Überfälligkeit steht seit Story 2.2 ebenfalls hier**, in
+ * der Mitte, aus demselben Grund wie die Zone: an genau einer Stelle. Sie rechnet
  * ohne Zone — die Begründung dafür steht an wochenOffenSeit.
+ *
+ * Der Name wochenOffenSeit ist **älter als der Satz, den er speist**, und bleibt
+ * mit Absicht stehen: er beschreibt, was gerechnet wird — die Wochen seit dem
+ * Zählbeginn —, während die Oberfläche sagt, was das bedeutet, nämlich
+ * `seit N Wochen überfällig`. Der Wortlaut wurde am 2026-08-29 umgestellt
+ * (Eintrag 39 der zurückgestellten Arbeit); die Bezeichner nicht, weil eine
+ * Umbenennung quer durch Schema, Abfrage und Prüfliste ginge, ohne dass eine
+ * Aussage dadurch wahrer würde.
  *
  * **Die Zeitzone steht genau einmal, und zwar hier.** Sie stand bis Story 2.1 in
  * src/lib/client/utils/date.ts, dem einzigen Ort, der einen Zeitstempel in Text
@@ -202,10 +210,10 @@ export const WOCHE_SEKUNDEN = 7 * 24 * 60 * 60;
  * Fällt sie unter drei Wochen, wird der kleinste Rückgabewert 1 oder 0, und dann
  * kippen still mit:
  *
- *   - die Begründung an wochenOffenSeit, dass `seit N Wochen offen` keine
- *     Beugungsregel braucht — bei 1 heisst es `seit 1 Wochen offen`;
- *   - bei 0 zusätzlich die Aussage des Satzes selbst: `seit 0 Wochen offen` unter
- *     einer Aufgabe, die gerade überfällig geworden ist;
+ *   - die Begründung an wochenOffenSeit, dass `seit N Wochen überfällig` keine
+ *     Beugungsregel braucht — bei 1 heisst es `seit 1 Wochen überfällig`;
+ *   - bei 0 zusätzlich die Aussage des Satzes selbst: `seit 0 Wochen überfällig`
+ *     unter einer Aufgabe, die gerade überfällig geworden ist;
  *   - die literalen `3` in scripts/smoke-zugang.ts, in README.md und in der
  *     Spezifikation der Story.
  *
@@ -242,15 +250,21 @@ export const UEBERFAELLIG_SEKUNDEN = 3 * WOCHE_SEKUNDEN;
  * **Der kleinste Rückgabewert ist 3**, solange UEBERFAELLIG_SEKUNDEN bei drei
  * Wochen steht. Eine Sekunde über der Schwelle liegt die Differenz bei 21 Tagen
  * und einer Sekunde, und `Math.floor(x / WOCHE_SEKUNDEN)` ergibt darauf 3. Ein
- * Singular kann also nicht auftreten, und `seit N Wochen offen` braucht keine
- * Beugungsregel — der Satz ist immer im Plural richtig. Diese Zusage hängt an
+ * Singular kann also nicht auftreten, und `seit N Wochen überfällig` braucht
+ * keine Beugungsregel — der Satz ist immer im Plural richtig. Diese Zusage hängt an
  * der Schwelle und nicht an dieser Funktion; die Liste dessen, was bei einer
  * Verschiebung mitwandert, steht an UEBERFAELLIG_SEKUNDEN.
  *
- * **Ohne Obergrenze und ohne Kappung.** Ein vertipptes Jahresfeld (`Fällig bis`
- * nimmt jedes formgültige Datum an) erzeugt `seit ~1900 Wochen offen`, und genau
- * diese absurde Zahl ist das Diagnosesignal. Eine Kappung auf `über einem Jahr`
- * liesse einen Stapel von 1990 aussehen wie einen, der 14 Monate liegt.
+ * **Ohne Obergrenze und ohne Kappung.** Eine Frist weit in der Vergangenheit
+ * erzeugt `seit ~1900 Wochen überfällig`, und genau diese absurde Zahl ist das
+ * Diagnosesignal. Eine Kappung auf `über einem Jahr` liesse einen Stapel von 1990
+ * aussehen wie einen, der 14 Monate liegt.
+ *
+ * Über das Datumsfeld ist dieser Fall seit dem Fenster an `Fällig bis` (siehe
+ * FRIST_FENSTER_TAGE ganz unten) nicht mehr erreichbar: eine Frist mehr als ein
+ * Jahr zurück wird abgewiesen, und die grösste Zahl, die hier noch entstehen
+ * kann, ist 52. Über einen Eingriff von Hand an der Datenbank sehr wohl — und
+ * dann soll die absurde Zahl weiterhin dastehen und nicht gekappt werden.
  *
  * **Warum hier keine Zonenrechnung steht, obwohl der Rest dieses Moduls eine
  * braucht.** monatsendeAlsFeldwert und tagesendeInUnixSekunden rechnen
