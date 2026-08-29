@@ -1388,6 +1388,8 @@ Der Grund für all das ist gemessen. Die Tabelle nennt nur Mutationen, die
 | der Verweis am `Besetzen`-Griff entfernt                          | 3.0.1 + 3.1          | `smoke:http`, zwei Zeilen: die Vollständigkeit über alle Arten und der Griff namentlich                                                                                                                                                |
 | der Verweis zeigt nur auf die Zeile, nicht auch auf sich selbst   | 3.0.1 + 3.1          | `smoke:http`, dieselben zwei Zeilen — sonst hiesse der Griff `Anna Meier`, und niemand wüsste, was er tut                                                                                                                              |
 | eine Kennung im Verweis verschrieben                              | 3.0.1 + 3.1          | `smoke:http`, `jeder Verweis löst sich im ausgelieferten Dokument auf` — die Meldung nennt die tote Kennung                                                                                                                            |
+| `bekannterName` aus der where-Klausel des Umbenennens genommen    | 3.0.1                | `smoke`, fünf Zeilen — der Versand aus dem veralteten Tab schreibt `Anna Meier` über `Anna Berger`, genau der Fehler, um den es geht                                                                                                   |
+| das versteckte `bekannterName` aus dem Formular entfernt          | 3.0.1                | `smoke:http`, `/verwaltung liefert das Umbenennen-Formular aus`                                                                                                                                                                        |
 | die Prüfung des Fensters aus der action `ablegen` genommen        | Eintrag 31           | `smoke`, sechs Zeilen über die zwei vertippten Jahre                                                                                                                                                                                   |
 | `FRIST_FENSTER_TAGE` von 365 auf 366 verschoben                   | Eintrag 31           | `smoke`, sechs Zeilen: die Konstante selbst, beide Fenstergrenzen, der Schalttag und die zwei Grenztage                                                                                                                                |
 | das Fenster als Kalenderjahr statt in Tagen gerechnet             | Eintrag 31           | `smoke`, `über einen Schalttag hinweg zählt das Fenster Tage und keine Jahre` — die anderen fünf Zeilen bleiben grün, weil 2026 und 2027 keine Schaltjahre sind                                                                        |
@@ -2110,10 +2112,21 @@ Nicht-Admins fehlt der Knopf, ein POST braucht aber keinen.
   darunter aus dem Server. Läge die Zuordnung wie zuerst entworfen im
   `use:enhance`-Rückruf, fiele ohne JavaScript alles davon lautlos weg.
 
+  **Ein veralteter Tab dreht nichts zurück.** Das Formular trägt neben der
+  Zeilen-Id einen zweiten versteckten Wert: `bekannterName`, den Abdruck dessen,
+  was diese Seite in der Zeile stehen sah. Er steht in der `where`-Klausel des
+  `UPDATE` — geschrieben wird nur, solange er noch stimmt. Ohne ihn überschrieb
+  ein zweiter, vor einer Umbenennung geladener Tab den neueren Namen mit dem
+  älteren, ohne Hinweis, weil das `UPDATE` gelang. Dieselbe Bauform, mit der
+  `abhaken` seit Story 1.4 das Wettrennen zweier Abhakender entscheidet: das
+  Wettrennen gehört in die Abfrage, nicht in die Route. Passt der Abdruck nicht
+  mehr, ist die Antwort dieselbe wie bei jeder anderen nicht ansprechbaren Zeile
+  — `Lade die Liste neu.`, und genau das ist zu tun.
+
   `smoke:http` misst beide Richtungen am echten Server. Hin: die ausgelieferte
   Seite trägt je aktiver Zeile ein `<form method="POST">` mit
-  `action="?/umbenennen"`, dem Feld `neuerName`, der versteckten Zeilen-Id und
-  einem Absendeknopf — ohne eines davon ist die Aktion ohne JavaScript nicht
+  `action="?/umbenennen"`, dem Feld `neuerName`, der versteckten Zeilen-Id, dem
+  versteckten `bekannterName` und einem Absendeknopf — ohne eines davon ist die Aktion ohne JavaScript nicht
   bedienbar. Zurück: ein abgeschickter POST mit untauglichem Namen ergibt ein
   `400` samt HTML-Dokument, in dem genau **ein** `<details>` offen steht, die
   verworfene Eingabe im Feld, die Kante daran und der Satz in der Live-Region

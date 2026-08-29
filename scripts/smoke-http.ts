@@ -1068,6 +1068,18 @@ try {
 			),
 		],
 		[
+			// Der Abdruck des Namens, den diese Seite gesehen hat. Er entscheidet in
+			// der where-Klausel des UPDATE, ob geschrieben wird — ohne ihn drehte ein
+			// veralteter zweiter Tab eine neuere Umbenennung still zurück. Geprüft
+			// wird auf einen **nichtleeren** Wert: ein value="" träfe nie einen
+			// gespeicherten Namen, und jeder Versand endete im Satz über das nicht
+			// ansprechbare Mitglied.
+			'jedes mit dem versteckten bekannterName und einem echten Namen',
+			jedes((_, rumpf) =>
+				/\bvalue="[^"]+"/.test(/<input\b[^>]*\bname="bekannterName"[^>]*>/.exec(rumpf)?.[0] ?? '')
+			),
+		],
+		[
 			'und jedes mit einem Absendeknopf',
 			jedes((_, rumpf) => /<button\b[^>]*\btype="submit"/.test(rumpf)),
 		],
@@ -1100,8 +1112,13 @@ try {
 			.exec(umbenennenFormulare[0]?.[1] ?? '')?.[0]
 			?.match(/\bvalue="([0-9]+)"/)?.[1] ?? '';
 	const zuLangerName = 'Z'.repeat(NAME_HOECHSTLAENGE + 1);
+	const abgewiesenerAbdruck =
+		/<input\b[^>]*\bname="bekannterName"[^>]*>/
+			.exec(umbenennenFormulare[0]?.[1] ?? '')?.[0]
+			?.match(/\bvalue="([^"]*)"/)?.[1] ?? '';
 	const abweisung = await abschicken(port, '/verwaltung?/umbenennen', adminKeks, {
 		mitgliedId: abgewieseneZeile,
+		bekannterName: abgewiesenerAbdruck,
 		neuerName: zuLangerName,
 	});
 	const abweisungHtml = await abweisung.text();

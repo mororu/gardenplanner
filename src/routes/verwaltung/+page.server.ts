@@ -279,10 +279,27 @@ export const actions = {
 			return abweisen(geprueft.fehler, 'neuerName', eingabe, id);
 		}
 
-		// is_active = 1 steht in der Query, nicht hier. Die zweite Prüfung auf null
-		// ist keine Verdopplung der ersten, sondern schliesst das Fenster
-		// dazwischen: zwischen Auskunft und UPDATE kann ein Widerruf laufen.
-		const mitglied = mitgliedUmbenennen(id, geprueft.name);
+		/*
+		 * `bekannterName` ist der Abdruck dessen, was die absendende Seite in der
+		 * Zeile stehen sah. Er reist als verstecktes Feld mit und entscheidet in der
+		 * where-Klausel: nur wenn er noch stimmt, wird geschrieben. Ohne ihn drehte
+		 * ein veralteter zweiter Tab eine neuere Umbenennung still zurück.
+		 *
+		 * Fehlend und Nicht-String fallen auf die leere Zeichenkette — die trifft
+		 * keinen Namen, weil ein gespeicherter Name nie leer ist, und der Versuch
+		 * fällt damit auf denselben Satz wie jede andere nicht ansprechbare Zeile.
+		 * Kein eigener Zweig für einen Fall ohne eigene Handlung.
+		 */
+		const rohBekannt = formular.get('bekannterName');
+		// is_active = 1 und der bekannte Name stehen in der Query, nicht hier. Die
+		// zweite Prüfung auf null ist keine Verdopplung der ersten, sondern
+		// schliesst das Fenster dazwischen: zwischen Auskunft und UPDATE kann ein
+		// Widerruf oder eine fremde Umbenennung laufen.
+		const mitglied = mitgliedUmbenennen(
+			id,
+			geprueft.name,
+			typeof rohBekannt === 'string' ? rohBekannt : ''
+		);
 		if (mitglied === null) {
 			return abweisen(MITGLIED_NICHT_ANSPRECHBAR);
 		}

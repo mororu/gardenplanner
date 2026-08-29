@@ -258,17 +258,41 @@ export function aktivesMitgliedLesen(id: number): AngemeldetesMitglied | null {
  * künftige Aufrufstelle, und eine von ihnen täte es falsch. Ein beendeter
  * Zugang wird nicht umbenannt — es gibt an ihm nichts mehr zu tun.
  *
- * null bedeutet also zweierlei auf einmal: es gibt die Id nicht, oder das
- * Mitglied ist beendet. Die Route macht daraus **einen** Satz.
+ * **`bekannterName` entscheidet das Wettrennen in der where-Klausel**, nicht in
+ * der Route. Geschrieben wird nur, wenn in der Spalte noch genau der Name steht,
+ * den die absendende Seite gesehen hat. Dieselbe Bauform wie bei aufgabeAbhaken
+ * in ./tasks.ts, wo `completed_at IS NULL` das Wettrennen zweier Abhakender
+ * entscheidet — und aus demselben Grund an derselben Stelle: eine Prüfung in der
+ * Route liesse zwischen Lesen und Schreiben ein Fenster offen, und genau darum
+ * geht es hier.
+ *
+ * Der Fall ist nicht gedacht. Wer /verwaltung in einem zweiten Tab offen hat,
+ * dort das Formular aufklappt und nach einer Umbenennung im ersten Tab
+ * abschickt, drehte den neueren Namen auf den älteren zurück — ohne Hinweis,
+ * weil das UPDATE gelang. Zwei gleichzeitige Adminpersonen gibt es heute nicht
+ * (Adminrechte vergibt allein scripts/create-admin.ts, und nur für das erste
+ * Mitglied), der eigene veraltete Tab sehr wohl.
+ *
+ * null bedeutet also dreierlei auf einmal: es gibt die Id nicht, das Mitglied
+ * ist beendet, oder sein Name ist inzwischen ein anderer. Die Route macht daraus
+ * **einen** Satz — und der ist auf alle drei die richtige Auskunft: `Lade die
+ * Liste neu.`
  *
  * Der Name kommt geprüft und gefaltet herein — namePruefen in
  * ../../../mitgliedsname.ts ist die eine Stelle, die das entscheidet.
+ * `bekannterName` dagegen kommt **ungefaltet** und wird es auch nicht: er ist
+ * kein Name, den jemand eingibt, sondern der Abdruck dessen, was in der Spalte
+ * stand. Eine Faltung darauf verglich etwas anderes, als gespeichert ist.
  */
-export function mitgliedUmbenennen(id: number, name: string): AngemeldetesMitglied | null {
+export function mitgliedUmbenennen(
+	id: number,
+	name: string,
+	bekannterName: string
+): AngemeldetesMitglied | null {
 	const zeile = datenbank()
 		.update(members)
 		.set({ name })
-		.where(and(eq(members.id, id), eq(members.isActive, true)))
+		.where(and(eq(members.id, id), eq(members.isActive, true), eq(members.name, bekannterName)))
 		.returning(ohneHashSpalte)
 		.get();
 	return zeile ?? null;

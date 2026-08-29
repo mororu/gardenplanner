@@ -183,7 +183,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 529;
+const ERWARTETE_BEHAUPTUNGEN = 536;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -1888,6 +1888,7 @@ try {
 		verwaltung.actions.umbenennen(
 			alsMitglied('/verwaltung', veraLocals, {
 				mitgliedId: String(zita.id),
+				bekannterName: zita.name,
 				neuerName: '  Anna   Meier ',
 			}).alsRequestEvent()
 		)
@@ -1962,6 +1963,7 @@ try {
 		verwaltung.actions.umbenennen(
 			alsMitglied('/verwaltung', ohneTokenHash(selma), {
 				mitgliedId: String(selma.id),
+				bekannterName: selma.name,
 				neuerName: 'Selma Brunner',
 			}).alsRequestEvent()
 		)
@@ -1986,6 +1988,7 @@ try {
 		verwaltung.actions.umbenennen(
 			alsMitglied('/verwaltung', veraLocals, {
 				mitgliedId: String(zita.id),
+				bekannterName: 'Anna Meier',
 				neuerName: 'Anna Meier',
 			}).alsRequestEvent()
 		)
@@ -2012,6 +2015,7 @@ try {
 			verwaltung.actions.umbenennen(
 				alsMitglied('/verwaltung', veraLocals, {
 					mitgliedId: String(zita.id),
+					bekannterName: 'Anna Meier',
 					neuerName: eingabe,
 				}).alsRequestEvent()
 			)
@@ -2099,10 +2103,116 @@ try {
 	 * Zeile geschrieben werden. Der eingefrorene Block verlangt die Bedingung
 	 * ausdrücklich in der Query und nicht in der Route.
 	 */
+	/*
+	 * **Der veraltete Tab**, ausgeführt.
+	 *
+	 * Zurückgestellt aus Story 3.0.1: die action schrieb den Namen aus dem
+	 * abgeschickten Formular, ohne zu prüfen, welchen Stand die Seite gesehen
+	 * hatte. Wer /verwaltung in einem zweiten Tab offen hatte, dort das Formular
+	 * aufklappte und nach einer Umbenennung im ersten Tab abschickte,
+	 * überschrieb den neueren Namen mit dem älteren — ohne Hinweis, weil das
+	 * UPDATE gelang.
+	 *
+	 * Nachgestellt wird genau das: der zweite Tab hat `Anna Meier` gesehen, im
+	 * ersten wird auf `Anna Berger` umbenannt, und dann kommt der Versand des
+	 * zweiten mit seinem veralteten Abdruck. Er muss abgewiesen werden **und**
+	 * die Zeile unverändert lassen.
+	 */
+	const vorVeraltet = zeileAbdruck(zita.id);
+	const imErstenTab = await routenausgang(() =>
+		verwaltung.actions.umbenennen(
+			alsMitglied('/verwaltung', veraLocals, {
+				mitgliedId: String(zita.id),
+				bekannterName: 'Anna Meier',
+				neuerName: 'Anna Berger',
+			}).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'der erste Tab benennt um und sieht den neuen Namen',
+		imErstenTab.art === 'wert' && textFeld(wertVon(imErstenTab), 'name') === 'Anna Berger',
+		`Ausgang ${imErstenTab.art}`
+	);
+	const nachErstemTab = zeileAbdruck(zita.id);
+	const ausVeraltetemTab = await routenausgang(() =>
+		verwaltung.actions.umbenennen(
+			alsMitglied('/verwaltung', veraLocals, {
+				mitgliedId: String(zita.id),
+				// Der Stand, den dieser Tab gesehen hat — inzwischen überholt.
+				bekannterName: 'Anna Meier',
+				neuerName: 'Anna Meier',
+			}).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'ein Versand aus dem veralteten Tab wird abgewiesen und dreht nichts zurück',
+		ausVeraltetemTab.art === 'fehlschlag' &&
+			ausVeraltetemTab.status === 400 &&
+			ausVeraltetemTab.daten.meldung === MITGLIED_NICHT_ANSPRECHBAR,
+		`Ausgang ${ausVeraltetemTab.art}: ${JSON.stringify(datenVon(ausVeraltetemTab))}`
+	);
+	pruefenGleich(
+		'und die Zeile trägt danach unverändert den neueren Namen',
+		zeileAbdruck(zita.id),
+		nachErstemTab
+	);
+	/*
+	 * Und der Satz steht **oben**, ohne Feld und ohne Zeile: es ist derselbe wie
+	 * bei jeder anderen nicht ansprechbaren Zeile, und die Auskunft
+	 * `Lade die Liste neu.` ist auf diesen Fall die richtige.
+	 */
+	pruefen(
+		'der Satz dazu trägt weder Feld noch Zeile — er gehört nach oben',
+		ausVeraltetemTab.art === 'fehlschlag' &&
+			ausVeraltetemTab.daten.feld === null &&
+			ausVeraltetemTab.daten.zeile === null,
+		JSON.stringify(datenVon(ausVeraltetemTab))
+	);
+	/*
+	 * Ein fehlendes Feld `bekannterName` fällt auf dieselbe Abweisung — die leere
+	 * Zeichenkette trifft keinen gespeicherten Namen. Kein eigener Zweig, kein
+	 * eigener Satz; ohne diese Zeile bliebe die Prüfliste grün, wenn jemand einen
+	 * Rückfall auf „ohne Abdruck einfach schreiben" einbaute.
+	 */
+	const ohneAbdruck = await routenausgang(() =>
+		verwaltung.actions.umbenennen(
+			alsMitglied('/verwaltung', veraLocals, {
+				mitgliedId: String(zita.id),
+				neuerName: 'Anna Ganz Anders',
+			}).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'ein Versand ganz ohne Abdruck wird ebenso abgewiesen',
+		ohneAbdruck.art === 'fehlschlag' &&
+			ohneAbdruck.status === 400 &&
+			ohneAbdruck.daten.meldung === MITGLIED_NICHT_ANSPRECHBAR,
+		`Ausgang ${ohneAbdruck.art}: ${JSON.stringify(datenVon(ohneAbdruck))}`
+	);
+	pruefenGleich('und auch er hat nichts geschrieben', zeileAbdruck(zita.id), nachErstemTab);
+	/*
+	 * Zurück auf `Anna Meier`, damit die Zeilen darunter weiterlaufen wie bisher:
+	 * sie fahren ihre eigenen Abdrucke und sollen von dieser Probe nichts erben.
+	 */
+	await routenausgang(() =>
+		verwaltung.actions.umbenennen(
+			alsMitglied('/verwaltung', veraLocals, {
+				mitgliedId: String(zita.id),
+				bekannterName: 'Anna Berger',
+				neuerName: 'Anna Meier',
+			}).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'die Probe hat die Zeile so hinterlassen, wie sie sie vorfand',
+		zeileAbdruck(zita.id) === vorVeraltet,
+		`jetzt ${zeileAbdruck(zita.id)}`
+	);
+
 	const emmaVorSchreibversuch = zeileAbdruck(emmaId);
 	pruefenGleich(
 		'mitgliedUmbenennen trifft eine beendete Zeile nicht — is_active = 1 steht im UPDATE',
-		mitgliedUmbenennen(emmaId, 'Emma Neu'),
+		mitgliedUmbenennen(emmaId, 'Emma Neu', 'Emma Studer'),
 		null
 	);
 	pruefenGleich(
@@ -2116,6 +2226,7 @@ try {
 		verwaltung.actions.umbenennen(
 			alsMitglied('/verwaltung', veraLocals, {
 				mitgliedId: String(zita.id),
+				bekannterName: 'Anna Meier',
 				neuerName: 'E'.repeat(NAME_HOECHSTLAENGE),
 			}).alsRequestEvent()
 		)

@@ -534,6 +534,21 @@
 							use:enhance={versand}
 						>
 							<input type="hidden" name="mitgliedId" value={mitglied.id} />
+							<!--
+								Der Abdruck dessen, was in dieser Zeile **jetzt** steht — nicht
+								der Wert des Feldes daneben.
+
+								Er entscheidet in der where-Klausel des UPDATE, ob geschrieben
+								wird: nur solange der Name noch der ist, den diese Seite gesehen
+								hat. Ohne ihn drehte ein zweiter Tab, der vor einer Umbenennung
+								geladen wurde, den neueren Namen still auf den älteren zurück.
+
+								Er kommt aus `mitglied.name` und bleibt darum auch nach einer
+								Abweisung richtig: der Rückruf ruft `update()` ohne
+								`invalidateAll: false`, ein geglücktes Umbenennen lädt die Liste
+								also neu, und die nächste Abschrift ist wieder frisch.
+							-->
+							<input type="hidden" name="bekannterName" value={mitglied.name} />
 							<div>
 								<label
 									class="feld__beschriftung"
