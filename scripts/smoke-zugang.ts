@@ -173,7 +173,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 473;
+const ERWARTETE_BEHAUPTUNGEN = 475;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -4556,9 +4556,11 @@ try {
 
 	/*
 	 * Das Fenster. Geprüft wird **die Form der Folge**, nicht eine feste Zahl:
-	 * drei Monate sind je nach Startpunkt 12 bis 14 Wochen, und eine
+	 * drei Monate sind je nach Startpunkt 13 oder 14 Wochen, und eine
 	 * festgenagelte 13 hier wäre eine zweite Wahrheit über eine Rechnung, die
-	 * bewusst kalenderverankert ist.
+	 * bewusst kalenderverankert ist. (Der Kommentar sagte bis zur Review von
+	 * Story 3.1 „12 bis 14" und widersprach damit der Behauptung zwei Zeilen
+	 * darunter, die 13 als Untergrenze führt.)
 	 *
 	 * Der Startpunkt liegt im November, damit die Folge **über den Jahreswechsel**
 	 * läuft — dort scheitert eine Rechnung, die einfach die Wochennummer
@@ -4573,8 +4575,12 @@ try {
 	 * denselben Fehler machen wie die geprüfte und ihn damit decken.
 	 */
 	const montage = fenster.map((eintrag) => montagDerWoche(eintrag) / TAG_SEKUNDEN);
-	const erster = montage[0] ?? 0;
-	const letzter = montage.at(-1) ?? 0;
+	/*
+	 * Dasselbe Fenster, vom **Montag** derselben Woche aus gefragt. Der
+	 * Bezugszeitpunkt kommt aus montagDerWoche und nicht aus einer eigenen
+	 * Rechnung — dieselbe Regel wie bei den Montagen darüber.
+	 */
+	const fensterVomMontag = wochenfenster(montagDerWoche(isoWocheVon(fensterAm)) + 12 * 60 * 60);
 	const fensterTeile = [
 		[
 			'es beginnt mit der laufenden Woche',
@@ -4593,7 +4599,25 @@ try {
 			montage.every((tag, i) => i === 0 || tag - (montage[i - 1] ?? tag) === 7),
 		],
 		['es läuft über den Jahreswechsel', fenster.some((eintrag) => eintrag.jahr === 2027)],
-		['und keine Woche liegt mehr als 14 Wochen voraus', (letzter - erster) / 7 <= 14],
+		/*
+		 * **Die Verankerung am Montag, gemessen statt begründet.** Der 15.11.2026
+		 * ist ein Sonntag; `fensterVomMontag` fragt vom Montag derselben Woche.
+		 * Beide Aufrufe müssen dieselbe Folge geben — sonst hängt die Grenze am
+		 * Wochentag des Aufrufs, und der Plan würde im Lauf einer Woche kürzer,
+		 * ohne dass jemand etwas getan hätte.
+		 *
+		 * Die benannte Mutation (Fenster wieder an heute verankert) fiel schon
+		 * über die 13-oder-14-Zeile. Diese hier fängt die Nachbarin, die dort
+		 * durchkam: nur die **Grenze** vom Aufruftag statt vom Montag zu rechnen
+		 * gab an diesem Sonntag 14 statt 13 Wochen und blieb grün.
+		 */
+		[
+			'vom Montag derselben Woche aus gefragt kommt dieselbe Folge',
+			fensterVomMontag.length === fenster.length &&
+				fensterVomMontag.every(
+					(eintrag, i) => wochenSchluessel(eintrag) === wochenSchluessel(fenster[i] ?? eintrag)
+				),
+		],
 	] as const;
 	pruefen(
 		'das Wochenfenster ist lückenlos und reicht über den Jahreswechsel',
@@ -4727,6 +4751,21 @@ try {
 	 * steht, wäre auch bei einer Anzeige des toten Namens wahr. Erst beide
 	 * zusammen sind die Zusage aus den Akzeptanzkriterien.
 	 */
+	/*
+	 * **Vor dem Beenden**: die laufende Woche geht auf dieselbe Person. Sie
+	 * trägt gleich die Behauptung über eigeneDienstwoche, und die muss an einer
+	 * Zeile hängen, die auf die beendete Person **zeigt** — sonst misst sie
+	 * nichts. Genau das war der Fehler, den die Review von Story 3.1 gefunden
+	 * hat: das Besetzen stand hinter dem Deaktivieren, war damit ein No-op, und
+	 * `eigeneDienstwoche` gab null zurück, weil die Person dort nie eingetragen
+	 * war — nicht, weil unbesetzt niemandes Dienst ist.
+	 */
+	pruefenGleich(
+		'die laufende Woche geht auf dieselbe Person, solange ihr Zugang lebt',
+		dienstwocheBesetzen(laufende, gehende.id)?.name,
+		'Gehende'
+	);
+
 	mitgliedDeaktivieren(gehende.id);
 	pruefenGleich(
 		'nach dem Beenden des Zugangs steht die Woche als unbesetzt',
@@ -4753,9 +4792,29 @@ try {
 
 	/*
 	 * Die schmale Auskunft für den Diensthinweis. Sie geht über dieselbe Abfrage
-	 * — hier belegt an der Person, deren Zugang eben beendet wurde: wäre sie eine
-	 * zweite Abfrage mit eigener Aktiv-Prüfung, bliebe sie hier grün.
+	 * — und die Reihenfolge hier ist die Behauptung.
+	 *
+	 * **Zuerst die beendete Person.** Die laufende Woche zeigt in diesem
+	 * Augenblick auf `gehende`: die Zeile steht, der Fremdschlüssel stimmt, allein
+	 * `is_active` ist 0. Gäbe eigeneDienstwoche hier etwas zurück, bekäme jemand
+	 * ohne Zugang einen Diensthinweis auf der Startseite. Diese Zeile ist die
+	 * einzige der Kette, die eine zweite Abfrage mit eigener — oder fehlender —
+	 * Aktiv-Prüfung auffliegen lässt; sie wird rot, wenn man `is_active` aus
+	 * dienstwochenLesen nimmt.
 	 */
+	pruefenGleich(
+		'eigeneDienstwoche gibt der beendeten Person nichts — unbesetzt ist niemandes Dienst',
+		eigeneDienstwoche(gehende.id, jetztFuerDienst),
+		null
+	);
+	pruefenGleich(
+		'und die Zeile, an der das gemessen wurde, zeigt weiterhin auf sie',
+		dienstZeilen(laufende)[0]?.memberId,
+		gehende.id
+	);
+
+	// Danach übernimmt eine aktive Person dieselbe Woche — dasselbe UPDATE wie
+	// jeder Tausch, hier zugleich der Aufbau für die zwei Zeilen darunter.
 	dienstwocheBesetzen(laufende, rasmus.id);
 	pruefen(
 		'eigeneDienstwoche nennt die laufende Woche der zuständigen Person',
@@ -4764,13 +4823,6 @@ try {
 		) === wochenSchluessel(laufende)
 	);
 	pruefenGleich('und gibt jedem anderen null', eigeneDienstwoche(tilde.id, jetztFuerDienst), null);
-	dienstwocheBesetzen(laufende, gehende.id);
-	pruefenGleich(
-		'auch der beendeten Person selbst — unbesetzt ist niemandes Dienst',
-		eigeneDienstwoche(gehende.id, jetztFuerDienst),
-		null
-	);
-	dienstwocheBesetzen(laufende, rasmus.id);
 
 	// -----------------------------------------------------------------------
 	// Die Route /dienstplan: load für alle, action hinter der Adminschranke

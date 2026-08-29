@@ -1,7 +1,7 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { datenbank } from '../index.ts';
 import { DIENSTART_TRAENKEN, dutyWeeks, members } from '../schema.ts';
-import { isoWocheVon, type Woche } from '../../../zeit.ts';
+import { isoWocheVon, wochenSchluessel, type Woche } from '../../../zeit.ts';
 
 /*
  * Das Repository für duty_weeks. Die Routen benutzen ausschliesslich diese
@@ -51,9 +51,13 @@ export type Dienstwoche = {
  *
  * **Eine Abfrage und nicht eine je Woche.** Vierzehn Wochen ergäben vierzehn
  * Rundreisen; der `inArray` über den gefalteten Schlüssel holt sie in einer.
- * Gefaltet als `iso_jahr * 100 + iso_woche`, weil SQLite kein Tupel-IN über
- * zwei Spalten kennt — dieselbe Faltung wie `wochenSchluessel` in zeit.ts, und
- * sie ist hier auf **beiden** Seiten des Vergleichs dieselbe Rechnung.
+ *
+ * Auf der JavaScript-Seite faltet ausschliesslich `wochenSchluessel` aus
+ * zeit.ts — hier wie in der Route und in der Komponente. In SQL steht die
+ * Rechnung ein zweites Mal, und das ist die **einzige** Ausnahme: SQLite kennt
+ * kein Tupel-IN über zwei Spalten, und eine Funktion lässt sich nicht in eine
+ * `where`-Klausel reichen. Sie steht darum direkt neben der Aufrufstelle, die
+ * ihr Ergebnis vergleicht, damit die zwei Fassungen zusammen gelesen werden.
  *
  * Der `leftJoin` und nicht ein `innerJoin`: eine Zeile, deren Mitglied beendet
  * ist, muss **erhalten bleiben** und als unbesetzt erscheinen. Ein innerJoin
@@ -76,21 +80,15 @@ export function dienstwochenLesen(fenster: readonly Woche[]): Dienstwoche[] {
 		.from(dutyWeeks)
 		.leftJoin(members, eq(members.id, dutyWeeks.memberId))
 		.where(
-			and(
-				eq(dutyWeeks.art, DIENSTART_TRAENKEN),
-				inArray(
-					gefaltet,
-					fenster.map(({ jahr, woche }) => jahr * 100 + woche)
-				)
-			)
+			and(eq(dutyWeeks.art, DIENSTART_TRAENKEN), inArray(gefaltet, fenster.map(wochenSchluessel)))
 		)
 		.all();
 
 	const nachSchluessel = new Map<number, (typeof zeilen)[number]>();
-	for (const zeile of zeilen) nachSchluessel.set(zeile.jahr * 100 + zeile.woche, zeile);
+	for (const zeile of zeilen) nachSchluessel.set(wochenSchluessel(zeile), zeile);
 
 	return fenster.map(({ jahr, woche }) => {
-		const zeile = nachSchluessel.get(jahr * 100 + woche);
+		const zeile = nachSchluessel.get(wochenSchluessel({ jahr, woche }));
 		// Die zwei Wege in dieselbe Darstellung fallen hier zusammen: keine Zeile,
 		// oder eine Zeile auf ein beendetes Mitglied.
 		const besetzt = zeile !== undefined && zeile.istAktiv === true;

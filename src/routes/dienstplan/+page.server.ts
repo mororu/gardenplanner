@@ -7,8 +7,10 @@ import {
 	dienstwochenLesen,
 	type Dienstwoche,
 } from '../../lib/server/db/queries/duty-weeks.ts';
-import { mitgliederAuflisten } from '../../lib/server/db/queries/members.ts';
-import type { AngemeldetesMitglied } from '../../lib/server/db/schema.ts';
+import {
+	aktiveMitgliederAuflisten,
+	type MitgliedFuerAuswahl,
+} from '../../lib/server/db/queries/members.ts';
 import { isoWocheVon, istWoche, wochenfenster, wochenSchluessel } from '../../lib/zeit.ts';
 import { MITGLIED_NICHT_ANSPRECHBAR, WOCHE_NICHT_ANSPRECHBAR } from '../../lib/texte.ts';
 
@@ -71,12 +73,18 @@ function zahlLesen(roh: unknown): number | null {
  * braucht. Die Oberfläche zeigt das Besetzen-Formular an derselben Marke, und
  * damit gibt es keinen Weg, auf dem der Knopf fehlt, die Auswahl aber
  * mitreist.
+ *
+ * Die Auswahl kommt als `MitgliedFuerAuswahl` — Kennung und Name, sonst nichts
+ * — und die Aktiv-Bedingung steht in `aktiveMitgliederAuflisten` und nicht
+ * hier. Ein `.filter()` an dieser Stelle wäre beides falsch: es holte Zeilen,
+ * um sie wegzuwerfen, und schriebe eine Regel in eine Routendatei, die die
+ * Abfrageschicht schon trägt.
  */
 export function load({ locals }: ServerLoadEvent): {
 	wochen: Dienstwoche[];
 	laufendeWoche: number;
 	istAdmin: boolean;
-	mitglieder: AngemeldetesMitglied[];
+	mitglieder: MitgliedFuerAuswahl[];
 } {
 	const mitglied = locals.mitglied;
 	// Unerreichbar: der Wächter hat vorher mit 403 abgewiesen. Die Prüfung steht
@@ -95,7 +103,7 @@ export function load({ locals }: ServerLoadEvent): {
 		// einer Stelle, und das gilt auch für den Vergleich.
 		laufendeWoche: wochenSchluessel(isoWocheVon(jetztSekunden)),
 		istAdmin,
-		mitglieder: istAdmin ? mitgliederAuflisten().filter((eintrag) => eintrag.isActive) : [],
+		mitglieder: istAdmin ? aktiveMitgliederAuflisten() : [],
 	};
 }
 
@@ -173,6 +181,21 @@ export const actions = {
 		// Ein Mitglied, das schon zuständig war, ist ein Erfolg und keine
 		// Abweisung: die Person hat bekommen, was sie wollte, und eine Meldung
 		// darüber wäre eine Aufforderung, etwas zu ändern, das schon stimmt.
-		return { art: 'besetzt' as const, meldung: 'Besetzt.', name: besetzt.name };
+		//
+		// **`woche` reist mit, und zwar als blosse Zahl.** Die Rückmeldung nennt
+		// die Kalenderwoche — dreizehn bis vierzehn Zeilen sehen gleich aus, und
+		// der Fokus springt nach dem Absenden nach oben in die Live-Region. Der
+		// gefaltete `schluessel` taugt dafür nicht: er ist zum Vergleichen da,
+		// nicht zum Lesen, und `wochenSchluessel` hat bewusst keine Umkehrung.
+		// `zeile` trägt ihn trotzdem, damit Erfolg und Abweisung dieselbe Form
+		// haben und die Komponente beide über dasselbe Feld einer Zeile zuordnen
+		// kann.
+		return {
+			art: 'besetzt' as const,
+			meldung: 'Besetzt.',
+			name: besetzt.name,
+			woche,
+			zeile: schluessel,
+		};
 	},
 } satisfies Actions;

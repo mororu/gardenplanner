@@ -142,9 +142,16 @@ export function load({ locals, url }: ServerLoadEvent): {
 	 * **null heisst: der Block fehlt ganz.** Er ist nicht leer, sondern nicht
 	 * vorhanden — die Oberfläche hat für diesen Fall kein `{:else}`.
 	 *
-	 * Die Komponente bekommt das fertige Wochendatum und nicht Jahr und Woche:
-	 * eine zweite Formatierung im Browser liefe beim Hydrieren gegen die des
-	 * Servers, und ein Datum ist genau die Art Wert, bei der das auffällt.
+	 * Die Komponente bekommt das fertige Wochendatum und nicht Jahr und Woche,
+	 * weil sie sonst nichts damit täte: der Block zeigt einen Satz und ein Datum,
+	 * und ein Wochenschlüssel, den erst die Komponente auflöste, wäre eine
+	 * Rechnung an einer Stelle, die keine braucht.
+	 *
+	 * **Nicht** aus Sorge vor einem Hydrierungsunterschied — `wochendatum` ist
+	 * rein und gäbe im Browser dasselbe wie auf dem Server; /dienstplan ruft es
+	 * denn auch in der Komponente. Was hier wirklich nicht in den Browser gehört,
+	 * ist der **Bezugszeitpunkt**: der entsteht einmal in dieser load, und ein
+	 * `Date.now()` in einer Komponente liefe zweimal.
 	 */
 	const eigene = mitglied === null ? null : eigeneDienstwoche(mitglied.id, jetztSekunden);
 	return {

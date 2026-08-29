@@ -145,6 +145,47 @@ export function mitgliederAuflisten(): AngemeldetesMitglied[] {
 }
 
 /**
+ * Ein Mitglied, wie es eine Namensauswahl braucht: die Kennung und der Name.
+ *
+ * Schmaler als AngemeldetesMitglied, und das ist der Zweck. Ein `<select>`
+ * liest `id` und `name`; `isAdmin`, `isActive` und `createdAt` gingen sonst
+ * über den Rückgabewert einer load in den ausgelieferten Quelltext, ohne dass
+ * irgendetwas sie dort läse.
+ */
+export type MitgliedFuerAuswahl = { id: number; name: string };
+
+/**
+ * Die aktiven Mitglieder als Namensauswahl, nach Name.
+ *
+ * **`is_active = 1` steht hier und nicht in der Route**, aus demselben Grund
+ * wie bei mitgliedDeaktivieren darunter und mitgliedUmbenennen weiter unten:
+ * sonst wiederholte jede künftige Aufrufstelle die Bedingung, und eine von
+ * ihnen täte es falsch — mit dem Ergebnis, dass eine beendete Person in einer
+ * Auswahl stünde, die sie nicht mehr aufnehmen darf.
+ *
+ * Getrennt von mitgliederAuflisten darüber und nicht als dessen Parameter: die
+ * zwei beantworten verschiedene Fragen. Die Verwaltungsliste zeigt **alle**
+ * Mitglieder, aktive zuerst, weil ein beendeter Zugang dort sichtbar bleiben
+ * muss; eine Auswahl zum Besetzen zeigt nur, wer aufgenommen werden darf. Ein
+ * Schalter dazwischen liesse die Aufrufstelle entscheiden, was hier entschieden
+ * gehört.
+ *
+ * Die Sortierung über `Intl.Collator('de-CH')` wie oben, und aus demselben
+ * Grund: SQLites BINARY-Kollation stellte `Zoe` vor `oskar` und `Ärni` hinter
+ * beide.
+ */
+export function aktiveMitgliederAuflisten(): MitgliedFuerAuswahl[] {
+	const zeilen = datenbank()
+		.select({ id: members.id, name: members.name })
+		.from(members)
+		.where(eq(members.isActive, true))
+		.all();
+
+	const nachName = new Intl.Collator('de-CH').compare;
+	return zeilen.sort((links, rechts) => nachName(links.name, rechts.name));
+}
+
+/**
  * Beendet den Zugang eines **aktiven** Mitglieds und gibt die getroffene Zeile
  * zurück, oder null, wenn keine getroffen wurde.
  *

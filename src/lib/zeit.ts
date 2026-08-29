@@ -508,8 +508,13 @@ const WOCHENDATUM_TAG = new Intl.DateTimeFormat('de-CH', {
  * falschen Grund. Der Wert **ist** ein Kalendertag, und UTC ist die Lesart, in
  * der er entstanden ist.
  *
- * Ohne Jahr: der Dienstplan reicht drei Monate, und über einen Jahreswechsel
- * hinweg sagt die Zeile daneben bereits, welches Jahr gemeint ist.
+ * Ohne Jahr — **und das trägt nur, weil die Wochenzeile es nennt.** Auf
+ * /dienstplan steht das ISO-Jahr als eigene Angabe neben `KW n`; diese Funktion
+ * darf es darum weglassen, ohne dass `28. Dezember bis 3. Januar` offenliesse,
+ * welches Jahr gemeint ist. Die Begründung stand hier schon, bevor die Angabe
+ * existierte, und war bis zur Review von Story 3.1 schlicht falsch: der Plan
+ * nannte nirgends ein Jahr. Wer die Angabe aus der Wochenzeile nimmt, nimmt
+ * diesem Absatz seinen Grund — `smoke:http` behauptet sie darum je Zeile.
  */
 export function wochendatum(woche: Woche): string {
 	const montag = montagDerWoche(woche);

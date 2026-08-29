@@ -138,9 +138,9 @@ export const VERSAND_FEHLGESCHLAGEN =
 	'Das hat gerade nicht geklappt. Lade die Seite neu und sieh nach, bevor du es noch einmal versuchst.';
 
 /**
- * Die nicht ansprechbare Dienstwoche. **Eine** Wurfstelle heute — die action
- * `besetzen` in src/routes/dienstplan/+page.server.ts — und dort **ein** Satz
- * für vier Zustände:
+ * Die nicht ansprechbare Dienstwoche. **Zwei** Wurfstellen, beide in der action
+ * `besetzen` in src/routes/dienstplan/+page.server.ts — die Formprüfung und die
+ * Fensterschranke —, und beide werfen **denselben** Satz für vier Zustände:
  *
  *   1. jahr oder woche fehlt im Formular
  *   2. eines von beiden ist nicht numerisch
@@ -148,8 +148,9 @@ export const VERSAND_FEHLGESCHLAGEN =
  *   4. die Woche liegt ausserhalb des angezeigten Fensters — auch: sie liegt in
  *      der Vergangenheit
  *
- * Der Satz steht hier und nicht als Literal in der Route, obwohl es vorerst nur
- * eine Wurfstelle gibt: er steht neben MITGLIED_NICHT_ANSPRECHBAR und
+ * Der Satz steht hier und nicht als Literal in der Route: zwei Literale in
+ * derselben action wären zwei Sätze, sobald jemand einen davon anfasst. Er steht
+ * neben MITGLIED_NICHT_ANSPRECHBAR und
  * AUFGABE_NICHT_ANSPRECHBAR, die dieselbe Form haben, und Story 3.2 bringt mit
  * dem Ausschreiben die zweite Route, die eine Woche oder einen Termin abweist.
  *

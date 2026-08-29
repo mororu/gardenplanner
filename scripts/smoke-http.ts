@@ -74,7 +74,7 @@ import { datenschichtStarten } from '../src/lib/server/db/index.ts';
 import { mitgliedAnlegen } from '../src/lib/server/db/queries/members.ts';
 import { tokenErzeugen, tokenHashen } from '../src/lib/server/token.ts';
 import { NAME_HOECHSTLAENGE, NAME_ZU_LANG } from '../src/lib/mitgliedsname.ts';
-import { KEIN_ZUGANG } from '../src/lib/texte.ts';
+import { KEIN_ZUGANG, MITGLIED_NICHT_ANSPRECHBAR } from '../src/lib/texte.ts';
 
 /**
  * So viele Behauptungen muss ein vollständiger Lauf ablegen, die Schlusszählung
@@ -82,7 +82,7 @@ import { KEIN_ZUGANG } from '../src/lib/texte.ts';
  * mit — genau wie in scripts/smoke-zugang.ts. Eine Seite mehr in `seiten` sind
  * sieben Behauptungen mehr, und dieselbe Zahl steht in README.md.
  */
-const ERWARTETE_BEHAUPTUNGEN = 90;
+const ERWARTETE_BEHAUPTUNGEN = 102;
 
 const GUTES_GEHEIMNIS = 'smoke-http-geheimnis-mit-genug-verschiedenen-zeichen-0123456789';
 
@@ -761,6 +761,13 @@ try {
 	 * Akzeptanzkriterien nur drei Seiten nennen. Die Prüfung kostet je eine
 	 * Anfrage, und eine ungeprüfte gerenderte Seite ist genau der Ort, an dem die
 	 * nächste Kommentarmarke aufbricht.
+	 *
+	 * **Der Dienstplan kam mit Story 3.1 dazu — und nicht von selbst.** Die Story
+	 * baute daneben einen eigenen Block für den Dienstplan und liess die Seite
+	 * hier fehlen; sie ging darum ohne `<title>` in Betrieb, weil diese Schleife
+	 * die einzige Stelle ist, die den Titel überhaupt misst. Die Lehre steht in
+	 * der Liste selbst: **jede** gerenderte Seite gehört hier hinein, und der Ort
+	 * dafür ist diese Zeile, nicht ein zweiter Block weiter unten.
 	 */
 	const seiten = [
 		{ pfad: '/', titel: 'Aufgaben' },
@@ -768,6 +775,7 @@ try {
 		{ pfad: '/mehr', titel: 'Mehr' },
 		{ pfad: '/monatsplan', titel: 'Monatsplan' },
 		{ pfad: '/aufgabe', titel: 'Aufgabe' },
+		{ pfad: '/dienstplan', titel: 'Dienstplan' },
 	];
 
 	for (const seite of seiten) {
@@ -1220,6 +1228,238 @@ try {
 		'und die Wegleitung zeigt auf / — die Aktion existiert für sie nicht',
 		besetzenOhneRechte.headers.get('location'),
 		'/'
+	);
+
+	/*
+	 * **Der Diensthinweis auf `/`, im ausgelieferten Dokument.**
+	 *
+	 * Bis zur Review von Story 3.1 endete der Nachweis am Rückgabewert der load:
+	 * `smoke` behauptete `dienst.datum`, und alles über das Rendern war ein Regex
+	 * über den Quelltext der Komponente. Beides zusammen liesse einen Block, der
+	 * die Daten bekommt und sie nicht anzeigt, unbemerkt durch — und der Block ist
+	 * das Erste, was auf der Startseite steht.
+	 *
+	 * Gemessen an **beiden** Rollen im selben Zustand: die Adminperson ist eben
+	 * für die laufende Woche eingetragen worden, das Mitglied nicht. Der Block ist
+	 * darum nicht bloss vorhanden, sondern vorhanden **für die richtige Person**.
+	 */
+	/*
+	 * **Wer eingetragen wurde, wird gelesen und nicht geraten.** Der POST oben
+	 * nahm die erste <option> der Auswahl, und deren Reihenfolge macht die
+	 * Kollation in aktiveMitgliederAuflisten — nicht die Reihenfolge der Saat.
+	 * Ein hier eingetippter Name wäre grün, bis jemand die Sortierung anfasst,
+	 * und dann rot aus dem falschen Grund.
+	 */
+	const eingetragenerName = (
+		new RegExp(`<option value="${erstesMitglied}"[^>]*>([^<]*)<`).exec(erstesFormular)?.[1] ?? ''
+	).trim();
+	const startseiteMitDienst = await holen(port, '/', { keks: mitgliedKeks });
+	const startseiteMitDienstHtml = await startseiteMitDienst.text();
+	const startseiteOhneDienst = await holen(port, '/', { keks: adminKeks });
+	const startseiteOhneDienstHtml = await startseiteOhneDienst.text();
+	const hinweisTeile = [
+		['der Name war überhaupt zu lesen', eingetragenerName !== ''],
+		[
+			'der Satz steht im Dokument der zuständigen Person',
+			startseiteMitDienstHtml.includes('Diese Woche bist du am Tränken'),
+		],
+		[
+			// Der Block ist als Ganzes ein Link auf den Plan — ein Dienst ist keine
+			// Aufgabe, es gibt keinen Knopf daran.
+			//
+			// `\.?\/dienstplan`, weil resolve() in der Ausgabe `./dienstplan`
+			// schreibt und nicht `/dienstplan`. Gemessen, nicht angenommen: die
+			// erste Fassung dieser Zeile suchte den absoluten Pfad und wurde rot,
+			// obwohl der Link stimmte. Genau dafür gibt es dieses Skript.
+			'als Link auf den Dienstplan',
+			/<a\b[^>]*\bclass="dienst[ "][^>]*\bhref="\.?\/dienstplan"/.test(startseiteMitDienstHtml),
+		],
+		[
+			// Und kein Bedienelement darin: ein Dienst ist nicht abhakbar.
+			'ohne Knopf oder Kästchen darin',
+			!/<a\b[^>]*\bclass="dienst[ "][\s\S]*?<\/a>/.test(startseiteMitDienstHtml) ||
+				!/<(?:button|input)\b/.test(
+					/<a\b[^>]*\bclass="dienst[ "][\s\S]*?<\/a>/.exec(startseiteMitDienstHtml)?.[0] ?? ''
+				),
+		],
+		[
+			// Mit dem Wochendatum daneben, sonst sagt der Satz nicht, welche Woche.
+			'mit dem Wochendatum',
+			/<span\b[^>]*\bclass="dienst__datum[ "][^>]*>[^<]*[0-9]{1,2}\./.test(startseiteMitDienstHtml),
+		],
+		[
+			// Und **ganz** fort bei der anderen Person: kein leerer Rahmen, kein
+			// Platzhalter. Die Gegenprobe zum {#if} ohne {:else}.
+			'und im Dokument der anderen Person fehlt er ganz',
+			!startseiteOhneDienstHtml.includes('Diese Woche bist du am Tränken') &&
+				!/\bclass="dienst[ "]/.test(startseiteOhneDienstHtml),
+		],
+	] as const;
+	pruefen(
+		'der Diensthinweis steht im ausgelieferten HTML — und nur bei der zuständigen Person',
+		fehlendeTeile(hinweisTeile).length === 0,
+		`fehlt: ${fehlendeTeile(hinweisTeile).join(', ')}`
+	);
+
+	/*
+	 * **Die laufende Woche ist genau eine Zeile — im Dokument, nicht im
+	 * Rückgabewert.**
+	 *
+	 * `laufendeWoche` war ausschliesslich am Wert der load belegt. Die
+	 * Markierung umzudrehen (`!==` statt `===`) oder das `class:`-Directive zu
+	 * streichen liess die ganze Kette grün: der Plan hätte jede Woche oder keine
+	 * hervorgehoben. Der Verbraucher gehört mitgemessen, nicht nur der Erzeuger.
+	 */
+	const laufendZeilen = [
+		...nachBesetzenAdminHtml.matchAll(/<li\b[^>]*\bclass="[^"]*\bwoche--laufend\b[^"]*"[^>]*>/g),
+	];
+	const markenZeilen = [
+		...nachBesetzenAdminHtml.matchAll(/<span\b[^>]*\bclass="woche__marke[ "][^>]*>([^<]*)</g),
+	];
+	const laufendTeile = [
+		['genau eine Zeile trägt die Marke der laufenden Woche', laufendZeilen.length === 1],
+		['und genau ein „diese Woche" steht dazu', markenZeilen.length === 1],
+		[
+			// Und zwar an der **ersten** Zeile: das Fenster beginnt mit der
+			// laufenden Woche, rückwirkend besetzen geht nicht.
+			'und es ist die erste Zeile des Plans',
+			nachBesetzenAdminHtml.indexOf('woche--laufend') <
+				nachBesetzenAdminHtml.indexOf(
+					'woche__nummer',
+					nachBesetzenAdminHtml.indexOf('woche--laufend') + 1
+				),
+		],
+	] as const;
+	pruefen(
+		'die laufende Woche ist im ausgelieferten Plan genau einmal markiert',
+		fehlendeTeile(laufendTeile).length === 0,
+		`fehlt: ${fehlendeTeile(laufendTeile).join(', ')} (${laufendZeilen.length} Zeile(n))`
+	);
+
+	/*
+	 * **Das ISO-Jahr steht an jeder Zeile.** Aus der Review von Story 3.1: der
+	 * Plan nannte nirgends ein Jahr, und über den Jahreswechsel standen `KW 53`
+	 * und `KW 1` untereinander, ohne dass etwas sagte, welches Jahr gemeint ist.
+	 * `wochendatum` lässt das Jahr bewusst weg; diese Zeile ist der Grund, warum
+	 * es das darf.
+	 */
+	const jahresZeilen = [
+		...nachBesetzenAdminHtml.matchAll(
+			/<span\b[^>]*\bclass="woche__jahr[ "][^>]*>\s*([0-9]{4})\s*</g
+		),
+	];
+	pruefen(
+		'jede Wochenzeile nennt ihr ISO-Jahr',
+		jahresZeilen.length === besetzenFormulare.length && jahresZeilen.length > 0,
+		`${jahresZeilen.length} Jahresangaben auf ${besetzenFormulare.length} Zeilen`
+	);
+
+	/*
+	 * **Das Dokument eines Nicht-Admins, nachdem eine Woche besetzt ist.**
+	 *
+	 * Die Zusage „die Namensliste geht nicht ins HTML von jemandem, der sie nicht
+	 * braucht" war nur am **leeren** Plan gemessen — vor dem POST, als überhaupt
+	 * kein Name irgendwo stand. Danach steht einer im Plan, und zwar zu Recht:
+	 * wer zuständig ist, ist öffentlich. Was auch dann nicht dort stehen darf,
+	 * ist die **Auswahl** — das Formular, die <option>-Liste, die anderen Namen.
+	 */
+	const nichtAdminTeile = [
+		[
+			'der Name der zuständigen Person steht da — die Gegenprobe',
+			eingetragenerName !== '' && nachBesetzenHtml.includes(eingetragenerName),
+		],
+		['aber kein Besetzen-Formular', !/action="\?\/besetzen"/.test(nachBesetzenHtml)],
+		['keine Auswahl', !/<select\b/.test(nachBesetzenHtml)],
+		['und keine <option> mit einem anderen Namen', !/<option\b/.test(nachBesetzenHtml)],
+		[
+			// Die Adminperson steht in keiner Dienstwoche und dürfte darum nirgends
+			// auftauchen — der Rest der Namensliste ist fort.
+			'und der Name aus der Auswahl, der keine Woche hat, fehlt',
+			!nachBesetzenHtml.includes('Vera Verwaltung'),
+		],
+		[
+			'weder Hash noch Klartext-Token',
+			!saat.hashes.some((hash) => nachBesetzenHtml.includes(hash)) &&
+				!saat.klartexte.some((token) => nachBesetzenHtml.includes(token)),
+		],
+	] as const;
+	pruefen(
+		'ein besetzter Plan zeigt dem Mitglied den Namen, aber nie die Auswahl',
+		fehlendeTeile(nichtAdminTeile).length === 0,
+		`fehlt: ${fehlendeTeile(nichtAdminTeile).join(', ')}`
+	);
+
+	/*
+	 * **Ein abgewiesenes Besetzen, ohne JavaScript.**
+	 *
+	 * Dieselbe Zusage wie beim Umbenennen weiter oben, und aus der Review von
+	 * Story 3.1: für /dienstplan gab es sie nur als Regex über den Quelltext der
+	 * Komponente und als Rückgabewert der action — beides sieht kein Dokument.
+	 * Eine Regression, in der der Satz nur noch in der Hydratationsnutzlast
+	 * landet oder in der mehr als eine Zeile aufgeht, wäre unsichtbar geblieben.
+	 *
+	 * Abgewiesen mit einer Mitglieds-Id, die es nicht gibt: die Woche bleibt
+	 * ansprechbar, damit die Antwort einen Wochenschlüssel trägt und an einer
+	 * Zeile landen kann. Der Datenstand bleibt unberührt.
+	 */
+	const abgewieseneWoche = `${wertAus('jahr')}${wertAus('woche').padStart(2, '0')}`;
+	const besetzenAbweisung = await abschicken(port, '/dienstplan?/besetzen', adminKeks, {
+		jahr: wertAus('jahr'),
+		woche: wertAus('woche'),
+		mitgliedId: '9999999',
+	});
+	const besetzenAbweisungHtml = await besetzenAbweisung.text();
+	const offeneBesetzen = [
+		...besetzenAbweisungHtml.matchAll(
+			/<details\b[^>]*\bclass="besetzen[ "][^>]*\bopen\b[^>]*>([\s\S]*?)<\/details>/g
+		),
+	];
+	const besetzenRegionen = [
+		...besetzenAbweisungHtml.matchAll(
+			/<p\b[^>]*\bid="besetzen-fehler-([0-9]+)"[^>]*>([\s\S]*?)<\/p>/g
+		),
+	];
+	const besetzenRegion =
+		besetzenRegionen.find((treffer) => treffer[1] === abgewieseneWoche)?.[2] ?? '';
+	const abweisungBesetzenTeile = [
+		[
+			'der Wochenschlüssel war zu bilden',
+			abgewieseneWoche !== '' && !abgewieseneWoche.startsWith('undefined'),
+		],
+		['die Antwort ist ein 400', besetzenAbweisung.status === 400],
+		[
+			'und ein HTML-Dokument',
+			(besetzenAbweisung.headers.get('content-type') ?? '').startsWith('text/html'),
+		],
+		['genau ein aufgeklapptes <details> im ganzen Dokument', offeneBesetzen.length === 1],
+		[
+			'die Auswahl darin trägt aria-invalid="true"',
+			/aria-invalid="true"/.test(offeneBesetzen[0]?.[1] ?? ''),
+		],
+		[
+			'und zeigt auf den Satz dieser Woche',
+			(offeneBesetzen[0]?.[1] ?? '').includes(
+				`aria-describedby="besetzen-fehler-${abgewieseneWoche}"`
+			),
+		],
+		[
+			'der Satz steht in der Live-Region dieser Woche',
+			besetzenRegion.includes(MITGLIED_NICHT_ANSPRECHBAR),
+		],
+		[
+			// Und **nur** dort. Trüge die Region den Satz ohne Bezug zur Woche,
+			// stünde er in allen dreizehn bis vierzehn.
+			'und in keiner der anderen Wochen',
+			besetzenRegionen.length > 1 &&
+				besetzenRegionen.filter((treffer) =>
+					(treffer[2] ?? '').includes(MITGLIED_NICHT_ANSPRECHBAR)
+				).length === 1,
+		],
+	] as const;
+	pruefen(
+		'ein abgewiesenes Besetzen kommt ohne JavaScript fertig aus dem Server',
+		fehlendeTeile(abweisungBesetzenTeile).length === 0,
+		`fehlt: ${fehlendeTeile(abweisungBesetzenTeile).join(', ')} (Status ${besetzenAbweisung.status}, ${offeneBesetzen.length} offen)`
 	);
 
 	// --- Was der Server dabei selbst gesagt hat -------------------------------

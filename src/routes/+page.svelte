@@ -479,6 +479,17 @@
 		Zugleich über aria-labelledby der zugängliche Name der Liste: sie heisst
 		dann „Offen" und nicht „Liste mit 4 Einträgen".
 	*/
+	.marke {
+		margin: 0;
+		color: var(--ink-secondary);
+		font-family: var(--label-font);
+		font-size: var(--label-size);
+		font-weight: var(--label-weight);
+		line-height: var(--label-line);
+		letter-spacing: var(--label-tracking);
+		text-transform: uppercase;
+	}
+
 	/*
 		Der Diensthinweis. Eine Zeile auf erhabener Fläche mit 3px linker Kante in
 		der Akzentfarbe, fast eckigem Radius und Haarlinie ringsum (UX-DR9).
@@ -520,17 +531,6 @@
 		font-weight: var(--meta-weight);
 		line-height: var(--meta-line);
 		font-variant-numeric: tabular-nums;
-	}
-
-	.marke {
-		margin: 0;
-		color: var(--ink-secondary);
-		font-family: var(--label-font);
-		font-size: var(--label-size);
-		font-weight: var(--label-weight);
-		line-height: var(--label-line);
-		letter-spacing: var(--label-tracking);
-		text-transform: uppercase;
 	}
 
 	.leer {

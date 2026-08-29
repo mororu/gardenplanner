@@ -26,9 +26,20 @@
 	*/
 	const schluessel = (woche: { jahr: number; woche: number }): number => wochenSchluessel(woche);
 
-	/** Die Rückmeldung eines geglückten Besetzens. */
+	/*
+		Die Rückmeldung eines geglückten Besetzens — **mit der Woche**.
+
+		Die Antwort trägt `woche` als blosse Zahl, nicht den gefalteten Schlüssel:
+		aus `202701` wieder `1` zu machen hiesse, die Faltung umzukehren, und die
+		hat bewusst keine Umkehrfunktion (siehe wochenSchluessel in $lib/zeit.ts).
+		Der Satz nennt sie, weil dreizehn bis vierzehn Zeilen gleich aussehen und
+		der Fokus nach oben springt: ohne die KW sagt die Meldung, dass etwas
+		geklappt hat, aber nicht was.
+	*/
 	const rueckmeldung = $derived(
-		form !== null && form.art === 'besetzt' ? `${form.meldung} ${form.name} ist eingetragen.` : ''
+		form !== null && form.art === 'besetzt'
+			? `${form.meldung} ${form.name} ist für KW ${form.woche} eingetragen.`
+			: ''
 	);
 
 	/*
@@ -86,10 +97,17 @@
 	 * einen Griff wären der teurere Weg zum selben Element.
 	 */
 	function fokusNach(ergebnis: ActionResult): void {
-		const daten =
-			ergebnis.type === 'success' || ergebnis.type === 'failure'
-				? (ergebnis.data as { art?: unknown; zeile?: unknown } | undefined)
-				: undefined;
+		/*
+			`redirect` und `error` tragen keine Daten und **keinen Fokus**. Ein
+			redirect entsteht hier auf genau einem Weg: adminOderWeg weist ab, weil
+			die Adminrechte seit dem Laden der Seite fort sind. Danach navigiert
+			update() fort, und ein Griff in die Erfolgsregion dieser Seite wäre ein
+			Fokus auf ein Element, das es gleich nicht mehr gibt — angesagt als
+			Erfolg, obwohl nichts geschehen ist.
+		*/
+		if (ergebnis.type !== 'success' && ergebnis.type !== 'failure') return;
+
+		const daten = ergebnis.data as { art?: unknown; zeile?: unknown } | undefined;
 		const art = typeof daten?.art === 'string' ? daten.art : '';
 
 		if (art === 'fehler') {
@@ -140,6 +158,10 @@
 	};
 </script>
 
+<svelte:head>
+	<title>Dienstplan</title>
+</svelte:head>
+
 <div class="seite">
 	<h1 class="seitentitel">Dienstplan</h1>
 
@@ -173,9 +195,19 @@
 							Die Wochennummer trägt `tabular-nums` (UX-DR: Ziffern in
 							Tabellenstellung). Eine Wochenliste, deren Zahlen springen, liest
 							sich schlecht — und hier stehen vierzehn davon untereinander.
+
+							**Das ISO-Jahr steht daneben, an jeder Zeile.** Es ist die einzige
+							Stelle des Plans, die es nennt: `wochendatum` lässt es weg, und ab
+							Mitte Oktober läuft das Fenster immer über den Jahreswechsel. Ohne
+							diese Zahl stünde `KW 53 / 28. Dezember bis 3. Januar` über `KW 1 /
+							4. Januar bis 10. Januar`, und nichts sagte, welches Jahr gemeint
+							ist. Es steht an **allen** Zeilen und nicht nur an denen um die
+							Grenze: eine Angabe, die mal da ist und mal nicht, liest sich als
+							Aussage über die Zeile, und das wäre sie nicht.
 						-->
 						<p class="woche__nummer">
 							KW {eintrag.woche}
+							<span class="woche__jahr">{eintrag.jahr}</span>
 							{#if istLaufend}<span class="woche__marke">diese Woche</span>{/if}
 						</p>
 						<p class="woche__datum">{wochendatum(eintrag)}</p>
@@ -335,6 +367,19 @@
 		font-variant-numeric: tabular-nums;
 	}
 
+	/*
+		Das ISO-Jahr neben der Wochennummer. Nebentext-Rolle: es beantwortet eine
+		Frage, die sich nur an vier Zeilen im Jahr stellt, und soll die
+		Wochennummer nicht zerteilen.
+	*/
+	.woche__jahr {
+		color: var(--ink-secondary);
+		font-family: var(--meta-font);
+		font-size: var(--meta-size);
+		font-weight: var(--meta-weight);
+		font-variant-numeric: tabular-nums;
+	}
+
 	.woche__marke {
 		color: var(--accent);
 		font-family: var(--meta-font);
@@ -352,8 +397,14 @@
 		font-variant-numeric: tabular-nums;
 	}
 
+	/*
+		min-width: 0 und overflow-wrap: ein Name ohne Trennstelle weitete sonst als
+		Flex-Element die ganze Zeile, und der Plan bräche bei 375px aus.
+	*/
 	.woche__name {
 		margin: 0;
+		min-width: 0;
+		overflow-wrap: anywhere;
 		font-family: var(--body-font);
 		font-size: var(--body-size);
 		font-weight: var(--body-weight);

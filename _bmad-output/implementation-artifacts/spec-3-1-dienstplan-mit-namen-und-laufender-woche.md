@@ -2,8 +2,8 @@
 title: 'Story 3.1: Dienstplan mit Namen und laufender Woche'
 type: 'feature'
 created: '2026-08-29'
-status: 'in-review' # draft | ready-for-dev | in-progress | in-review | done
-review_loop_iteration: 1
+status: 'done' # draft | ready-for-dev | in-progress | in-review | done
+review_loop_iteration: 2
 baseline_commit: '9770d9ced605694de00f6fa3489245284cb32756'
 context: ['{project-root}/_bmad-output/implementation-artifacts/epic-3-context.md']
 ---
@@ -99,6 +99,44 @@ context: ['{project-root}/_bmad-output/implementation-artifacts/epic-3-context.m
 - Given `npm run gate`, when die Story fertig ist, then meldet es `--warn` und `--border-marker` **nicht** mehr als unbenutzt.
 - Given die laufende Woche, when zwei verschiedene Mitglieder `/` laden, then ist ihre Aufgabenliste identisch und nur der Diensthinweis verschieden.
 
+### Review Findings
+
+**Durchgang 2 — 2026-08-29, abgearbeitet.** Alle 22 Patches sind angewendet, `npm run build && npm run lint` läuft mit Exit 0 (`smoke` 476, `smoke:http` 103 Behauptungen, `gate` 0 Hinweise). Vier Befunde sind zurückgestellt, vier als Rauschen verworfen.
+
+**Durchgang 2 — 2026-08-29.** Vier Layer (Blind Hunter, Edge Case Hunter,
+Verification Gap, Acceptance Auditor), keiner ausgefallen. Kein
+Akzeptanzkriterium ist verletzt und keine Zeile der I/O-Matrix verhält sich
+anders als zugesagt; die Befunde betreffen **die Kette, nicht das Verhalten** —
+mit zwei Ausnahmen (RF-P1, RF-P2), die ausgeliefert sind.
+
+- [x] [Review][Patch] Die Wochennummer trägt das ISO-Jahr — entschieden am 2026-08-29 am laufenden Dev-System: `KW 53 / 28. Dezember bis 3. Januar` gefolgt von `KW 1 / 4. Januar bis 10. Januar` nennt über vier Monate Spannweite nirgends ein Jahr. Das Jahr kommt an die KW-Zeile; die Begründung an `wochendatum` in `zeit.ts`, die sich auf „die Zeile daneben" beruft, wird damit wahr statt falsch [src/routes/dienstplan/+page.svelte:178; src/lib/zeit.ts:wochendatum]
+- [x] [Review][Patch] Die Erfolgsrückmeldung nennt die Woche — entschieden am 2026-08-29: `besetzen` gibt `zeile` mit zurück, der Satz lautet `Besetzt. <Name> ist für KW <N> eingetragen.` Der Fehlerweg trug den Wochenschlüssel schon, der Erfolgsweg nicht [src/routes/dienstplan/+page.server.ts:actions.besetzen; src/routes/dienstplan/+page.svelte:rueckmeldung]
+- [x] [Review][Decision] Die manuellen Prüfungen sind am 2026-08-29 am laufenden Dev-System durchgegangen (375px in Hell und Dunkel, 44px-Trefferfelder, 3px-Kante an Diensthinweis und laufender Woche) — im Verification-Abschnitt nachgetragen, erledigt
+- [x] [Review][Patch] `/dienstplan` wird ohne `<title>` ausgeliefert, und die Seitenschleife, die das gemerkt hätte, kennt die Seite nicht [src/routes/dienstplan/+page.svelte:1; scripts/smoke-http.ts:765]
+- [x] [Review][Patch] `auch der beendeten Person selbst — unbesetzt ist niemandes Dienst` ist eine leere Behauptung: `gehende` ist 35 Zeilen vorher deaktiviert, das Besetzen davor ist ein No-op, und die Zeile bliebe grün, wenn `eigeneDienstwoche` `is_active` ignorierte [scripts/smoke-zugang.ts:4765]
+- [x] [Review][Patch] Der abgewiesene POST auf `/dienstplan` wird nie als Dokument geprüft — nur Regexe über den Quelltext der Komponente und der Rückgabewert der action; `/verwaltung?/umbenennen` hat genau diese Prüfung samt Begründung [scripts/smoke-http.ts:905; scripts/smoke-zugang.ts:5729]
+- [x] [Review][Patch] Der Diensthinweis auf `/` wird nie im ausgelieferten HTML gesehen — `smoke-http` enthält kein Vorkommen von „Tränken", und alle drei `holen(port, '/')` stehen vor dem besetzenden POST [scripts/smoke-http.ts:668,682,716,1142]
+- [x] [Review][Patch] Die laufende Woche hat einen geprüften Erzeuger und einen ungeprüften Verbraucher — `laufendeWoche` kommt in beiden Skripten genau einmal vor, als Wert der `load`; `woche--laufend` und `diese Woche` werden nie behauptet [scripts/smoke-zugang.ts:4828; src/routes/dienstplan/+page.svelte:168]
+- [x] [Review][Patch] Die Faltung `jahr * 100 + woche` steht vier Mal in `duty-weeks.ts`, `wochenSchluessel` ist dort nicht importiert — die Komponente ist per Behauptung gegen genau diese zweite Faltung geschützt, die Abfrageschicht nicht [src/lib/server/db/queries/duty-weeks.ts:67,83,90,93]
+- [x] [Review][Patch] `is_active` wird in der Routendatei gefiltert statt in der Abfrageschicht — `mitgliederAuflisten().filter(…isActive)`; derselbe Diff schreibt die Gegenregel zwei Mal auf, und Gate-Regel 9 greift hier nicht [src/routes/dienstplan/+page.server.ts:98]
+- [x] [Review][Patch] Das Nicht-Admin-Dokument **nach** dem Besetzen wird nicht auf die Namensliste geprüft — `!planOhneRechteHtml.includes('Vera Verwaltung')` läuft auf dem leeren Plan; `nachBesetzenHtml` existiert, wird aber nur für die `— unbesetzt —`-Zählung benutzt [scripts/smoke-http.ts:1057,1147]
+- [x] [Review][Patch] Die README-Mutationstabelle hat keine Zeile für „die Eindeutigkeitsbedingung aus `duty_weeks` entfernt", obwohl der Verification-Abschnitt sie als erste nennt — sie wird rot, aber über `scripts/db-check.ts`, nicht über `smoke` [README.md:Mutationstabelle]
+- [x] [Review][Patch] Die README-Belegzeile für „der Diensthinweis auch ohne eigenen Dienst gerendert" nennt `wer keinen hat, bekommt null` — das misst den Rückgabewert der `load` und bliebe grün, wenn das `{#if}` in der Komponente fiele [README.md:Mutationstabelle]
+- [x] [Review][Patch] Die Mitgliederliste geht unprojiziert ins Admin-HTML — `AngemeldetesMitglied[]` trägt `isAdmin`, `isActive` und `createdAt`, das `<select>` liest `id` und `name` [src/routes/dienstplan/+page.server.ts:98]
+- [x] [Review][Patch] Die README-Belegzeile für „das ISO-Jahr aus dem Montag statt dem Donnerstag gelesen" nennt die falsche Zeile — bei `1.1.2027` liegen Montag und Donnerstag im selben Kalenderjahr, die Mutation bleibt dort grün; rot wird `30.12.2019 gehört schon zur Woche 1 von 2020` [README.md:Mutationstabelle]
+- [x] [Review][Patch] Die Hash-/Klartext-Token-Prüfung des Dienstplans läuft nur auf `planAlsAdminHtml`, nicht auf dem Nicht-Admin-Dokument [scripts/smoke-http.ts:1122]
+- [x] [Review][Patch] `wochenfenster` ist gegen die benannte Mutation gemessen, gegen eine Nachbarin nicht — hängen `start` **und** `grenze` an heute statt am Montag, bleiben alle fünf `fensterTeile` grün. Eine Gegenprobe „Montag und Sonntag derselben Woche geben dasselbe Fenster" schliesst das [scripts/smoke-zugang.ts:fensterTeile]
+- [x] [Review][Patch] Der `.marke`-Docblock auf `/` steht seit diesem Diff über `.dienst` statt über `.marke` — der neue Block wurde zwischen Kommentar und Regel eingefügt [src/routes/+page.svelte:479]
+- [x] [Review][Patch] `texte.ts` beschreibt seine eigenen Wurfstellen falsch — „**Eine** Wurfstelle heute" bei zwei `abweisen(WOCHE_NICHT_ANSPRECHBAR)` in derselben action [src/lib/texte.ts:WOCHE_NICHT_ANSPRECHBAR]
+- [x] [Review][Patch] Kommentar und Behauptung widersprechen sich: „drei Monate sind je nach Startpunkt 12 bis 14 Wochen" über `fenster.length >= 13 && <= 14`; `zeit.ts` und README sagen 13 oder 14 [scripts/smoke-zugang.ts:fensterTeile]
+- [x] [Review][Patch] Zwei widersprüchliche Begründungen zur Datumsformatierung — `/+page.server.ts` formatiert serverseitig gegen einen Hydrierungsunterschied, `/dienstplan` formatiert dieselbe Funktion in der Komponente. `wochendatum` ist rein; die Begründung auf `/` trägt nicht [src/routes/+page.server.ts:load]
+- [x] [Review][Patch] `.woche__name` hat weder `min-width: 0` noch `overflow-wrap` — ein langer Name ohne Trennstelle weitet die Zeile bei 375px, genau die manuelle Prüfung „die Wochenliste bricht nicht" [src/routes/dienstplan/+page.svelte:.woche__name]
+- [x] [Review][Patch] `fokusNach` behandelt `result.type === 'redirect'` wie einen Erfolg und setzt den Fokus in die Erfolgsregion [src/routes/dienstplan/+page.svelte:88]
+- [x] [Review][Defer] 13–14 gleichlautende zugängliche Namen ohne Wochenbezug — `Besetzen`, `Zuständig`, `Eintragen` je Zeile; die KW steht in einem nicht verknüpften Geschwister-`<p>` [src/routes/dienstplan/+page.svelte:207,224,244] — deferred, derselbe Posten wie aus Story 3.0.1: der Entscheid dort lautet, alle Zeilen-Aktionen in einem Zug zu lösen; der Dienstplan ist die vierte Zeilenart daran
+- [x] [Review][Defer] Die Dienstart ist unmessbar — kein Prüfweg schreibt je eine Zeile mit einer anderen `art`, `eq(dutyWeeks.art, DIENSTART_TRAENKEN)` liesse sich löschen und alles bliebe grün [src/lib/server/db/queries/duty-weeks.ts:76] — deferred, ein zweiter Dienstplan ist Ask-First und ausserhalb dieser Story
+- [x] [Review][Defer] `.hinweis` ist die zweite Kopie derselben Nebentext-Regel [src/routes/dienstplan/+page.svelte:277; src/routes/monatsplan/+page.svelte:594] — deferred, Retro-Posten D1, der Fix ist eine geteilte Klasse und grösser als diese Story
+- [x] [Review][Defer] `select.feld { appearance: auto }` trägt keine Behauptung [src/lib/styles/bedienelemente.css:141] — deferred, Darstellung ist von keinem der beiden Skripte messbar und steht auf der manuellen Liste
+
 ## Spec Change Log
 
 **Durchgang 1 — die Vorbelegung war behauptet, nicht gemessen.** Die erste
@@ -149,7 +187,7 @@ Wer die Zeile bloss streicht, verliert AD-2 als gemessene Eigenschaft und behäl
 
 - die Eindeutigkeitsbedingung aus `duty_weeks` entfernt; `is_active` aus der Anzeigeabfrage genommen; `adminOderWeg` aus `besetzen` entfernt; das Besetzen-Formular auch ohne Adminrechte gerendert; der Diensthinweis auch ohne eigenen Dienst gerendert; die ISO-Wochenrechnung um eine Woche verschoben (Jahreswechsel-Zeile).
 
-**Manual checks:**
+**Manual checks** — durchgegangen am 2026-08-29 am laufenden Dev-Server, in beiden Modi:
 
 - Bei 375px in Hell **und** Dunkel: die Wochenliste bricht nicht, Ziffern stehen untereinander, das aufgeklappte Besetzen sprengt die Zeile nicht, Trefferfelder messen 44px.
 - Der Diensthinweis trägt eine 3px-Kante links in Akzentfarbe und ist als Ganzes ein Link.
