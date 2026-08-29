@@ -84,7 +84,7 @@ import { WOCHE_SEKUNDEN } from '../src/lib/zeit.ts';
  * mit — genau wie in scripts/smoke-zugang.ts. Eine Seite mehr in `seiten` sind
  * sieben Behauptungen mehr, und dieselbe Zahl steht in README.md.
  */
-const ERWARTETE_BEHAUPTUNGEN = 113;
+const ERWARTETE_BEHAUPTUNGEN = 121;
 
 const GUTES_GEHEIMNIS = 'smoke-http-geheimnis-mit-genug-verschiedenen-zeichen-0123456789';
 
@@ -1300,6 +1300,115 @@ try {
 		'weder Hash noch Klartext-Token stehen im ausgelieferten Dienstplan',
 		!saat.hashes.some((hash) => planAlsAdminHtml.includes(hash)) &&
 			!saat.klartexte.some((token) => planAlsAdminHtml.includes(token))
+	);
+
+	// --- Jede Zeilen-Aktion nennt ihre Zeile ----------------------------------
+	/*
+	 * Zurückgestellt aus Story 3.0.1 und noch einmal aus dem Review zu Story 3.1,
+	 * beide Male mit derselben Auflage: „gehört in einem Zug gelöst, nicht an
+	 * einer Stelle." Gelöst am 2026-08-29 für alle vier Zeilenarten zugleich.
+	 *
+	 * Die Beschriftungen wiederholen sich je Zeile wortgleich — `Umbenennen`,
+	 * `Neuer Name`, `Namen speichern`, `Link neu ausstellen`,
+	 * `Einladung widerrufen` auf /verwaltung, `Besetzen`, `Zuständig`,
+	 * `Eintragen` auf /dienstplan. Wer die Seite **sieht**, liest die Kennung der
+	 * Zeile mit; wer sie mit einer Elementliste durchgeht, las zwanzigmal
+	 * dasselbe Wort.
+	 *
+	 * Gemessen wird am ausgelieferten HTML und nicht am Quelltext, und zwar aus
+	 * einem bestimmten Grund: die Kennungen tragen den Zeilenschlüssel als
+	 * Interpolation (`mitglied-name-{id}`, `woche-{schluessel}`). Am Quelltext
+	 * stünde da eine geschweifte Klammer, und ob daraus im Dokument wirklich ein
+	 * **auflösbarer** Verweis wird, sähe man nicht. Ein aria-labelledby, das ins
+	 * Leere zeigt, ist stiller als gar keins: der Screenreader liest dann den
+	 * Rest, und das kann ein leerer Name sein.
+	 */
+	/*
+	 * **Eine benannte Ausnahme.** Der Bestätigungsdialog auf /verwaltung trägt
+	 * `aria-labelledby="widerruf-titel"`, und sein `<h2>` mit dieser Kennung
+	 * entsteht erst mit der gewählten Zeile — das Element selbst bleibt stehen,
+	 * weil `bind:this` es braucht. Im ausgelieferten Dokument zeigt der Verweis
+	 * darum ins Leere, und das ist richtig so: der Dialog ist geschlossen, und
+	 * sein Inhalt stünde sonst als leerer Satz im Quelltext jedes Besuchers.
+	 * Wer ihn öffnet, hat die Überschrift.
+	 */
+	const VERWEIS_AUSNAHMEN = new Set(['widerruf-titel']);
+	const verweiseLoesenAuf = (html: string): string[] => {
+		const vorhanden = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((treffer) => treffer[1]));
+		return [...html.matchAll(/\baria-labelledby="([^"]+)"/g)]
+			.flatMap((treffer) => treffer[1].split(/\s+/))
+			.filter(
+				(kennung) => kennung !== '' && !vorhanden.has(kennung) && !VERWEIS_AUSNAHMEN.has(kennung)
+			);
+	};
+	/*
+	 * Die Griffe, Felder und Knöpfe der Zeilen — an ihrer Kennung erkannt. Die
+	 * Abschnittsüberschriften der Seite (`mitglieder-titel`, `aufnahme-titel`)
+	 * tragen ebenfalls ein aria-labelledby und sind ausdrücklich **einteilig**:
+	 * eine Liste heisst `Mitglieder` und nicht `Mitglieder Mitglieder`.
+	 */
+	for (const [wo, html, praefixe] of [
+		[
+			'/verwaltung',
+			verwaltungHtml,
+			[
+				'umbenennen-griff-',
+				'neuer-name-label-',
+				'namen-speichern-',
+				'neu-ausstellen-',
+				'widerrufen-',
+			],
+		],
+		['/dienstplan', planAlsAdminHtml, ['besetzen-griff-', 'auswahl-label-', 'eintragen-']],
+	] as const) {
+		const zeilenVerweise = [...html.matchAll(/\baria-labelledby="([^"]+)"/g)]
+			.map((treffer) => treffer[1])
+			.filter((verweis) => praefixe.some((praefix) => verweis.startsWith(praefix)));
+		pruefen(
+			`auf ${wo} trägt jede Art von Zeilen-Aktion einen Verweis`,
+			praefixe.every((praefix) => zeilenVerweise.some((verweis) => verweis.startsWith(praefix))),
+			`fehlt: ${praefixe.filter((praefix) => !zeilenVerweise.some((v) => v.startsWith(praefix))).join(', ')}`
+		);
+		pruefenGleich(
+			`und jeder Verweis auf ${wo} löst sich im ausgelieferten Dokument auf`,
+			verweiseLoesenAuf(html).join(', '),
+			''
+		);
+		/*
+		 * Jeder Zeilen-Verweis nennt **zuerst sich selbst und dann die Zeile**. Die
+		 * eigene Kennung zuerst, damit die sichtbare Beschriftung der Anfang des
+		 * Namens bleibt: wer die Seite per Sprache bedient, sagt, was er sieht.
+		 * Ohne diese Zeile bliebe die Prüfung grün, wenn ein Verweis nur auf die
+		 * Zeile zeigte — dann hiesse der Knopf `Anna Meier`, und niemand wüsste,
+		 * was er tut.
+		 */
+		pruefen(
+			`und nennt auf ${wo} erst sich selbst, dann die Zeile`,
+			zeilenVerweise.every((verweis) => {
+				const teile = verweis.split(/\s+/);
+				return teile.length === 2 && praefixe.some((praefix) => teile[0].startsWith(praefix));
+			}),
+			`nicht in dieser Form: ${zeilenVerweise.filter((v) => v.split(/\s+/).length !== 2).join(' | ')}`
+		);
+	}
+	/*
+	 * Und die zwei Griffe namentlich, weil sie die zwei sind, die die Einträge
+	 * nennen: der `<summary>`, der auf /verwaltung `Umbenennen` heisst und auf
+	 * /dienstplan `Besetzen`.
+	 */
+	pruefen(
+		'der Umbenennen-Griff zeigt auf sich und auf den Namen der Zeile',
+		/<summary[^>]*\bid="umbenennen-griff-(\d+)"[^>]*aria-labelledby="umbenennen-griff-\1 mitglied-name-\1"/.test(
+			verwaltungHtml
+		),
+		(/<summary[^>]*umbenennen-griff[^>]*>/.exec(verwaltungHtml) ?? [''])[0]
+	);
+	pruefen(
+		'der Besetzen-Griff zeigt auf sich und auf die Kalenderwoche',
+		/<summary[^>]*\bid="besetzen-griff-(\d+)"[^>]*aria-labelledby="besetzen-griff-\1 woche-\1"/.test(
+			planAlsAdminHtml
+		),
+		(/<summary[^>]*besetzen-griff[^>]*>/.exec(planAlsAdminHtml) ?? [''])[0]
 	);
 
 	/*

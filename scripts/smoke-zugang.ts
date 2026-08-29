@@ -5956,8 +5956,12 @@ try {
 		[
 			// Ohne den Knopf gibt es ohne JavaScript keinen Weg abzuschicken, und
 			// ohne disabled greift die seitenweite Doppelsperre hier nicht.
+			// Der Knopf steht seit dem Zeilenbezug für Screenreader über mehrere
+			// Zeilen. Gesucht werden darum die drei Merkmale einzeln und nicht die
+			// Form der Zeile: geprüft wird, was der Knopf **ist**, nicht wie
+			// Prettier ihn umbricht.
 			'ein Absendeknopf, gesperrt solange ein Versand unterwegs ist',
-			/<button class="button-quiet" type="submit" disabled=\{imFlug\}>/.test(umbenennenFormular),
+			/<button\b[\s\S]*?type="submit"[\s\S]*?disabled=\{imFlug\}[\s\S]*?>/.test(umbenennenFormular),
 		],
 	] as const;
 	pruefen(
@@ -6160,7 +6164,7 @@ try {
 		],
 		[
 			'der Knopf sperrt während des Versands',
-			/<button class="button-quiet" type="submit" disabled=\{imFlug\}>/.test(besetzenFormular),
+			/<button\b[\s\S]*?type="submit"[\s\S]*?disabled=\{imFlug\}[\s\S]*?>/.test(besetzenFormular),
 		],
 		/*
 		 * `open` hängt am Fehlschlag und nicht an einem eigenen Zustand: nur so

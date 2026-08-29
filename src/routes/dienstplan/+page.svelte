@@ -205,7 +205,24 @@
 							Grenze: eine Angabe, die mal da ist und mal nicht, liest sich als
 							Aussage über die Zeile, und das wäre sie nicht.
 						-->
-						<p class="woche__nummer">
+						<!--
+							Die Kennung dieser Zeile — und der Grund, warum sie eine hat.
+
+							Die drei Bedienelemente darunter tragen Beschriftungen, die sich
+							über alle vierzehn Wochen **wortgleich** wiederholen: `Besetzen`
+							oder `Neu besetzen`, `Zuständig`, `Eintragen`. Wer den Plan sieht,
+							liest die Kalenderwoche darüber mit; wer ihn mit einer
+							Elementliste durchgeht, bekam bis zum 2026-08-29 vierzehnmal
+							dasselbe Wort ohne jede Auskunft, welche Woche gemeint ist.
+
+							Die drei zeigen darum mit aria-labelledby **auf sich selbst und
+							dann hierher**: `Besetzen KW 36 2026`. Derselbe Handgriff wie an
+							den Zeilen-Aktionen auf /verwaltung, in einem Zug gelöst — der
+							Posten war aus Story 3.0.1 und noch einmal aus Story 3.1
+							zurückgestellt, beide Male mit der Auflage „gehört in einem Zug
+							gelöst, nicht an einer Stelle".
+						-->
+						<p class="woche__nummer" id="woche-{dieseWoche}">
 							KW {eintrag.woche}
 							<span class="woche__jahr">{eintrag.jahr}</span>
 							{#if istLaufend}<span class="woche__marke">diese Woche</span>{/if}
@@ -234,7 +251,11 @@
 						Knopf.
 					-->
 					<details class="besetzen" open={fehlerHier}>
-						<summary class="besetzen__griff">
+						<summary
+							class="besetzen__griff"
+							id="besetzen-griff-{dieseWoche}"
+							aria-labelledby="besetzen-griff-{dieseWoche} woche-{dieseWoche}"
+						>
 							{eintrag.name === null ? 'Besetzen' : 'Neu besetzen'}
 						</summary>
 						<form
@@ -246,7 +267,13 @@
 							<input type="hidden" name="jahr" value={eintrag.jahr} />
 							<input type="hidden" name="woche" value={eintrag.woche} />
 							<div>
-								<label class="feld__beschriftung" for="auswahl-{dieseWoche}">Zuständig</label>
+								<label
+									class="feld__beschriftung"
+									id="auswahl-label-{dieseWoche}"
+									for="auswahl-{dieseWoche}"
+								>
+									Zuständig
+								</label>
 								<!--
 									Die schon zuständige Person steht vorgewählt: neu besetzt wird
 									fast immer, um **eine** Zeile zu ändern, und eine leere
@@ -259,6 +286,7 @@
 									id="auswahl-{dieseWoche}"
 									name="mitgliedId"
 									required
+									aria-labelledby="auswahl-label-{dieseWoche} woche-{dieseWoche}"
 									aria-invalid={fehlerHier ? 'true' : undefined}
 									aria-describedby={fehlerHier ? `besetzen-fehler-${dieseWoche}` : undefined}
 								>
@@ -272,7 +300,15 @@
 									{/each}
 								</select>
 							</div>
-							<button class="button-quiet" type="submit" disabled={imFlug}>Eintragen</button>
+							<button
+								class="button-quiet"
+								type="submit"
+								id="eintragen-{dieseWoche}"
+								aria-labelledby="eintragen-{dieseWoche} woche-{dieseWoche}"
+								disabled={imFlug}
+							>
+								Eintragen
+							</button>
 						</form>
 					</details>
 					<!--

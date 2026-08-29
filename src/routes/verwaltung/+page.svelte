@@ -460,7 +460,22 @@
 	<ul class="liste" aria-labelledby="mitglieder-titel">
 		{#each data.mitglieder as mitglied (mitglied.id)}
 			<li class="zeile">
-				<p class="zeile__name">
+				<!--
+					Die Kennung dieser Zeile — und der Grund, warum sie eine hat.
+
+					Jede Zeilen-Aktion darunter trägt eine Beschriftung, die sich über
+					alle Zeilen **wortgleich** wiederholt: `Umbenennen`, `Neuer Name`,
+					`Namen speichern`, `Link neu ausstellen`, `Einladung widerrufen`. Wer
+					die Seite sieht, liest den Zeilennamen darüber mit; wer sie mit einer
+					Elementliste durchgeht, bekam bis zum 2026-08-29 zwanzigmal dasselbe
+					Wort ohne jede Auskunft, wessen Zugang gemeint ist.
+
+					Die Aktionen zeigen darum mit aria-labelledby **auf sich selbst und
+					dann hierher**: `Umbenennen Anna Meier`. Die eigene Kennung steht
+					zuerst, damit die sichtbare Beschriftung der Anfang des Namens bleibt
+					— wer sie per Sprache bedient, sagt, was er sieht.
+				-->
+				<p class="zeile__name" id="mitglied-name-{mitglied.id}">
 					{mitglied.name}
 					{#if mitglied.id === data.ichId}<span class="zeile__marke">— Du</span>{/if}
 				</p>
@@ -505,7 +520,13 @@
 						Eingabe und der Kante am Feld schon fertig aus dem Server.
 					-->
 					<details class="umbenennen" open={fehlerHier}>
-						<summary class="umbenennen__griff">Umbenennen</summary>
+						<summary
+							class="umbenennen__griff"
+							id="umbenennen-griff-{mitglied.id}"
+							aria-labelledby="umbenennen-griff-{mitglied.id} mitglied-name-{mitglied.id}"
+						>
+							Umbenennen
+						</summary>
 						<form
 							class="umbenennen__formular"
 							method="POST"
@@ -514,7 +535,11 @@
 						>
 							<input type="hidden" name="mitgliedId" value={mitglied.id} />
 							<div>
-								<label class="feld__beschriftung" for="neuer-name-{mitglied.id}">
+								<label
+									class="feld__beschriftung"
+									id="neuer-name-label-{mitglied.id}"
+									for="neuer-name-{mitglied.id}"
+								>
 									Neuer Name
 								</label>
 								<!--
@@ -532,11 +557,18 @@
 									required
 									maxlength={data.namensgrenze}
 									value={fehlerHier ? neuerNameEingabe : mitglied.name}
+									aria-labelledby="neuer-name-label-{mitglied.id} mitglied-name-{mitglied.id}"
 									aria-invalid={fehlerHier ? 'true' : undefined}
 									aria-describedby={fehlerHier ? `neuer-name-fehler-${mitglied.id}` : undefined}
 								/>
 							</div>
-							<button class="button-quiet" type="submit" disabled={imFlug}>
+							<button
+								class="button-quiet"
+								type="submit"
+								id="namen-speichern-{mitglied.id}"
+								aria-labelledby="namen-speichern-{mitglied.id} mitglied-name-{mitglied.id}"
+								disabled={imFlug}
+							>
 								Namen speichern
 							</button>
 						</form>
@@ -570,7 +602,13 @@
 					<div class="zeile__knoepfe">
 						<form method="POST" action="?/neuAusstellen" use:enhance={versand}>
 							<input type="hidden" name="mitgliedId" value={mitglied.id} />
-							<button class="button-quiet" type="submit" disabled={imFlug}>
+							<button
+								class="button-quiet"
+								type="submit"
+								id="neu-ausstellen-{mitglied.id}"
+								aria-labelledby="neu-ausstellen-{mitglied.id} mitglied-name-{mitglied.id}"
+								disabled={imFlug}
+							>
 								Link neu ausstellen
 							</button>
 						</form>
@@ -583,6 +621,8 @@
 						<button
 							class="button-quiet button-quiet--zerstoerend"
 							type="button"
+							id="widerrufen-{mitglied.id}"
+							aria-labelledby="widerrufen-{mitglied.id} mitglied-name-{mitglied.id}"
 							onclick={() =>
 								widerrufFragen({
 									id: mitglied.id,

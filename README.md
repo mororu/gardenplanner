@@ -1385,6 +1385,9 @@ Der Grund für all das ist gemessen. Die Tabelle nennt nur Mutationen, die
 | die Auswahl auch ins Dokument ohne Adminrechte gegeben            | Story 3.1 (Review)   | `smoke:http`, `ein besetzter Plan zeigt dem Mitglied den Namen, aber nie die Auswahl` — vorher am **leeren** Plan gemessen, auf dem ohnehin kein Name stand                                                                            |
 | nur die Fenstergrenze an heute statt am Montag gerechnet          | Story 3.1 (Review)   | `smoke`, `vom Montag derselben Woche aus gefragt kommt dieselbe Folge` — diese Nachbarin der benannten Mutation kam vorher durch                                                                                                       |
 | eine lokale `.hinweis`-Regel in `/dienstplan` zurückgestellt      | Review 3.1           | `smoke`, `die Seitenform liegt an einer Stelle` — `.hinweis` steht seit dem 2026-08-29 mit in der Liste                                                                                                                                |
+| der Verweis am `Besetzen`-Griff entfernt                          | 3.0.1 + 3.1          | `smoke:http`, zwei Zeilen: die Vollständigkeit über alle Arten und der Griff namentlich                                                                                                                                                |
+| der Verweis zeigt nur auf die Zeile, nicht auch auf sich selbst   | 3.0.1 + 3.1          | `smoke:http`, dieselben zwei Zeilen — sonst hiesse der Griff `Anna Meier`, und niemand wüsste, was er tut                                                                                                                              |
+| eine Kennung im Verweis verschrieben                              | 3.0.1 + 3.1          | `smoke:http`, `jeder Verweis löst sich im ausgelieferten Dokument auf` — die Meldung nennt die tote Kennung                                                                                                                            |
 | die Prüfung des Fensters aus der action `ablegen` genommen        | Eintrag 31           | `smoke`, sechs Zeilen über die zwei vertippten Jahre                                                                                                                                                                                   |
 | `FRIST_FENSTER_TAGE` von 365 auf 366 verschoben                   | Eintrag 31           | `smoke`, sechs Zeilen: die Konstante selbst, beide Fenstergrenzen, der Schalttag und die zwei Grenztage                                                                                                                                |
 | das Fenster als Kalenderjahr statt in Tagen gerechnet             | Eintrag 31           | `smoke`, `über einen Schalttag hinweg zählt das Fenster Tage und keine Jahre` — die anderen fünf Zeilen bleiben grün, weil 2026 und 2027 keine Schaltjahre sind                                                                        |
@@ -1671,6 +1674,34 @@ oder nur gefaltet wird. **Welche Zeichen unsichtbar sind**, steht seit dem
   weg, dann `\s+` zu einem Leerzeichen, dann trimmen — umgekehrt bliebe
   `\u200B \u200B` nach dem Trimmen ein nichtleerer Text. Die Reihenfolge steht in
   den zwei Modulen, die falten, nicht im geteilten.
+
+## Jede Zeilen-Aktion nennt ihre Zeile
+
+`/verwaltung` und `/dienstplan` sind Listen, in denen jede Zeile dieselben
+Bedienelemente trägt: `Umbenennen`, `Neuer Name`, `Namen speichern`,
+`Link neu ausstellen`, `Einladung widerrufen` — und `Besetzen`, `Zuständig`,
+`Eintragen`. Wer die Seite **sieht**, liest die Kennung der Zeile darüber mit.
+Wer sie mit der Elementliste eines Screenreaders durchgeht, las bis zum
+2026-08-29 zwanzigmal dasselbe Wort, ohne zu erfahren, wessen Zugang oder welche
+Woche gemeint ist.
+
+- **Jede Aktion zeigt mit `aria-labelledby` auf sich selbst und dann auf die
+  Zeile**: `Umbenennen Anna Meier`, `Besetzen KW 36 2026`. Die eigene Kennung
+  steht **zuerst** — die sichtbare Beschriftung bleibt damit der Anfang des
+  Namens, und wer die Seite per Sprache bedient, sagt, was er sieht.
+- **Die Zeilenkennung ist, was die Zeile identifiziert**: auf `/verwaltung` der
+  Name samt `— Du`, auf `/dienstplan` die Kalenderwoche samt ISO-Jahr und, wenn
+  sie es ist, `diese Woche`.
+- **Gemessen wird am ausgelieferten HTML**, nicht am Quelltext. Die Kennungen
+  tragen den Zeilenschlüssel als Interpolation; am Quelltext stünde dort eine
+  geschweifte Klammer, und ob daraus ein **auflösbarer** Verweis wird, sähe man
+  nicht. Ein `aria-labelledby` ins Leere ist stiller als gar keins.
+- **Eine benannte Ausnahme**: der Bestätigungsdialog zeigt auf eine Überschrift,
+  die erst mit der gewählten Zeile entsteht. Das ist richtig so — der Dialog ist
+  geschlossen, und sein Inhalt stünde sonst als leerer Satz im Quelltext jedes
+  Besuchers. Die Prüfung führt diese eine Kennung ausdrücklich als Ausnahme.
+- Auf `/` stellte sich die Frage nie: dort holt das Kästchen seinen Namen seit
+  Story 1.4 über `aria-labelledby` aus dem Aufgabentext derselben Zeile.
 
 ## Die geteilte Seitenform
 
