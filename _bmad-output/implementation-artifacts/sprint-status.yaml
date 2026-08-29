@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-26-2026 13:20
-last_updated: "08-29-2026 22:32"
+last_updated: "08-29-2026 22:53"
 project: Gemeinschaftsgarten
 project_key: NOKEY
 tracking_system: file-system
@@ -317,21 +317,21 @@ action_items:
     action: "Die neun uebrigen doppelten CSS-Regelkoerper ins geteilte Stilblatt ziehen,
       zuerst die Zwillinge von .fehler, .hinweis und .leer (B1)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
   - id: "epic-3-retro-item-39-die-live-region-als-geteilte-komponente"
     epic: 3
     action: "Die Live-Region als geteilte Komponente statt als dritte Kopie in /,
       /dienstplan und /verwaltung (B2)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
   - id: "epic-3-retro-item-40-das-aufklappbare-zeilenformular-von-verw"
     epic: 3
     action: "Das aufklappbare Zeilenformular von /verwaltung und /dienstplan zusammenlegen
       - Nahtstelle 3.0.1 auf 3.1, drei byte-gleiche Regelpaare (B3)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
   - id: "epic-3-retro-item-41-epics-md-fuer-story-3-2-abgleichen-ac-3"
     epic: 3
