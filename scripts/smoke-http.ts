@@ -84,7 +84,7 @@ import { WOCHE_SEKUNDEN } from '../src/lib/zeit.ts';
  * mit — genau wie in scripts/smoke-zugang.ts. Eine Seite mehr in `seiten` sind
  * sieben Behauptungen mehr, und dieselbe Zahl steht in README.md.
  */
-const ERWARTETE_BEHAUPTUNGEN = 109;
+const ERWARTETE_BEHAUPTUNGEN = 113;
 
 const GUTES_GEHEIMNIS = 'smoke-http-geheimnis-mit-genug-verschiedenen-zeichen-0123456789';
 
@@ -937,6 +937,44 @@ try {
 		'das Wort „offen" steht nirgends in diesem Satz — der Wortlaut ist umgestellt',
 		!/seit \d+ Wochen offen/.test(startseiteHtml),
 		(/seit \d+ Wochen offen/.exec(startseiteHtml) ?? [])[0]
+	);
+
+	// --- Die Navigationsleiste markiert auch auf einer Formularroute ----------
+	/*
+	 * Eintrag 28 der zurückgestellten Arbeit, gelöst am 2026-08-29. `smoke` hält
+	 * die Zuordnungsliste gegen die Routen im Baum; hier wird gemessen, was
+	 * wirklich ausgeliefert wird — und zwar in **beiden** Lesarten von
+	 * aria-current.
+	 *
+	 * Geschnitten wird je der eine <a>, der die Beschriftung trägt: eine Suche
+	 * über die ganze Seite fände auch ein aria-current an einem anderen Element
+	 * und bliebe grün, wenn die Markierung am falschen Eintrag hinge.
+	 */
+	const navZiel = (html: string, beschriftung: string): string =>
+		(new RegExp(`<a\\b[^>]*>\\s*${beschriftung}\\s*</a>`).exec(html) ?? [''])[0];
+	const navMarke = (html: string, beschriftung: string): string =>
+		(/aria-current="([^"]*)"/.exec(navZiel(html, beschriftung)) ?? ['', ''])[1];
+
+	const aufgabeHtml = await (await holen(port, '/aufgabe', { keks: adminKeks })).text();
+	pruefen(
+		'die Navigationsleiste steht auf /aufgabe überhaupt im ausgelieferten HTML',
+		navZiel(aufgabeHtml, 'Aufgaben') !== '',
+		'kein <a> mit der Beschriftung Aufgaben gefunden'
+	);
+	pruefenGleich(
+		'auf /aufgabe ist der Eintrag Aufgaben der laufende Abschnitt, nicht die Seite',
+		navMarke(aufgabeHtml, 'Aufgaben'),
+		'true'
+	);
+	pruefenGleich(
+		'und auf / ist derselbe Eintrag die angezeigte Seite',
+		navMarke(startseiteHtml, 'Aufgaben'),
+		'page'
+	);
+	pruefenGleich(
+		'auf /aufgabe trägt genau ein Eintrag eine Marke',
+		(aufgabeHtml.match(/aria-current="/g) ?? []).length,
+		1
 	);
 
 	// --- Die Adminweiche über HTTP --------------------------------------------

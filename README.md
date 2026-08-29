@@ -1627,6 +1627,33 @@ Es gibt kein Passwort, kein Login-Formular und keinen Registrierungsvorgang.
   `<meta name="referrer" content="no-referrer">`, und die Seite verweist auf
   nichts von draussen.
 
+## Die Navigationsleiste
+
+Vier Ziele mit Wort statt Symbol: `Aufgaben`, `Dienstplan`, `Wissen`, `Mehr`.
+Unbebaut ist noch `/wissen`; bis dahin führt es auf die Fehlerseite mit
+`Diese Seite gibt es nicht.`
+
+- **Jede gerenderte Route gehört zu einem Eintrag** — auch die, die nicht unter
+  dessen Pfad liegt. `/aufgabe` gehört zu `Aufgaben`, `/monatsplan` und
+  `/verwaltung` zu `Mehr`. Zugeordnet wird nach dem **Weg dorthin** und nicht
+  nach dem Thema: `/aufgabe` erreicht man über den Knopf `+ Aufgabe` unter dem
+  Pool, die zwei anderen über die Einträge auf `/mehr`. Bis zum 2026-08-29 war
+  auf diesen drei Seiten **kein** Eintrag markiert, und die ganze Erfassung lief
+  ohne Ortsangabe.
+- **Die Vollständigkeit ist gemessen, nicht beabsichtigt.** `smoke` liest die
+  Routen aus dem Baum (`+page.svelte`) und hält sie gegen die Liste in der
+  Komponente. Eine neue Route, die dort nicht eingetragen ist, macht die
+  Prüfliste rot — Story 3.2 legt zwei an.
+- **`aria-current` trägt zwei Werte, weil es zwei Aussagen sind.** `page` heisst
+  „das hier ist die angezeigte Seite"; auf `/aufgabe` wäre das am Eintrag
+  `Aufgaben` eine Falschaussage. `true` heisst „das hier ist der laufende
+  Eintrag" und ist genau die schwächere Aussage, die dort stimmt. Sichtbar sind
+  beide Zustände derselbe: für das Auge ist „auf dieser Seite" und „in diesem
+  Abschnitt" hier dasselbe.
+- **Der Vergleich läuft an der Segmentgrenze**, nicht mit nacktem `startsWith`:
+  sonst wäre unter `/wissenschaft` das Ziel `/wissen` markiert. `/` trifft nur
+  sich selbst.
+
 ## Aufgaben sehen und abhaken
 
 `/` ist die ganze Anwendung in einem Bild. Die Seite führt genau drei Blöcke in

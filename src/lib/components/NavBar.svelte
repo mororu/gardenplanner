@@ -1,24 +1,67 @@
 <script lang="ts">
 	import { page } from '$app/state';
 
-	// Vier Ziele mit Wort statt Symbol. Unbebaut ist noch /wissen; bis dahin
-	// führt es auf die Fehlerseite mit `Diese Seite gibt es nicht.` /mehr steht
-	// seit Story 1.3, /dienstplan seit Story 3.1.
+	/*
+	 * Vier Ziele mit Wort statt Symbol. Unbebaut ist noch /wissen; bis dahin
+	 * führt es auf die Fehlerseite mit `Diese Seite gibt es nicht.` /mehr steht
+	 * seit Story 1.3, /dienstplan seit Story 3.1.
+	 *
+	 * **`gehoertDazu` nennt die Routen, die zu einem Ziel gehören, ohne unter
+	 * dessen Pfad zu liegen.** Das ist keine Bequemlichkeit, sondern die Antwort
+	 * auf eine Frage, die dieses Projekt seit Story 1.5 offen mit sich trug
+	 * (Eintrag 28 der zurückgestellten Arbeit): auf /aufgabe, /monatsplan und
+	 * /verwaltung war **kein** Eintrag markiert, und die ganze Erfassung lief
+	 * ohne Ortsangabe. Mit /dienstplan als echtem Ziel und der Ausschreib-Route
+	 * aus Story 3.2 wären es vier solche Seiten statt zwei — darum jetzt.
+	 *
+	 * Zugeordnet wird nach dem **Weg dorthin**, nicht nach dem Thema: /aufgabe
+	 * wird vom Knopf `+ Aufgabe` unter dem Pool erreicht und gehört darum zu `/`;
+	 * /monatsplan und /verwaltung stehen als Einträge auf /mehr. Wer die Leiste
+	 * liest, soll dort stehen sehen, woher er kam.
+	 *
+	 * Eine Formularroute, die zu **keinem** Ziel gehört, gibt es nicht und soll
+	 * es nicht geben: eine Seite, die man erreicht, ohne dass die Leiste etwas
+	 * sagt, ist eine Sackgasse ohne Ortsangabe. Wer eine Route anlegt, trägt sie
+	 * hier ein — scripts/smoke-zugang.ts hält die Liste gegen die Routen im Baum.
+	 */
 	const ziele = [
-		{ href: '/', beschriftung: 'Aufgaben' },
-		{ href: '/dienstplan', beschriftung: 'Dienstplan' },
-		{ href: '/wissen', beschriftung: 'Wissen' },
-		{ href: '/mehr', beschriftung: 'Mehr' },
+		{ href: '/', beschriftung: 'Aufgaben', gehoertDazu: ['/aufgabe'] },
+		{ href: '/dienstplan', beschriftung: 'Dienstplan', gehoertDazu: [] },
+		{ href: '/wissen', beschriftung: 'Wissen', gehoertDazu: [] },
+		{ href: '/mehr', beschriftung: 'Mehr', gehoertDazu: ['/monatsplan', '/verwaltung'] },
 	];
+
+	type Ziel = (typeof ziele)[number];
 
 	/*
 	 * Vergleich an der Segmentgrenze, nicht mit nacktem startsWith: sonst wäre
 	 * unter /wissenschaft das Ziel /wissen als aktiv markiert. '/' trifft nur
 	 * sich selbst, weil startsWith('/') auf jeden Pfad zutrifft.
 	 */
-	const istAktiv = (href: string): boolean => {
-		const pfad = page.url.pathname;
-		return pfad === href || (href !== '/' && pfad.startsWith(`${href}/`));
+	const trifft = (pfad: string, href: string): boolean =>
+		pfad === href || (href !== '/' && pfad.startsWith(`${href}/`));
+
+	/** Steht die angezeigte Seite **selbst** hinter diesem Eintrag? */
+	const istDieseSeite = (ziel: Ziel): boolean => trifft(page.url.pathname, ziel.href);
+
+	/** Gehört sie zu seinem Abschnitt — auch wenn sie woanders liegt? */
+	const istAktiv = (ziel: Ziel): boolean =>
+		istDieseSeite(ziel) || ziel.gehoertDazu.some((route) => trifft(page.url.pathname, route));
+
+	/*
+	 * **Zwei Werte, weil es zwei Aussagen sind.** `aria-current="page"` heisst
+	 * „das hier ist die angezeigte Seite" — auf /aufgabe wäre das über den
+	 * Eintrag `Aufgaben` eine Falschaussage, die angezeigte Seite ist eine
+	 * andere. `aria-current="true"` heisst „das hier ist der laufende Eintrag"
+	 * und ist genau die schwächere Aussage, die dort stimmt.
+	 *
+	 * Sichtbar sind beide Zustände derselbe: die Markierung sagt, wo man ist,
+	 * und für das Auge ist „auf dieser Seite" und „in diesem Abschnitt" hier
+	 * dasselbe. Ein dritter Zustand wäre eine Unterscheidung ohne Handlung.
+	 */
+	const aktivMarke = (ziel: Ziel): 'page' | 'true' | undefined => {
+		if (istDieseSeite(ziel)) return 'page';
+		return istAktiv(ziel) ? 'true' : undefined;
 	};
 </script>
 
@@ -43,9 +86,9 @@
 			<li class="nav-bar__eintrag">
 				<a
 					class="nav-bar__ziel"
-					class:nav-bar__ziel--aktiv={istAktiv(ziel.href)}
+					class:nav-bar__ziel--aktiv={istAktiv(ziel)}
 					href={ziel.href}
-					aria-current={istAktiv(ziel.href) ? 'page' : undefined}
+					aria-current={aktivMarke(ziel)}
 				>
 					{ziel.beschriftung}
 				</a>

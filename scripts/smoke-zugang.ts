@@ -178,7 +178,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 493;
+const ERWARTETE_BEHAUPTUNGEN = 495;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -5636,6 +5636,82 @@ try {
 		'die Seitenform liegt an einer Stelle — keine Kopie je Seite',
 		fehlendeTeile(formTeile).length === 0,
 		`verletzt: ${fehlendeTeile(formTeile).join(' | ')}`
+	);
+
+	// -----------------------------------------------------------------------
+	// Jede gerenderte Route gehört zu einem Eintrag der Navigationsleiste
+	// -----------------------------------------------------------------------
+	/*
+	 * Eintrag 28 der zurückgestellten Arbeit, gelöst am 2026-08-29: /aufgabe,
+	 * /monatsplan und /verwaltung gehören zu einem Ziel, ohne unter dessen Pfad
+	 * zu liegen, und trugen darum **keine** Markierung.
+	 *
+	 * Diese Behauptung prüft nicht die Zuordnung — die ist eine
+	 * Gestaltungsentscheidung und steht begründet in der Komponente. Sie prüft
+	 * die **Vollständigkeit**: dass keine gerenderte Route durch das Raster
+	 * fällt. Genau das ist die Klasse des Fehlers, den es zu wiederholen gäbe —
+	 * Story 3.2 legt zwei neue Routen an, und ohne diese Zeile fiele erst in der
+	 * Handprüfung auf, dass die Leiste dort wieder schweigt.
+	 *
+	 * Die Routen kommen aus dem **Baum** und nicht aus einer Liste im Skript: ein
+	 * zweites Verzeichnis der Routen wäre die zweite Wahrheit, die still
+	 * veraltet. Gesucht wird nach +page.svelte, also nach dem, was jemand
+	 * wirklich zu sehen bekommt; /i/[token] ist ein +server.ts und rendert
+	 * nichts.
+	 */
+	const ROUTEN_WURZEL = join(wurzel, 'src', 'routes');
+	const gerenderteRouten = baumdateien(ROUTEN_WURZEL)
+		.filter((datei) => datei.endsWith('+page.svelte'))
+		.map((datei) => {
+			const rest = datei.slice(ROUTEN_WURZEL.length).replace(/\+page\.svelte$/, '');
+			const pfad = rest.replace(/\/$/, '');
+			return pfad === '' ? '/' : pfad;
+		})
+		.sort();
+
+	const navCode = readFileSync(join(wurzel, 'src', 'lib', 'components', 'NavBar.svelte'), 'utf8');
+	/*
+	 * Gelesen wird der **Rumpf des ziele-Arrays** und nicht die ganze Datei: der
+	 * Docblock darüber nennt /aufgabe, /monatsplan und /verwaltung wörtlich, und
+	 * eine Suche über den Rohtext erfüllte sich an der eigenen Begründung.
+	 */
+	const zieleVon = navCode.indexOf('const ziele = [');
+	const zieleBis = zieleVon < 0 ? -1 : navCode.indexOf('];', zieleVon);
+	const zieleRumpf = zieleVon < 0 || zieleBis < 0 ? '' : navCode.slice(zieleVon, zieleBis);
+	const genannteRouten = [...zieleRumpf.matchAll(/'(\/[^']*)'/g)].map((treffer) => treffer[1]);
+
+	const navTeile = [
+		['der Rumpf des ziele-Arrays ist geschnitten', zieleRumpf !== ''],
+		['die Leiste kennt vier Ziele', (zieleRumpf.match(/beschriftung:/g) ?? []).length === 4],
+		...gerenderteRouten.map(
+			(route) => [`${route} gehört zu einem Eintrag`, genannteRouten.includes(route)] as const
+		),
+	] as const;
+	pruefen(
+		'jede gerenderte Route steht in der Navigationsleiste — als Ziel oder als zugehörig',
+		fehlendeTeile(navTeile).length === 0,
+		`verletzt: ${fehlendeTeile(navTeile).join(', ')} — gefunden im Baum: ${gerenderteRouten.join(', ')}, genannt: ${genannteRouten.join(', ')}`
+	);
+
+	/*
+	 * Und die zwei Aussagen, die aria-current trägt. `page` heisst „das hier ist
+	 * die angezeigte Seite", `true` heisst „das hier ist der laufende Eintrag" —
+	 * auf /aufgabe wäre ein `page` am Eintrag `Aufgaben` eine Falschaussage.
+	 * Ohne diese Zeile bliebe die Prüfliste grün, wenn jemand beide Fälle auf
+	 * `page` zusammenzöge, und die Unterscheidung wäre still weg.
+	 */
+	const ariaTeile = [
+		[
+			'die Marke kommt aus einer Funktion und nicht aus einem Ausdruck im Markup',
+			/aria-current=\{aktivMarke\(ziel\)\}/.test(navCode),
+		],
+		['die eigene Seite trägt page', /return 'page';/.test(navCode)],
+		['der Abschnitt trägt true', /\? 'true' : undefined/.test(navCode)],
+	] as const;
+	pruefen(
+		'aria-current unterscheidet die angezeigte Seite vom laufenden Abschnitt',
+		fehlendeTeile(ariaTeile).length === 0,
+		`fehlt: ${fehlendeTeile(ariaTeile).join(', ')}`
 	);
 
 	/*
