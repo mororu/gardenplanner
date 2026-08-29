@@ -1,3 +1,5 @@
+import { unsichtbarEntfernen } from './unsichtbar.ts';
+
 /*
  * Was eine Aufgabenzeile ist — **die eine Stelle**, an der das steht.
  *
@@ -25,34 +27,21 @@
  * (scripts/smoke-zugang.ts tut genau das).
  */
 
-/**
- * Nullbreiten-Zeichen. Sie sind unsichtbar, haben keine Breite und `trim()`
- * hält sie **nicht** für Leerraum.
+/*
+ * Welche Zeichen unsichtbar sind, steht seit dem 2026-08-29 in
+ * ./unsichtbar.ts und nicht mehr hier.
  *
- * Ohne dieses Aussieben besteht ein Aufgabentext aus reinen Nullbreiten-Zeichen
- * jede Prüfung und legt eine Zeile an, die im Pool als leere Zeile mit einem
- * Kästchen daneben erscheint — ohne Aussage, was zu tun ist, und ohne
- * Bearbeiten-Aktion, die sie richtigstellen könnte. Abhaken ist dann das
- * Einzige, was bleibt.
+ * Bis dahin trug dieses Modul eine eigene Konstante NULLBREITE, wortgleich mit
+ * der in ./mitgliedsname.ts, und die Verdopplung war begründet: es geht hier um
+ * einen Aufgabentext und dort um einen Namen. Für **diese** Zeichenklasse trägt
+ * das nicht — welche Zeichen keine Breite haben, ist eine Aussage über Unicode
+ * und keine über Aufgaben. Die Einträge 23 und 24 der zurückgestellten Arbeit
+ * haben über zwei Stories hinweg beide dasselbe verlangt: „gehört an beide
+ * Stellen zugleich". Jetzt ist das keine Zusage mehr, sondern der Bau.
  *
- * Wortgleich mit NULLBREITE in ./mitgliedsname.ts, und diese Verdopplung
- * bleibt: dort geht es um einen Mitgliedsnamen, hier um einen Aufgabentext. Ein
- * gemeinsames Modul für beide hiesse, dass eine Änderung an der einen Seite
- * still die andere trifft.
- *
- * U+200B ZERO WIDTH SPACE, U+200C ZERO WIDTH NON-JOINER,
- * U+200D ZERO WIDTH JOINER, U+2060 WORD JOINER, U+FEFF ZERO WIDTH NO-BREAK
- * SPACE (die Form, in der eine Byte-Order-Mark beim Einfügen aus einer Datei
- * mitkommt).
- *
- * Das `g`-Flag ist Pflicht, nicht Zierat: ohne es ersetzte `replace` nur das
- * **erste** Nullbreiten-Zeichen einer Zeile. Statthaft ist es, weil
- * `String.prototype.replace` den `lastIndex` eines globalen Regex vor jedem
- * Lauf selbst auf 0 zurücksetzt — die geteilte Konstante trägt also keinen
- * Zustand von Aufruf zu Aufruf mit, was bei zwanzig bis vierzig Zeilen in einer
- * Schleife kein gedachter Fall wäre.
+ * Was hier bleibt, sind die Regeln, die wirklich diesem Modul gehören: die zwei
+ * Grenzen darunter und die Reihenfolge der Faltung.
  */
-export const NULLBREITE = /[\u200B-\u200D\u2060\uFEFF]/g;
 
 /**
  * Die Längengrenze eines Aufgabentexts, in **Codepoints**, serverseitig
@@ -103,7 +92,7 @@ export const PLAN_HOECHSTZAHL = 100;
  * Faltet einen Aufgabentext auf die Form, in der er in die Datenbank geht.
  *
  * Dieselbe Kette und dieselbe Reihenfolge wie namePruefen in
- * ./mitgliedsname.ts, mit Absicht: erst die Nullbreiten-Zeichen weg, dann
+ * ./mitgliedsname.ts, mit Absicht: erst die unsichtbaren Zeichen weg, dann
  * Leerraum zusammenziehen, dann trimmen.
  * Umgekehrt bliebe `\u200B \u200B` nach dem Trimmen ein nichtleerer „Text".
  *
@@ -116,7 +105,7 @@ export const PLAN_HOECHSTZAHL = 100;
  * Zeilen im Stapel.
  */
 export function aufgabentextFalten(eingabe: string): string {
-	return eingabe.replace(NULLBREITE, '').replace(/\s+/g, ' ').trim();
+	return unsichtbarEntfernen(eingabe).replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -128,7 +117,7 @@ export function aufgabentextFalten(eingabe: string): string {
  * hoffnungslos zu lange Aufgabe.
  *
  * Leere Zeilen fallen weg, und dazu zählt auch eine aus reinem Leerraum oder
- * reinen Nullbreiten-Zeichen: wer einen Plan aus einer Notiz einfügt, hat
+ * reinen unsichtbaren Zeichen: wer einen Plan aus einer Notiz einfügt, hat
  * Absätze dazwischen, und die sind keine Aufgaben.
  *
  * **Nicht entdoppelt.** Zwei Mal `Tunnel lüften` sind zwei Aufgaben — es gibt

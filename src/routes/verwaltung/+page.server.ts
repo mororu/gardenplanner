@@ -41,11 +41,11 @@ import { EIGENER_ZUGANG_GESCHUETZT, MITGLIED_NICHT_ANSPRECHBAR } from '../../lib
 /*
  * Die Namensregel steht in ../../lib/mitgliedsname.ts und **nicht** hier.
  *
- * Bis Story 3.0.1 standen NAME_FEHLT, NAME_HOECHSTLAENGE, NAME_ZU_LANG,
- * NULLBREITE und namePruefen an dieser Stelle, mit der Begründung „eine
+ * Bis Story 3.0.1 standen NAME_FEHLT, NAME_HOECHSTLAENGE, NAME_ZU_LANG, das
+ * Zeichensieb und namePruefen an dieser Stelle, mit der Begründung „eine
  * Wurfstelle". Seither sind es drei Leser derselben Regel: die zwei actions
  * dieser Datei und scripts/create-admin.ts — und das Skript **war** die
- * auseinandergelaufene Kopie, die einen Namen aus reinen Nullbreiten-Zeichen
+ * auseinandergelaufene Kopie, die einen Namen aus reinen unsichtbaren Zeichen
  * durchliess. Ausgelagert, nicht neu gefasst: beide Sätze und die 80 sind
  * wortgleich mitgewandert.
  */

@@ -1384,6 +1384,17 @@ Der Grund für all das ist gemessen. Die Tabelle nennt nur Mutationen, die
 | der Zeilenbezug am Satz des abgewiesenen Besetzens entfernt       | Story 3.1 (Review)   | `smoke:http`, die Zählung über die Live-Regionen des abgewiesenen Dienstplan-Dokuments                                                                                                                                                 |
 | die Auswahl auch ins Dokument ohne Adminrechte gegeben            | Story 3.1 (Review)   | `smoke:http`, `ein besetzter Plan zeigt dem Mitglied den Namen, aber nie die Auswahl` — vorher am **leeren** Plan gemessen, auf dem ohnehin kein Name stand                                                                            |
 | nur die Fenstergrenze an heute statt am Montag gerechnet          | Story 3.1 (Review)   | `smoke`, `vom Montag derselben Woche aus gefragt kommt dieselbe Folge` — diese Nachbarin der benannten Mutation kam vorher durch                                                                                                       |
+| die Prüfung des Fensters aus der action `ablegen` genommen        | Eintrag 31           | `smoke`, sechs Zeilen über die zwei vertippten Jahre                                                                                                                                                                                   |
+| `FRIST_FENSTER_TAGE` von 365 auf 366 verschoben                   | Eintrag 31           | `smoke`, sechs Zeilen: die Konstante selbst, beide Fenstergrenzen, der Schalttag und die zwei Grenztage                                                                                                                                |
+| das Fenster als Kalenderjahr statt in Tagen gerechnet             | Eintrag 31           | `smoke`, `über einen Schalttag hinweg zählt das Fenster Tage und keine Jahre` — die anderen fünf Zeilen bleiben grün, weil 2026 und 2027 keine Schaltjahre sind                                                                        |
+| `min` und `max` vom Datumsfeld genommen                           | Eintrag 31           | `smoke:http`, drei Zeilen am ausgelieferten Feld                                                                                                                                                                                       |
+| der Satz zurück auf `seit N Wochen offen`                         | Eintrag 39           | `smoke`, der Satz im Markup; `smoke:http`, der ausgelieferte Absatz und die Suche nach dem alten Wortlaut                                                                                                                              |
+| `/verwaltung` aus der Zuordnung der Navigationsleiste genommen    | Eintrag 28           | `smoke`, `jede gerenderte Route steht in der Navigationsleiste` — die Meldung nennt die fehlende Route                                                                                                                                 |
+| beide `aria-current`-Fälle auf `page` zusammengezogen             | Eintrag 28           | `smoke`, `aria-current unterscheidet die angezeigte Seite vom laufenden Abschnitt`                                                                                                                                                     |
+| `/aufgabe` aus der Zuordnung genommen                             | Eintrag 28           | `smoke:http`, zwei Zeilen am ausgelieferten Dokument von `/aufgabe`                                                                                                                                                                    |
+| `U+200D` wieder bedingungslos ausgesiebt                          | Einträge 23, 24      | `smoke`, sechs Zeilen — die drei Emoji-Folgen, je an beiden Lesern                                                                                                                                                                     |
+| das Sieb zurück auf die fünf Nullbreiten-Zeichen                  | Einträge 23, 24      | `smoke`, zwölf Zeilen — sechs Zeichen, je an beiden Lesern                                                                                                                                                                             |
+| eine eigene Zeichenklasse in `mitgliedsname.ts` daneben           | Einträge 23, 24      | `smoke`, `die Liste der unsichtbaren Zeichen steht genau einmal` — die Meldung nennt beide Fundstellen                                                                                                                                 |
 
 `\|\| !mitglied.isActive` aus dem **Wächter** entfernt steht bewusst **nicht** in
 der Tabelle: diese Mutation war schon vor Iteration 2 rot.
@@ -1627,6 +1638,39 @@ Es gibt kein Passwort, kein Login-Formular und keinen Registrierungsvorgang.
   `<meta name="referrer" content="no-referrer">`, und die Seite verweist auf
   nichts von draussen.
 
+## Die unsichtbaren Zeichen
+
+Was ein Aufgabentext und was ein Mitgliedsname ist, entscheiden zwei getrennte
+Module — dort gehören die Längengrenzen, die Sätze und die Frage hin, ob geprüft
+oder nur gefaltet wird. **Welche Zeichen unsichtbar sind**, steht seit dem
+2026-08-29 in `src/lib/unsichtbar.ts` und gilt für beide: das ist eine Aussage
+über Unicode und keine über Aufgaben oder Namen.
+
+- **Ausgesiebt wird mehr als die fünf Nullbreiten-Zeichen.** Dazu kommen
+  U+00AD (Trennvorschlag), U+180E, die Bidi-Steuerzeichen U+202A–U+202E und
+  U+2066–U+2069 — die nicht nur unsichtbar sind, sondern die Anzeigerichtung
+  umdrehen —, U+2800 (Braille-Leerzeichen: ein **sichtbares** Zeichen ohne
+  Punkte, das `trim()` nicht anrührt) und die zwei Hangul-Füller U+3164 und
+  U+FFA0. Ohne sie bestand ein Text aus lauter solchen Zeichen jede Prüfung: die
+  Aufgabe erschien im Pool als leere Zeile mit einem Kästchen, und es gibt keine
+  Löschen- und keine Bearbeiten-Aktion, die das richtigstellte.
+- **U+200D fällt nur ausserhalb einer Emoji-Folge.** Der Verbinder zwischen zwei
+  Piktogrammen ist kein unsichtbares Zeichen, sondern der Klebstoff eines
+  einzigen Glyphen: `👨‍🌾` ist U+1F468 U+200D U+1F33E, und bedingungsloses
+  Aussieben machte daraus zwei Figuren. Die Hautton-Modifikatoren und der
+  Variationsselektor stehen bei `👩🏽‍🌾` und `❤️‍🔥` zwischen Piktogramm und
+  Verbinder und sind selbst nicht `Extended_Pictographic` — die Ausnahme nennt
+  sie darum ausdrücklich.
+- **Gemessen an beiden Lesern zugleich.** Jede der fünfzehn Zeichenproben in
+  `smoke` läuft durch `aufgabentextFalten` **und** durch `namePruefen`. Eine
+  Probe an nur einem der beiden bliebe grün, wenn das geteilte Modul wieder
+  auseinanderfiele; zusätzlich behauptet `smoke`, dass die Zeichenliste unter
+  `src/` genau einmal steht.
+- **Die Reihenfolge bleibt, wo sie hingehört.** Erst die unsichtbaren Zeichen
+  weg, dann `\s+` zu einem Leerzeichen, dann trimmen — umgekehrt bliebe
+  `\u200B \u200B` nach dem Trimmen ein nichtleerer Text. Die Reihenfolge steht in
+  den zwei Modulen, die falten, nicht im geteilten.
+
 ## Die Navigationsleiste
 
 Vier Ziele mit Wort statt Symbol: `Aufgaben`, `Dienstplan`, `Wissen`, `Mehr`.
@@ -1731,10 +1775,10 @@ Formularseite schliesst mit ihrer Aktion, und die Systemgeste des Browsers
 genügt.
 
 - **Was geprüft wird, wird serverseitig geprüft**, in derselben Kette wie der
-  Mitgliedsname: Nullbreiten-Zeichen entfernen, jede Folge von Leerraum zu einem
+  Mitgliedsname: unsichtbare Zeichen entfernen, jede Folge von Leerraum zu einem
   Leerzeichen falten, trimmen, leer abweisen, Codepoints zählen. Gespeichert wird
   die **gefaltete** Fassung — aus `  Beet   25   jäten  ` wird `Beet 25 jäten`.
-  Ein leeres Feld, reiner Leerraum, reine Nullbreiten-Zeichen, ein fehlendes Feld
+  Ein leeres Feld, reiner Leerraum, reine unsichtbare Zeichen, ein fehlendes Feld
   und ein Datei-Upload statt eines Textes fallen alle auf denselben Satz und
   legen **nichts** an. Das `maxlength` am Feld ist die Bequemlichkeit, die
   Prüfung in der action die Regel: ein POST braucht kein Feld.
@@ -1815,7 +1859,7 @@ Danach `303` auf `/` mit der Meldung im Perfekt desselben Verbs:
   `zeilenErkennen`, `aufgabentextFalten` und die `200` — gelesen vom Zähler im
   Browser **und** von beiden actions. Zwei Fassungen derselben Regel liefen
   auseinander, und der Knopf `24 Aufgaben ablegen` legte dann 23 an. Die
-  Faltung ist dieselbe wie auf `/aufgabe`: Nullbreiten-Zeichen weg, `\s+` zu
+  Faltung ist dieselbe wie auf `/aufgabe`: unsichtbare Zeichen weg, `\s+` zu
   einem Leerzeichen, trimmen, leere Zeilen fallen weg.
 - **Ein `due_at` für den ganzen Stapel**, nicht eines pro Zeile — ein Monatsplan
   hat ein Fälligkeitsdatum. `Fällig bis` ist **Pflicht**: eine Planaufgabe ohne
@@ -2040,7 +2084,7 @@ Nicht-Admins fehlt der Knopf, ein POST braucht aber keinen.
   dabei durch **dieselbe** Regel wie unter `/verwaltung`: sie steht seit Story
   3.0.1 in `src/lib/mitgliedsname.ts` und hat drei Leser statt dreier Kopien —
   das Skript **war** die auseinandergelaufene Kopie und liess einen Namen aus
-  reinen Nullbreiten-Zeichen durch, den die Oberfläche seit Story 1.3 abwies.
+  reinen unsichtbaren Zeichen durch, den die Oberfläche seit Story 1.3 abwies.
 - **Ein Admin kann sich nicht selbst widerrufen** und den eigenen Link nicht neu
   ausstellen — sonst bliebe die Verwaltung ohne Zugang. **Umbenennen** darf er
   sich sehr wohl: ein Name ist kein Zugang. Geprüft wird beides in der action und
@@ -2102,7 +2146,7 @@ nodelay`); im Anwendungscode gibt es bewusst keine. Siehe
   ist Absicht — sie ist der Grund, warum „Zugang beenden" etwas bedeutet;
   fehlendes Undo und fehlende Historie sind der bewusst nicht gebaute Rest.
   Serverseitig abgewehrt sind nur die Fälle, in denen gar kein lesbarer Name
-  entstünde: leere Eingabe, Nullbreiten-Zeichen und mehr als 80 Zeichen.
+  entstünde: leere Eingabe, unsichtbare Zeichen und mehr als 80 Zeichen.
 - **Niemand protokolliert, wer wen widerrufen hat.** Es gibt kein Audit-Log,
   keine Spalte für den Handelnden und keine Zeitmarke des Widerrufs — nur
   `is_active = 0`. Bei einer Gemeinschaft mit genau einer Adminperson ist die

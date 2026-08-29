@@ -146,7 +146,7 @@ import {
  * Funktion selbst. Textlich geprüft wird daneben, dass Zähler und action
  * wirklich diese Funktion rufen.
  */
-import { zeilenErkennen } from '../src/lib/aufgabentext.ts';
+import { aufgabentextFalten, zeilenErkennen } from '../src/lib/aufgabentext.ts';
 /*
  * Die Namensregel kommt als **Wert** herein und nicht als abgeschriebener Satz.
  *
@@ -157,7 +157,12 @@ import { zeilenErkennen } from '../src/lib/aufgabentext.ts';
  * drei Wurfstellen sich vom Modul löste. Die Grenze steht aus demselben Grund
  * nicht als 81 im Skript: sie wird aus NAME_HOECHSTLAENGE gerechnet.
  */
-import { NAME_FEHLT, NAME_HOECHSTLAENGE, NAME_ZU_LANG } from '../src/lib/mitgliedsname.ts';
+import {
+	NAME_FEHLT,
+	NAME_HOECHSTLAENGE,
+	NAME_ZU_LANG,
+	namePruefen,
+} from '../src/lib/mitgliedsname.ts';
 import {
 	AUFGABE_NICHT_ANSPRECHBAR,
 	DATUM_FEHLT,
@@ -178,7 +183,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 495;
+const ERWARTETE_BEHAUPTUNGEN = 529;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -5368,6 +5373,93 @@ try {
 	);
 
 	// -----------------------------------------------------------------------
+	// Die unsichtbaren Zeichen — Einträge 23 und 24, gelöst am 2026-08-29
+	// -----------------------------------------------------------------------
+	/*
+	 * Zwei Lücken derselben Kette, über zwei Stories hinweg zurückgestellt und
+	 * beide mit derselben Auflage: „gehört an beide Stellen zugleich."
+	 *
+	 * Eintrag 23: das Sieb entfernte U+200D bedingungslos und zerlegte damit jede
+	 * Emoji-ZWJ-Folge — `👨‍🌾` wurde zu zwei Figuren. Die Zusage „unsichtbare
+	 * Zeichen weg" traf ein sichtbares.
+	 * Eintrag 24: ausser den fünf Nullbreiten-Zeichen kam **kein** weiteres
+	 * unsichtbares Zeichen durch das Sieb.
+	 *
+	 * Gemessen wird an **beiden** Lesern zugleich: aufgabentextFalten und
+	 * namePruefen. Das ist die eigentliche Zusage der zwei Einträge — eine Probe
+	 * an nur einem der beiden bliebe grün, wenn das geteilte Modul wieder
+	 * auseinanderfiele.
+	 *
+	 * Die Zeichen stehen als Escape-Folgen und nicht literal: ein unsichtbares
+	 * Zeichen im Quelltext ist genau das Problem, um das es hier geht.
+	 */
+	const zeichenProben = [
+		['U+00AD SOFT HYPHEN', 'Sil\u00ADbe', 'Silbe'],
+		['U+180E MONGOLIAN VOWEL SEPARATOR', 'Beet\u180E25', 'Beet25'],
+		['U+200B ZERO WIDTH SPACE', 'Beet\u200B25', 'Beet25'],
+		['U+200C ZERO WIDTH NON-JOINER', 'Beet\u200C25', 'Beet25'],
+		['U+200D allein zwischen Buchstaben', 'Beet\u200D25', 'Beet25'],
+		['U+2060 WORD JOINER', 'Beet\u206025', 'Beet25'],
+		['U+202E RIGHT-TO-LEFT OVERRIDE', '\u202EBeet 25', 'Beet 25'],
+		['U+2066/U+2069 die Bidi-Isolate', '\u2066Beet 25\u2069', 'Beet 25'],
+		['U+2800 BRAILLE PATTERN BLANK', 'Beet\u280025', 'Beet25'],
+		['U+3164 HANGUL FILLER', 'Beet\u316425', 'Beet25'],
+		['U+FFA0 HALFWIDTH HANGUL FILLER', 'Beet\uFFA025', 'Beet25'],
+		['U+FEFF die Byte-Order-Mark', '\uFEFFBeet 25', 'Beet 25'],
+		// Und die andere Richtung: ein Verbinder **innerhalb** einer Emoji-Folge
+		// bleibt stehen, sonst zerfiele ein Glyph in zwei.
+		['die ZWJ-Folge 👨‍🌾', '\u{1F468}\u200D\u{1F33E} giessen', '\u{1F468}\u200D\u{1F33E} giessen'],
+		[
+			'dieselbe Folge mit Hautton',
+			'\u{1F469}\u{1F3FD}\u200D\u{1F33E} giessen',
+			'\u{1F469}\u{1F3FD}\u200D\u{1F33E} giessen',
+		],
+		[
+			'und eine mit Variationsselektor',
+			'\u2764\uFE0F\u200D\u{1F525} Tunnel',
+			'\u2764\uFE0F\u200D\u{1F525} Tunnel',
+		],
+	] as const;
+	for (const [wie, eingabe, soll] of zeichenProben) {
+		pruefenGleich(`aufgabentextFalten: ${wie}`, aufgabentextFalten(eingabe), soll);
+		const geprueft = namePruefen(eingabe);
+		pruefenGleich(
+			`namePruefen: ${wie}`,
+			'name' in geprueft ? geprueft.name : `abgewiesen: ${geprueft.fehler}`,
+			soll
+		);
+	}
+
+	/*
+	 * Und der Fall, um den es beiden Einträgen wirklich ging: ein Text, der **nur**
+	 * aus solchen Zeichen besteht, legt nichts an. Er sähe in der Liste aus wie
+	 * eine leere Zeile mit einem Kästchen daneben, und es gibt keine Löschen- und
+	 * keine Bearbeiten-Aktion, die ihn richtigstellte.
+	 *
+	 * U+2800 steht extra dabei: es ist ein **sichtbares** Zeichen ohne Punkte, und
+	 * `trim()` sieht es nicht als Leerraum. Genau daran fiel die alte Kette.
+	 */
+	const nurUnsichtbar = '\u00AD\u2800\u3164\u200B\uFEFF\u2060\u202A\u2066\u2069';
+	pruefenGleich(
+		'ein Text aus lauter unsichtbaren Zeichen faltet auf leer',
+		aufgabentextFalten(nurUnsichtbar),
+		''
+	);
+	pruefenGleich(
+		'zeilenErkennen wirft eine solche Zeile weg',
+		zeilenErkennen(`Beet 25 jäten\n${nurUnsichtbar}\nTunnel lüften`).length,
+		2
+	);
+	const nurUnsichtbarName = namePruefen(nurUnsichtbar);
+	pruefenGleich(
+		'und namePruefen weist einen solchen Namen ab',
+		'fehler' in nurUnsichtbarName
+			? nurUnsichtbarName.fehler
+			: `angenommen als ${nurUnsichtbarName.name}`,
+		NAME_FEHLT
+	);
+
+	// -----------------------------------------------------------------------
 	// Drei Behauptungen über den Baum
 	// -----------------------------------------------------------------------
 	/*
@@ -5636,6 +5728,31 @@ try {
 		'die Seitenform liegt an einer Stelle — keine Kopie je Seite',
 		fehlendeTeile(formTeile).length === 0,
 		`verletzt: ${fehlendeTeile(formTeile).join(' | ')}`
+	);
+
+	/*
+	 * Die Zeichenklasse steht **genau einmal** im Baum. Ohne diese Zeile könnte
+	 * eine der zwei Regeln sich wieder eine eigene Kopie zulegen, und die Proben
+	 * oben blieben grün, bis jemand die eine Kopie anfasst und die andere nicht —
+	 * genau die Drift, gegen die die Einträge 23 und 24 zwei Stories lang
+	 * anschrieben.
+	 */
+	const ZEICHEN_MODUL = join('src', 'lib', 'unsichtbar.ts');
+	/*
+	 * Gesucht wird **nur unter src/**, anders als bei der Überfälligkeitsschwelle
+	 * weiter unten. Der Unterschied ist keine Nachlässigkeit: dieses Skript trägt
+	 * dieselben Escape-Folgen als **Eingaben** seiner Proben oben, und das ist
+	 * genau richtig so. Eine Suche über scripts/ fände die Proben und wäre damit
+	 * eine Behauptung, die sich an der eigenen Vorbereitung stösst.
+	 */
+	const zeichenTraeger = baum
+		.filter((datei) => datei.pfad.startsWith(join('src', '')))
+		.filter((datei) => /\\u200B|\\u2800|\\u3164/.test(datei.text))
+		.map((datei) => datei.pfad);
+	pruefen(
+		'die Liste der unsichtbaren Zeichen steht genau einmal — im geteilten Modul',
+		zeichenTraeger.length === 1 && zeichenTraeger[0].endsWith(ZEICHEN_MODUL),
+		`gefunden in: ${zeichenTraeger.join(', ') || 'nirgends'}`
 	);
 
 	// -----------------------------------------------------------------------
