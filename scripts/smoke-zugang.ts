@@ -82,13 +82,31 @@ import {
 } from '../src/lib/server/auth.ts';
 import { PLAN_HOECHSTZAHL } from '../src/lib/aufgabentext.ts';
 import { datenbank, datenschichtStarten } from '../src/lib/server/db/index.ts';
-import { members, ohneTokenHash, tasks } from '../src/lib/server/db/schema.ts';
+import {
+	DIENSTART_TRAENKEN,
+	dutyWeeks,
+	members,
+	ohneTokenHash,
+	tasks,
+} from '../src/lib/server/db/schema.ts';
 import type { AngemeldetesMitglied, NewTask } from '../src/lib/server/db/schema.ts';
 import {
 	mitgliedAnlegen,
+	mitgliedDeaktivieren,
 	mitgliederZaehlen,
 	mitgliedUmbenennen,
 } from '../src/lib/server/db/queries/members.ts';
+/*
+ * Die Dienstplan-Schicht aus Story 3.1. Sie kommt als **Wert** herein und wird
+ * ausgeführt, nicht beschrieben: dass eine beendete Person als unbesetzt
+ * erscheint und ihr Datensatz trotzdem stehenbleibt, ist keine Zusage der
+ * Oberfläche, sondern eine der Abfrage.
+ */
+import {
+	dienstwocheBesetzen,
+	dienstwochenLesen,
+	eigeneDienstwoche,
+} from '../src/lib/server/db/queries/duty-weeks.ts';
 import {
 	aufgabenStapelAnlegen,
 	offeneAufgabenAuflisten,
@@ -104,11 +122,18 @@ import { tokenErzeugen, tokenHashen } from '../src/lib/server/token.ts';
  * Zusage.
  */
 import {
+	isoWocheVon,
+	istWoche,
 	monatsendeAlsFeldwert,
+	montagDerWoche,
 	tagesendeInUnixSekunden,
 	UEBERFAELLIG_SEKUNDEN,
 	WOCHE_SEKUNDEN,
 	wochenOffenSeit,
+	wochendatum,
+	wochenfenster,
+	wochenImJahr,
+	wochenSchluessel,
 } from '../src/lib/zeit.ts';
 /*
  * zeilenErkennen kommt als **Wert** herein und nicht nur als Text: die Zahl
@@ -137,6 +162,7 @@ import {
 	MITGLIED_NICHT_ANSPRECHBAR,
 	NICHT_GEFUNDEN,
 	UNERWARTETER_FEHLER,
+	WOCHE_NICHT_ANSPRECHBAR,
 } from '../src/lib/texte.ts';
 import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
 
@@ -147,7 +173,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 417;
+const ERWARTETE_BEHAUPTUNGEN = 473;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -567,6 +593,22 @@ async function startseiteLaden(): Promise<StartseitenModul> {
 	startseitenModul ??=
 		(await import('../src/routes/+page.server.ts')) as unknown as StartseitenModul;
 	return startseitenModul;
+}
+
+/*
+ * Der Dienstplan aus Story 3.1. Er hat beides: eine load, die jedes aktive
+ * Mitglied lesen darf, und **eine** action hinter der Adminschranke.
+ */
+type DienstplanModul = {
+	load: (ereignis: ServerLoadEvent) => unknown;
+	actions: Record<string, Aktion>;
+};
+let dienstplanModul: DienstplanModul | null = null;
+
+async function dienstplanLaden(): Promise<DienstplanModul> {
+	dienstplanModul ??=
+		(await import('../src/routes/dienstplan/+page.server.ts')) as unknown as DienstplanModul;
+	return dienstplanModul;
 }
 
 /*
@@ -2343,15 +2385,24 @@ try {
 	const startseite = await startseiteLaden();
 
 	/*
-	 * Die load von / an einer Adresse.
+	 * Die load von / an einer Adresse, als eine bestimmte Person.
 	 *
 	 * Seit Story 1.5 nimmt sie ein Ereignis, und der Pfad trägt eine Aussage:
-	 * `?abgelegt` ist die Bestätigung, die eine Weiterleitung überlebt hat. Das
-	 * Ereignis trägt **kein** locals.mitglied — läse die load je Identität, bräche
-	 * sie hier statt still eine Zeile zu personalisieren.
+	 * `?abgelegt` ist die Bestätigung, die eine Weiterleitung überlebt hat.
+	 *
+	 * **Seit Story 3.1 trägt das Ereignis ein locals.mitglied.** Bis dahin trug
+	 * es ausdrücklich keines, und die Behauptung darunter belegte, dass die load
+	 * es auch nicht anfasst. Der Diensthinweis ist personenbezogen und hat das
+	 * gebrochen; was an seine Stelle getreten ist, steht ausführlich bei
+	 * `dieselbeListeFuerAlle` weiter unten — die Aufgabenliste bleibt gemessen
+	 * für alle dieselbe (AD-2), und `cookies` bleibt gemessen unberührt.
+	 *
+	 * Voreingestellt ist **Nico ohne Adminrechte**: die Startseite gehört allen,
+	 * und eine Prüfliste, die sie gewohnheitsmässig als Adminperson lädt, prüfte
+	 * den häufigen Fall nie.
 	 */
-	const startseiteLadenAn = (pfad: string) =>
-		routenausgang(() => startseite.load(new Ereignis(pfad).alsServerLoadEvent()));
+	const startseiteLadenAn = (pfad: string, wer: AngemeldetesMitglied = nicoLocals) =>
+		routenausgang(() => startseite.load(alsMitglied(pfad, wer).alsServerLoadEvent()));
 
 	/*
 	 * Drei Aufgaben, ausdrücklich **nicht** in der Reihenfolge ihres created_at
@@ -2377,24 +2428,33 @@ try {
 		`${frueh} | ${mittel} | ${spaet}`
 	);
 	/*
-	 * Ausgeführt statt behauptet: das Ereignis wirft, sobald jemand locals oder
-	 * cookies **anfasst** — schon das Destrukturieren von `{ locals, url }` löst
-	 * aus. Bis Story 1.5 trug die Signatur diesen Beleg (die load nahm gar kein
-	 * Ereignis); seit sie eines nimmt, trägt ihn diese Zeile.
+	 * **Die verhandelte Zusage, in zwei Hälften — und beide ausgeführt.**
 	 *
-	 * Die Zusage ist keine Kosmetik: läse diese load die Identität, entstünde ein
-	 * Weg, auf dem die Liste für zwei Personen verschieden aussähe — und der
-	 * namenlose Pool ist genau das Gegenteil (AD-2).
+	 * Bis Story 3.1 stand hier eine Behauptung: „die load von / liest aus dem
+	 * Ereignis nur die Adresse — weder locals noch Cookies". Sie war ausgeführt
+	 * und nicht behauptet — das Ereignis warf, sobald jemand eines der beiden
+	 * Felder **anfasste** —, und sie ist mit dem Diensthinweis unhaltbar
+	 * geworden: der ist personenbezogen, und die load liest locals.mitglied.
+	 *
+	 * Gestrichen ist sie deshalb **nicht**. Ihr Grund gilt weiter: läse die load
+	 * die Identität und richtete die **Liste** danach, entstünde ein Weg, auf dem
+	 * der Pool für zwei Personen verschieden aussähe — und der namenlose Pool ist
+	 * genau das Gegenteil (AD-2). Was bleibt, ist die schärfere Fassung:
+	 *
+	 *   1. `cookies` bleibt unberührt — dasselbe werfende Feld, eine Hälfte
+	 *      weniger;
+	 *   2. zwei Aufrufe mit **verschiedenen** locals.mitglied geben eine
+	 *      wortgleiche Aufgabenliste. Das ist mehr als die alte Behauptung sagte:
+	 *      sie schloss von „liest die Identität nicht" auf „kann nicht
+	 *      unterscheiden", diese misst das Ergebnis selbst.
 	 */
-	const abtasten = new Ereignis('/');
-	for (const feld of ['locals', 'cookies'] as const) {
-		Object.defineProperty(abtasten, feld, {
-			configurable: true,
-			get() {
-				throw new Error(`die load hat ${feld} gelesen`);
-			},
-		});
-	}
+	const abtasten = alsMitglied('/', nicoLocals);
+	Object.defineProperty(abtasten, 'cookies', {
+		configurable: true,
+		get() {
+			throw new Error('die load hat cookies gelesen');
+		},
+	});
 	let angefasst = '';
 	try {
 		startseite.load(abtasten.alsServerLoadEvent());
@@ -2402,9 +2462,22 @@ try {
 		angefasst = fehler instanceof Error ? fehler.message : String(fehler);
 	}
 	pruefen(
-		'die load von / liest aus dem Ereignis nur die Adresse — weder locals noch Cookies',
+		'die load von / fasst die Cookies nicht an — die Sitzung ist Sache des Wächters',
 		angefasst === '' && erstesLaden.art === 'wert',
 		angefasst === '' ? `Ausgang ${erstesLaden.art}` : angefasst
+	);
+
+	/*
+	 * Die zweite Hälfte. Sie steht hier und nicht erst im Dienstplan-Block,
+	 * obwohl sie dessen Zusage mitträgt: sie gehört zur load von /, und wer diese
+	 * Datei nach „AD-2" durchsieht, soll beide Hälften nebeneinander finden.
+	 */
+	const alsNico = wertVon(await startseiteLadenAn('/', nicoLocals));
+	const alsVera = wertVon(await startseiteLadenAn('/', veraLocals));
+	pruefen(
+		'zwei Personen bekommen von / dieselbe Aufgabenliste — der Pool bleibt namenlos',
+		JSON.stringify(alsNico.aufgaben) === JSON.stringify(alsVera.aufgaben),
+		`${JSON.stringify(alsNico.aufgaben).slice(0, 120)} gegen ${JSON.stringify(alsVera.aufgaben).slice(0, 120)}`
 	);
 	pruefen(
 		'die Seitendaten tragen weder completed_by noch completed_at',
@@ -4381,6 +4454,559 @@ try {
 		JSON.stringify(wertVon(ueberfaelligLaden)).slice(0, 160)
 	);
 
+	// =======================================================================
+	// /dienstplan und der Diensthinweis auf / — Story 3.1.
+	//
+	// Drei Schichten, jede eigens: die ISO-Wochenrechnung als reine Funktion,
+	// die Abfrageschicht gegen dieselbe Datenbank, und die zwei Routen darüber.
+	//
+	// Die Wochenrechnung steht zuerst und ohne Datenbank, weil alles darunter
+	// auf ihr steht: wäre sie am Jahreswechsel um eine Woche daneben, würden die
+	// Behauptungen über Besetzen und Diensthinweis **trotzdem grün** — sie
+	// besetzten und läsen dann eben einträchtig die falsche Woche. Ein
+	// Prüfblock, dessen Fehler sich selbst deckt, prüft nichts.
+	// =======================================================================
+	const dienstplan = await dienstplanLaden();
+
+	/*
+	 * Feste Zeitpunkte statt `Date.now()`.
+	 *
+	 * Die Wochenrechnung ist die eine Stelle dieses Projekts, an der ein Lauf am
+	 * falschen Tag ein anderes Ergebnis gäbe — und der interessante Fall, der
+	 * Jahreswechsel, tritt an genau vier Tagen im Jahr ein. Eine Prüfliste, die
+	 * ihn nur dann sieht, sieht ihn nie.
+	 *
+	 * Die Werte sind Mittagszeitpunkte in UTC: in Europe/Zurich ist das derselbe
+	 * Kalendertag, im Sommer wie im Winter, und die Zeile sagt damit genau das,
+	 * was sie behauptet.
+	 */
+	const mittagsAm = (iso: string) => Math.floor(Date.parse(`${iso}T12:00:00Z`) / 1000);
+
+	const wochenTeile = [
+		/*
+		 * Der Jahreswechsel, in beide Richtungen. ISO-Woche 1 ist die Woche mit
+		 * dem ersten Donnerstag; daraus folgen die zwei Fälle, an denen eine naive
+		 * Rechnung scheitert: ein Januartag, der noch zum Vorjahr zählt, und ein
+		 * Dezembertag, der schon zum Folgejahr zählt.
+		 */
+		[
+			'1.1.2027 (Freitag) gehört zur Woche 53 des ISO-Jahres 2026',
+			JSON.stringify(isoWocheVon(mittagsAm('2027-01-01'))) === '{"jahr":2026,"woche":53}',
+		],
+		[
+			'30.12.2019 (Montag) gehört schon zur Woche 1 von 2020',
+			JSON.stringify(isoWocheVon(mittagsAm('2019-12-30'))) === '{"jahr":2020,"woche":1}',
+		],
+		[
+			'1.1.2023 (Sonntag) gehört noch zur Woche 52 von 2022',
+			JSON.stringify(isoWocheVon(mittagsAm('2023-01-01'))) === '{"jahr":2022,"woche":52}',
+		],
+		/*
+		 * **Die Zone entscheidet, nicht UTC.** Montag 00:30 Ortszeit ist in UTC
+		 * noch Sonntag 22:30. Ohne Zonenrechnung zeigte der Diensthinweis in der
+		 * Nacht zum Montag noch die Woche davor — und niemand bemerkte es, weil
+		 * um halb eins nachts niemand den Dienstplan öffnet. Die Gegenprobe eine
+		 * Stunde davor gehört dazu: eine Rechnung, die **immer** die neue Woche
+		 * nennt, erfüllte die erste Zeile allein.
+		 */
+		[
+			'Montag 00:30 Ortszeit zählt schon zur neuen Woche',
+			isoWocheVon(Math.floor(Date.parse('2026-08-30T22:30:00Z') / 1000)).woche === 36,
+		],
+		[
+			'Sonntag 23:30 Ortszeit zählt noch zur alten — die Gegenprobe',
+			isoWocheVon(Math.floor(Date.parse('2026-08-30T21:30:00Z') / 1000)).woche === 35,
+		],
+		/* 2026 ist ein 53-Wochen-Jahr, 2025 keines. */
+		['2026 hat 53 Wochen', wochenImJahr(2026) === 53],
+		['2025 hat 52 — die Gegenprobe', wochenImJahr(2025) === 52],
+		/*
+		 * istWoche ist die Formschranke der action. Woche 53 gibt es in 2026 und
+		 * nicht in 2025; wer nur `woche <= 53` prüfte, liesse die zweite durch.
+		 */
+		['Woche 53/2026 gibt es', istWoche({ jahr: 2026, woche: 53 })],
+		['Woche 53/2025 gibt es nicht', !istWoche({ jahr: 2025, woche: 53 })],
+		['Woche 0 gibt es nirgends', !istWoche({ jahr: 2026, woche: 0 })],
+		/*
+		 * Die Faltung. Sie steht in zeit.ts, weil Server und Komponente denselben
+		 * Schlüssel bilden müssen — die abgewiesene Zeile reist als **eine** Zahl.
+		 */
+		[
+			'der Wochenschlüssel faltet Jahr und Woche',
+			wochenSchluessel({ jahr: 2026, woche: 36 }) === 202636,
+		],
+		[
+			'und er ist über den Jahreswechsel hinweg monoton',
+			wochenSchluessel({ jahr: 2026, woche: 53 }) < wochenSchluessel({ jahr: 2027, woche: 1 }),
+		],
+		[
+			'das Wochendatum nennt Montag und Sonntag',
+			wochendatum({ jahr: 2026, woche: 36 }) === '31. August bis 6. September',
+		],
+		[
+			'und es reicht über den Jahreswechsel',
+			wochendatum({ jahr: 2026, woche: 53 }) === '28. Dezember bis 3. Januar',
+		],
+	] as const;
+	pruefen(
+		'die ISO-Wochenrechnung hält am Jahreswechsel und an der Zonengrenze',
+		fehlendeTeile(wochenTeile).length === 0,
+		`falsch: ${fehlendeTeile(wochenTeile).join(', ')}`
+	);
+
+	/*
+	 * Das Fenster. Geprüft wird **die Form der Folge**, nicht eine feste Zahl:
+	 * drei Monate sind je nach Startpunkt 12 bis 14 Wochen, und eine
+	 * festgenagelte 13 hier wäre eine zweite Wahrheit über eine Rechnung, die
+	 * bewusst kalenderverankert ist.
+	 *
+	 * Der Startpunkt liegt im November, damit die Folge **über den Jahreswechsel**
+	 * läuft — dort scheitert eine Rechnung, die einfach die Wochennummer
+	 * hochzählt, statt in Tagen zu gehen.
+	 */
+	const fensterAm = mittagsAm('2026-11-15');
+	const fenster = wochenfenster(fensterAm);
+	/*
+	 * Die Montage in Tagen. Sie kommen aus montagDerWoche in zeit.ts und werden
+	 * hier **nicht** nachgerechnet: eine zweite Wochenrechnung im Prüfskript wäre
+	 * genau die zweite Wahrheit, gegen die das Modul steht — und sie könnte
+	 * denselben Fehler machen wie die geprüfte und ihn damit decken.
+	 */
+	const montage = fenster.map((eintrag) => montagDerWoche(eintrag) / TAG_SEKUNDEN);
+	const erster = montage[0] ?? 0;
+	const letzter = montage.at(-1) ?? 0;
+	const fensterTeile = [
+		[
+			'es beginnt mit der laufenden Woche',
+			wochenSchluessel(fenster[0] ?? { jahr: 0, woche: 0 }) ===
+				wochenSchluessel(isoWocheVon(fensterAm)),
+		],
+		['drei Monate ergeben 13 oder 14 Wochen', fenster.length >= 13 && fenster.length <= 14],
+		/*
+		 * **Keine Lücke und keine Dublette — die Zeile, die den Jahreswechsel
+		 * wirklich prüft.** Die Wochennummer springt dort von 53 auf 1; ein
+		 * Vergleich der Nummern fiele darauf herein, ein Vergleich der Montage in
+		 * Tagen nicht.
+		 */
+		[
+			'zwischen zwei aufeinanderfolgenden Wochen liegen genau sieben Tage',
+			montage.every((tag, i) => i === 0 || tag - (montage[i - 1] ?? tag) === 7),
+		],
+		['es läuft über den Jahreswechsel', fenster.some((eintrag) => eintrag.jahr === 2027)],
+		['und keine Woche liegt mehr als 14 Wochen voraus', (letzter - erster) / 7 <= 14],
+	] as const;
+	pruefen(
+		'das Wochenfenster ist lückenlos und reicht über den Jahreswechsel',
+		fehlendeTeile(fensterTeile).length === 0,
+		`falsch: ${fehlendeTeile(fensterTeile).join(', ')} (${fenster.length} Wochen)`
+	);
+
+	// -----------------------------------------------------------------------
+	// Die Abfrageschicht: besetzen, ersetzen, und was ein beendeter Zugang tut
+	// -----------------------------------------------------------------------
+	/*
+	 * Gesät wird **relativ zum Fenster**, das die Abfrage selbst nennt, und nicht
+	 * auf feste Wochennummern. Eine Prüfliste mit `{ jahr: 2026, woche: 40 }`
+	 * darin wäre im Oktober 2026 grün und danach für immer rot — nicht, weil
+	 * etwas kaputt ginge, sondern weil das Fenster weitergewandert ist.
+	 */
+	const jetztFuerDienst = Math.floor(Date.now() / 1000);
+	const planFenster = wochenfenster(jetztFuerDienst);
+	const laufende = planFenster[0] ?? isoWocheVon(jetztFuerDienst);
+	const naechste = planFenster[1] ?? laufende;
+	const spaetere = planFenster[2] ?? laufende;
+
+	/*
+	 * Eine **eigene** Adminperson und eine eigene zu beendende Person für diesen
+	 * Block.
+	 *
+	 * Der Grund ist die Reihenfolgefalle, die die Triage vom 2026-08-28 als G2
+	 * benannt hat und die Story 3.0.1 schon einmal getroffen hat: Vera und Nico
+	 * tragen die Behauptungen der Stories 1.3 und 1.4, und dieser Block **beendet
+	 * einen Zugang** — täte er das an Nico, fielen weiter unten Behauptungen über
+	 * eine aktive Mitgliederliste um, ohne dass an ihnen etwas falsch wäre.
+	 */
+	const tilde = mitgliedAnlegen({
+		name: 'Tilde',
+		inviteTokenHash: tokenHashen(tokenErzeugen()),
+		isAdmin: true,
+	});
+	const rasmus = mitgliedAnlegen({
+		name: 'Rasmus',
+		inviteTokenHash: tokenHashen(tokenErzeugen()),
+		isAdmin: false,
+	});
+	const gehende = mitgliedAnlegen({
+		name: 'Gehende',
+		inviteTokenHash: tokenHashen(tokenErzeugen()),
+		isAdmin: false,
+	});
+	/*
+	 * Von `gehende` gibt es bewusst **keine** locals-Attrappe: ihr Zugang wird in
+	 * diesem Block beendet, und danach kommt sie am Wächter in
+	 * src/hooks.server.ts gar nicht mehr vorbei. Eine Attrappe, die sie trotzdem
+	 * durch eine load trüge, prüfte einen Weg, den es nicht gibt.
+	 */
+	const tildeLocals = ohneTokenHash(tilde);
+	const rasmusLocals = ohneTokenHash(rasmus);
+
+	/** Die Zeilen von duty_weeks zu einer Woche — für Behauptungen über die Zahl. */
+	const dienstZeilen = (woche: { jahr: number; woche: number }) =>
+		datenbank()
+			.select()
+			.from(dutyWeeks)
+			.all()
+			.filter(
+				(zeile) =>
+					zeile.art === DIENSTART_TRAENKEN &&
+					zeile.isoJahr === woche.jahr &&
+					zeile.isoWoche === woche.woche
+			);
+
+	/** Der Name, den der Plan für eine Woche nennt — oder null. */
+	const nameInWoche = (woche: { jahr: number; woche: number }) =>
+		dienstwochenLesen([woche])[0]?.name ?? null;
+
+	pruefen(
+		'der Plan gibt für jede Woche des Fensters einen Eintrag, auch die unbesetzten',
+		dienstwochenLesen(planFenster).length === planFenster.length,
+		`${dienstwochenLesen(planFenster).length} Einträge auf ${planFenster.length} Wochen`
+	);
+	pruefen(
+		'und in genau der Reihenfolge, in der das Fenster sie nennt',
+		dienstwochenLesen(planFenster)
+			.map((eintrag) => wochenSchluessel(eintrag))
+			.join('|') === planFenster.map((eintrag) => wochenSchluessel(eintrag)).join('|')
+	);
+	pruefenGleich('eine Woche ohne Zeile heisst niemand', nameInWoche(naechste), null);
+
+	pruefenGleich(
+		'besetzen gibt den Namen zurück',
+		dienstwocheBesetzen(naechste, rasmus.id)?.name,
+		'Rasmus'
+	);
+	pruefenGleich('und der Plan nennt ihn', nameInWoche(naechste), 'Rasmus');
+	pruefenGleich('genau eine Zeile ist entstanden', dienstZeilen(naechste).length, 1);
+
+	/*
+	 * **Neu besetzen ist Ersetzen, nicht Anlegen.** Die Zahl darunter ist die
+	 * eigentliche Behauptung: ohne die Eindeutigkeit über (Art, Jahr, Woche)
+	 * stünden hier zwei Zeilen, der Plan zeigte eine davon, und die andere bliebe
+	 * unsichtbar liegen.
+	 */
+	const zeileVorher = dienstZeilen(naechste)[0];
+	pruefenGleich(
+		'neu besetzen gibt den neuen Namen zurück',
+		dienstwocheBesetzen(naechste, gehende.id)?.name,
+		'Gehende'
+	);
+	pruefenGleich('der Plan nennt jetzt die andere Person', nameInWoche(naechste), 'Gehende');
+	pruefenGleich('und es ist immer noch genau eine Zeile', dienstZeilen(naechste).length, 1);
+	pruefenGleich(
+		'dieselbe Zeile — kein neuer Datensatz',
+		dienstZeilen(naechste)[0]?.id,
+		zeileVorher?.id
+	);
+	pruefenGleich(
+		'und ihr created_at ist unberührt geblieben',
+		dienstZeilen(naechste)[0]?.createdAt,
+		zeileVorher?.createdAt
+	);
+
+	pruefenGleich(
+		'dieselbe Person noch einmal einzutragen gelingt und weist nicht ab',
+		dienstwocheBesetzen(naechste, gehende.id)?.name,
+		'Gehende'
+	);
+
+	/*
+	 * **Zugang beenden macht die Woche unbesetzt — und löscht nichts.**
+	 *
+	 * Die zwei Behauptungen gehören zusammen und sind einzeln nichts wert: dass
+	 * der Plan `null` sagt, wäre auch bei einem DELETE wahr, und dass die Zeile
+	 * steht, wäre auch bei einer Anzeige des toten Namens wahr. Erst beide
+	 * zusammen sind die Zusage aus den Akzeptanzkriterien.
+	 */
+	mitgliedDeaktivieren(gehende.id);
+	pruefenGleich(
+		'nach dem Beenden des Zugangs steht die Woche als unbesetzt',
+		nameInWoche(naechste),
+		null
+	);
+	pruefenGleich(
+		'der Datensatz bleibt aber stehen — nichts wird gelöscht',
+		dienstZeilen(naechste).length,
+		1
+	);
+	pruefenGleich(
+		'und er zeigt weiterhin auf dieselbe Person',
+		dienstZeilen(naechste)[0]?.memberId,
+		gehende.id
+	);
+	pruefenGleich(
+		'eine beendete Person lässt sich nicht neu eintragen',
+		dienstwocheBesetzen(spaetere, gehende.id),
+		null
+	);
+	pruefenGleich('und es entsteht dabei keine Zeile', dienstZeilen(spaetere).length, 0);
+	pruefenGleich('eine unbekannte Id ebenso wenig', dienstwocheBesetzen(spaetere, 9_999_999), null);
+
+	/*
+	 * Die schmale Auskunft für den Diensthinweis. Sie geht über dieselbe Abfrage
+	 * — hier belegt an der Person, deren Zugang eben beendet wurde: wäre sie eine
+	 * zweite Abfrage mit eigener Aktiv-Prüfung, bliebe sie hier grün.
+	 */
+	dienstwocheBesetzen(laufende, rasmus.id);
+	pruefen(
+		'eigeneDienstwoche nennt die laufende Woche der zuständigen Person',
+		wochenSchluessel(
+			eigeneDienstwoche(rasmus.id, jetztFuerDienst)?.woche ?? { jahr: 0, woche: 0 }
+		) === wochenSchluessel(laufende)
+	);
+	pruefenGleich('und gibt jedem anderen null', eigeneDienstwoche(tilde.id, jetztFuerDienst), null);
+	dienstwocheBesetzen(laufende, gehende.id);
+	pruefenGleich(
+		'auch der beendeten Person selbst — unbesetzt ist niemandes Dienst',
+		eigeneDienstwoche(gehende.id, jetztFuerDienst),
+		null
+	);
+	dienstwocheBesetzen(laufende, rasmus.id);
+
+	// -----------------------------------------------------------------------
+	// Die Route /dienstplan: load für alle, action hinter der Adminschranke
+	// -----------------------------------------------------------------------
+	const planAlsAdmin = wertVon(
+		await routenausgang(() =>
+			dienstplan.load(alsMitglied('/dienstplan', tildeLocals).alsServerLoadEvent())
+		)
+	);
+	const planAlsMitglied = wertVon(
+		await routenausgang(() =>
+			dienstplan.load(alsMitglied('/dienstplan', rasmusLocals).alsServerLoadEvent())
+		)
+	);
+
+	/*
+	 * **Der Plan gehört allen, die Auswahl nicht.**
+	 *
+	 * Die Namensliste des Vereins geht nicht in das ausgelieferte HTML von
+	 * jemandem, der sie nicht braucht — und die zwei Behauptungen darüber sind
+	 * bewusst getrennt: dass beide **denselben Plan** sehen, ist der Zweck der
+	 * Seite, und dass nur eine die Auswahl bekommt, ist die Schranke. Eine load,
+	 * die einem Nicht-Admin gar nichts gäbe, erfüllte die zweite und verletzte
+	 * die erste.
+	 */
+	pruefen(
+		'beide sehen denselben Plan — der Dienstplan gehört allen',
+		JSON.stringify(planAlsAdmin.wochen) === JSON.stringify(planAlsMitglied.wochen),
+		`${JSON.stringify(planAlsAdmin.wochen).slice(0, 120)}`
+	);
+	pruefen(
+		'die Adminperson bekommt die Auswahl der aktiven Mitglieder',
+		Array.isArray(planAlsAdmin.mitglieder) &&
+			planAlsAdmin.mitglieder.length > 0 &&
+			planAlsAdmin.istAdmin === true
+	);
+	pruefen(
+		'ein Mitglied ohne Adminrechte bekommt sie nicht — kein Name reist mit',
+		Array.isArray(planAlsMitglied.mitglieder) &&
+			planAlsMitglied.mitglieder.length === 0 &&
+			planAlsMitglied.istAdmin === false,
+		JSON.stringify(planAlsMitglied.mitglieder).slice(0, 160)
+	);
+	pruefen(
+		'die Auswahl führt keine beendeten Zugänge',
+		!JSON.stringify(planAlsAdmin.mitglieder).includes('Gehende'),
+		JSON.stringify(planAlsAdmin.mitglieder).slice(0, 200)
+	);
+	pruefen(
+		'die load von /dienstplan gibt keinen einzigen Token-Hash heraus',
+		!hashes.some((hash) => JSON.stringify(planAlsAdmin).includes(hash))
+	);
+	pruefen(
+		'sie nennt die laufende Woche als denselben gefalteten Schlüssel wie zeit.ts',
+		planAlsAdmin.laufendeWoche === wochenSchluessel(isoWocheVon(Math.floor(Date.now() / 1000)))
+	);
+
+	/*
+	 * Die Adminschranke der action. Sie steht in der action und nicht in der
+	 * load: lesen darf jede, besetzen nicht — und ein POST braucht keinen Knopf,
+	 * also genügt es nicht, das Formular wegzulassen.
+	 */
+	const besetzenAls = (wer: AngemeldetesMitglied | null, formular: Record<string, string>) =>
+		routenausgang(() =>
+			dienstplan.actions.besetzen?.(alsMitglied('/dienstplan', wer, formular).alsRequestEvent())
+		);
+	const wocheFormular = (woche: { jahr: number; woche: number }, mitgliedId: string) => ({
+		jahr: String(woche.jahr),
+		woche: String(woche.woche),
+		mitgliedId,
+	});
+
+	const vorDemVersuch = dienstZeilen(spaetere).length;
+	wegGeleitet(
+		'besetzen weist ein Mitglied ohne Adminrechte mit 303 weg',
+		await besetzenAls(rasmusLocals, wocheFormular(spaetere, String(rasmus.id)))
+	);
+	wegGeleitet(
+		'und ohne Mitglied in locals ebenso',
+		await besetzenAls(null, wocheFormular(spaetere, String(rasmus.id)))
+	);
+	pruefenGleich(
+		'beide Versuche haben nichts angelegt',
+		dienstZeilen(spaetere).length,
+		vorDemVersuch
+	);
+
+	/*
+	 * **Die Woche wird vor dem Mitglied geprüft.** Die Behauptung darunter ist
+	 * die einzige, die das misst: beide Angaben sind zugleich untauglich, und
+	 * genau dann entscheidet die Reihenfolge, welchen Satz die Person liest.
+	 * Stünde die Namensprüfung vorn, trüge die Antwort ein Feld und einen
+	 * Wochenschlüssel, den die Liste nicht enthält — und die Oberfläche fände
+	 * keine Stelle für den Satz.
+	 */
+	abgewiesen(
+		'eine Woche ausserhalb des Fensters wird abgewiesen',
+		await besetzenAls(tildeLocals, wocheFormular({ jahr: 2043, woche: 5 }, String(rasmus.id))),
+		WOCHE_NICHT_ANSPRECHBAR
+	);
+	abgewiesen(
+		'eine Woche in der Vergangenheit ebenso — das Fenster beginnt heute',
+		await besetzenAls(
+			tildeLocals,
+			wocheFormular({ jahr: laufende.jahr - 1, woche: 1 }, String(rasmus.id))
+		),
+		WOCHE_NICHT_ANSPRECHBAR
+	);
+	abgewiesen(
+		'eine fehlende Woche fällt auf denselben Satz',
+		await besetzenAls(tildeLocals, { jahr: String(laufende.jahr), mitgliedId: String(rasmus.id) }),
+		WOCHE_NICHT_ANSPRECHBAR
+	);
+	abgewiesen(
+		'eine nicht numerische ebenso',
+		await besetzenAls(tildeLocals, {
+			jahr: String(laufende.jahr),
+			woche: 'zwölf',
+			mitgliedId: String(rasmus.id),
+		}),
+		WOCHE_NICHT_ANSPRECHBAR
+	);
+	abgewiesen(
+		'Woche und Mitglied zugleich untauglich: es antwortet die Woche',
+		await besetzenAls(tildeLocals, { jahr: '2043', woche: '5', mitgliedId: 'nein' }),
+		WOCHE_NICHT_ANSPRECHBAR
+	);
+
+	const ohneFeld = datenVon(
+		await besetzenAls(tildeLocals, wocheFormular({ jahr: 2043, woche: 5 }, String(rasmus.id)))
+	);
+	pruefen(
+		'der Satz über die Woche trägt weder Feld noch Zeile — er gehört nach oben',
+		ohneFeld.feld === null && ohneFeld.zeile === null,
+		JSON.stringify(ohneFeld)
+	);
+
+	/*
+	 * Das nicht ansprechbare Mitglied. Anders als die Woche trägt es **Feld und
+	 * Zeile**: der Satz gehört an die Auswahl genau dieser Wochenzeile, und ohne
+	 * den Wochenschlüssel in der Antwort fände die Oberfläche sie ohne JavaScript
+	 * nicht.
+	 */
+	const beendeterVersuch = await besetzenAls(
+		tildeLocals,
+		wocheFormular(spaetere, String(gehende.id))
+	);
+	abgewiesen(
+		'ein beendeter Zugang lässt sich nicht eintragen',
+		beendeterVersuch,
+		MITGLIED_NICHT_ANSPRECHBAR
+	);
+	const beendeteDaten = datenVon(beendeterVersuch);
+	pruefen(
+		'und der Satz nennt Feld und Woche, damit er an der Zeile stehen kann',
+		beendeteDaten.feld === 'mitgliedId' && beendeteDaten.zeile === wochenSchluessel(spaetere),
+		JSON.stringify(beendeteDaten)
+	);
+	abgewiesen(
+		'eine unbekannte Mitglieds-Id fällt auf denselben Satz',
+		await besetzenAls(tildeLocals, wocheFormular(spaetere, '9999999')),
+		MITGLIED_NICHT_ANSPRECHBAR
+	);
+	abgewiesen(
+		'eine fehlende ebenso',
+		await besetzenAls(tildeLocals, {
+			jahr: String(spaetere.jahr),
+			woche: String(spaetere.woche),
+		}),
+		MITGLIED_NICHT_ANSPRECHBAR
+	);
+	pruefenGleich(
+		'keiner dieser vier Versuche hat eine Zeile angelegt',
+		dienstZeilen(spaetere).length,
+		vorDemVersuch
+	);
+
+	const gelungen = await besetzenAls(tildeLocals, wocheFormular(spaetere, String(rasmus.id)));
+	pruefen(
+		'die Adminperson besetzt die Woche und bekommt den Namen zurück',
+		gelungen.art === 'wert' && gelungen.wert.art === 'besetzt' && gelungen.wert.name === 'Rasmus',
+		gelungen.art === 'wert' ? JSON.stringify(gelungen.wert) : `Ausgang ${gelungen.art}`
+	);
+	pruefen('und die Antwort trägt keinen Token', !traegtToken(wertVon(gelungen)));
+
+	/*
+	 * **Die eigene Zeile ist hier kein Sonderfall.** Anders als bei Widerruf und
+	 * Neuausstellen auf /verwaltung gibt es keinen Selbstschutz: eine Adminperson
+	 * darf sich selbst zum Tränken eintragen, und EIGENER_ZUGANG_GESCHUETZT kommt
+	 * in dieser action nicht vor. Ein Dienst ist kein Zugang.
+	 */
+	const selbstEingetragen = await besetzenAls(
+		tildeLocals,
+		wocheFormular(spaetere, String(tilde.id))
+	);
+	pruefen(
+		'die Adminperson darf sich selbst eintragen — ein Dienst ist kein Zugang',
+		selbstEingetragen.art === 'wert' && selbstEingetragen.wert.name === 'Tilde',
+		selbstEingetragen.art === 'wert'
+			? JSON.stringify(selbstEingetragen.wert)
+			: `Ausgang ${selbstEingetragen.art}`
+	);
+
+	// -----------------------------------------------------------------------
+	// Der Diensthinweis auf /
+	// -----------------------------------------------------------------------
+	/*
+	 * Drei Zeilen der Matrix, ausgeführt an derselben load: eigener Dienst, kein
+	 * eigener Dienst, und der eigene Dienst nach dem Beenden des Zugangs.
+	 *
+	 * **`null` und nicht ein leerer Text** ist die Zusage: der Block fehlt ganz,
+	 * er ist nicht leer. Ein `dienst: { datum: '' }` sähe in der Komponente wie
+	 * ein Block ohne Datum aus, und die Akzeptanzkriterien sagen ausdrücklich
+	 * „nicht leer, sondern nicht vorhanden".
+	 */
+	const startseiteAls = async (wer: AngemeldetesMitglied) =>
+		wertVon(await startseiteLadenAn('/', wer));
+	const mitDienst = await startseiteAls(rasmusLocals);
+	const ohneDienst = await startseiteAls(tildeLocals);
+	pruefen(
+		'wer diese Woche Dienst hat, bekommt den Block samt Wochendatum',
+		mitDienst.dienst !== null &&
+			typeof (mitDienst.dienst as { datum?: unknown }).datum === 'string' &&
+			(mitDienst.dienst as { datum: string }).datum === wochendatum(laufende),
+		JSON.stringify(mitDienst.dienst)
+	);
+	pruefenGleich(
+		'wer keinen hat, bekommt null — der Block fehlt ganz, er ist nicht leer',
+		ohneDienst.dienst,
+		null
+	);
+	pruefen(
+		'und die Aufgabenliste ist für beide dieselbe',
+		JSON.stringify(mitDienst.aufgaben) === JSON.stringify(ohneDienst.aufgaben)
+	);
+
 	// -----------------------------------------------------------------------
 	// Fünf Textprüfungen an src/routes/+page.svelte — als solche benannt
 	// -----------------------------------------------------------------------
@@ -4695,17 +5321,28 @@ try {
 	 */
 	const quelltext = (...teile: string[]) =>
 		kommentarfrei(readFileSync(join(wurzel, ...teile), 'utf8'));
+	/*
+	 * Die Seite `/dienstplan` steht **hinten** und nicht in alphabetischer
+	 * Ordnung, und das
+	 * ist kein Versehen: die Behauptungen darunter greifen /verwaltung über den
+	 * Index `[3]`. Eine neue Seite vorn hinein zu schieben verschöbe jene
+	 * stillschweigend auf /monatsplan, und sie blieben grün, während sie die
+	 * falsche Datei läsen. Anhängen ist die einzige Reihenfolge, die das nicht
+	 * kann. Story 3.2 hängt /einzelaufgaben ebenso hinten an.
+	 */
 	const seitenServer = [
 		['/', quelltext('src', 'routes', '+page.server.ts')],
 		['/aufgabe', quelltext('src', 'routes', 'aufgabe', '+page.server.ts')],
 		['/monatsplan', quelltext('src', 'routes', 'monatsplan', '+page.server.ts')],
 		['/verwaltung', quelltext('src', 'routes', 'verwaltung', '+page.server.ts')],
+		['/dienstplan', quelltext('src', 'routes', 'dienstplan', '+page.server.ts')],
 	] as const;
 	const seitenKomponenten = [
 		['/', quelltext('src', 'routes', '+page.svelte')],
 		['/aufgabe', quelltext('src', 'routes', 'aufgabe', '+page.svelte')],
 		['/monatsplan', quelltext('src', 'routes', 'monatsplan', '+page.svelte')],
 		['/verwaltung', quelltext('src', 'routes', 'verwaltung', '+page.svelte')],
+		['/dienstplan', quelltext('src', 'routes', 'dienstplan', '+page.svelte')],
 	] as const;
 
 	const abweisenTeile = [
@@ -4718,7 +5355,7 @@ try {
 			!seitenServer.some(([, text]) => /function abweisen\s*[(<]/.test(text)),
 		],
 		[
-			'alle vier ziehen sie aus dem Modul',
+			'alle fünf ziehen sie aus dem Modul',
 			seitenServer.every(([, text]) =>
 				/import \{ abweisen \} from '[^']*\/abweisen\.ts';/.test(text)
 			),
@@ -4840,7 +5477,7 @@ try {
 			] as const
 	);
 	pruefen(
-		'alle vier use:enhance-Rückrufe fangen einen Wurf ab, mit einem Satz für alle',
+		'alle fünf use:enhance-Rückrufe fangen einen Wurf ab, mit einem Satz für alle',
 		fehlendeTeile(wurfTeile).length === 0,
 		`verletzt: ${fehlendeTeile(wurfTeile).join(', ')}`
 	);
@@ -5066,6 +5703,246 @@ try {
 			/aria-live=/.test(nameFehlerTag) &&
 			!/\{#if fehlerAmNamen/.test(verwaltungCode),
 		nameFehlerTag === '' ? 'kein <p id="name-fehler"> gefunden' : nameFehlerTag
+	);
+
+	// -----------------------------------------------------------------------
+	// Textprüfungen an den zwei Komponenten von Story 3.1
+	// -----------------------------------------------------------------------
+	/*
+	 * Sie laufen auf dem **kommentarfreien** Text: beide Dateien erklären an
+	 * genau diesen Stellen wörtlich, was dort steht und warum — auf dem Rohtext
+	 * wären die Behauptungen an ihrer eigenen Begründung grün geworden.
+	 *
+	 * Was sie **nicht** sind: ein Ersatz für den ausgeführten Nachweis. Das
+	 * ausgelieferte HTML misst scripts/smoke-http.ts an einem echten Server; hier
+	 * steht, was ohne einen Browser überhaupt prüfbar ist — die Verdrahtung.
+	 */
+	const dienstplanCode = seitenKomponenten[4][1];
+	const startseiteCodeDienst = seitenKomponenten[0][1];
+
+	const besetzenVon = dienstplanCode.indexOf('<details class="besetzen"');
+	const besetzenBis = dienstplanCode.indexOf('</form>', besetzenVon);
+	const besetzenFormular =
+		besetzenVon < 0 || besetzenBis < 0
+			? ''
+			: dienstplanCode.slice(besetzenVon, besetzenBis).replace(/\s+/g, ' ');
+	const besetzenTeile = [
+		['das Formular ist da', besetzenFormular !== ''],
+		['method="POST"', /<form\b[^>]*\bmethod="POST"/.test(besetzenFormular)],
+		/*
+		 * Literal und nicht `action={…}`: ein dynamisches action machte
+		 * Gate-Regel 11 blind, und ohne JavaScript fiele das Formular auf die
+		 * Standard-action der Seite zurück.
+		 */
+		['action="?/besetzen" als Literal', /action="\?\/besetzen"/.test(besetzenFormular)],
+		['use:enhance={versand}', /use:enhance=\{versand\}/.test(besetzenFormular)],
+		/*
+		 * **Beide** versteckten Felder. Eine Woche braucht zwei Zahlen; fehlte
+		 * eines, endete jeder Versand im Satz über die nicht ansprechbare Woche.
+		 */
+		[
+			'das versteckte jahr aus der Zeile',
+			/<input type="hidden" name="jahr" value=\{eintrag\.jahr\} \/>/.test(besetzenFormular),
+		],
+		[
+			'das versteckte woche aus der Zeile',
+			/<input type="hidden" name="woche" value=\{eintrag\.woche\} \/>/.test(besetzenFormular),
+		],
+		['die Auswahl heisst mitgliedId', /<select\b[^>]*\bname="mitgliedId"/.test(besetzenFormular)],
+		['sie ist required', /<select\b[^>]*\brequired/.test(besetzenFormular)],
+		/*
+		 * Die Kante am Feld und der Verweis auf den Satz hängen an **dieser**
+		 * Zeile, nicht am blossen Vorhandensein eines Fehlers.
+		 */
+		[
+			'aria-invalid hängt an fehlerHier',
+			/aria-invalid=\{fehlerHier \? 'true' : undefined\}/.test(besetzenFormular),
+		],
+		[
+			'aria-describedby zeigt auf den Satz dieser Woche',
+			/aria-describedby=\{fehlerHier \? `besetzen-fehler-\$\{dieseWoche\}` : undefined\}/.test(
+				besetzenFormular
+			),
+		],
+		[
+			'die schon zuständige Person steht vorgewählt',
+			/selected=\{mitglied\.id === eintrag\.mitgliedId\}/.test(besetzenFormular),
+		],
+		[
+			'der Knopf sperrt während des Versands',
+			/<button class="button-quiet" type="submit" disabled=\{imFlug\}>/.test(besetzenFormular),
+		],
+		/*
+		 * `open` hängt am Fehlschlag und nicht an einem eigenen Zustand: nur so
+		 * steht das Formular nach einer Abweisung noch offen — und zwar auch ohne
+		 * JavaScript, weil die Zeile vom Server kommt.
+		 */
+		[
+			'<details open={fehlerHier}> — ohne JavaScript aufgeklappt',
+			/<details class="besetzen" open=\{fehlerHier\}>/.test(besetzenFormular),
+		],
+	] as const;
+	pruefen(
+		'das Besetzen-Formular auf /dienstplan ist vollständig verdrahtet',
+		fehlendeTeile(besetzenTeile).length === 0,
+		`fehlt: ${fehlendeTeile(besetzenTeile).join(', ')}`
+	);
+
+	/*
+	 * **Das Formular steht hinter der Adminmarke, und die Auswahl mit ihm.**
+	 *
+	 * Geprüft wird die Verschachtelung und nicht bloss das Vorkommen von
+	 * `data.istAdmin`: ein `{#if}` irgendwo in der Datei erfüllte eine
+	 * Vorkommensprüfung, ohne das Formular zu decken.
+	 */
+	const adminMarke = dienstplanCode.indexOf('{#if data.istAdmin}');
+	pruefen(
+		'das Besetzen-Formular liegt hinter {#if data.istAdmin}',
+		adminMarke >= 0 && besetzenVon > adminMarke,
+		`Marke bei ${adminMarke}, Formular bei ${besetzenVon}`
+	);
+	pruefen(
+		'/dienstplan erklärt genau ein Besetzen-Formular — je Zeile eines aus einem Block',
+		(dienstplanCode.match(/<details class="besetzen"/g) ?? []).length === 1
+	);
+
+	const planTeile = [
+		/*
+		 * Unbesetzt trägt **das Wort**. Ohne diese Zeile bliebe die Zusage an der
+		 * Farbe allein hängen, und ein Screenreader läse eine leere Zelle.
+		 */
+		["das Wort '— unbesetzt —' steht im Markup", /— unbesetzt —/.test(dienstplanCode)],
+		[
+			'und es hängt am fehlenden Namen, nicht an einer Farbe',
+			/\{eintrag\.name \?\? '— unbesetzt —'\}/.test(dienstplanCode),
+		],
+		[
+			'die Farbe kommt zusätzlich, über eine eigene Klasse',
+			/class:woche__name--unbesetzt=\{eintrag\.name === null\}/.test(dienstplanCode) &&
+				/\.woche__name--unbesetzt \{[^}]*color: var\(--warn\)/.test(dienstplanCode),
+		],
+		/*
+		 * Ziffern in Tabellenstellung — UX-DR: eine Wochenliste, deren Zahlen
+		 * springen, liest sich schlecht. An **beiden** Zahlenzeilen, Nummer und
+		 * Datum.
+		 */
+		[
+			'die Wochennummer steht in Tabellenstellung',
+			/\.woche__nummer \{[^}]*font-variant-numeric: tabular-nums/.test(dienstplanCode),
+		],
+		[
+			'das Wochendatum ebenso',
+			/\.woche__datum \{[^}]*font-variant-numeric: tabular-nums/.test(dienstplanCode),
+		],
+		/*
+		 * Die Wochenrechnung wird **importiert** und nicht nachgebaut. Ein
+		 * `jahr * 100 + woche` in der Komponente wäre die zweite Faltung, und der
+		 * Fehlersatz landete an keiner Zeile.
+		 */
+		[
+			'die Komponente zieht Datum und Schlüssel aus zeit.ts',
+			/import \{ wochendatum, wochenSchluessel \} from '\$lib\/zeit';/.test(dienstplanCode),
+		],
+		[
+			'und faltet den Schlüssel nicht selbst',
+			!/jahr \* 100/.test(dienstplanCode) && !/\$\{[^}]*jahr[^}]*\}-\$\{/.test(dienstplanCode),
+		],
+		/* Die Liste ist keyed — sonst zeigte ein offenes <details> nach dem
+		   Neubesetzen auf eine andere Woche. */
+		[
+			'der each-Block ist über den Wochenschlüssel keyed',
+			/\{#each data\.wochen as eintrag \(schluessel\(eintrag\)\)\}/.test(dienstplanCode),
+		],
+	] as const;
+	pruefen(
+		'/dienstplan trägt das Wort, die Tabellenstellung und die eine Wochenrechnung',
+		fehlendeTeile(planTeile).length === 0,
+		`fehlt: ${fehlendeTeile(planTeile).join(', ')}`
+	);
+
+	/*
+	 * Der Satz zur Zeile — dieselbe Bauform wie auf /verwaltung: **ausserhalb**
+	 * des <details>, weil ein geschlossenes seinen Inhalt vor dem Screenreader
+	 * verbirgt, und **immer** im Markup, weil eine Region, die im selben
+	 * Augenblick sichtbar wird und ihren Text bekommt, nicht verlässlich
+	 * vorgelesen wird (Retro-Posten B2).
+	 */
+	/*
+	 * Über den Attributnamen geschnitten und nicht über eine feste Reihenfolge:
+	 * Prettier bricht ein <p> mit vier Attributen auf mehrere Zeilen um, und ein
+	 * Muster, das die Reihenfolge festschreibt, wäre beim nächsten Formatierlauf
+	 * rot, ohne dass eine Zusage gebrochen wäre.
+	 */
+	const planFehlerTreffer = /<p\b[^>]*id="besetzen-fehler-\{dieseWoche\}"[\s\S]*?<\/p>/.exec(
+		dienstplanCode
+	);
+	const planFehlerTag = (planFehlerTreffer?.[0] ?? '').replace(/\s+/g, ' ');
+	pruefen(
+		'der Satz zur Woche auf /dienstplan ist eine immer vorhandene Live-Region',
+		planFehlerTag !== '' &&
+			/role="alert"/.test(planFehlerTag) &&
+			/aria-live=/.test(planFehlerTag) &&
+			/\{fehlerHier \? fehlerAnDerAuswahl : ''\}/.test(planFehlerTag) &&
+			(planFehlerTreffer?.index ?? -1) > dienstplanCode.indexOf('</details>'),
+		planFehlerTag === '' ? 'kein <p id="besetzen-fehler-…"> gefunden' : planFehlerTag
+	);
+
+	/*
+	 * **Der Diensthinweis auf / fehlt ganz oder gar nicht.**
+	 *
+	 * Die zweite Zeile ist die eigentliche: ein `{:else}` an diesem `{#if}` wäre
+	 * genau der leere Block, den die Akzeptanzkriterien ausschliessen — „nicht
+	 * leer, sondern nicht vorhanden".
+	 */
+	const dienstBlock =
+		/\{#if data\.dienst !== null\}[\s\S]*?\{\/if\}/.exec(startseiteCodeDienst)?.[0] ?? '';
+	const hinweisTeile = [
+		['der Block hängt an {#if data.dienst !== null}', dienstBlock !== ''],
+		['und hat kein {:else} — er fehlt ganz oder gar nicht', !/\{:else\}/.test(dienstBlock)],
+		[
+			'er trägt den Satz aus den Akzeptanzkriterien',
+			/Diese Woche bist du am Tränken/.test(dienstBlock),
+		],
+		['und das Wochendatum daneben', /\{data\.dienst\.datum\}/.test(dienstBlock)],
+		/*
+		 * Der ganze Block ist ein Link auf den Dienstplan — und **kein** Formular
+		 * und kein Knopf: ein Dienst ist keine Aufgabe, er ist nicht abhakbar und
+		 * nicht wegklickbar.
+		 */
+		[
+			'er ist als Ganzes ein Link auf /dienstplan',
+			/<a class="dienst" href=\{resolve\('\/dienstplan'\)\}>/.test(dienstBlock),
+		],
+		[
+			'und trägt weder Knopf noch Kästchen noch Formular',
+			!/<button/.test(dienstBlock) && !/<input/.test(dienstBlock) && !/<form/.test(dienstBlock),
+		],
+		/*
+		 * Die 3px-Kante in der Akzentfarbe ist das Zeichen aus UX-DR9 und
+		 * zugleich der Grund, aus dem das Token --border-marker seit Story 1.1
+		 * deklariert und bis hierher unbenutzt im Baum stand.
+		 */
+		[
+			'die linke Kante misst --border-marker in der Akzentfarbe',
+			/\.dienst \{[^}]*border-inline-start: var\(--border-marker\) solid var\(--accent\)/.test(
+				startseiteCodeDienst
+			),
+		],
+		/*
+		 * Er steht **vor** dem Pool — Block 1 vor Block 3 aus AD-14. Der
+		 * Diensthinweis ist die Aussage, die beim Öffnen zuerst zählt.
+		 */
+		[
+			'und er steht vor der Marke des Aufgaben-Pools',
+			startseiteCodeDienst.indexOf('{#if data.dienst !== null}') > 0 &&
+				startseiteCodeDienst.indexOf('{#if data.dienst !== null}') <
+					startseiteCodeDienst.indexOf('<h2 class="marke"'),
+		],
+	] as const;
+	pruefen(
+		'der Diensthinweis auf / fehlt ganz oder gar nicht — und ist kein Bedienelement',
+		fehlendeTeile(hinweisTeile).length === 0,
+		`fehlt: ${fehlendeTeile(hinweisTeile).join(', ')}`
 	);
 } catch (fehler) {
 	unerwarteterWurf('smoke', fehler);

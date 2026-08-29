@@ -82,7 +82,7 @@ import { KEIN_ZUGANG } from '../src/lib/texte.ts';
  * mit — genau wie in scripts/smoke-zugang.ts. Eine Seite mehr in `seiten` sind
  * sieben Behauptungen mehr, und dieselbe Zahl steht in README.md.
  */
-const ERWARTETE_BEHAUPTUNGEN = 78;
+const ERWARTETE_BEHAUPTUNGEN = 90;
 
 const GUTES_GEHEIMNIS = 'smoke-http-geheimnis-mit-genug-verschiedenen-zeichen-0123456789';
 
@@ -1003,6 +1003,185 @@ try {
 	pruefen(
 		'/mehr trägt ihn für die Adminperson sehr wohl — die Gegenprobe',
 		(await mehrAlsAdmin.text()).includes('>Verwaltung<')
+	);
+
+	/*
+	 * Die Seite `/dienstplan` über HTTP — Story 3.1.
+	 *
+	 * Zwei Zusagen, die nur hier prüfbar sind, weil sie am ausgelieferten
+	 * Dokument hängen und nicht am Rückgabewert einer load:
+	 *
+	 *   1. der Plan gehört allen — ein Mitglied ohne Adminrechte bekommt 200 und
+	 *      sieht die Wochen;
+	 *   2. die Namensliste des Vereins steht **nicht** in seinem HTML. Die load
+	 *      gibt ihm `mitglieder: []`, und scripts/smoke-zugang.ts belegt das an
+	 *      ihrem Rückgabewert — aber erst hier steht, dass auch die Komponente
+	 *      keinen Namen aus einer anderen Quelle nachträgt.
+	 */
+	const planOhneRechte = await holen(port, '/dienstplan', { keks: mitgliedKeks });
+	const planOhneRechteHtml = await planOhneRechte.text();
+	const planAlsAdmin = await holen(port, '/dienstplan', { keks: adminKeks });
+	const planAlsAdminHtml = await planAlsAdmin.text();
+
+	pruefenGleich('/dienstplan gehört allen und antwortet mit 200', planOhneRechte.status, 200);
+	pruefen(
+		'/dienstplan trägt seinen Titel — die Gegenprobe gegen eine leere Antwort',
+		planOhneRechteHtml.includes('>Dienstplan<')
+	);
+	pruefen(
+		'und die Wochen stehen darin, mit Kalenderwoche',
+		/KW\s*[0-9]+/.test(planOhneRechteHtml),
+		planOhneRechteHtml.slice(0, 200)
+	);
+	/*
+	 * Eine frisch gesäte Datenbank hat keine besetzte Woche. Das Wort ist damit
+	 * die Zusage aus den Akzeptanzkriterien **und** die Gegenprobe dagegen, dass
+	 * eine unbesetzte Woche einfach leer bliebe.
+	 */
+	pruefen(
+		'eine unbesetzte Woche trägt das Wort und nicht nur eine Farbe',
+		planOhneRechteHtml.includes('— unbesetzt —')
+	);
+	pruefen(
+		'ohne Adminrechte steht kein Besetzen-Formular im HTML',
+		!/action="\?\/besetzen"/.test(planOhneRechteHtml)
+	);
+	/*
+	 * **Und kein Name der anderen.** Die Auswahl führt jedes aktive Mitglied; wer
+	 * sie nicht bekommen soll, darf auch keinen einzigen dieser Namen im Dokument
+	 * stehen haben. Geprüft am Namen der Adminperson, weil er in einer Saat mit
+	 * zwei Zeilen der einzige ist, den das Mitglied nicht ohnehin selbst trägt.
+	 */
+	pruefen(
+		'und kein Name aus der Mitgliederliste',
+		!planOhneRechteHtml.includes('Vera Verwaltung'),
+		planOhneRechteHtml.slice(0, 200)
+	);
+
+	pruefenGleich('dieselbe Anfrage als Adminperson bekommt 200', planAlsAdmin.status, 200);
+	/*
+	 * Die Gegenprobe. Ohne sie hinge die Behauptung darüber an einer Seite, die
+	 * das Formular vielleicht **niemandem** ausliefert — und bliebe grün, wenn
+	 * das Besetzen ganz fehlte.
+	 */
+	const besetzenFormulare = [
+		...planAlsAdminHtml.matchAll(/<form\b[^>]*action="\?\/besetzen"[^>]*>([\s\S]*?)<\/form>/g),
+	];
+	const jedesBesetzen = (pruefung: (ganzes: string, rumpf: string) => boolean) =>
+		besetzenFormulare.length > 0 &&
+		besetzenFormulare.every((treffer) => pruefung(treffer[0], treffer[1] ?? ''));
+	const planTeile = [
+		/*
+		 * Ein Formular je Woche des Fensters — 13 oder 14, kalenderabhängig. Die
+		 * Spanne steht hier und keine feste Zahl: eine 13 wäre in der Hälfte des
+		 * Jahres rot, ohne dass etwas kaputt wäre.
+		 */
+		[
+			'ein Formular je Wochenzeile',
+			besetzenFormulare.length >= 13 && besetzenFormulare.length <= 14,
+		],
+		[
+			'jedes mit method="POST" — sonst fiele es ohne JavaScript auf GET zurück',
+			jedesBesetzen((ganzes) => /<form\b[^>]*\bmethod="POST"/i.test(ganzes)),
+		],
+		[
+			// Erst den Tag schneiden, dann in ihm nach `value` suchen — ein Muster
+			// `name="jahr"[^>]*value=` schriebe die Reihenfolge der Attribute fest.
+			'jedes mit einem versteckten jahr und einer echten Zahl',
+			jedesBesetzen((_, rumpf) =>
+				/\bvalue="[0-9]{4}"/.test(/<input\b[^>]*\bname="jahr"[^>]*>/.exec(rumpf)?.[0] ?? '')
+			),
+		],
+		[
+			'jedes mit einem versteckten woche und einer echten Zahl',
+			jedesBesetzen((_, rumpf) =>
+				/\bvalue="[0-9]{1,2}"/.test(/<input\b[^>]*\bname="woche"[^>]*>/.exec(rumpf)?.[0] ?? '')
+			),
+		],
+		[
+			'jedes mit der Auswahl name="mitgliedId"',
+			jedesBesetzen((_, rumpf) => /<select\b[^>]*\bname="mitgliedId"/.test(rumpf)),
+		],
+		[
+			'und jedes mit einem Absendeknopf',
+			jedesBesetzen((_, rumpf) => /<button\b[^>]*\btype="submit"/.test(rumpf)),
+		],
+		[
+			// Die Auswahl trägt die Namen: ohne sie wäre das Formular ohne
+			// JavaScript unbedienbar, weil es nichts zu wählen gäbe.
+			'die Auswahl führt die aktiven Mitglieder namentlich',
+			planAlsAdminHtml.includes('Vera Verwaltung') && planAlsAdminHtml.includes('Manu Mitglied'),
+		],
+	] as const;
+	pruefen(
+		'/dienstplan liefert der Adminperson das Besetzen-Formular aus — ohne JavaScript bedienbar',
+		fehlendeTeile(planTeile).length === 0,
+		`fehlt: ${fehlendeTeile(planTeile).join(', ')} (${besetzenFormulare.length} Formular(e))`
+	);
+	pruefen(
+		'weder Hash noch Klartext-Token stehen im ausgelieferten Dienstplan',
+		!saat.hashes.some((hash) => planAlsAdminHtml.includes(hash)) &&
+			!saat.klartexte.some((token) => planAlsAdminHtml.includes(token))
+	);
+
+	/*
+	 * **Besetzen ohne JavaScript, ausgeführt.** Ein POST auf die action mit den
+	 * Werten des ersten Formulars; danach steht der Name im neu geladenen Plan.
+	 *
+	 * Die Werte kommen aus dem ausgelieferten HTML und nicht aus einer eigenen
+	 * Wochenrechnung im Skript: geprüft werden soll, dass **dieses** Formular
+	 * trägt, und eine zweite Rechnung hier könnte dieselbe Woche verfehlen und
+	 * die Behauptung aus dem falschen Grund rot machen.
+	 */
+	const erstesFormular = besetzenFormulare[0]?.[1] ?? '';
+	const wertAus = (feld: string) =>
+		new RegExp(`\\bvalue="([0-9]+)"`).exec(
+			new RegExp(`<input\\b[^>]*\\bname="${feld}"[^>]*>`).exec(erstesFormular)?.[0] ?? ''
+		)?.[1] ?? '';
+	const erstesMitglied = /<option value="([0-9]+)"/.exec(erstesFormular)?.[1] ?? '';
+	const besetzt = await abschicken(port, '/dienstplan?/besetzen', adminKeks, {
+		jahr: wertAus('jahr'),
+		woche: wertAus('woche'),
+		mitgliedId: erstesMitglied,
+	});
+	const nachBesetzen = await holen(port, '/dienstplan', { keks: mitgliedKeks });
+	const nachBesetzenHtml = await nachBesetzen.text();
+	const besetzenAusfuehrbar = [
+		['die Formularwerte waren im HTML zu finden', wertAus('jahr') !== '' && erstesMitglied !== ''],
+		['der POST endet nicht in einem Fehler', besetzt.status < 400],
+		[
+			// Vorher stand die erste Woche als unbesetzt da — die Behauptung oben
+			// hat das gemessen. Jetzt trägt sie einen Namen.
+			'und der Plan nennt danach einen Namen statt des Worts',
+			(nachBesetzenHtml.match(/— unbesetzt —/g) ?? []).length <
+				(planOhneRechteHtml.match(/— unbesetzt —/g) ?? []).length,
+		],
+	] as const;
+	pruefen(
+		'eine Woche lässt sich ohne JavaScript besetzen — der Plan zeigt es danach allen',
+		fehlendeTeile(besetzenAusfuehrbar).length === 0,
+		`fehlt: ${fehlendeTeile(besetzenAusfuehrbar).join(', ')} (Status ${besetzt.status})`
+	);
+	/*
+	 * Die Adminschranke der action, über HTTP. `smoke` prüft sie am
+	 * Rückgabewert; hier steht, dass ein echter POST ohne Adminrechte auf `/`
+	 * landet und nicht etwa auf einer Fehlerseite, die die Existenz der Aktion
+	 * verriete.
+	 */
+	const besetzenOhneRechte = await abschicken(port, '/dienstplan?/besetzen', mitgliedKeks, {
+		jahr: wertAus('jahr'),
+		woche: wertAus('woche'),
+		mitgliedId: erstesMitglied,
+	});
+	pruefenGleich(
+		'ein POST auf ?/besetzen ohne Adminrechte wird mit 303 weggeleitet',
+		besetzenOhneRechte.status,
+		303
+	);
+	pruefenGleich(
+		'und die Wegleitung zeigt auf / — die Aktion existiert für sie nicht',
+		besetzenOhneRechte.headers.get('location'),
+		'/'
 	);
 
 	// --- Was der Server dabei selbst gesagt hat -------------------------------

@@ -139,6 +139,25 @@
 }
 
 /*
+ * Ein Auswahlfeld behält seinen eigenen Pfeil.
+ *
+ * `.feld` setzt `appearance: none`, damit ein Texteingabefeld auf iOS nicht die
+ * Systemform mitbringt. Auf einem <select> nimmt dieselbe Zeile den Pfeil weg —
+ * und ohne ihn sieht die Auswahl aus wie ein Eingabefeld, in das man tippen
+ * könnte. Die einzige Anzeige, dass sich hier etwas aufklappt, ist genau dieser
+ * Pfeil; ein selbstgemalter daneben wäre ein Bild mehr, das in beiden Modi
+ * stimmen müsste.
+ *
+ * Steht hier und nicht in dienstplan/+page.svelte, obwohl das heute die einzige
+ * Seite mit einem <select> ist: `.feld` steht hier, und die Ausnahme zu einer
+ * Regel gehört neben die Regel — sonst sucht sie die nächste Seite mit einer
+ * Auswahl vergeblich und schreibt sie ein zweites Mal (Retro-Posten D1).
+ */
+select.feld {
+	appearance: auto;
+}
+
+/*
  * Ein Feld, dessen Eingabe abgewiesen wurde.
  *
  * Die Kante wird breiter und nimmt die Tintenfarbe — **nicht** var(--danger).

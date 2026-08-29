@@ -1,0 +1,396 @@
+<script lang="ts">
+	import { enhance } from '$app/forms';
+	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
+	import { tick } from 'svelte';
+	import type { PageProps } from './$types';
+	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
+	import { wochendatum, wochenSchluessel } from '$lib/zeit';
+
+	/*
+		/dienstplan — die Wochen der nächsten drei Monate mit je einer Person.
+
+		Die Bauform ist die von /verwaltung: keyed {#each}, je Zeile ein
+		aufklappbares Formular in einem <details>, dessen `open` am Fehlschlag
+		hängt, und eine Live-Region je Zeile, die immer im Markup steht. Der
+		ausführliche Grund für jedes dieser Stücke steht dort; hier stehen nur die
+		Unterschiede.
+	*/
+
+	const { data, form }: PageProps = $props();
+
+	/*
+		Der Wochenschlüssel je Zeile kommt aus **derselben** Faltung wie auf dem
+		Server — wochenSchluessel in $lib/zeit.ts. Eine zweite Faltung hier (`${jahr}-${woche}`,
+		`jahr * 53 + woche`) liefe still auseinander, und der Fehlersatz landete an
+		keiner Zeile.
+	*/
+	const schluessel = (woche: { jahr: number; woche: number }): number => wochenSchluessel(woche);
+
+	/** Die Rückmeldung eines geglückten Besetzens. */
+	const rueckmeldung = $derived(
+		form !== null && form.art === 'besetzt' ? `${form.meldung} ${form.name} ist eingetragen.` : ''
+	);
+
+	/*
+		Ein Wurf in der action kommt als `result.type === 'error'` zurück. Der Satz
+		steht in derselben Live-Region wie ein Fehlschlag der action; einheitlich
+		auf allen Seiten, entschieden am 2026-08-28 zu Eintrag 32 der
+		zurückgestellten Arbeit.
+	*/
+	let versandFehler = $state('');
+
+	/** Die Meldung an der Auswahl einer Zeile. */
+	const fehlerAnDerAuswahl = $derived(
+		form !== null && form.art === 'fehler' && form.feld === 'mitgliedId' ? form.meldung : ''
+	);
+
+	/*
+		**Welche** Woche abgewiesen wurde — oder null. Der Wert kommt aus der
+		Antwort des Servers und nicht aus einem Client-Zustand, den ein
+		use:enhance-Rückruf füllte: ohne JavaScript läuft kein Rückruf, und alles,
+		was an ihm hinge — das aufgeklappte Formular, `aria-invalid`, der Fokus —,
+		fiele lautlos weg. Die Begründung in ganzer Länge steht in
+		verwaltung/+page.svelte.
+	*/
+	const fehlerWoche = $derived(
+		form !== null && form.art === 'fehler' && form.feld === 'mitgliedId' ? form.zeile : null
+	);
+
+	/** Die Meldung eines Fehlschlags, der an kein Feld gehört. */
+	const fehlerOben = $derived(
+		versandFehler !== ''
+			? versandFehler
+			: form !== null && form.art === 'fehler' && form.feld === null
+				? form.meldung
+				: ''
+	);
+
+	// -------------------------------------------------------------------
+	// Versand: eine Sperre für die ganze Seite, plus Fokus danach
+	// -------------------------------------------------------------------
+
+	let imFlug = $state(false);
+	let meldungKasten = $state<HTMLElement | null>(null);
+	let fehlerKasten = $state<HTMLElement | null>(null);
+
+	/**
+	 * Setzt den Fokus dorthin, wo die Antwort steht.
+	 *
+	 * Nach einer Abweisung an die Auswahl **dieser** Woche: dort steht der Satz,
+	 * und die obere Region ist in diesem Fall leer und über `.live:empty` aus dem
+	 * Fluss genommen. Nach einem geglückten Besetzen an die Rückmeldung oben —
+	 * die Zeile bleibt zwar stehen, anders als beim Umbenennen auf /verwaltung,
+	 * aber das Formular klappt zu und der Fokus hätte kein Ziel mehr.
+	 *
+	 * Über die Id statt über ein bind:this je Zeile — vierzehn Bindungen für
+	 * einen Griff wären der teurere Weg zum selben Element.
+	 */
+	function fokusNach(ergebnis: ActionResult): void {
+		const daten =
+			ergebnis.type === 'success' || ergebnis.type === 'failure'
+				? (ergebnis.data as { art?: unknown; zeile?: unknown } | undefined)
+				: undefined;
+		const art = typeof daten?.art === 'string' ? daten.art : '';
+
+		if (art === 'fehler') {
+			const woche = typeof daten?.zeile === 'number' ? daten.zeile : null;
+			if (woche !== null) {
+				document.getElementById(`auswahl-${woche}`)?.focus();
+				return;
+			}
+			fehlerKasten?.focus();
+			return;
+		}
+		meldungKasten?.focus();
+	}
+
+	const versand: SubmitFunction = ({ cancel }) => {
+		if (imFlug) {
+			cancel();
+			return;
+		}
+		imFlug = true;
+		versandFehler = '';
+		return async ({ update, result }) => {
+			/*
+				try/finally: bricht update() ab, bliebe imFlug sonst für immer true und
+				jeder Knopf dieser Seite dauerhaft disabled. Dieselbe Absicherung wie in
+				aufgabe/+page.svelte, wo sie zuerst entstand.
+			*/
+			try {
+				if (result.type === 'error') {
+					versandFehler = VERSAND_FEHLGESCHLAGEN;
+				} else {
+					await update();
+				}
+			} finally {
+				imFlug = false;
+			}
+			// Nach dem Rendern, sonst gibt es das Ziel noch nicht.
+			await tick();
+			// Ein abgefangener Wurf steht in derselben Region wie ein Fehlschlag der
+			// action; fokusNach findet ihn nur nicht, weil in `result` keine Daten
+			// stehen. Derselbe Weg, eine Zeile davor.
+			if (versandFehler !== '') {
+				fehlerKasten?.focus();
+				return;
+			}
+			fokusNach(result);
+		};
+	};
+</script>
+
+<div class="seite">
+	<h1 class="seitentitel">Dienstplan</h1>
+
+	<!--
+		Die zwei Live-Regionen des Seitenkopfs. Beide stehen **immer** im Markup und
+		sind über `.live:empty` aus dem Fluss genommen, solange sie leer sind —
+		Retro-Posten B2: eine Region, die im selben Augenblick entsteht und ihren
+		Text bekommt, wird nicht verlässlich vorgelesen.
+	-->
+	<p class="meldung live" bind:this={meldungKasten} role="status" aria-live="polite" tabindex="-1">
+		{rueckmeldung}
+	</p>
+	<p class="fehler live" bind:this={fehlerKasten} role="alert" aria-live="assertive" tabindex="-1">
+		{fehlerOben}
+	</p>
+
+	<p class="hinweis">
+		Wer tränkt, steht drei Monate im Voraus fest. Ein Tausch ist ein neuer Name — sag der Verwaltung
+		Bescheid.
+	</p>
+
+	<ul class="wochen">
+		{#each data.wochen as eintrag (schluessel(eintrag))}
+			{@const dieseWoche = schluessel(eintrag)}
+			{@const fehlerHier = fehlerAnDerAuswahl !== '' && fehlerWoche === dieseWoche}
+			{@const istLaufend = dieseWoche === data.laufendeWoche}
+			<li class="woche" class:woche--laufend={istLaufend}>
+				<div class="woche__kopf">
+					<div class="woche__spalte">
+						<!--
+							Die Wochennummer trägt `tabular-nums` (UX-DR: Ziffern in
+							Tabellenstellung). Eine Wochenliste, deren Zahlen springen, liest
+							sich schlecht — und hier stehen vierzehn davon untereinander.
+						-->
+						<p class="woche__nummer">
+							KW {eintrag.woche}
+							{#if istLaufend}<span class="woche__marke">diese Woche</span>{/if}
+						</p>
+						<p class="woche__datum">{wochendatum(eintrag)}</p>
+					</div>
+					<!--
+						Unbesetzt trägt **das Wort**, die Farbe kommt dazu. Kein Zustand
+						hängt allein an der Farbe — dieselbe Regel wie bei überfällig auf /,
+						und die zwei tragen zwei Token: --overdue dort, --warn hier.
+					-->
+					<p class="woche__name" class:woche__name--unbesetzt={eintrag.name === null}>
+						{eintrag.name ?? '— unbesetzt —'}
+					</p>
+				</div>
+
+				{#if data.istAdmin}
+					<!--
+						Das Besetzen steht nur im Markup einer Adminperson. Die Auswahl
+						führt die Namen aller aktiven Mitglieder, und die haben im
+						ausgelieferten HTML von jemandem ohne Adminrechte nichts zu suchen —
+						darum entscheidet **dieselbe** Marke über Formular und Auswahl, und
+						die load liefert `mitglieder` sonst leer.
+
+						Die action prüft es trotzdem noch einmal: ein POST braucht keinen
+						Knopf.
+					-->
+					<details class="besetzen" open={fehlerHier}>
+						<summary class="besetzen__griff">
+							{eintrag.name === null ? 'Besetzen' : 'Neu besetzen'}
+						</summary>
+						<form
+							class="besetzen__formular"
+							method="POST"
+							action="?/besetzen"
+							use:enhance={versand}
+						>
+							<input type="hidden" name="jahr" value={eintrag.jahr} />
+							<input type="hidden" name="woche" value={eintrag.woche} />
+							<div>
+								<label class="feld__beschriftung" for="auswahl-{dieseWoche}">Zuständig</label>
+								<!--
+									Die schon zuständige Person steht vorgewählt: neu besetzt wird
+									fast immer, um **eine** Zeile zu ändern, und eine leere
+									Auswahl hiesse, sie jedes Mal neu zu suchen. Ist die Woche
+									unbesetzt, steht die Aufforderung als deaktivierte erste
+									Zeile — ein `required` ohne gültige Vorauswahl.
+								-->
+								<select
+									class="feld"
+									id="auswahl-{dieseWoche}"
+									name="mitgliedId"
+									required
+									aria-invalid={fehlerHier ? 'true' : undefined}
+									aria-describedby={fehlerHier ? `besetzen-fehler-${dieseWoche}` : undefined}
+								>
+									{#if eintrag.mitgliedId === null}
+										<option value="" selected disabled>Bitte wählen</option>
+									{/if}
+									{#each data.mitglieder as mitglied (mitglied.id)}
+										<option value={mitglied.id} selected={mitglied.id === eintrag.mitgliedId}>
+											{mitglied.name}
+										</option>
+									{/each}
+								</select>
+							</div>
+							<button class="button-quiet" type="submit" disabled={imFlug}>Eintragen</button>
+						</form>
+					</details>
+					<!--
+						Der Satz steht **ausserhalb** des <details> und immer im Markup: ein
+						geschlossenes <details> verbirgt seinen Inhalt vor dem Screenreader,
+						und eine Live-Region, die im selben Augenblick sichtbar wird und
+						ihren Text bekommt, wird nicht verlässlich vorgelesen.
+					-->
+					<p
+						class="fehler live"
+						id="besetzen-fehler-{dieseWoche}"
+						role="alert"
+						aria-live="assertive"
+					>
+						{fehlerHier ? fehlerAnDerAuswahl : ''}
+					</p>
+				{/if}
+			</li>
+		{/each}
+	</ul>
+</div>
+
+<style>
+	/* Die Rückmeldung eines geglückten Besetzens, in der Akzentfarbe. */
+	.meldung {
+		margin: 0;
+		color: var(--accent);
+		font-family: var(--body-font);
+		font-size: var(--body-size);
+		font-weight: var(--body-weight);
+		line-height: var(--body-line);
+	}
+
+	.hinweis {
+		margin: 0;
+		color: var(--ink-secondary);
+		font-family: var(--meta-font);
+		font-size: var(--meta-size);
+		font-weight: var(--meta-weight);
+		line-height: var(--meta-line);
+	}
+
+	.wochen {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.woche {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		background-color: var(--surface-raised);
+		border: var(--border-hairline) solid var(--hairline);
+		border-radius: var(--radius-md);
+		padding: var(--space-3);
+	}
+
+	/*
+		Die laufende Woche trägt dieselbe 3px-Kante wie der Diensthinweis auf / —
+		derselbe Gedanke an zwei Orten: hier bist du gerade.
+	*/
+	.woche--laufend {
+		border-inline-start: var(--border-marker) solid var(--accent);
+	}
+
+	.woche__kopf {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: var(--space-3);
+	}
+
+	/* min-width: 0 lässt einen langen Namen brechen statt die Zeile zu weiten */
+	.woche__spalte {
+		min-width: 0;
+	}
+
+	/*
+		Ziffern in Tabellenstellung. Vierzehn Wochennummern stehen untereinander,
+		und eine proportionale 1 verschöbe jede Zeile gegen ihre Nachbarin.
+	*/
+	.woche__nummer {
+		margin: 0;
+		font-family: var(--body-font);
+		font-size: var(--body-size);
+		font-weight: var(--body-weight);
+		line-height: var(--body-line);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.woche__marke {
+		color: var(--accent);
+		font-family: var(--meta-font);
+		font-size: var(--meta-size);
+		font-weight: var(--meta-weight);
+	}
+
+	.woche__datum {
+		margin: 0;
+		color: var(--ink-secondary);
+		font-family: var(--meta-font);
+		font-size: var(--meta-size);
+		font-weight: var(--meta-weight);
+		line-height: var(--meta-line);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.woche__name {
+		margin: 0;
+		font-family: var(--body-font);
+		font-size: var(--body-size);
+		font-weight: var(--body-weight);
+		line-height: var(--body-line);
+		text-align: end;
+	}
+
+	/* Das Wort trägt die Aussage, die Farbe kommt dazu — nie die Farbe allein. */
+	.woche__name--unbesetzt {
+		color: var(--warn);
+	}
+
+	.besetzen {
+		border: var(--border-hairline) solid var(--hairline);
+		border-radius: var(--radius-md);
+	}
+
+	/*
+		Der Griff trägt die action-Rolle und den Trefferboden von 44px. Die
+		Voreinstellung display: list-item bleibt stehen — sie malt das Dreieck, und
+		das Dreieck ist die einzige Anzeige, dass hier etwas aufgeht.
+	*/
+	.besetzen__griff {
+		min-height: var(--touch);
+		padding: var(--space-3);
+		color: var(--accent);
+		font-family: var(--action-font);
+		font-size: var(--action-size);
+		font-weight: var(--action-weight);
+		line-height: var(--action-line);
+		cursor: pointer;
+	}
+
+	.besetzen__formular {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding: 0 var(--space-3) var(--space-3);
+	}
+</style>

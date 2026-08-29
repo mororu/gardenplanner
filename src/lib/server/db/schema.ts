@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 /*
  * Das Schema. Es hängt von nichts ab — keine Verbindung, keine Umgebung, kein
@@ -8,12 +8,14 @@ import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
  * Drizzle. Zeitstempel sind Integer in Unix-Sekunden, nie ISO-Strings und nie
  * Date-Objekte.
  *
- * In diesem Stand gibt es zwei Tabellen: members aus Story 1.2 und tasks aus
- * Story 1.4, letztere seit Story 2.1 um due_at erweitert. Story 2.2 hat daran
- * **nichts** geändert: die Überfälligkeit wird gerechnet und nicht gespeichert,
- * und die Rechnung steht in src/lib/zeit.ts. duty_weeks und signup_tasks kommen
- * mit Epic 3. Drei getrennte Tabellen ohne gemeinsame Zuständigkeitsspalte,
- * keine Basistabelle und keine Typspalte darüber (AD-3).
+ * In diesem Stand gibt es drei Tabellen: members aus Story 1.2, tasks aus
+ * Story 1.4 (seit Story 2.1 um due_at erweitert) und duty_weeks aus Story 3.1.
+ * Story 2.2 hat an tasks **nichts** geändert: die Überfälligkeit wird gerechnet
+ * und nicht gespeichert, und die Rechnung steht in src/lib/zeit.ts.
+ * signup_tasks kommt mit Story 3.2. Getrennte Tabellen ohne gemeinsame
+ * Zuständigkeitsspalte, keine Basistabelle und keine Typspalte darüber (AD-3):
+ * die drei Arten sind verschieden verbindlich, und genau das soll das Schema
+ * zeigen.
  */
 export const members = sqliteTable('members', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
@@ -197,3 +199,97 @@ export type NewTask = typeof tasks.$inferInsert;
  * verengen wäre. Jede Abfrage projiziert schon in der Datenbank.
  */
 export type SichtbareAufgabe = Omit<Task, 'completedBy' | 'completedAt'>;
+
+/**
+ * Der Dienstplan. Eine Woche, eine zuständige Person — und diese Verbindlichkeit
+ * steht im Schema, nicht in einer Regel der Oberfläche.
+ *
+ * **Der Gegenentwurf zu tasks.** Dort gibt es bewusst keine Zuständigkeitsspalte
+ * (AD-2): der Pool ist namenlos, jede greift, was sie schafft. Hier trägt eine
+ * Sache genau einen Namen, **bevor** sie getan wird. Die zwei Tabellen sehen
+ * einander darum nicht ähnlich, und eine gemeinsame Basistabelle mit einer
+ * Typspalte hätte den Unterschied verdeckt, um den es geht (AD-4).
+ *
+ * **Woche statt Datum.** Ein Tränkedienst gilt für eine Kalenderwoche, nicht für
+ * einen Tag. Ein gespeicherter Montag müsste bei jeder Anzeige zurück in eine
+ * Woche gerechnet werden, und über den Jahreswechsel — ISO-Woche 1 beginnt im
+ * Dezember — liefen die zwei Rechnungen auseinander. Die Rechnung selbst steht
+ * an einer Stelle, in src/lib/zeit.ts (isoWocheVon, wochenfenster).
+ */
+export const dutyWeeks = sqliteTable(
+	'duty_weeks',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		/*
+		 * Die Dienstart. Sie steht als Spalte, obwohl in diesem Epic allein der
+		 * Tränkedienst eine Oberfläche bekommt: eine zweite Art braucht dann keine
+		 * Schemaänderung und keine Migration, sondern nur eine Ansicht. Der einzige
+		 * heute geschriebene Wert steht als DIENSTART_TRAENKEN darunter — ein
+		 * Literal in einer Route wäre die zweite Wahrheit darüber.
+		 *
+		 * Kein Fremdschlüssel auf eine Arten-Tabelle: eine Tabelle mit einer Zeile
+		 * ist ein Wert, keine Beziehung.
+		 */
+		art: text('art').notNull(),
+		/*
+		 * Das **ISO**-Jahr, nicht das Kalenderjahr des Montags. Die beiden fallen
+		 * am Jahreswechsel auseinander: der 1. Januar 2027 gehört zur Woche 53 des
+		 * ISO-Jahres 2026. Wer hier das Kalenderjahr einträgt, legt dieselbe Woche
+		 * zweimal an.
+		 */
+		isoJahr: integer('iso_jahr').notNull(),
+		/** Die ISO-Kalenderwoche, 1 bis 52 oder 53. */
+		isoWoche: integer('iso_woche').notNull(),
+		/*
+		 * Wer zuständig ist — **nicht nullbar**, und das ist der Kern.
+		 *
+		 * Eine nullbare Spalte hiesse: es gibt eine Zeile für eine Woche, die
+		 * niemandem gehört. Dann wäre „unbesetzt" ein Zustand, den man **anlegen**
+		 * kann, und der Dienstplan bekäme leere Datensätze, die niemand je wieder
+		 * anfasst. Unbesetzt entsteht statt dessen auf genau zwei Wegen, und beide
+		 * sind Abwesenheit: gar keine Zeile, oder eine Zeile auf ein beendetes
+		 * Mitglied.
+		 *
+		 * Der Fremdschlüssel ist tragfähig, weil Zugang beenden deaktiviert statt
+		 * löscht — dieselbe Begründung wie bei tasks.completed_by. Die künftigen
+		 * Dienstwochen eines ausgetretenen Mitglieds bleiben darum als Datensatz
+		 * stehen und werden als unbesetzt **dargestellt**, bis die Verwaltung sie
+		 * neu besetzt.
+		 */
+		memberId: integer('member_id')
+			.notNull()
+			.references(() => members.id),
+		/* Wie bei members und tasks über $defaultFn im Schema. */
+		createdAt: integer('created_at')
+			.notNull()
+			.$defaultFn(() => Math.floor(Date.now() / 1000)),
+	},
+	/*
+	 * **Genau eine Person je Woche** — die Zusage der Story, durchgesetzt von der
+	 * Datenbank und nicht von einer Prüfung in der Route.
+	 *
+	 * Ein Tausch ist damit zwangsläufig ein UPDATE derselben Zeile: ein zweites
+	 * INSERT für dieselbe Woche fällt hier auf, statt still eine zweite
+	 * zuständige Person anzulegen, von denen die Liste dann eine zeigt und die
+	 * andere verschweigt.
+	 *
+	 * Über die drei Spalten zusammen und nicht über Jahr und Woche allein: eine
+	 * zweite Dienstart hätte in derselben Woche eine eigene zuständige Person.
+	 */
+	(tabelle) => [
+		uniqueIndex('duty_weeks_art_jahr_woche').on(tabelle.art, tabelle.isoJahr, tabelle.isoWoche),
+	]
+);
+
+export type DutyWeek = typeof dutyWeeks.$inferSelect;
+export type NewDutyWeek = typeof dutyWeeks.$inferInsert;
+
+/**
+ * Die einzige heute geschriebene Dienstart.
+ *
+ * Sie steht als Konstante neben der Tabelle und nicht als Literal in der Route:
+ * die Spalte trägt einen Wert, den Abfrage und Einfügung gleich schreiben
+ * müssen, und zwei Schreibweisen ergäben zwei Dienstpläne, von denen einer leer
+ * aussieht.
+ */
+export const DIENSTART_TRAENKEN = 'traenken';

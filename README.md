@@ -1364,6 +1364,18 @@ Der Grund für all das ist gemessen. Die Tabelle nennt nur Mutationen, die
 | der Absendeknopf ganz entfernt                                    | Story 3.0.1          | `smoke:http`, das ausgelieferte Formular                                                                                                                                                                                   |
 | `open={fehlerHier}` vom `<details>` entfernt                      | Story 3.0.1 (Review) | `smoke`, die Verdrahtung des Formulars; `smoke:http`, das abgewiesene Dokument — beide Behauptungen sind erst durch diese Mutation entstanden, siehe unten                                                                 |
 | der Satz zur Zeile auf `{fehlerAmNeuenNamen}` ohne Zeilenbezug    | Story 3.0.1 (Review) | `smoke`, die Live-Region zur Zeile; `smoke:http`, die Zählung über die Regionen des abgewiesenen Dokuments                                                                                                                 |
+| die ISO-Wochennummer um eine Woche verschoben                     | Story 3.1            | `smoke`, die Wochenrechnung am Jahreswechsel                                                                                                                                                                               |
+| das ISO-Jahr aus dem Montag statt dem Donnerstag gelesen          | Story 3.1            | `smoke`, dieselbe Kette — die Zeile `1.1.2027 gehört zur Woche 53 von 2026`                                                                                                                                                |
+| die Wochenrechnung ohne Zone, auf UTC                             | Story 3.1            | `smoke`, `Montag 00:30 Ortszeit zählt schon zur neuen Woche`                                                                                                                                                               |
+| das Wochenfenster wieder an heute statt am Montag verankert       | Story 3.1            | `smoke`, `drei Monate ergeben 13 oder 14 Wochen` — an einem Sonntag waren es fünfzehn, gemessen                                                                                                                            |
+| `onConflictDoUpdate` aus `dienstwocheBesetzen` entfernt           | Story 3.1            | `smoke`, zwei Zeilen: die Zahl der Datensätze und die Id der Zeile                                                                                                                                                         |
+| `is_active` aus der Anzeigeabfrage des Dienstplans genommen       | Story 3.1            | `smoke`, `nach dem Beenden des Zugangs steht die Woche als unbesetzt`                                                                                                                                                      |
+| `adminOderWeg` aus `besetzen` entfernt                            | Story 3.1            | `smoke`, die Adminschranke und die Zahl der Datensätze danach                                                                                                                                                              |
+| die Fensterschranke aus `besetzen` entfernt                       | Story 3.1            | `smoke`, drei Zeilen über Wochen ausserhalb und in der Vergangenheit                                                                                                                                                       |
+| die Namensauswahl auch an Nicht-Admins gegeben                    | Story 3.1            | `smoke`, `ein Mitglied ohne Adminrechte bekommt sie nicht`; `smoke:http`, kein Name im ausgelieferten HTML                                                                                                                 |
+| das Besetzen-Formular auch ohne Adminrechte gerendert             | Story 3.1            | `smoke:http`, das ausgelieferte HTML des Mitglieds                                                                                                                                                                         |
+| `method="POST"` vom Besetzen-Formular entfernt                    | Story 3.1            | `smoke:http`, das ausgelieferte Formular                                                                                                                                                                                   |
+| der Diensthinweis auch ohne eigenen Dienst gerendert              | Story 3.1            | `smoke`, `wer keinen hat, bekommt null`                                                                                                                                                                                    |
 
 `\|\| !mitglied.isActive` aus dem **Wächter** entfernt steht bewusst **nicht** in
 der Tabelle: diese Mutation war schon vor Iteration 2 rot.
@@ -1423,7 +1435,7 @@ war:
 `scripts/smoke-http.ts` beantwortet die Frage, die `smoke` nicht beantworten
 kann: **was kommt tatsächlich aus der Steckdose?** Es startet `build/index.js`
 als Unterprozess auf einem freien Port gegen eine Wegwerf-Datenbank, sät zwei
-Mitglieder über die echte Datenschicht und legt 79 Behauptungen an echten
+Mitglieder über die echte Datenschicht und legt 91 Behauptungen an echten
 Antworten ab — Status, Kopfzeilen, `set-cookie` und Bytes, nichts davon von
 einer Attrappe entschieden. Kein Browser, keine neue Abhängigkeit, reines Node;
 `pruefen`, `pruefenGleich`, `wegwerfVerzeichnis` und der Abbruchrahmen kommen
@@ -1513,7 +1525,7 @@ und `smoke:http`. Damit war es der einzige ungeprüfte Code darin — und sein
 Ausfall sähe wie ein grüner Lauf aus, nicht wie ein Absturz. Gemessen an einer
 Kopie: nimmt man das `gescheitert += 1` aus `pruefen`, meldet jede gebrochene
 Zusage weiter „FEHLER" auf die Fehlerausgabe, die Schlusszählung bleibt grün,
-und `npm run smoke` endet mit **0** — 418 Behauptungen auf einen Schlag
+und `npm run smoke` endet mit **0** — 474 Behauptungen auf einen Schlag
 entwaffnet, ohne dass irgendetwas im Baum es bemerkt.
 
 `scripts/pruefhelfer-selftest.ts` schliesst diese Lücke, in derselben Bauform wie
@@ -2112,6 +2124,76 @@ nodelay`); im Anwendungscode gibt es bewusst keine. Siehe
   Leuten, die sich kennen, ist das kein Missbrauchsrisiko, sondern der Gegenzug
   zum Fehlgriff mit dem Handschuh.
 
+## Dienstplan und Diensthinweis
+
+`/dienstplan` ist eines der vier Navigationsziele und zeigt die Wochen der
+nächsten drei Monate — 13 oder 14 Zeilen, je nach Kalender —, jede mit genau
+einer zuständigen Person oder mit `— unbesetzt —`. **Lesen darf ihn jede**; das
+ist der Zweck der Seite, denn ein Dienstplan, den nur die Verwaltung sieht,
+nimmt niemandem die Nachfrage im Gruppenchat ab. **Besetzen darf nur eine
+Adminperson**, und die Schranke steht in der action und nicht in der `load`: für
+alle anderen fehlt das Formular schon im ausgelieferten HTML, und ein POST
+darauf endet mit 303 auf `/` — beides gemessen, `smoke:http` liest das Dokument
+beider Rollen.
+
+Ein Tausch ist das **Ersetzen des Namens**. Es gibt kein Anfragen, kein Annehmen
+und keine zweite Aktion dafür: `dienstwocheBesetzen` schreibt über die
+Eindeutigkeit von (Dienstart, ISO-Jahr, ISO-Woche) entweder eine neue Zeile oder
+die bestehende um. Dass dabei **keine zweite** Zeile entsteht, ist eine
+Behauptung über eine Zahl, nicht über einen Namen — ohne sie stünden zwei
+Zuständige da, der Plan zeigte eine und verschwiege die andere.
+
+**`— unbesetzt —` hat zwei Ursachen und eine Darstellung:** gar keine Zeile für
+die Woche, oder eine Zeile auf ein beendetes Mitglied. Die zweite ist die
+interessante — der Datensatz **bleibt stehen**, es wird nichts gelöscht, und die
+Woche wartet darauf, neu besetzt zu werden. Beide Hälften sind einzeln nichts
+wert und darum als Paar geprüft: dass der Plan `null` sagt, wäre auch bei einem
+DELETE wahr, und dass die Zeile steht, wäre auch bei einer Anzeige des toten
+Namens wahr.
+
+Die **ISO-Wochenrechnung** steht in `src/lib/zeit.ts`, neben Zone und
+Überfälligkeitsschwelle, und nirgends sonst. Sie ist die einzige Stelle dieses
+Projekts, an der ein Lauf am falschen Tag ein anderes Ergebnis gäbe — die
+Prüfliste rechnet darum auf **festen** Zeitpunkten und nicht auf `Date.now()`.
+Zwei Fälle tragen sie:
+
+- **der Jahreswechsel.** Der 1. Januar 2027 ist ein Freitag und gehört zur Woche
+  53 des ISO-Jahres **2026**; der 30. Dezember 2019 ist ein Montag und gehört
+  schon zur Woche 1 von 2020. Wer das ISO-Jahr aus dem Montag statt aus dem
+  Donnerstag liest, legt dieselbe Woche zweimal an.
+- **die Zonengrenze.** Montag 00:30 Ortszeit ist in UTC noch Sonntag. Ohne
+  Zonenrechnung zeigte der Diensthinweis in der Nacht zum Montag noch die Woche
+  davor — und niemand bemerkte es, weil um halb eins nachts niemand den
+  Dienstplan öffnet.
+
+Der **Diensthinweis** auf `/` ist Block 1 der Startseite (AD-14). Ohne eigenen
+Dienst fehlt er **ganz**: es gibt kein `{:else}` und keinen leeren Rahmen. Er ist
+als Ganzes ein Link auf den Dienstplan und trägt weder Knopf noch Kästchen noch
+Formular — ein Dienst ist keine Aufgabe, er ist nicht abhakbar und nicht
+wegklickbar.
+
+### Eine Zusage, die diese Story verhandelt hat
+
+Bis Story 3.1 stand über die `load` von `/` eine **ausgeführte** Behauptung: sie
+liest aus dem Ereignis allein die Adresse, weder `locals` noch `cookies`. Sie war
+kein Kommentar — das Ereignis der Prüfliste warf, sobald jemand eines der beiden
+Felder anfasste.
+
+Der Diensthinweis ist personenbezogen und hat sie unhaltbar gemacht. Ihr
+**Grund** gilt weiter: der Aufgaben-Pool ist namenlos (AD-2), und ein Weg, auf
+dem die Liste für zwei Personen verschieden aussähe, wäre genau das Gegenteil.
+Die Behauptung ist darum **verengt und nicht gestrichen**, und die neue Fassung
+ist die schärfere:
+
+1. `cookies` bleibt unberührt — dasselbe werfende Feld, eine Hälfte weniger;
+2. zwei `load`-Aufrufe mit **verschiedenen** `locals.mitglied` geben eine
+   wortgleiche Aufgabenliste zurück. Verschieden ist allein der Dienstblock.
+
+Der zweite Punkt sagt mehr als die alte Behauptung: die schloss von „liest die
+Identität nicht" auf „kann nicht unterscheiden", diese misst das Ergebnis selbst.
+Wer die alte Zeile bei so einer Gelegenheit streicht, statt sie zu verengen,
+behält von der Zusage nur den Kommentar.
+
 ## Was noch nicht hier ist
 
 - **Eine Aufgabe bearbeiten oder löschen gibt es nicht.** Ein Tippfehler im
@@ -2123,8 +2205,9 @@ nodelay`); im Anwendungscode gibt es bewusst keine. Siehe
   wird: sie wird es 21 Tage nach ihrer **Erfassung**, weil die Frist ersatzweise
   ab `created_at` zählt — ohne dass jemand ein Datum gesetzt hat und ohne dass es
   einen Weg gäbe, diesen Zeitpunkt zu verschieben.
-- Diensthinweis und freie Einzelaufgaben, also Block 1 und 2 auf `/`: **Epic 3**.
-  Die Reihenfolge ist angelegt, die Blöcke rendern nichts.
+- Freie Einzelaufgaben, also Block 2 auf `/`: **Story 3.2**. Der Platz ist
+  angelegt, der Block rendert nichts. Block 1, der Diensthinweis, steht seit
+  Story 3.1.
 - Es gibt bewusst keinen Service Worker: `static/manifest.webmanifest` und die
   Icons genügen für die Installation zum Home-Bildschirm, und ein Datencache
   würde Erledigtes als offen zeigen.

@@ -136,3 +136,28 @@ export const AUFGABE_NICHT_ANSPRECHBAR =
  */
 export const VERSAND_FEHLGESCHLAGEN =
 	'Das hat gerade nicht geklappt. Lade die Seite neu und sieh nach, bevor du es noch einmal versuchst.';
+
+/**
+ * Die nicht ansprechbare Dienstwoche. **Eine** Wurfstelle heute — die action
+ * `besetzen` in src/routes/dienstplan/+page.server.ts — und dort **ein** Satz
+ * für vier Zustände:
+ *
+ *   1. jahr oder woche fehlt im Formular
+ *   2. eines von beiden ist nicht numerisch
+ *   3. die Woche gibt es im Kalender nicht (Woche 53 in einem 52-Wochen-Jahr)
+ *   4. die Woche liegt ausserhalb des angezeigten Fensters — auch: sie liegt in
+ *      der Vergangenheit
+ *
+ * Der Satz steht hier und nicht als Literal in der Route, obwohl es vorerst nur
+ * eine Wurfstelle gibt: er steht neben MITGLIED_NICHT_ANSPRECHBAR und
+ * AUFGABE_NICHT_ANSPRECHBAR, die dieselbe Form haben, und Story 3.2 bringt mit
+ * dem Ausschreiben die zweite Route, die eine Woche oder einen Termin abweist.
+ *
+ * Ein Satz, ein Statuscode, keine Verzweigung — aus demselben Grund wie dort:
+ * jede Abweichung im Wortlaut wäre ein Aufzählungskanal. Der vierte Zustand
+ * trägt hier zusätzlich Gewicht: er ist der einzige, den ein Formular der Seite
+ * überhaupt erzeugen kann, und zwar dann, wenn die angezeigte Liste über einen
+ * Wochenwechsel hinweg veraltet ist.
+ */
+export const WOCHE_NICHT_ANSPRECHBAR =
+	'Diese Woche lässt sich nicht ansprechen. Lade den Plan neu.';

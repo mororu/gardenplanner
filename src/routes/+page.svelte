@@ -274,16 +274,37 @@
 		Die Startseite führt genau drei Blöcke in dieser Reihenfolge (AD-14):
 
 		  Block 1 — Diensthinweis: „Diese Woche bist du am Tränken", nur vorhanden,
-		            wenn die betrachtende Person Dienst hat. Kommt mit Epic 3
-		            (duty_weeks) und rendert hier nichts.
-		  Block 2 — freie Einzelaufgaben zum Übernehmen. Kommt mit Epic 3
+		            wenn die betrachtende Person Dienst hat. Seit Story 3.1 gebaut,
+		            steht direkt unter diesem Kommentar.
+		  Block 2 — freie Einzelaufgaben zum Übernehmen. Kommt mit Story 3.2
 		            (signup_tasks) und rendert hier nichts.
-		  Block 3 — der offene Pool. Diesen füllt diese Story.
+		  Block 3 — der offene Pool. Diesen füllte Story 1.4.
 
-		Die Reihenfolge steht jetzt, obwohl zwei Drittel leer sind: sie ist eine
+		Die Reihenfolge stand schon, als zwei Drittel leer waren: sie ist eine
 		Entscheidung über die Aufmerksamkeit im Garten und keine Folge davon, in
 		welcher Reihenfolge die Stories gebaut wurden.
 	-->
+
+	<!--
+		Block 1. **Ohne eigenen Dienst fehlt er ganz** — es gibt kein {:else} und
+		keinen leeren Rahmen. Ein Block, der „Diese Woche hast du keinen Dienst"
+		sagte, nähme jede Woche Platz weg, um nichts mitzuteilen.
+
+		Der ganze Block ist **ein** Link auf den Dienstplan und trägt darum keinen
+		Knopf: ein Dienst ist keine Aufgabe, er ist nicht abhakbar und nicht
+		wegklickbar. Vertiefen darf die Unterseite, exklusiv informieren nicht —
+		der Satz hier sagt schon alles, was diese Woche zählt.
+
+		Die linke Kante in Akzentfarbe (3px, var(--border-marker)) ist dasselbe
+		Zeichen wie an der laufenden Woche auf /dienstplan: hier bist du gerade.
+	-->
+	{#if data.dienst !== null}
+		<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+		<a class="dienst" href={resolve('/dienstplan')}>
+			<span class="dienst__satz">Diese Woche bist du am Tränken</span>
+			<span class="dienst__datum">{data.dienst.datum}</span>
+		</a>
+	{/if}
 
 	<h2 class="marke" id="offen-marke">Offen</h2>
 	{#if data.aufgaben.length === 0}
@@ -458,6 +479,49 @@
 		Zugleich über aria-labelledby der zugängliche Name der Liste: sie heisst
 		dann „Offen" und nicht „Liste mit 4 Einträgen".
 	*/
+	/*
+		Der Diensthinweis. Eine Zeile auf erhabener Fläche mit 3px linker Kante in
+		der Akzentfarbe, fast eckigem Radius und Haarlinie ringsum (UX-DR9).
+
+		Er ist als Ganzes ein Link, und darum steht hier `text-decoration: none` und
+		die Tintenfarbe statt der Linkfarbe: unterstrichen und farbig sähe der ganze
+		Block aus wie ein Satz Linktext. Dass er ein Ziel hat, sagt seine Fläche —
+		und die Kante links, die ihn von jedem anderen Block der Seite unterscheidet.
+
+		`--radius-sm` und nicht `--radius-md`: fast eckig, damit die 3px-Kante als
+		gerade Linie liest und nicht als angeschnittener Bogen.
+	*/
+	.dienst {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		min-height: var(--touch);
+		background-color: var(--surface-raised);
+		border: var(--border-hairline) solid var(--hairline);
+		border-inline-start: var(--border-marker) solid var(--accent);
+		border-radius: var(--radius-sm);
+		padding: var(--space-3);
+		color: var(--ink-primary);
+		text-decoration: none;
+	}
+
+	.dienst__satz {
+		font-family: var(--body-font);
+		font-size: var(--body-size);
+		font-weight: var(--body-weight);
+		line-height: var(--body-line);
+	}
+
+	/* Das Wochendatum trägt die Nebentext-Rolle, Ziffern in Tabellenstellung */
+	.dienst__datum {
+		color: var(--ink-secondary);
+		font-family: var(--meta-font);
+		font-size: var(--meta-size);
+		font-weight: var(--meta-weight);
+		line-height: var(--meta-line);
+		font-variant-numeric: tabular-nums;
+	}
+
 	.marke {
 		margin: 0;
 		color: var(--ink-secondary);

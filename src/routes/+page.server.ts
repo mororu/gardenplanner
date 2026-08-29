@@ -1,5 +1,6 @@
 import type { Actions, RequestEvent, ServerLoadEvent } from '@sveltejs/kit';
 import { abweisen } from '../lib/server/abweisen.ts';
+import { eigeneDienstwoche } from '../lib/server/db/queries/duty-weeks.ts';
 import {
 	aufgabeAbhaken,
 	aufgabeWiederOeffnen,
@@ -7,6 +8,7 @@ import {
 	type OffeneAufgabe,
 } from '../lib/server/db/queries/tasks.ts';
 import { AUFGABE_NICHT_ANSPRECHBAR } from '../lib/texte.ts';
+import { wochendatum } from '../lib/zeit.ts';
 
 /*
  * / — die Kernschleife: sehen, was offen ist, und mit einem Griff abhaken.
@@ -68,12 +70,24 @@ function abgelegtLesen(url: URL): number | null {
 }
 
 /**
- * Die offenen Aufgaben, älteste zuerst — und ob gerade etwas abgelegt wurde.
+ * Die offenen Aufgaben, älteste zuerst — dazu der eigene Dienst dieser Woche und
+ * ob gerade etwas abgelegt wurde.
  *
- * Aus dem Ereignis liest die Funktion **allein die Adresse**: weder locals noch
- * Cookies. Wer hier ist, ist angemeldet, und alle sehen dieselbe Liste. Belegt
- * ist das ausgeführt, nicht behauptet: scripts/smoke-zugang.ts ruft diese load
- * mit einem Ereignis, dessen locals und cookies beim Lesen werfen.
+ * **Die Aufgabenliste ist für alle dieselbe, und das bleibt so.** Bis Story 3.1
+ * las diese Funktion aus dem Ereignis allein die Adresse — weder locals noch
+ * Cookies —, und scripts/smoke-zugang.ts belegte das ausgeführt mit einem
+ * Ereignis, das beim Anfassen beider Felder wirft. Der Diensthinweis ist
+ * personenbezogen und bricht die Hälfte dieser Zusage: `locals.mitglied` wird
+ * jetzt gelesen. Der **Grund** der Zusage gilt weiter und ist die schärfere
+ * Fassung, die im Prüfskript an ihre Stelle getreten ist:
+ *
+ *   - `cookies` bleibt unberührt — das Ereignis wirft dort weiterhin;
+ *   - zwei load-Aufrufe mit **verschiedenen** locals.mitglied geben eine
+ *     wortgleiche Aufgabenliste zurück. Verschieden ist allein `dienst`.
+ *
+ * Der namenlose Pool ist damit weiterhin gemessen und nicht bloss behauptet
+ * (AD-2). Wer die alte Zeile streicht, statt sie zu verengen, behält davon nur
+ * den Kommentar.
  *
  * offeneAufgabenAuflisten projiziert schon in der Datenbank ohne completed_by
  * und completed_at — der Abhakende kann diesen Rückgabewert nicht verlassen,
@@ -117,12 +131,27 @@ function abgelegtLesen(url: URL): number | null {
  * sichtbar, ein Neuladen wiederholt die Meldung, und wer die Adresse von Hand
  * eintippt, sieht sie auch. Eine Bestätigung ohne Folgen verträgt das.
  */
-export function load({ url }: ServerLoadEvent): {
+export function load({ locals, url }: ServerLoadEvent): {
 	aufgaben: OffeneAufgabe[];
+	dienst: { datum: string } | null;
 	abgelegt: number | null;
 } {
 	const jetztSekunden = Math.floor(Date.now() / 1000);
-	return { aufgaben: offeneAufgabenAuflisten(jetztSekunden), abgelegt: abgelegtLesen(url) };
+	const mitglied = locals.mitglied;
+	/*
+	 * **null heisst: der Block fehlt ganz.** Er ist nicht leer, sondern nicht
+	 * vorhanden — die Oberfläche hat für diesen Fall kein `{:else}`.
+	 *
+	 * Die Komponente bekommt das fertige Wochendatum und nicht Jahr und Woche:
+	 * eine zweite Formatierung im Browser liefe beim Hydrieren gegen die des
+	 * Servers, und ein Datum ist genau die Art Wert, bei der das auffällt.
+	 */
+	const eigene = mitglied === null ? null : eigeneDienstwoche(mitglied.id, jetztSekunden);
+	return {
+		aufgaben: offeneAufgabenAuflisten(jetztSekunden),
+		dienst: eigene === null ? null : { datum: wochendatum(eigene.woche) },
+		abgelegt: abgelegtLesen(url),
+	};
 }
 
 /*

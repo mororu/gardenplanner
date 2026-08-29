@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
 
-	// Vier Ziele mit Wort statt Symbol. Unbebaut sind noch /dienstplan und
-	// /wissen; bis dahin führen sie auf die Fehlerseite mit `Diese Seite gibt es
-	// nicht.` /mehr steht seit Story 1.3.
+	// Vier Ziele mit Wort statt Symbol. Unbebaut ist noch /wissen; bis dahin
+	// führt es auf die Fehlerseite mit `Diese Seite gibt es nicht.` /mehr steht
+	// seit Story 1.3, /dienstplan seit Story 3.1.
 	const ziele = [
 		{ href: '/', beschriftung: 'Aufgaben' },
 		{ href: '/dienstplan', beschriftung: 'Dienstplan' },

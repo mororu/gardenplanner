@@ -284,3 +284,237 @@ export function wochenOffenSeit(bezugSekunden: number, jetztSekunden: number): n
 	if (verstrichen <= UEBERFAELLIG_SEKUNDEN) return null;
 	return Math.floor(verstrichen / WOCHE_SEKUNDEN);
 }
+
+/*
+ * ---------------------------------------------------------------------------
+ * Die ISO-Kalenderwoche. Neu mit Story 3.1.
+ *
+ * Sie steht hier und nicht in der Route oder der Komponente, aus demselben
+ * Grund wie die Zone und die Schwelle darüber: eine zweite Wochenrechnung wäre
+ * eine zweite Wahrheit über denselben Kalender. Der Dienstplan rechnet damit
+ * das Fenster der nächsten drei Monate, die Startseite die laufende Woche, und
+ * die Datenschicht speichert das Ergebnis als zwei Integer.
+ *
+ * **Warum ISO und nicht irgendeine Wochenzählung.** ISO 8601 legt beides fest,
+ * was hier gebraucht wird: die Woche beginnt am Montag, und Woche 1 ist die
+ * Woche mit dem ersten Donnerstag des Jahres. Ohne diese zweite Regel hätte der
+ * Jahreswechsel zwei Antworten — der 1. Januar 2027 ist ein Freitag und gehört
+ * zur Woche 53 des Jahres 2026. Genau darum reist das **ISO-Jahr** als eigene
+ * Zahl mit und ist nicht das Kalenderjahr des Datums.
+ *
+ * **Gerechnet wird auf dem Wandkalender der Zone, nicht auf UTC.** Am Montag um
+ * 00:30 Ortszeit ist es in UTC noch Sonntag, und die laufende Woche läge dann
+ * eine daneben — der Diensthinweis auf / zeigte in der Nacht zum Montag noch
+ * die Woche davor. teileInZone oben liefert die Bestandteile; von dort an
+ * rechnet alles auf reinen Kalendertagen ohne Zeitanteil.
+ * ---------------------------------------------------------------------------
+ */
+
+/** Ein Tag in Sekunden — der Baustein der Wochenrechnung. */
+const TAG_SEKUNDEN = 24 * 60 * 60;
+
+/** Ein Kalendertag ohne Zeitanteil, als Tageszahl seit dem 1.1.1970. */
+function tageszahl(jahr: number, monat: number, tag: number): number {
+	return Math.floor(Date.UTC(jahr, monat - 1, tag) / 1000 / TAG_SEKUNDEN);
+}
+
+/**
+ * Der Wochentag nach ISO: Montag 1 bis Sonntag 7.
+ *
+ * `getUTCDay()` zählt Sonntag als 0; `((tag + 6) % 7) + 1` verschiebt das auf
+ * die ISO-Zählung, ohne eine Fallunterscheidung für den Sonntag zu brauchen.
+ */
+function isoWochentag(tageszahl: number): number {
+	return ((new Date(tageszahl * TAG_SEKUNDEN * 1000).getUTCDay() + 6) % 7) + 1;
+}
+
+/**
+ * Ein Wochenschlüssel: ISO-Jahr und ISO-Woche. Genau das, was in `duty_weeks`
+ * steht — und die zwei Zahlen, aus denen `wochenSchluessel` unten eine macht.
+ */
+export type Woche = { jahr: number; woche: number };
+
+/**
+ * Der Montag einer Woche als Tageszahl.
+ *
+ * Der Rückweg von einem beliebigen Tag zum Wochenanfang: `wochentag - 1` Tage
+ * zurück. Für einen Montag ist das null, für einen Sonntag sechs.
+ */
+function montagVon(tageszahl: number): number {
+	return tageszahl - (isoWochentag(tageszahl) - 1);
+}
+
+/**
+ * Die ISO-Woche eines Kalendertags.
+ *
+ * **Der Donnerstag entscheidet.** ISO 8601 legt Woche 1 als die Woche mit dem
+ * ersten Donnerstag des Jahres fest; gleichwertig: die Woche, die den 4. Januar
+ * enthält. Der Donnerstag derselben Woche liegt darum immer im richtigen
+ * ISO-Jahr, auch wenn der Montag noch im Dezember steht — und aus **seinem**
+ * Kalenderjahr kommt das ISO-Jahr. Ohne diesen Umweg zählte der 31. Dezember
+ * 2026 (ein Donnerstag) als Woche 53 von 2026 richtig, der 1. Januar 2027 (ein
+ * Freitag derselben Woche) aber als Woche 1 von 2027 falsch.
+ *
+ * Die Wochennummer ist dann die Zahl der ganzen Wochen zwischen dem 4. Januar
+ * jenes ISO-Jahres und diesem Donnerstag, plus eins.
+ */
+function isoWocheVonTageszahl(tag: number): Woche {
+	// Der Donnerstag dieser Woche: Montag plus drei Tage.
+	const donnerstag = montagVon(tag) + 3;
+	const jahr = new Date(donnerstag * TAG_SEKUNDEN * 1000).getUTCFullYear();
+	// Der 4. Januar liegt nach ISO immer in Woche 1 — der einzige Kalendertag,
+	// von dem das ohne Fallunterscheidung gilt.
+	const ersterDonnerstag = montagVon(tageszahl(jahr, 1, 4)) + 3;
+	const woche = Math.round((donnerstag - ersterDonnerstag) / 7) + 1;
+	return { jahr, woche };
+}
+
+/**
+ * Die ISO-Woche, in der ein Zeitpunkt liegt — **in der Zone** gerechnet.
+ *
+ * @param unixSekunden Der Zeitpunkt in Unix-**Sekunden**. Er kommt als
+ *   Parameter herein und nicht aus `Date.now()`, aus demselben Grund wie bei
+ *   wochenOffenSeit: dieselbe Seite soll an derselben Uhr gemessen werden, und
+ *   der Wert entsteht serverseitig in der load.
+ */
+export function isoWocheVon(unixSekunden: number): Woche {
+	const { jahr, monat, tag } = teileInZone(unixSekunden);
+	return isoWocheVonTageszahl(tageszahl(jahr, monat, tag));
+}
+
+/**
+ * Die Zahl der Wochen in einem ISO-Jahr: 52 oder 53.
+ *
+ * Gebraucht wird sie nicht für die Anzeige, sondern als **Formprüfung** einer
+ * von aussen hereingereichten Woche: `?woche=99` gibt es nicht. Die Antwort
+ * steht im 28. Dezember — er liegt nach ISO immer in der letzten Woche des
+ * Jahres, so wie der 4. Januar immer in der ersten.
+ */
+export function wochenImJahr(jahr: number): number {
+	return isoWocheVonTageszahl(tageszahl(jahr, 12, 28)).woche;
+}
+
+/**
+ * Der Montag einer ISO-Woche, als Unix-Sekunden auf **Mitternacht UTC** des
+ * Kalendertags.
+ *
+ * Der Wert ist ein Kalendertag und kein Zeitpunkt in der Zone: gebraucht wird
+ * er, um daraus wieder Tag und Monat zu lesen (siehe `wochendatum`). Eine
+ * Zonenrechnung darauf wäre ein Zeitpunkt, den niemand meint.
+ *
+ * **Exportiert für scripts/smoke-zugang.ts**, und zwar aus demselben Grund wie
+ * WOCHE_SEKUNDEN und UEBERFAELLIG_SEKUNDEN weiter oben: die Prüfliste behauptet
+ * über das Wochenfenster, dass zwischen zwei aufeinanderfolgenden Wochen genau
+ * sieben Tage liegen — die Zeile, die den Jahreswechsel wirklich prüft, weil die
+ * Wochennummer dort von 53 auf 1 springt. Ohne diesen Export müsste das Skript
+ * den Montag selbst rechnen, und das wäre die zweite Wochenrechnung, gegen die
+ * dieses Modul steht. Keine Route und keine Komponente ruft sie.
+ */
+export function montagDerWoche({ jahr, woche }: Woche): number {
+	const ersterDonnerstag = montagVon(tageszahl(jahr, 1, 4)) + 3;
+	const donnerstag = ersterDonnerstag + (woche - 1) * 7;
+	return (donnerstag - 3) * TAG_SEKUNDEN;
+}
+
+/**
+ * Ist das ein Wochenschlüssel, den es im Kalender gibt?
+ *
+ * Die Schranke einer von aussen hereingereichten Woche — ein POST braucht kein
+ * Formular. Sie prüft die **Form**, nicht die Zuständigkeit: ob die Woche im
+ * angezeigten Fenster liegt, entscheidet die Route über `wochenfenster`.
+ */
+export function istWoche({ jahr, woche }: Woche): boolean {
+	if (!Number.isSafeInteger(jahr) || !Number.isSafeInteger(woche)) return false;
+	// Der Bereich fängt ein vertipptes oder böswilliges Jahr ab, bevor
+	// tageszahl() daraus ein NaN macht.
+	if (jahr < 1970 || jahr > 9999) return false;
+	return woche >= 1 && woche <= wochenImJahr(jahr);
+}
+
+/**
+ * Die Wochen der nächsten drei Monate, beginnend mit der laufenden.
+ *
+ * **Kalender-verankert und nicht auf 13 festgenagelt.** Drei Monate sind je
+ * nach Startpunkt 13 oder 14 Wochen; eine feste Zahl wäre im Februar zu lang
+ * und im Sommer zu kurz.
+ *
+ * **Gezählt wird ab dem Montag der laufenden Woche, nicht ab heute.** Das ist
+ * der Unterschied zwischen einem Fenster, das an einem Sonntag fünfzehn Wochen
+ * lang ist, und einem, das jeden Tag der Woche dieselbe Länge hat: die Grenze
+ * hinge sonst am Wochentag des Aufrufs, und der Plan würde im Lauf einer Woche
+ * um eine Zeile kürzer, ohne dass jemand etwas getan hätte. Gemessen, nicht
+ * vermutet — ein Aufruf an einem Sonntag gab fünfzehn Wochen.
+ *
+ * Die Grenze ist derselbe Wochentag drei Monate später, und `Date.UTC` rollt
+ * einen 31. Mai + 3 Monate still auf den 31. August weiter, was hier stimmt —
+ * ein 30. November + 3 Monate landete auf dem 30. Februar und rollte auf den
+ * 1. oder 2. März. Das verschiebt die Grenze um höchstens zwei Tage und damit
+ * nie um mehr als eine Woche.
+ *
+ * Aufgenommen wird jede Woche, deren **Montag** auf oder vor der Grenze liegt.
+ * Der Montag und nicht das Wochenende: sonst fiele eine Woche heraus, die
+ * grösstenteils noch im Fenster liegt.
+ *
+ * @param jetztSekunden Der Bezugszeitpunkt in Unix-Sekunden.
+ */
+export function wochenfenster(jetztSekunden: number): Woche[] {
+	const { jahr, monat, tag } = teileInZone(jetztSekunden);
+	const start = montagVon(tageszahl(jahr, monat, tag));
+	// Der Montag zurück in Kalenderbestandteile, um drei Monate daraufzurechnen.
+	// Reine UTC-Arithmetik: `start` ist ein Kalendertag, kein Zeitpunkt.
+	const alsTag = new Date(start * TAG_SEKUNDEN * 1000);
+	const grenze = tageszahl(alsTag.getUTCFullYear(), alsTag.getUTCMonth() + 4, alsTag.getUTCDate());
+
+	const wochen: Woche[] = [];
+	for (let montag = start; montag <= grenze; montag += 7) {
+		wochen.push(isoWocheVonTageszahl(montag));
+	}
+	return wochen;
+}
+
+/**
+ * Zwei Zahlen als eine: `2026` und `36` werden `202636`.
+ *
+ * Der Grund ist eng und benannt: `abweisen` in ./server/abweisen.ts trägt die
+ * abgewiesene Zeile als **eine** Zahl (`zeile: number | null`), weil auf
+ * /verwaltung eine Mitglieds-Id dort steht. Eine Woche braucht zwei. Statt den
+ * geteilten Typ für einen Sonderfall aufzuweiten, reist der Schlüssel gefaltet
+ * — monoton, eindeutig und in der Komponente je Zeile mit demselben Ausdruck
+ * vergleichbar.
+ *
+ * Die Faltung steht **hier** neben der Wochenrechnung und nicht in der Route:
+ * die Komponente bildet denselben Schlüssel, und zwei Faltungen liefen
+ * auseinander. Es gibt bewusst keine Umkehrfunktion — der Schlüssel dient dem
+ * Vergleich, nie dem Rechnen.
+ */
+export function wochenSchluessel({ jahr, woche }: Woche): number {
+	return jahr * 100 + woche;
+}
+
+/** Die Wochentage als Text, für das Wochendatum darunter. */
+const WOCHENDATUM_TAG = new Intl.DateTimeFormat('de-CH', {
+	day: 'numeric',
+	month: 'long',
+	timeZone: 'UTC',
+});
+
+/**
+ * Die Woche in Alltagssprache: `31. August bis 6. September`.
+ *
+ * **`timeZone: 'UTC'` und nicht ZEITZONE**, anders als bei `datumLang` in
+ * ./client/utils/date.ts: montagDerWoche liefert Mitternacht UTC eines
+ * Kalendertags. In Europe/Zurich gelesen wäre das 01:00 oder 02:00 desselben
+ * Tages — hier zufällig derselbe Tag, aber die Rechnung stimmte aus dem
+ * falschen Grund. Der Wert **ist** ein Kalendertag, und UTC ist die Lesart, in
+ * der er entstanden ist.
+ *
+ * Ohne Jahr: der Dienstplan reicht drei Monate, und über einen Jahreswechsel
+ * hinweg sagt die Zeile daneben bereits, welches Jahr gemeint ist.
+ */
+export function wochendatum(woche: Woche): string {
+	const montag = montagDerWoche(woche);
+	const sonntag = montag + 6 * TAG_SEKUNDEN;
+	return `${WOCHENDATUM_TAG.format(new Date(montag * 1000))} bis ${WOCHENDATUM_TAG.format(
+		new Date(sonntag * 1000)
+	)}`;
+}
