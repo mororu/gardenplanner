@@ -1376,9 +1376,20 @@ Der Grund für all das ist gemessen. Die Tabelle nennt nur Mutationen, die
 | das Besetzen-Formular auch ohne Adminrechte gerendert             | Story 3.1            | `smoke:http`, das ausgelieferte HTML des Mitglieds                                                                                                                                                                         |
 | `method="POST"` vom Besetzen-Formular entfernt                    | Story 3.1            | `smoke:http`, das ausgelieferte Formular                                                                                                                                                                                   |
 | der Diensthinweis auch ohne eigenen Dienst gerendert              | Story 3.1            | `smoke`, `wer keinen hat, bekommt null`                                                                                                                                                                                    |
+| `selected` vom vorgewählten `<option>` entfernt                   | Story 3.1 (Review)   | `smoke:http`, drei Zeilen der Vorbelegung — die Textprüfung an der Komponente blieb grün, siehe unten                                                                                                                      |
 
 `\|\| !mitglied.isActive` aus dem **Wächter** entfernt steht bewusst **nicht** in
 der Tabelle: diese Mutation war schon vor Iteration 2 rot.
+
+Die Mutation `selected` vom vorgewählten `<option>` entfernt ist beim ersten
+Anlauf von Story 3.1 **halb grün** geblieben, und darum steht sie in der Tabelle
+mit dem Zusatz „(Review)": `smoke` liest im Markup ein
+`selected={mitglied.id === eintrag.mitgliedId}` und war zufrieden — ob Svelte
+daraus im ausgelieferten HTML wirklich ein `selected` am **richtigen** `<option>`
+macht, sagt eine Textprüfung nicht. Ohne JavaScript ist genau dieses gelieferte
+Attribut aber das Einzige, was die Zusage „die schon zuständige Person steht
+vorgewählt" überhaupt einlöst. `smoke:http` prüft es jetzt dreifach: dass es da
+ist, dass es an der eingetragenen Person hängt, und dass es **genau eines** ist.
 
 Eine Mutation ist beim Nachweis von Story 3.0 **grün geblieben**, und sie steht
 hier, weil das Grün richtig ist: den Satz `KEIN_ZUGANG` in `src/lib/texte.ts`

@@ -1146,6 +1146,23 @@ try {
 	});
 	const nachBesetzen = await holen(port, '/dienstplan', { keks: mitgliedKeks });
 	const nachBesetzenHtml = await nachBesetzen.text();
+	/*
+	 * **Und die Vorbelegung der Auswahl — nur hier prüfbar.**
+	 *
+	 * `scripts/smoke-zugang.ts` liest im Markup ein
+	 * `selected={mitglied.id === eintrag.mitgliedId}`; ob Svelte daraus im
+	 * ausgelieferten HTML wirklich ein `selected` am richtigen `<option>` macht,
+	 * sagt das nicht. Ohne diese Zeile stünde die Zusage „die schon zuständige
+	 * Person steht vorgewählt" allein am Quelltext — und ohne JavaScript ist das
+	 * ausgelieferte `selected` das Einzige, was sie überhaupt einlöst.
+	 */
+	const nachBesetzenAdmin = await holen(port, '/dienstplan', { keks: adminKeks });
+	const nachBesetzenAdminHtml = await nachBesetzenAdmin.text();
+	const besetzteZeile =
+		/<form\b[^>]*action="\?\/besetzen"[^>]*>([\s\S]*?)<\/form>/.exec(nachBesetzenAdminHtml)?.[1] ??
+		'';
+	const vorgewaehlt = /<option\b[^>]*\bselected\b[^>]*>/.exec(besetzteZeile)?.[0] ?? '';
+
 	const besetzenAusfuehrbar = [
 		['die Formularwerte waren im HTML zu finden', wertAus('jahr') !== '' && erstesMitglied !== ''],
 		['der POST endet nicht in einem Fehler', besetzt.status < 400],
@@ -1155,6 +1172,27 @@ try {
 			'und der Plan nennt danach einen Namen statt des Worts',
 			(nachBesetzenHtml.match(/— unbesetzt —/g) ?? []).length <
 				(planOhneRechteHtml.match(/— unbesetzt —/g) ?? []).length,
+		],
+		['die Auswahl dieser Zeile trägt ein selected', vorgewaehlt !== ''],
+		[
+			// Und zwar an **der** Person, die eingetragen wurde — nicht an
+			// irgendeiner. Ein `selected` an der ersten Option wäre die Mutation,
+			// die eine blosse Vorkommensprüfung nicht sieht.
+			'und zwar an der eingetragenen Person',
+			vorgewaehlt.includes(`value="${erstesMitglied}"`),
+		],
+		[
+			// Genau eines: zwei selected in einem <select> ohne multiple wären ein
+			// Zustand, den der Browser willkürlich auflöst.
+			'genau eines, nicht mehrere',
+			(besetzteZeile.match(/<option\b[^>]*\bselected\b/g) ?? []).length === 1,
+		],
+		[
+			// Die Aufforderung `Bitte wählen` steht nur an einer unbesetzten Woche.
+			// Ist die Woche besetzt, wäre sie eine leere erste Zeile, die required
+			// gegen die Vorbelegung stellte.
+			'und die Aufforderung `Bitte wählen` ist aus dieser Zeile verschwunden',
+			!besetzteZeile.includes('Bitte wählen'),
 		],
 	] as const;
 	pruefen(
