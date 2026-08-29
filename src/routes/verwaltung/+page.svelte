@@ -375,7 +375,7 @@
 		-->
 		<section class="einmal" aria-labelledby="einmal-titel" tabindex="-1" bind:this={einmalKasten}>
 			<h2 class="abschnittstitel" id="einmal-titel">Einladungslink</h2>
-			<p class="einmal__name">
+			<p class="zeile__name">
 				{einmalLink.art === 'aufgenommen' ? 'Neu aufgenommen' : 'Neu ausgestellt für'}:
 				{einmalLink.name}
 			</p>
@@ -399,7 +399,7 @@
 				<p class="einmal__stand" role="status">{kopierstand.satz}</p>
 			{/if}
 
-			<p class="einmal__warnung">
+			<p class="hinweis">
 				Dieser Link ist nur jetzt zu sehen und danach nicht wiederherstellbar. Gib ihn von Hand
 				weiter — die Anwendung verschickt nichts. Ist er verloren, stelle einen neuen aus.
 			</p>
@@ -487,11 +487,11 @@
 					einzige Wert aus ohneHashSpalte, der sonst ungezeigt in jede
 					ausgelieferte Seite reiste.
 				-->
-				<p class="zeile__meta">Aufgenommen am {datumLang(mitglied.createdAt)}</p>
+				<p class="hinweis">Aufgenommen am {datumLang(mitglied.createdAt)}</p>
 
 				{#if !mitglied.isActive}
 					<!-- Beendet steht im **Text**, nicht in einer Farbe. -->
-					<p class="zeile__meta">Zugang beendet.</p>
+					<p class="hinweis">Zugang beendet.</p>
 				{:else}
 					{@const fehlerHier = fehlerAmNeuenNamen !== '' && fehlerZeile === mitglied.id}
 					<!--
@@ -614,7 +614,7 @@
 				{/if}
 
 				{#if mitglied.isActive && mitglied.id !== data.ichId}
-					<div class="zeile__knoepfe">
+					<div class="knoepfe">
 						<form method="POST" action="?/neuAusstellen" use:enhance={versand}>
 							<input type="hidden" name="mitgliedId" value={mitglied.id} />
 							<button
@@ -686,7 +686,7 @@
 				direkt nach dem Öffnen darf keinen Zugang beenden. Die Sichtreihenfolge
 				folgt dem DOM, die Fokusreihenfolge damit der Leserichtung.
 			-->
-			<div class="bestaetigung__knoepfe">
+			<div class="knoepfe">
 				<button
 					class="button-quiet"
 					type="button"
@@ -715,25 +715,7 @@
 		background-color: var(--surface-raised);
 	}
 
-	.einmal__name {
-		margin: 0;
-		color: var(--ink-primary);
-		font-family: var(--task-font);
-		font-size: var(--task-size);
-		font-weight: var(--task-weight);
-		line-height: var(--task-line);
-	}
-
 	.einmal__stand,
-	.einmal__warnung {
-		margin: 0;
-		color: var(--ink-secondary);
-		font-family: var(--meta-font);
-		font-size: var(--meta-size);
-		font-weight: var(--meta-weight);
-		line-height: var(--meta-line);
-	}
-
 	.meldung {
 		margin: 0;
 		color: var(--accent);
@@ -747,14 +729,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-3);
-	}
-
-	.liste {
-		display: flex;
-		flex-direction: column;
-		margin: 0;
-		padding: 0;
-		list-style: none;
 	}
 
 	/* Trennung zur nächsten Zeile durch Haarlinie oben; die erste hat keine. */
@@ -782,21 +756,6 @@
 
 	.zeile__marke {
 		color: var(--ink-secondary);
-	}
-
-	.zeile__meta {
-		margin: 0;
-		color: var(--ink-secondary);
-		font-family: var(--meta-font);
-		font-size: var(--meta-size);
-		font-weight: var(--meta-weight);
-		line-height: var(--meta-line);
-	}
-
-	.zeile__knoepfe {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
 	}
 
 	/*

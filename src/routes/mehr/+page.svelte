@@ -28,9 +28,9 @@
 -->
 <div class="seite">
 	<h1 class="seitentitel">Mehr</h1>
-	<p class="angemeldet">Angemeldet als {data.name}</p>
+	<p class="fliesstext fliesstext--gedaempft">Angemeldet als {data.name}</p>
 
-	<ul class="eintraege">
+	<ul class="liste liste--getrennt">
 		<li>
 			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
 			<a class="eintrag" href={resolve('/monatsplan')}>Monatsplan ablegen</a>
@@ -59,25 +59,6 @@
 </div>
 
 <style>
-	.angemeldet {
-		margin: 0;
-		color: var(--ink-secondary);
-		font-family: var(--body-font);
-		font-size: var(--body-size);
-		font-weight: var(--body-weight);
-		line-height: var(--body-line);
-	}
-
-	.eintraege {
-		display: flex;
-		flex-direction: column;
-		/* Abstand zwischen Geschwistern über gap, nie über Aussenabstände */
-		gap: var(--space-2);
-		margin: 0;
-		padding: 0;
-		list-style: none;
-	}
-
 	/*
 		Ein Zeilenziel, kein Knopf: es führt weiter, es tut nichts. Trefferfeld
 		über die ganze Zeile, weil hier — anders als beim Kästchen einer

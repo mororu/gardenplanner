@@ -525,7 +525,7 @@
 			den actions der Nachbardatei.
 		-->
 		<form class="pruefen" method="POST" action="?/ablegen" use:enhance={versand}>
-			<p class="zwischentext">{zwischentext}</p>
+			<p class="hinweis">{zwischentext}</p>
 
 			<!--
 				Die erkannten Zeilen als Liste, jede mit einem `×` zum Entfernen —
@@ -654,23 +654,6 @@
 		line-height: var(--body-line);
 	}
 
-	.zwischentext {
-		margin: 0;
-		color: var(--ink-secondary);
-		font-family: var(--meta-font);
-		font-size: var(--meta-size);
-		font-weight: var(--meta-weight);
-		line-height: var(--meta-line);
-	}
-
-	.liste {
-		display: flex;
-		flex-direction: column;
-		margin: 0;
-		padding: 0;
-		list-style: none;
-	}
-
 	/*
 		Text links, `×` rechts. Trennung zur nächsten Zeile durch Haarlinie oben;
 		die erste hat keine. Dieselbe Form wie die Aufgabenzeile auf `/`, damit
@@ -732,22 +715,5 @@
 	.entfernen:disabled {
 		color: var(--hairline);
 		cursor: default;
-	}
-
-	/*
-		Sichtbar für einen Screenreader, unsichtbar auf dem Schirm.
-
-		position: absolute nimmt das Element aus dem Fluss, clip-path schneidet es
-		weg. **Nicht** display: none und nicht visibility: hidden — beides nähme es
-		auch aus dem Zugänglichkeitsbaum, und damit fiele die Hälfte der
-		Beschriftung des Knopfs aus.
-
-		Kein white-space: nowrap: Gate-Regel 1 sucht CSS-Farbnamen als ganze Wörter
-		und liest das `white` in `white-space` als Farbe. Die Zeile bräuchte es hier
-		ohnehin nicht.
-	*/
-	.nur-vorgelesen {
-		position: absolute;
-		clip-path: inset(50%);
 	}
 </style>

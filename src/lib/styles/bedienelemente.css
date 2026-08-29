@@ -265,6 +265,11 @@ select.feld {
  * dieser Stelle war es von nichts bewacht. Der Unterschied ist jetzt benannt
  * statt verdoppelt.
  *
+ * **Drei weitere Kopien kamen nach der Retrospektive Epic 3 dazu** — sie hiessen
+ * `.zeile__meta` und `.einmal__warnung` auf `/verwaltung` und `.zwischentext`
+ * auf `/monatsplan` und waren byte-gleich. Der Nebentext hat damit einen Namen
+ * und eine Regel, und die Wache in `smoke` hält beides zusammen.
+ *
  * Der Grundfall ist **ohne** Aussenabstand, wie jede andere Regel in dieser
  * Datei: Abstand zwischen Geschwistern kommt aus dem gap des Containers. Nur
  * unmittelbar unter einem Feld gibt es keinen solchen Container — dort steht das
@@ -368,27 +373,42 @@ select.feld {
 	line-height: var(--body-line);
 }
 
-.bestaetigung__knoepfe {
-	display: flex;
-	flex-direction: column;
-	gap: var(--space-2);
-}
-
 /*
- * Der leere Zustand. Ein Satz in der Nebentext-Farbe, in Fliesstextgrösse — er
- * sagt, was gilt, und nicht, dass etwas fehlt.
+ * Fliesstext — der gewöhnliche Satz der Oberfläche, in der Fliesstext-Rampe.
  *
- * Lag bis Story 3.2 dreimal gleichlautend in `/`, `/monatsplan` und
- * `/einzelaufgaben`. Die dritte Kopie entstand in dieser Story, und damit war
- * der Retro-Posten D1 dabei, an einer neuen Stelle nachzuwachsen.
+ * Er stand nach Epic 3 an neun Stellen unter sieben Namen: als Titel einer
+ * Einzelaufgabe, als Name ihres Übernehmers, als Bestätigungssatz, als
+ * `Angemeldet als …`, als Statuszeile der Fehlerseite und als leerer Zustand.
+ * Die Retrospektive hat das gemessen; hier steht es einmal.
+ *
+ * **Zwei Farben, eine Rampe.** `--ink-primary` ist der Satz, den jemand liest;
+ * `--gedaempft` ist die Auskunft daneben, die niemand lesen muss. Der
+ * Modifikator steht **hinter** der Grundfarbe, damit er bei gleicher
+ * Spezifität gewinnt — dieselbe Bauform wie `.hinweis--am-feld`.
+ *
+ * `.leer` teilt die Rampe und trägt trotzdem seinen eigenen Namen: „der leere
+ * Zustand" ist eine Aussage über die Liste darüber, nicht über die Schrift.
+ * Wer die Klasse liest, soll sehen, warum der Satz dasteht, und nicht nur, wie
+ * er aussieht. Dass die zwei heute gleich aussehen, ist eine Entscheidung des
+ * Rahmens und keine Kopplung: eine spätere Fassung darf den leeren Zustand
+ * anders setzen, ohne den Fliesstext mitzunehmen.
  */
+.fliesstext,
 .leer {
 	margin: 0;
-	color: var(--ink-secondary);
 	font-family: var(--body-font);
 	font-size: var(--body-size);
 	font-weight: var(--body-weight);
 	line-height: var(--body-line);
+}
+
+.fliesstext {
+	color: var(--ink-primary);
+}
+
+.fliesstext--gedaempft,
+.leer {
+	color: var(--ink-secondary);
 }
 
 /*
@@ -462,4 +482,64 @@ select.feld {
 	line-height: var(--label-line);
 	letter-spacing: var(--label-tracking);
 	text-transform: uppercase;
+}
+
+/*
+ * Die Liste. Kein Aufzählungszeichen, kein Einzug, kein Aussenabstand — die
+ * Vorgaben des Browsers für `<ul>` sind für jede Liste dieser Anwendung falsch.
+ *
+ * Lag nach Epic 3 siebenmal im Baum, unter sieben Namen: `.liste` auf `/`,
+ * `/verwaltung` und `/monatsplan`, dazu `.einzelaufgaben`, `.aufgaben`,
+ * `.wochen` und `.eintraege`. Die vier letzten unterschieden sich von den drei
+ * ersten in **einer** Eigenschaft, dem Abstand — und darum ist das hier ein
+ * Modifikator und keine zweite Liste.
+ */
+.liste {
+	display: flex;
+	flex-direction: column;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+/*
+ * Getrennt, wo die Einträge eigene Flächen sind: Karten und Zeilenziele stehen
+ * mit Abstand, Aufgabenzeilen im Pool stehen bündig. Abstand zwischen
+ * Geschwistern kommt aus dem `gap` des Containers, nie aus Aussenabständen.
+ */
+.liste--getrennt {
+	gap: var(--space-2);
+}
+
+/*
+ * Die Knopfspalte. Volle Breite untereinander statt nebeneinander: bei 375px
+ * stehen zwei Knöpfe nebeneinander zu eng für Handschuhe, und die Reihenfolge
+ * im DOM ist zugleich die Fokusreihenfolge.
+ *
+ * Lag dreimal: im Bestätigungsdialog, an der Mitgliedszeile und an der
+ * Bestätigung einer Einzelaufgabe.
+ */
+.knoepfe {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+/*
+ * Sichtbar für einen Screenreader, unsichtbar auf dem Schirm.
+ *
+ * `position: absolute` nimmt das Element aus dem Fluss, `clip-path` schneidet es
+ * weg. **Nicht** `display: none` und nicht `visibility: hidden` — beides nähme
+ * es auch aus dem Zugänglichkeitsbaum, und damit fiele auf `/` die Hälfte der
+ * Beschriftung des Kästchens aus.
+ *
+ * Kein `white-space: nowrap`, wie es die üblichen Fassungen dieser Klasse
+ * tragen. Gate-Regel 1 sucht CSS-Farbnamen als ganze Wörter und liest das
+ * `white` in `white-space` als Farbe — gemessen, nicht vermutet. Die Zeile
+ * bräuchte es hier ohnehin nicht: das Element ist aus dem Fluss genommen und
+ * weggeschnitten, ein Umbruch darin ist folgenlos.
+ */
+.nur-vorgelesen {
+	position: absolute;
+	clip-path: inset(50%);
 }

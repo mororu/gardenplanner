@@ -525,11 +525,11 @@
 	-->
 	{#if data.einzelaufgaben.length > 0}
 		<h2 class="marke" id="einzel-marke">Zum Übernehmen</h2>
-		<ul class="einzelaufgaben" aria-labelledby="einzel-marke">
+		<ul class="liste liste--getrennt" aria-labelledby="einzel-marke">
 			{#each data.einzelaufgaben as aufgabe (aufgabe.id)}
 				{@const frageHier = frage !== null && frage.id === aufgabe.id}
 				<li class="karte">
-					<div class="einzel__spalte">
+					<div class="zeile__spalte">
 						<!--
 							Die Kennung dieser Zeile. Der Knopf darunter heisst in jeder Zeile
 							`Übernehmen`; wer die Liste sieht, liest den Titel mit, wer sie mit
@@ -540,7 +540,7 @@
 							`.zeile__text` bringt den Umbruch für getippten Text aus dem
 							geteilten Stilblatt mit.
 						-->
-						<p class="einzel__titel zeile__text" id="einzel-titel-{aufgabe.id}">
+						<p class="fliesstext zeile__text" id="einzel-titel-{aufgabe.id}">
 							{aufgabe.titel}
 						</p>
 						<p class="hinweis hinweis--ziffern">{datumLang(aufgabe.terminAt)}</p>
@@ -610,10 +610,10 @@
 					-->
 					{#if frageHier && frage !== null}
 						<div class="einzel__frage">
-							<p class="einzel__satz" id="einzel-frage-{aufgabe.id}">
+							<p class="fliesstext" id="einzel-frage-{aufgabe.id}">
 								{uebernahmeSatz(frage)}
 							</p>
-							<form class="einzel__knoepfe" method="POST" action="?/uebernehmen">
+							<form class="knoepfe" method="POST" action="?/uebernehmen">
 								<input type="hidden" name="einzelaufgabeId" value={frage.id} />
 								<input type="hidden" name="bestaetigt" value="1" />
 								<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
@@ -837,7 +837,7 @@
 				direkt nach dem Öffnen darf keine Zusage abgeben. Die Sichtreihenfolge
 				folgt dem DOM, die Fokusreihenfolge damit der Leserichtung.
 			-->
-			<div class="bestaetigung__knoepfe">
+			<div class="knoepfe">
 				<button
 					class="button-quiet"
 					type="button"
@@ -903,14 +903,6 @@
 		font-size: var(--body-size);
 		font-weight: var(--body-weight);
 		line-height: var(--body-line);
-	}
-
-	.liste {
-		display: flex;
-		flex-direction: column;
-		margin: 0;
-		padding: 0;
-		list-style: none;
 	}
 
 	/*
@@ -1082,25 +1074,6 @@
 	}
 
 	/*
-		Sichtbar für einen Screenreader, unsichtbar auf dem Schirm.
-
-		position: absolute nimmt das Element aus dem Fluss, clip-path schneidet es
-		weg. **Nicht** display: none und nicht visibility: hidden — beides nähme es
-		auch aus dem Zugänglichkeitsbaum, und damit fiele die Hälfte der
-		Beschriftung des Kästchens aus.
-
-		Kein white-space: nowrap, wie es die üblichen Fassungen dieser Klasse
-		tragen. Gate-Regel 1 sucht CSS-Farbnamen als ganze Wörter und liest das
-		`white` in `white-space` als Farbe — gemessen, nicht vermutet. Die
-		Zeile bräuchte es hier ohnehin nicht: das Element ist aus dem Fluss
-		genommen und weggeschnitten, ein Umbruch darin ist folgenlos.
-	*/
-	.nur-vorgelesen {
-		position: absolute;
-		clip-path: inset(50%);
-	}
-
-	/*
 		Die **einzige** Animation der Anwendung.
 
 		Gekapselt in no-preference und nicht umgekehrt: damit ist die Abwesenheit
@@ -1121,36 +1094,6 @@
 		}
 	}
 
-	/* ---------------------------------------------------------------
-	   Block 2 — die freien Einzelaufgaben
-	   --------------------------------------------------------------- */
-	.einzelaufgaben {
-		display: flex;
-		flex-direction: column;
-		/* Abstand zwischen Geschwistern über gap, nie über Aussenabstände */
-		gap: var(--space-2);
-		margin: 0;
-		padding: 0;
-		list-style: none;
-	}
-
-	/* min-width: 0 lässt einen langen Titel brechen statt die Karte zu weiten */
-	.einzel__spalte {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-1);
-		min-width: 0;
-	}
-
-	.einzel__titel {
-		margin: 0;
-		color: var(--ink-primary);
-		font-family: var(--body-font);
-		font-size: var(--body-size);
-		font-weight: var(--body-weight);
-		line-height: var(--body-line);
-	}
-
 	/* Das Formular ist nur der Träger des Knopfs — der Knopf trägt seine Breite
 	   selbst (.button-quiet ist 100% breit). */
 	.einzel__form {
@@ -1169,21 +1112,6 @@
 		gap: var(--space-2);
 		border-top: var(--border-hairline) solid var(--hairline);
 		padding-top: var(--space-2);
-	}
-
-	.einzel__satz {
-		margin: 0;
-		color: var(--ink-primary);
-		font-family: var(--body-font);
-		font-size: var(--body-size);
-		font-weight: var(--body-weight);
-		line-height: var(--body-line);
-	}
-
-	.einzel__knoepfe {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
 	}
 
 	/*

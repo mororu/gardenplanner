@@ -5495,13 +5495,25 @@ try {
 	 * nach dem Container schliesst ihn auch: darin liegen nur ein <span> und ein
 	 * <p>, kein weiteres <div>.
 	 */
-	const spalteVon = startseitenCode.indexOf('<div class="zeile__spalte">');
+	/*
+	 * **Gesucht wird ab der Poolzeile, nicht ab dem Dateianfang.** Seit dem
+	 * Durchgang durch die Duplikate teilen sich die Zeile des Pools und die Zeile
+	 * einer freien Einzelaufgabe denselben Spaltencontainer — dieselbe Rolle,
+	 * dieselbe Klasse. Block 2 steht im Markup **vor** dem Pool, und eine Suche
+	 * nach dem ersten Vorkommen fand darum den falschen: gemessen, die Behauptung
+	 * wurde rot. Der Anker ist jetzt der each-Block des Pools, und damit sagt die
+	 * Zeile, was sie meint.
+	 */
+	const poolAnker = startseitenCode.indexOf('{#each data.aufgaben as aufgabe');
+	const spalteVon =
+		poolAnker < 0 ? -1 : startseitenCode.indexOf('<div class="zeile__spalte">', poolAnker);
 	const spalteBis = spalteVon < 0 ? -1 : startseitenCode.indexOf('</div>', spalteVon);
 	const spaltenRumpf =
 		spalteVon < 0 || spalteBis < 0 ? '' : startseitenCode.slice(spalteVon, spalteBis);
 	const textStelle = spaltenRumpf.indexOf('<span class="zeile__text"');
 	const fristStelle = spaltenRumpf.indexOf('<p class="zeile__frist"');
 	const reihenfolgeTeile = [
+		['der each-Block des Pools ist gefunden', poolAnker >= 0],
 		['der Spaltencontainer ist geschnitten', spaltenRumpf !== ''],
 		['der Aufgabentext liegt darin', textStelle >= 0],
 		['das <p> liegt darin und nicht daneben', fristStelle >= 0],
@@ -5942,7 +5954,6 @@ try {
 		['.abschnittstitel', /^[ \t]*\.abschnittstitel\s*\{/m],
 		['.bestaetigung', /^[ \t]*\.bestaetigung\s*\{/m],
 		['.bestaetigung__text', /^[ \t]*\.bestaetigung__text\s*\{/m],
-		['.bestaetigung__knoepfe', /^[ \t]*\.bestaetigung__knoepfe\s*\{/m],
 		/*
 		 * Und die vier, die der Review zu Story 3.2 gefunden hat: die Story legte
 		 * zwei Seiten an und hätte dabei aus je einer bestehenden Regel drei
@@ -5954,6 +5965,19 @@ try {
 		['.karte', /^[ \t]*\.karte\s*\{/m],
 		['.karte--eng', /^[ \t]*\.karte--eng\s*\{/m],
 		['.marke', /^[ \t]*\.marke\s*\{/m],
+		/*
+		 * Und die sechs aus dem Durchgang nach der Retrospektive Epic 3. Sie sind
+		 * nicht gefunden worden, weil jemand kopiert hätte, sondern weil sieben
+		 * Seiten dasselbe brauchten und jede es sich selbst schrieb — die
+		 * Retrospektive hat vierzehn byte-gleiche Regelkörper über sieben
+		 * Komponenten gemessen. Was hier steht, kann nicht mehr nachwachsen.
+		 */
+		['.fliesstext', /^[ \t]*\.fliesstext[,\s]/m],
+		['.fliesstext--gedaempft', /^[ \t]*\.fliesstext--gedaempft[,\s]/m],
+		['.liste', /^[ \t]*\.liste\s*\{/m],
+		['.liste--getrennt', /^[ \t]*\.liste--getrennt\s*\{/m],
+		['.knoepfe', /^[ \t]*\.knoepfe\s*\{/m],
+		['.nur-vorgelesen', /^[ \t]*\.nur-vorgelesen\s*\{/m],
 	] as const;
 	const STILBLATT = join('src', 'lib', 'styles', 'bedienelemente.css');
 	const unterSrc = baum.filter((datei) => datei.pfad.startsWith(join('src', '')));

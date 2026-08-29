@@ -46,7 +46,7 @@
 			verborgene Beschriftung.
 		-->
 		<h2 class="marke" id="alle-marke">Alle Einzelaufgaben</h2>
-		<ul class="aufgaben" aria-labelledby="alle-marke">
+		<ul class="liste liste--getrennt" aria-labelledby="alle-marke">
 			{#each data.einzelaufgaben as aufgabe (aufgabe.id)}
 				<li class="karte karte--eng">
 					<!--
@@ -54,7 +54,7 @@
 						geteilten Stilblatt mit: zweihundert Zeichen ohne Leerzeichen
 						liefen bei 375px sonst aus der Box.
 					-->
-					<p class="aufgabe__titel zeile__text">{aufgabe.titel}</p>
+					<p class="fliesstext zeile__text">{aufgabe.titel}</p>
 					<p class="hinweis hinweis--ziffern">{datumLang(aufgabe.terminAt)}</p>
 					<!--
 						**Der Name trägt das Wort, nicht die Farbe.** `noch niemand` steht in
@@ -67,7 +67,7 @@
 					{#if aufgabe.uebernehmer === null}
 						<p class="hinweis">noch niemand</p>
 					{:else}
-						<p class="aufgabe__wer">{aufgabe.uebernehmer}</p>
+						<p class="fliesstext">{aufgabe.uebernehmer}</p>
 					{/if}
 				</li>
 			{/each}
@@ -76,31 +76,4 @@
 </div>
 
 <style>
-	.aufgaben {
-		display: flex;
-		flex-direction: column;
-		/* Abstand zwischen Geschwistern über gap, nie über Aussenabstände */
-		gap: var(--space-2);
-		margin: 0;
-		padding: 0;
-		list-style: none;
-	}
-
-	.aufgabe__titel {
-		margin: 0;
-		color: var(--ink-primary);
-		font-family: var(--body-font);
-		font-size: var(--body-size);
-		font-weight: var(--body-weight);
-		line-height: var(--body-line);
-	}
-
-	.aufgabe__wer {
-		margin: 0;
-		color: var(--ink-primary);
-		font-family: var(--body-font);
-		font-size: var(--body-size);
-		font-weight: var(--body-weight);
-		line-height: var(--body-line);
-	}
 </style>

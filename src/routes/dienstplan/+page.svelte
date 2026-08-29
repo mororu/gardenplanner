@@ -183,7 +183,7 @@
 		Bescheid.
 	</p>
 
-	<ul class="wochen">
+	<ul class="liste liste--getrennt">
 		{#each data.wochen as eintrag (schluessel(eintrag))}
 			{@const dieseWoche = schluessel(eintrag)}
 			{@const fehlerHier = fehlerAnDerAuswahl !== '' && fehlerWoche === dieseWoche}
@@ -340,15 +340,6 @@
 		font-size: var(--body-size);
 		font-weight: var(--body-weight);
 		line-height: var(--body-line);
-	}
-
-	.wochen {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
-		margin: 0;
-		padding: 0;
-		list-style: none;
 	}
 
 	/*

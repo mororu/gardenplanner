@@ -41,7 +41,7 @@
 <div class="abweisung">
 	<h1 class="seitentitel">{satz}</h1>
 	<!-- Der Status steht als Zahl da, nie als Farbe: kein Zustand hängt an einem Farbwert. -->
-	<p class="status">Fehler {page.status}</p>
+	<p class="fliesstext fliesstext--gedaempft">Fehler {page.status}</p>
 </div>
 
 <style>
@@ -50,14 +50,5 @@
 		flex-direction: column;
 		gap: var(--space-4);
 		max-width: var(--measure);
-	}
-
-	.status {
-		margin: 0;
-		color: var(--ink-secondary);
-		font-family: var(--body-font);
-		font-size: var(--body-size);
-		font-weight: var(--body-weight);
-		line-height: var(--body-line);
 	}
 </style>
