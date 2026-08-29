@@ -306,15 +306,6 @@
 		line-height: var(--body-line);
 	}
 
-	.hinweis {
-		margin: 0;
-		color: var(--ink-secondary);
-		font-family: var(--meta-font);
-		font-size: var(--meta-size);
-		font-weight: var(--meta-weight);
-		line-height: var(--meta-line);
-	}
-
 	.wochen {
 		display: flex;
 		flex-direction: column;

@@ -1384,6 +1384,7 @@ Der Grund für all das ist gemessen. Die Tabelle nennt nur Mutationen, die
 | der Zeilenbezug am Satz des abgewiesenen Besetzens entfernt       | Story 3.1 (Review)   | `smoke:http`, die Zählung über die Live-Regionen des abgewiesenen Dienstplan-Dokuments                                                                                                                                                 |
 | die Auswahl auch ins Dokument ohne Adminrechte gegeben            | Story 3.1 (Review)   | `smoke:http`, `ein besetzter Plan zeigt dem Mitglied den Namen, aber nie die Auswahl` — vorher am **leeren** Plan gemessen, auf dem ohnehin kein Name stand                                                                            |
 | nur die Fenstergrenze an heute statt am Montag gerechnet          | Story 3.1 (Review)   | `smoke`, `vom Montag derselben Woche aus gefragt kommt dieselbe Folge` — diese Nachbarin der benannten Mutation kam vorher durch                                                                                                       |
+| eine lokale `.hinweis`-Regel in `/dienstplan` zurückgestellt      | Review 3.1           | `smoke`, `die Seitenform liegt an einer Stelle` — `.hinweis` steht seit dem 2026-08-29 mit in der Liste                                                                                                                                |
 | die Prüfung des Fensters aus der action `ablegen` genommen        | Eintrag 31           | `smoke`, sechs Zeilen über die zwei vertippten Jahre                                                                                                                                                                                   |
 | `FRIST_FENSTER_TAGE` von 365 auf 366 verschoben                   | Eintrag 31           | `smoke`, sechs Zeilen: die Konstante selbst, beide Fenstergrenzen, der Schalttag und die zwei Grenztage                                                                                                                                |
 | das Fenster als Kalenderjahr statt in Tagen gerechnet             | Eintrag 31           | `smoke`, `über einen Schalttag hinweg zählt das Fenster Tage und keine Jahre` — die anderen fünf Zeilen bleiben grün, weil 2026 und 2027 keine Schaltjahre sind                                                                        |
@@ -1670,6 +1671,28 @@ oder nur gefaltet wird. **Welche Zeichen unsichtbar sind**, steht seit dem
   weg, dann `\s+` zu einem Leerzeichen, dann trimmen — umgekehrt bliebe
   `\u200B \u200B` nach dem Trimmen ein nichtleerer Text. Die Reihenfolge steht in
   den zwei Modulen, die falten, nicht im geteilten.
+
+## Die geteilte Seitenform
+
+`src/lib/styles/bedienelemente.css` gilt auf jeder Seite — `+layout.svelte`
+bindet es neben `fonts.css` ein. Fünf Klassen stehen dort und **nirgends sonst**:
+`.seite`, `.seitentitel`, `.fehler`, `.live:empty` und seit dem 2026-08-29 auch
+`.hinweis`, der Nebentext. `smoke` behauptet je Klasse „genau einmal, im
+geteilten Stilblatt" und nennt im roten Fall die Fundstellen.
+
+`.hinweis` kam als letzte dazu, und ihr Weg dorthin ist der Grund für die Wache:
+sie stand in `/dienstplan` und `/monatsplan` mit denselben fünf
+meta-Eigenschaften, unterschieden allein im `margin`. Der Review zu Story 3.1
+fand die Kopie und hielt fest, dass hier nichts wacht. Der Unterschied ist jetzt
+benannt statt verdoppelt — `.hinweis--am-feld` setzt den einen Schritt Abstand,
+den ein Nebentext unmittelbar unter einem Feld braucht, weil es dort keinen
+`gap`-Container gibt.
+
+Der Zähler auf `/monatsplan` hat dabei seine eigene Klasse verloren; seine
+Kennung `plan-zaehler` bleibt, denn daran hängt das `aria-describedby` des
+Textfeldes. Die Behauptung darüber schneidet seither über die **Kennung** statt
+über die Klasse — der bessere Anker, weil er die Identität misst und nicht die
+Gestaltung.
 
 ## Die Navigationsleiste
 

@@ -3968,9 +3968,17 @@ try {
 	 * Tastendruck, und ein Screenreader spräche dann bei jedem Buchstaben. Der
 	 * Fehlersatz dagegen **ist** eine, und er steht immer im Markup.
 	 */
-	const zaehlerTag = /<p\b[^>]*class="zaehler"[^>]*>/.exec(planCode)?.[0] ?? '';
+	/*
+	 * Geschnitten wird über die **Kennung** und nicht über die Klasse: seit dem
+	 * 2026-08-29 trägt der Zähler die geteilte Nebentext-Klasse aus
+	 * bedienelemente.css, und seine eigene Klasse ist fort. Die Kennung ist
+	 * ohnehin der bessere Anker — sie ist die Identität, an der das
+	 * aria-describedby des Feldes hängt, und nicht die Gestaltung.
+	 */
+	const zaehlerTag = /<p\b[^>]*\bid="plan-zaehler"[^>]*>/.exec(planCode)?.[0] ?? '';
 	const zaehlerTeile = [
-		['ein <p class="zaehler"> mit eigener Kennung', /\bid="plan-zaehler"/.test(zaehlerTag)],
+		['ein <p> mit der Kennung plan-zaehler', zaehlerTag !== ''],
+		['und der geteilten Nebentext-Klasse', /class="hinweis hinweis--am-feld"/.test(zaehlerTag)],
 		['keine Live-Region', zaehlerTag !== '' && !/aria-live=/.test(zaehlerTag)],
 		['keine status-Rolle', !/role="status"/.test(zaehlerTag)],
 		[
@@ -4017,7 +4025,9 @@ try {
 		],
 		[
 			'das Datumsfeld trägt seinen eigenen Satz',
-			/<p class="hinweis live" id="plan-datum-hinweis">\{datumHinweis\}<\/p>/.test(planCode) &&
+			/<p class="hinweis hinweis--am-feld live" id="plan-datum-hinweis">\{datumHinweis\}<\/p>/.test(
+				planCode
+			) &&
 				/aria-describedby=\{datumBeschreibung === '' \? undefined : datumBeschreibung\}/.test(
 					planCode
 				),
@@ -5708,12 +5718,18 @@ try {
 	 * Die Seitenform steht in bedienelemente.css und **nirgends sonst**. Gesucht
 	 * wird der Regelkopf `.name {`, nicht das Wort: `class="fehler live"` im
 	 * Markup ist keine Kopie, sondern die Benutzung.
+	 *
+	 * `.hinweis` ist am 2026-08-29 dazugekommen. Der Review zu Story 3.1 hatte die
+	 * zweite Kopie derselben Nebentext-Regel gefunden und ausdrücklich vermerkt,
+	 * dass „das Wachstum der Seitenstile an dieser Stelle von nichts bewacht" sei —
+	 * diese Zeile ist die Wache.
 	 */
 	const SEITENFORM = [
 		['.seite', /^[ \t]*\.seite\s*\{/m],
 		['.seitentitel', /^[ \t]*\.seitentitel\s*\{/m],
 		['.fehler', /^[ \t]*\.fehler\s*\{/m],
 		['.live:empty', /^[ \t]*\.live:empty\s*\{/m],
+		['.hinweis', /^[ \t]*\.hinweis\s*\{/m],
 	] as const;
 	const STILBLATT = join('src', 'lib', 'styles', 'bedienelemente.css');
 	const unterSrc = baum.filter((datei) => datei.pfad.startsWith(join('src', '')));

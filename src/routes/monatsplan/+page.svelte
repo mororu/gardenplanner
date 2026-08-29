@@ -475,7 +475,7 @@
 					aria-live: er beschreibt einen Zustand des Feldes und ist keine
 					Antwort auf einen Versand.
 				-->
-				<p class="hinweis live" id="plan-datum-hinweis">{datumHinweis}</p>
+				<p class="hinweis hinweis--am-feld live" id="plan-datum-hinweis">{datumHinweis}</p>
 			</div>
 			<div>
 				<label class="feld__beschriftung" for="plan-zeilen">Eine Aufgabe pro Zeile</label>
@@ -496,8 +496,14 @@
 					dann bei jedem Buchstaben. Sie hängt statt dessen über
 					aria-describedby am Feld darüber — sonst begegnete ihr, wer mit
 					einem Screenreader durch das Formular geht, nirgends.
+
+					Sie trägt dieselbe geteilte Nebentext-Klasse wie der Satz am
+					Datumsfeld: beide sind Nebentext zu dem Feld darüber und keine
+					Handlung. Ihre eigene Klasse `.zaehler` war bis zum 2026-08-29 die
+					dritte Kopie derselben fünf meta-Eigenschaften; ihre Kennung
+					`plan-zaehler` trägt die Identität und bleibt.
 				-->
-				<p class="zaehler" id="plan-zaehler">{zaehlung}</p>
+				<p class="hinweis hinweis--am-feld" id="plan-zaehler">{zaehlung}</p>
 			</div>
 			<!--
 				Der einzige primäre Knopf dieses Schritts. `type="button"`, weil hier
@@ -627,21 +633,6 @@
 	.textfeld {
 		min-height: var(--textarea-bulk-min-height);
 		resize: vertical;
-	}
-
-	/*
-		Die mitlaufende Zählung und der Hinweis am Datumsfeld tragen dieselbe Form:
-		beide sind Nebentext zu dem Feld darüber und keine Handlung, beide stehen
-		in der meta-Rolle und gedämpft.
-	*/
-	.zaehler,
-	.hinweis {
-		margin: var(--space-1) 0 0;
-		color: var(--ink-secondary);
-		font-family: var(--meta-font);
-		font-size: var(--meta-size);
-		font-weight: var(--meta-weight);
-		line-height: var(--meta-line);
 	}
 
 	/*

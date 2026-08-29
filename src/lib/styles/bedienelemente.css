@@ -253,6 +253,38 @@ select.feld {
 }
 
 /*
+ * Nebentext: die Zeile, die neben einer Sache steht und selbst keine ist.
+ *
+ * Der mitlaufende Zähler unter dem Textfeld auf /monatsplan, der Satz am
+ * Datumsfeld daneben, der Satz über dem Dienstplan — alle drei sind Nebentext
+ * zu etwas anderem und tragen dieselbe Form: die meta-Rolle, gedämpft.
+ *
+ * Sie stand bis zum 2026-08-29 zweimal je Komponente, und der Review zu Story
+ * 3.1 hat die zweite Kopie benannt: unterschieden waren die zwei Fassungen
+ * allein im margin. Genau das Wachstum, vor dem Retro-Posten D1 warnt, und an
+ * dieser Stelle war es von nichts bewacht. Der Unterschied ist jetzt benannt
+ * statt verdoppelt.
+ *
+ * Der Grundfall ist **ohne** Aussenabstand, wie jede andere Regel in dieser
+ * Datei: Abstand zwischen Geschwistern kommt aus dem gap des Containers. Nur
+ * unmittelbar unter einem Feld gibt es keinen solchen Container — dort steht das
+ * Label mit seinem eigenen margin-bottom, und der Nebentext darunter braucht
+ * denselben Schritt.
+ */
+.hinweis {
+	margin: 0;
+	color: var(--ink-secondary);
+	font-family: var(--meta-font);
+	font-size: var(--meta-size);
+	font-weight: var(--meta-weight);
+	line-height: var(--meta-line);
+}
+
+.hinweis--am-feld {
+	margin-block-start: var(--space-1);
+}
+
+/*
  * Umbruch für Text, den ein Mensch getippt hat.
  *
  * Bis hierher stand im ganzen Baum keine Umbruchregel, und
