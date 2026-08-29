@@ -106,8 +106,19 @@ export const AUFGABE_NICHT_ANSPRECHBAR =
 	'Diese Aufgabe lässt sich nicht ansprechen. Lade die Liste neu.';
 
 /**
- * Ein Wurf in einer action. **Vier** Wurfstellen: die use:enhance-Rückrufe auf
- * `/`, `/aufgabe`, `/monatsplan` und `/verwaltung`.
+ * Ein Wurf in einer action. **Sieben** Wurfstellen, und gezählt werden
+ * **Rückrufe**, nicht Seiten: je einer auf `/aufgabe`, `/monatsplan`,
+ * `/verwaltung`, `/dienstplan` und `/einzelaufgabe`, und **zwei** auf `/` — das
+ * Abhaken im Pool und das Bestätigen der Übernahme. Die Zahl stand bis Story 3.2
+ * auf vier und stimmte seit Story 3.1 nicht mehr; sie zählte ausserdem Seiten,
+ * und genau diese Zählweise verdeckte, dass eine Seite mehr als einen Rückruf
+ * tragen kann. scripts/smoke-zugang.ts schneidet seit dieser Story die einzelnen
+ * Rückrufrümpfe und ist die Quelle, dieser Satz die Beschreibung.
+ *
+ * /einzelaufgaben trägt keinen — die Seite hat kein Formular. Der dritte
+ * `use:enhance` auf `/` (der Knopf in der Zeile) trägt ebenfalls keinen: sein
+ * Rückruf bricht den Versand ab und gibt gar keine Fortsetzung zurück, es gibt
+ * also kein `result`, das ein Wurf erreichen könnte.
  *
  * Der Satz vertritt einen Fall, den bis dahin niemand vertrat. Ohne ihn reicht
  * das gereichte update() ein `result.type === 'error'` an applyAction weiter,
@@ -115,8 +126,9 @@ export const AUFGABE_NICHT_ANSPRECHBAR =
  * `/monatsplan` vierzig Zeilen, die jemand gerade aus einer Notiz übertragen und
  * von Hand durchgesehen hat. Der Verlust wiegt dort genau so viel schwerer, wie
  * die Seite Zeit sparen soll. Entschieden am 2026-08-28 zu Eintrag 32 der
- * zurückgestellten Arbeit: abfangen, einheitlich auf allen vier Seiten, mit
- * einem generischen Satz in der Live-Region, die dort ohnehin schon steht.
+ * zurückgestellten Arbeit: abfangen, einheitlich auf allen Seiten mit einem
+ * Formular, mit einem generischen Satz in der Live-Region, die dort ohnehin
+ * schon steht.
  *
  * **Generisch, und das ist Absicht.** Ein SQLITE_BUSY unter WAL oder eine volle
  * Platte hat für die lesende Person keine Bedeutung. Die genaue Ursache erreicht
@@ -150,9 +162,9 @@ export const VERSAND_FEHLGESCHLAGEN =
  *
  * Der Satz steht hier und nicht als Literal in der Route: zwei Literale in
  * derselben action wären zwei Sätze, sobald jemand einen davon anfasst. Er steht
- * neben MITGLIED_NICHT_ANSPRECHBAR und
- * AUFGABE_NICHT_ANSPRECHBAR, die dieselbe Form haben, und Story 3.2 bringt mit
- * dem Ausschreiben die zweite Route, die eine Woche oder einen Termin abweist.
+ * neben MITGLIED_NICHT_ANSPRECHBAR, AUFGABE_NICHT_ANSPRECHBAR und seit Story 3.2
+ * EINZELAUFGABE_NICHT_ANSPRECHBAR, die alle dieselbe Form haben: **eine**
+ * Sache, die sich nicht ansprechen lässt, und der Rat, neu zu laden.
  *
  * Ein Satz, ein Statuscode, keine Verzweigung — aus demselben Grund wie dort:
  * jede Abweichung im Wortlaut wäre ein Aufzählungskanal. Der vierte Zustand
@@ -182,7 +194,17 @@ export const DATUM_FEHLT = 'Wähle ein Datum, bis zu dem die Aufgaben erledigt s
 
 /**
  * Eine Frist ausserhalb des Fensters von einem Jahr in jede Richtung.
- * **Zwei** Wurfstellen, dieselben zwei wie bei DATUM_FEHLT.
+ * **Drei** Wurfstellen: die zwei von DATUM_FEHLT und, seit Story 3.2, die action
+ * `ausschreiben` in src/routes/einzelaufgabe/+page.server.ts.
+ *
+ * Die dritte trägt ein **Datum mit anderem Namen** — dort heisst das Feld
+ * `Termin` und nicht `Fällig bis`. Der Satz gilt trotzdem wörtlich, und darum
+ * bekommt er keine zweite Fassung: die Regel dahinter ist dieselbe Zahl und
+ * dieselbe Rechnung (FRIST_FENSTER_TAGE, istImFristfenster), und zwei Sätze über
+ * eine Regel sind der Anfang zweier Regeln. Was die zwei Seiten wirklich
+ * unterscheidet, ist der Satz für das **fehlende** Datum: `Wähle ein Datum, bis
+ * zu dem die Aufgaben erledigt sein sollen` passt auf einen Stapel und nicht auf
+ * einen Termin, und der bleibt darum je Seite eigen.
  *
  * Der Satz nennt die **Jahreszahl**, weil sie der Fehler ist: ein Datumsfeld
  * lässt Tag und Monat kaum verrutschen, das Jahr schon — `2016` statt `2026`
@@ -197,3 +219,30 @@ export const DATUM_FEHLT = 'Wähle ein Datum, bis zu dem die Aufgaben erledigt s
  */
 export const FRIST_AUSSERHALB =
 	'Diese Frist liegt mehr als ein Jahr von heute entfernt. Prüfe die Jahreszahl.';
+
+/**
+ * Die nicht ansprechbare Einzelaufgabe. **Vier** Wurfstellen, alle in der action
+ * `uebernehmen` in src/routes/+page.server.ts — zwei vor der Verzweigung, je
+ * eine im Bestätigungs- und im Übernahmeschritt —, und alle werfen **denselben**
+ * Satz für sechs Zustände:
+ *
+ *   1. locals.mitglied ist null (unerreichbar; der Wächter hat vorher mit 403
+ *      abgewiesen, aber der Typ lässt es zu, und ein `!` machte die Seite von
+ *      einer Annahme über eine andere Datei abhängig)
+ *   2. einzelaufgabeId fehlt im Formular
+ *   3. einzelaufgabeId ist nicht numerisch
+ *   4. es gibt keine Einzelaufgabe mit dieser Id
+ *   5. sie ist schon übernommen
+ *   6. jemand anders war im selben Augenblick schneller
+ *
+ * Ein Satz, ein Statuscode, keine Verzweigung — aus demselben Grund wie bei
+ * AUFGABE_NICHT_ANSPRECHBAR, dem er nachgebildet ist. Der sechste Zustand trägt
+ * hier dasselbe Gewicht wie dort der vierte: er ist der Ausgang des Wettrennens
+ * zweier Personen, die im selben Moment zusagen wollen, und die zu spät kommt,
+ * soll erfahren, dass ihr Griff nichts geändert hat — nicht, wer schneller war.
+ *
+ * Der Satz sagt, was zu tun ist, statt zu erklären, was schiefging: alle sechs
+ * Fälle entstehen praktisch nur, wenn die angezeigte Liste veraltet ist.
+ */
+export const EINZELAUFGABE_NICHT_ANSPRECHBAR =
+	'Diese Einzelaufgabe lässt sich nicht ansprechen. Lade die Liste neu.';

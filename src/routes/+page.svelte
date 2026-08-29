@@ -4,8 +4,10 @@
 	// enhance selbst ausgeführt, der Typ liegt im Hauptmodul.
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 	import { resolve } from '$app/paths';
+	import { tick } from 'svelte';
 	import type { PageProps } from './$types';
-	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
+	import { datumLang } from '$lib/client/utils/date';
+	import { EINZELAUFGABE_NICHT_ANSPRECHBAR, VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
 
 	const { data, form }: PageProps = $props();
 
@@ -44,6 +46,35 @@
 	let imFlug = $state(false);
 
 	/**
+	 * Die vom Server zurückgegebene Frage — der Weg **ohne** JavaScript.
+	 *
+	 * Mit JavaScript entsteht sie nie: der Rückruf unten bricht den ersten Versand
+	 * ab, es gibt also keine Antwort, die `form` auf `fragen` setzen könnte. Sie
+	 * ist damit kein toter Zweig, sondern der einzige Zweig für den Fall, für den
+	 * sie gebaut ist.
+	 */
+	const frage = $derived(
+		form !== null && form.art === 'fragen'
+			? { id: form.einzelaufgabeId, titel: form.titel, terminAt: form.terminAt }
+			: null
+	);
+
+	/*
+		**Die Frage kann ihre Zeile verlieren, und zwar ohne JavaScript.** Zwischen
+		der Antwort der action und dem Rendern läuft die `load` erneut; hat in
+		diesem Fenster jemand anders zugesagt, steht die Aufgabe nicht mehr in
+		`data.einzelaufgaben`, und die Frage hätte keine Zeile, an der sie
+		erscheinen könnte. Sie fiele damit lautlos aus — der Knopf sähe aus, als
+		hätte er nichts getan.
+
+		Der Fall ist schmal und trotzdem der richtige Ausgang des Wettrennens: wer
+		zu spät kommt, liest denselben Satz wie beim zweiten Schritt.
+	*/
+	const frageZeile = $derived(
+		frage === null ? undefined : data.einzelaufgaben.find((zeile) => zeile.id === frage.id)
+	);
+
+	/**
 	 * Die Rückmeldung im Perfekt desselben Verbs, für die höfliche Live-Region.
 	 *
 	 * Zwei Quellen, eine Region. Ein Ausgang aus `form` gewinnt, weil er der
@@ -60,11 +91,38 @@
 	 */
 	const rueckmeldung = $derived.by(() => {
 		if (form === null) {
+			/*
+				`?ausgeschrieben` vor `?abgelegt`, und die Reihenfolge zählt nur für
+				eine von Hand zusammengesetzte Adresse: die zwei Parameter kommen aus
+				zwei verschiedenen Weiterleitungen und stehen nie zusammen da. Eine
+				Verzweigung braucht trotzdem eine Ordnung, und die verbindlichere
+				Meldung gewinnt.
+			*/
+			if (data.ausgeschrieben) return 'Ausgeschrieben.';
 			if (data.abgelegt === null) return '';
 			return data.abgelegt === 1 ? 'Abgelegt.' : `${data.abgelegt} Aufgaben abgelegt.`;
 		}
 		if (form.art === 'abgehakt' || form.art === 'wiederGeoeffnet') {
 			return `${form.meldung} ${form.text}`;
+		}
+		// Der Titel steht im Satz, wie der Aufgabentext beim Abhaken: die Region
+		// sagt an, **was** gerade geschehen ist, nicht nur **dass**.
+		if (form.art === 'uebernommen') {
+			return `${form.meldung} ${form.titel}`;
+		}
+		/*
+			**Der Weg ohne JavaScript braucht hier einen Satz.** Der Server hat mit
+			einer Frage geantwortet, und die steht weiter unten an ihrer Zeile — aber
+			die Antwort auf einen POST ist ein frisches Dokument, und der Blick
+			beginnt oben. Ohne diese Zeile landete jemand nach dem Antippen von
+			`Übernehmen` auf einer Seite, die aussieht wie vorher, während die Frage
+			ausserhalb des Bildschirms wartet.
+
+			Nur wenn die Zeile noch da ist: ist sie es nicht, sagt statt dessen die
+			Fehlerregion darunter, was los ist.
+		*/
+		if (form.art === 'fragen' && frageZeile !== undefined) {
+			return `Bitte bestätigen: ${form.titel}`;
 		}
 		return '';
 	});
@@ -82,9 +140,11 @@
 	const fehlerOben = $derived(
 		versandFehler !== ''
 			? versandFehler
-			: form !== null && form.art === 'fehler'
-				? form.meldung
-				: ''
+			: frage !== null && frageZeile === undefined
+				? EINZELAUFGABE_NICHT_ANSPRECHBAR
+				: form !== null && form.art === 'fehler'
+					? form.meldung
+					: ''
 	);
 
 	let meldungKasten = $state<HTMLElement | null>(null);
@@ -114,13 +174,21 @@
 	 * „kein Parameter". Die load gibt zwar nie 0 — ein unlesbarer Wert fällt dort
 	 * auf 1 —, aber die Bedingung soll nicht von dieser Zusage abhängen.
 	 *
+	 * Seit Story 3.2 gilt dasselbe für `?ausgeschrieben`: /einzelaufgabe kommt auf
+	 * demselben Weg an und braucht dieselbe Ansage. Die Bedingung fragt darum nach
+	 * **einer angekommenen Meldung** und nicht nach einem der zwei Parameter —
+	 * ein dritter Absender fände sie dann schon vor.
+	 *
 	 * `meldungKasten === null` steht **vor** dem Setzen des Flags und nicht als
 	 * `?.` danach: ein Durchlauf ohne gebundenes Element verbrauchte sonst das
 	 * Einmal-Flag, der Fokus würde nie geholt, und `Abgelegt.` bliebe stumm —
 	 * ein stiller Ausfall, den niemand sieht.
 	 */
+	/** Ist die Seite mit einer Meldung aus einer Weiterleitung angekommen? */
+	const meldungAngekommen = $derived(data.abgelegt !== null || data.ausgeschrieben);
+
 	$effect(() => {
-		if (fokusGeholt || data.abgelegt === null || form !== null || meldungKasten === null) return;
+		if (fokusGeholt || !meldungAngekommen || form !== null || meldungKasten === null) return;
 		fokusGeholt = true;
 		meldungKasten.focus();
 	});
@@ -237,6 +305,144 @@
 	function abschicken(ereignis: Event & { currentTarget: HTMLInputElement }): void {
 		ereignis.currentTarget.form?.requestSubmit();
 	}
+
+	// -------------------------------------------------------------------
+	// Block 2 — die freien Einzelaufgaben und die eine Bestätigung
+	// -------------------------------------------------------------------
+	/*
+		Ein Dialog für alle Zeilen, nicht einer je Zeile — dieselbe Bauform wie die
+		Widerruf-Bestätigung auf /verwaltung, und aus demselben Grund: bei einem
+		Dutzend Einzelaufgaben wären das ein Dutzend Dialoge im DOM, von denen
+		einer aufgeht. <dialog> bringt Esc, Fokusfang und Hintergrund selbst mit.
+
+		**Der Dialog ist die Aufwertung, nicht die Bedingung.** Die Bestätigung
+		selbst kennt der Server: ein POST ohne `bestaetigt` ändert nichts und gibt
+		die Frage zurück, und ohne JavaScript rendert die Seite sie als Block an
+		der Zeile. Die Begründung steht ausführlich an der action `uebernehmen` in
+		der Nachbardatei.
+	*/
+	let dialog = $state<HTMLDialogElement | null>(null);
+	let abbrechenKnopf = $state<HTMLButtonElement | null>(null);
+	let zuUebernehmen = $state<{ id: number; titel: string; terminAt: number } | null>(null);
+
+	/** Der Bestätigungssatz. Eine Fassung für Dialog und Dokument. */
+	function uebernahmeSatz(aufgabe: { titel: string; terminAt: number }): string {
+		return `Du übernimmst: ${aufgabe.titel}, ${datumLang(aufgabe.terminAt)}.`;
+	}
+
+	/**
+	 * Öffnet den Dialog für eine Zeile.
+	 *
+	 * Wortgleich zur Bauform von widerrufFragen in ../verwaltung/+page.svelte,
+	 * samt ihrer zwei Vorsichtsmassnahmen: tick() wartet, bis der Inhalt des
+	 * Dialogs entstanden ist — er hängt an `zuUebernehmen`, und Svelte
+	 * aktualisiert den DOM erst nach dieser Zuweisung. Und fehlt der
+	 * Abbrechen-Knopf, wird **nicht** geöffnet: showModal() fokussierte sonst das
+	 * erste fokussierbare Element, und ein Enter direkt nach dem Öffnen wäre eine
+	 * Zusage, die niemand gelesen hat.
+	 */
+	async function uebernahmeFragen(aufgabe: {
+		id: number;
+		titel: string;
+		terminAt: number;
+	}): Promise<void> {
+		if (dialog === null) return;
+		zuUebernehmen = aufgabe;
+		await tick();
+		if (abbrechenKnopf === null) {
+			zuUebernehmen = null;
+			return;
+		}
+		dialog.showModal();
+		abbrechenKnopf.focus();
+	}
+
+	/**
+	 * Der Rückruf am Knopf **in der Zeile**: er schickt nie ab.
+	 *
+	 * `cancel()` und dann der Dialog — die Frage ist mit den Daten aus `data`
+	 * schon beantwortbar, und eine Rundreise zum Server nur, um sie zu stellen,
+	 * wäre eine Wartezeit vor einem Dialog, der sofort dastehen kann.
+	 *
+	 * Das Formular darunter ist trotzdem ein echtes Formular mit literalem
+	 * action="?/uebernehmen": **ohne** JavaScript läuft dieser Rückruf nicht, der
+	 * POST geht durch, und der Server antwortet mit derselben Frage als Dokument.
+	 */
+	function versandFragen(aufgabe: { id: number; titel: string; terminAt: number }): SubmitFunction {
+		return ({ cancel }) => {
+			/*
+				**Abgebrochen wird nur, wenn der Dialog wirklich aufgeht.** Ein
+				`cancel()` ohne Dialog wäre der schlechteste Ausgang: der Versand
+				unterbliebe, nichts erschiene, und der Knopf sähe tot aus. Fehlt das
+				Element — nicht gebunden, aus dem DOM gefallen —, läuft statt dessen
+				der gewöhnliche POST durch, und der Server antwortet mit derselben
+				Frage als Dokument. Die Ausfallrichtung ist der Weg ohne JavaScript,
+				und den gibt es hier ohnehin.
+
+				Das ist die andere Antwort als beim Widerruf auf /verwaltung, wo ein
+				fehlender Abbrechen-Knopf das Öffnen **verhindert**: dort ist das
+				Ausbleiben der zerstörenden Handlung der sichere Ausgang, hier ist es
+				das Ausbleiben der Kernhandlung.
+			*/
+			if (dialog === null) return;
+			cancel();
+			if (imFlug) return;
+			void uebernahmeFragen(aufgabe);
+		};
+	}
+
+	/**
+	 * Der Rückruf am Knopf **im Dialog**: der zweite Schritt, der wirklich
+	 * schreibt.
+	 *
+	 * `update()` mit den Vorgaben, also mit `invalidateAll: true` — anders als bei
+	 * den zwei Pool-actions darüber, und das ist Absicht: die übernommene Zeile
+	 * muss Block 2 verlassen, und das kann sie nur über eine frische load. Der
+	 * Nebeneffekt ist benannt: eine in dieser Sitzung abgehakte Poolaufgabe
+	 * verschwindet dabei aus der Liste. Sie ist erledigt, das Verschwinden ist
+	 * wahr, und es ist derselbe Ausgang wie bei einem Neuladen — nur früher.
+	 */
+	const versandBestaetigen: SubmitFunction = ({ cancel }) => {
+		if (imFlug) {
+			cancel();
+			return;
+		}
+		imFlug = true;
+		versandFehler = '';
+		return async ({ update, result }) => {
+			/*
+				Zuerst den Dialog schliessen — dieselbe Reihenfolge und dieselbe
+				Begründung wie auf /verwaltung: use:enhance schickt per fetch ab, es
+				gibt also keine Navigation, die ihn schlösse, und ein modaler Dialog
+				macht den Rest der Seite inert. Vor update() und vor dem Fokus, weil
+				close() den Fokus an das Element zurückgibt, das ihn vor showModal()
+				hatte, und eine danach gesetzte Position wieder überschriebe. Auch bei
+				einem Fehlschlag wird geschlossen — der Satz dazu steht oben auf der
+				Seite.
+			*/
+			dialog?.close();
+			// try/finally: bricht update() ab, bliebe imFlug sonst für immer true und
+			// jedes Kästchen dieser Liste dauerhaft disabled.
+			try {
+				if (result.type === 'error') {
+					versandFehler = VERSAND_FEHLGESCHLAGEN;
+				} else {
+					await update();
+				}
+			} finally {
+				imFlug = false;
+			}
+			/*
+				**Hier wird der Fokus gesetzt**, anders als nach dem Abhaken. Dort
+				bleibt der Daumen auf dem Kästchen; hier ist der Knopf, der ihn hatte,
+				nach dem Übernehmen fort — die Zeile hat Block 2 verlassen. Ohne diesen
+				Griff fiele der Fokus an den Seitenanfang, und die Ansage ginge unter.
+			*/
+			if (artVon(result) === 'uebernommen') {
+				meldungKasten?.focus();
+			}
+		};
+	};
 </script>
 
 <svelte:head>
@@ -276,8 +482,8 @@
 		  Block 1 — Diensthinweis: „Diese Woche bist du am Tränken", nur vorhanden,
 		            wenn die betrachtende Person Dienst hat. Seit Story 3.1 gebaut,
 		            steht direkt unter diesem Kommentar.
-		  Block 2 — freie Einzelaufgaben zum Übernehmen. Kommt mit Story 3.2
-		            (signup_tasks) und rendert hier nichts.
+		  Block 2 — freie Einzelaufgaben zum Übernehmen. Seit Story 3.2 gebaut,
+		            steht zwischen dem Diensthinweis und der Marke `Offen`.
 		  Block 3 — der offene Pool. Diesen füllte Story 1.4.
 
 		Die Reihenfolge stand schon, als zwei Drittel leer waren: sie ist eine
@@ -304,6 +510,129 @@
 			<span class="dienst__satz">Diese Woche bist du am Tränken</span>
 			<span class="dienst__datum">{data.dienst.datum}</span>
 		</a>
+	{/if}
+
+	<!--
+		Block 2. **Ohne eine freie Einzelaufgabe fehlt er ganz** — wie Block 1 und
+		aus demselben Grund: eine Marke über einer leeren Liste nähme Platz weg, um
+		nichts mitzuteilen. Anders als Block 3, der `Nichts offen.` sagt: der Pool
+		ist der Gegenstand dieser Seite und darf nicht verschwinden.
+
+		Eine **übernommene** Einzelaufgabe steht hier nicht mehr. Sie trägt einen
+		Namen und ist damit geregelt; wer wissen will, wer was übernommen hat,
+		findet es auf /einzelaufgaben. Der Fusslink führt dorthin — die Unterseite
+		vertieft, sie informiert nicht exklusiv.
+	-->
+	{#if data.einzelaufgaben.length > 0}
+		<h2 class="marke" id="einzel-marke">Zum Übernehmen</h2>
+		<ul class="einzelaufgaben" aria-labelledby="einzel-marke">
+			{#each data.einzelaufgaben as aufgabe (aufgabe.id)}
+				{@const frageHier = frage !== null && frage.id === aufgabe.id}
+				<li class="karte">
+					<div class="einzel__spalte">
+						<!--
+							Die Kennung dieser Zeile. Der Knopf darunter heisst in jeder Zeile
+							`Übernehmen`; wer die Liste sieht, liest den Titel mit, wer sie mit
+							einer Elementliste durchgeht, bekäme sonst dasselbe Wort ohne jede
+							Auskunft, worum es geht. Derselbe Handgriff wie an den
+							Zeilen-Aktionen auf /verwaltung und /dienstplan.
+
+							`.zeile__text` bringt den Umbruch für getippten Text aus dem
+							geteilten Stilblatt mit.
+						-->
+						<p class="einzel__titel zeile__text" id="einzel-titel-{aufgabe.id}">
+							{aufgabe.titel}
+						</p>
+						<p class="hinweis hinweis--ziffern">{datumLang(aufgabe.terminAt)}</p>
+						<!--
+							`noch niemand` steht hier als Wort und nicht als Ausdruck über
+							`aufgabe.uebernehmer`: die load reicht über
+							freieEinzelaufgabenLesen ausschliesslich **freie** Zeilen herein,
+							und eine Verzweigung über einen Wert, der hier immer null ist, wäre
+							ein toter Zweig. Auf /einzelaufgaben, wo beide Zustände stehen,
+							verzweigt die Zeile wirklich.
+						-->
+						<p class="hinweis">noch niemand</p>
+					</div>
+
+					<!--
+						**Entweder der Knopf oder die Frage, nie beides.** Steht die Frage
+						zu dieser Zeile offen, ist der Knopf darüber fort: er schickte
+						dieselbe action ein zweites Mal ab und stellte damit nur dieselbe
+						Frage noch einmal. Zwei Knöpfe mit derselben Beschriftung in einer
+						Zeile, von denen einer bestätigt und der andere nachfragt, sind
+						ausserdem für jede Person, die sie einzeln vorgelesen bekommt,
+						ununterscheidbar.
+
+						Nach dem Hydrieren eines Frage-Dokuments gilt dasselbe: `form.art`
+						steht dann weiterhin auf `fragen`, und ohne diese Bedingung öffnete
+						ein Griff an den Knopf den Dialog **über** der schon sichtbaren
+						Frage — dieselbe Bestätigung zweimal.
+
+						Ein echtes Formular mit literalem action="?/uebernehmen" — Gate-Regel
+						11 liest den Namen textuell. Der Rückruf bricht den Versand ab und
+						öffnet den Dialog; **ohne** JavaScript läuft er nicht, der POST geht
+						durch, und der Server antwortet mit derselben Frage als Dokument.
+					-->
+					{#if !frageHier}
+						<form
+							class="einzel__form"
+							method="POST"
+							action="?/uebernehmen"
+							use:enhance={versandFragen(aufgabe)}
+						>
+							<input type="hidden" name="einzelaufgabeId" value={aufgabe.id} />
+							<button
+								class="button-quiet"
+								type="submit"
+								id="uebernehmen-{aufgabe.id}"
+								aria-labelledby="uebernehmen-{aufgabe.id} einzel-titel-{aufgabe.id}"
+								disabled={imFlug}
+							>
+								Übernehmen
+							</button>
+						</form>
+					{/if}
+
+					<!--
+						Die Bestätigung **ohne JavaScript**, an der Zeile, um die es geht.
+						Mit JavaScript entsteht sie nie — der Rückruf oben bricht den ersten
+						Versand ab, und `form` wird nie auf `fragen` gesetzt.
+
+						Ohne use:enhance, denn sie ist der Weg für den Fall, in dem es kein
+						enhance gibt. `Abbrechen` ist ein Link auf `/` und kein Knopf: er
+						verwirft die Antwort der action, indem er die Seite neu holt, und tut
+						sonst nichts.
+
+						`Abbrechen` steht zuerst, wie im Dialog: die Reihenfolge im DOM ist
+						die Fokusreihenfolge, und die zusagende Handlung soll nicht die
+						erste sein, die ein Enter trifft.
+					-->
+					{#if frageHier && frage !== null}
+						<div class="einzel__frage">
+							<p class="einzel__satz" id="einzel-frage-{aufgabe.id}">
+								{uebernahmeSatz(frage)}
+							</p>
+							<form class="einzel__knoepfe" method="POST" action="?/uebernehmen">
+								<input type="hidden" name="einzelaufgabeId" value={frage.id} />
+								<input type="hidden" name="bestaetigt" value="1" />
+								<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+								<a class="button-quiet" href={resolve('/')}>Abbrechen</a>
+								<button
+									class="button-quiet"
+									type="submit"
+									aria-describedby="einzel-frage-{aufgabe.id}"
+								>
+									Übernehmen
+								</button>
+							</form>
+						</div>
+					{/if}
+				</li>
+			{/each}
+		</ul>
+		<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+		<a class="einzel__mehr" href={resolve('/einzelaufgaben')}>Alle Einzelaufgaben</a>
 	{/if}
 
 	<h2 class="marke" id="offen-marke">Offen</h2>
@@ -474,27 +803,56 @@
 	<a class="button-primary" href={resolve('/aufgabe')}>+ Aufgabe</a>
 </div>
 
+<!--
+	Der eine wiederverwendete Dialog. Die zweite der zwei erlaubten Bestätigungen
+	— die erste ist der Widerruf einer Einladung auf /verwaltung. Anderswo gibt es
+	keine, und das Abhaken im Pool bleibt ausdrücklich eine einzige Interaktion
+	ohne Rückfrage.
+-->
+<dialog
+	class="bestaetigung"
+	bind:this={dialog}
+	aria-labelledby="uebernahme-titel"
+	aria-describedby="uebernahme-text"
+	onclose={() => (zuUebernehmen = null)}
+>
+	<!--
+		Der Inhalt entsteht erst mit der gewählten Zeile. Stünde er immer im
+		Markup, trüge der ausgelieferte Quelltext den Satz `Du übernimmst: , .` —
+		unsichtbar, weil das Element geschlossen ist, und trotzdem gelesen von
+		jedem, der hineinschaut. Dieselbe Lehre wie auf /verwaltung. Das Element
+		selbst bleibt stehen, weil bind:this es braucht; nur sein Inhalt ist
+		bedingt.
+	-->
+	{#if zuUebernehmen !== null}
+		<h2 class="abschnittstitel" id="uebernahme-titel">Einzelaufgabe übernehmen?</h2>
+		<p class="bestaetigung__text" id="uebernahme-text">
+			{uebernahmeSatz(zuUebernehmen)} Dein Name steht danach für alle daneben.
+		</p>
+		<form method="POST" action="?/uebernehmen" use:enhance={versandBestaetigen}>
+			<input type="hidden" name="einzelaufgabeId" value={zuUebernehmen.id} />
+			<input type="hidden" name="bestaetigt" value="1" />
+			<!--
+				`Abbrechen` steht zuerst und wird beim Öffnen fokussiert: ein Enter
+				direkt nach dem Öffnen darf keine Zusage abgeben. Die Sichtreihenfolge
+				folgt dem DOM, die Fokusreihenfolge damit der Leserichtung.
+			-->
+			<div class="bestaetigung__knoepfe">
+				<button
+					class="button-quiet"
+					type="button"
+					bind:this={abbrechenKnopf}
+					onclick={() => dialog?.close()}
+				>
+					Abbrechen
+				</button>
+				<button class="button-quiet" type="submit" disabled={imFlug}>Übernehmen</button>
+			</div>
+		</form>
+	{/if}
+</dialog>
+
 <style>
-	/*
-		Die Abschnittsmarke in der label-Rolle: 12px, Grossbuchstaben über
-		text-transform. Im Markup steht `Offen` und nicht `OFFEN` — ein
-		Screenreader liest Grossbuchstaben mancher Stimmen buchstabierend vor, und
-		die Grossschreibung ist eine Gestaltungsaussage, keine des Textes.
-
-		Zugleich über aria-labelledby der zugängliche Name der Liste: sie heisst
-		dann „Offen" und nicht „Liste mit 4 Einträgen".
-	*/
-	.marke {
-		margin: 0;
-		color: var(--ink-secondary);
-		font-family: var(--label-font);
-		font-size: var(--label-size);
-		font-weight: var(--label-weight);
-		line-height: var(--label-line);
-		letter-spacing: var(--label-tracking);
-		text-transform: uppercase;
-	}
-
 	/*
 		Der Diensthinweis. Eine Zeile auf erhabener Fläche mit 3px linker Kante in
 		der Akzentfarbe, fast eckigem Radius und Haarlinie ringsum (UX-DR9).
@@ -536,15 +894,6 @@
 		font-weight: var(--meta-weight);
 		line-height: var(--meta-line);
 		font-variant-numeric: tabular-nums;
-	}
-
-	.leer {
-		margin: 0;
-		color: var(--ink-secondary);
-		font-family: var(--body-font);
-		font-size: var(--body-size);
-		font-weight: var(--body-weight);
-		line-height: var(--body-line);
 	}
 
 	.meldung {
@@ -770,5 +1119,89 @@
 			transition-property: background-color, border-color, color, opacity;
 			transition-duration: var(--duration-quick);
 		}
+	}
+
+	/* ---------------------------------------------------------------
+	   Block 2 — die freien Einzelaufgaben
+	   --------------------------------------------------------------- */
+	.einzelaufgaben {
+		display: flex;
+		flex-direction: column;
+		/* Abstand zwischen Geschwistern über gap, nie über Aussenabstände */
+		gap: var(--space-2);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	/* min-width: 0 lässt einen langen Titel brechen statt die Karte zu weiten */
+	.einzel__spalte {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		min-width: 0;
+	}
+
+	.einzel__titel {
+		margin: 0;
+		color: var(--ink-primary);
+		font-family: var(--body-font);
+		font-size: var(--body-size);
+		font-weight: var(--body-weight);
+		line-height: var(--body-line);
+	}
+
+	/* Das Formular ist nur der Träger des Knopfs — der Knopf trägt seine Breite
+	   selbst (.button-quiet ist 100% breit). */
+	.einzel__form {
+		margin: 0;
+	}
+
+	/*
+		Der Weg **ohne** JavaScript, an der Zeile, um die es geht. Abgesetzt durch
+		eine Haarlinie darüber statt durch eine zweite Fläche: die Karte ist schon
+		erhaben, und eine erhabene Fläche in einer erhabenen wäre eine Tiefe, die
+		der Rahmen nicht kennt.
+	*/
+	.einzel__frage {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		border-top: var(--border-hairline) solid var(--hairline);
+		padding-top: var(--space-2);
+	}
+
+	.einzel__satz {
+		margin: 0;
+		color: var(--ink-primary);
+		font-family: var(--body-font);
+		font-size: var(--body-size);
+		font-weight: var(--body-weight);
+		line-height: var(--body-line);
+	}
+
+	.einzel__knoepfe {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+
+	/*
+		Der Fusslink auf die Unterseite. Ein Zeilenziel, kein Knopf: er führt
+		weiter, er tut nichts — dieselbe Rolle wie ein Eintrag auf /mehr, und
+		darum in der Nebentext-Grösse statt in der Knopfform. Höchstens ein
+		primärer Knopf pro Seite, und das ist `+ Aufgabe` unter dem Pool.
+	*/
+	.einzel__mehr {
+		display: flex;
+		align-items: center;
+		/* Trefferfeld: 44px Boden, auch für einen blossen Link */
+		min-height: var(--touch);
+		color: var(--accent);
+		font-family: var(--action-font);
+		font-size: var(--action-size);
+		font-weight: var(--action-weight);
+		line-height: var(--action-line);
+		text-decoration: none;
 	}
 </style>

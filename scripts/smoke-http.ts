@@ -75,7 +75,11 @@ import { mitgliedAnlegen } from '../src/lib/server/db/queries/members.ts';
 import { aufgabenStapelAnlegen } from '../src/lib/server/db/queries/tasks.ts';
 import { tokenErzeugen, tokenHashen } from '../src/lib/server/token.ts';
 import { NAME_HOECHSTLAENGE, NAME_ZU_LANG } from '../src/lib/mitgliedsname.ts';
-import { KEIN_ZUGANG, MITGLIED_NICHT_ANSPRECHBAR } from '../src/lib/texte.ts';
+import {
+	EINZELAUFGABE_NICHT_ANSPRECHBAR,
+	KEIN_ZUGANG,
+	MITGLIED_NICHT_ANSPRECHBAR,
+} from '../src/lib/texte.ts';
 import { WOCHE_SEKUNDEN } from '../src/lib/zeit.ts';
 
 /**
@@ -84,7 +88,7 @@ import { WOCHE_SEKUNDEN } from '../src/lib/zeit.ts';
  * mit — genau wie in scripts/smoke-zugang.ts. Eine Seite mehr in `seiten` sind
  * sieben Behauptungen mehr, und dieselbe Zahl steht in README.md.
  */
-const ERWARTETE_BEHAUPTUNGEN = 121;
+const ERWARTETE_BEHAUPTUNGEN = 140;
 
 const GUTES_GEHEIMNIS = 'smoke-http-geheimnis-mit-genug-verschiedenen-zeichen-0123456789';
 
@@ -806,6 +810,8 @@ try {
 		{ pfad: '/monatsplan', titel: 'Monatsplan' },
 		{ pfad: '/aufgabe', titel: 'Aufgabe' },
 		{ pfad: '/dienstplan', titel: 'Dienstplan' },
+		{ pfad: '/einzelaufgabe', titel: 'Einzelaufgabe' },
+		{ pfad: '/einzelaufgaben', titel: 'Einzelaufgaben' },
 	];
 
 	for (const seite of seiten) {
@@ -824,8 +830,14 @@ try {
 		);
 		pruefen(`${seite.pfad} hat ausgeglichene Kommentarmarken`, kommentareAusgeglichen(html));
 		pruefen(
-			`${seite.pfad} trägt kein Bruchstück des Bestätigungstexts`,
-			!html.includes(', aufgenommen am') && !html.includes('name="mitgliedId" value=""')
+			`${seite.pfad} trägt kein Bruchstück eines Bestätigungstexts`,
+			!html.includes(', aufgenommen am') &&
+				!html.includes('name="mitgliedId" value=""') &&
+				// Der zweite Dialog, seit Story 3.2. Sein Inhalt ist bedingt gerendert;
+				// stünde er immer im Markup, trüge jedes ausgelieferte Dokument den
+				// Satz `Du übernimmst: , .` — unsichtbar und trotzdem lesbar.
+				!html.includes('Du übernimmst: ,') &&
+				!html.includes('name="einzelaufgabeId" value=""')
 		);
 		pruefen(
 			`${seite.pfad} trägt keinen Token-Hash`,
@@ -1756,6 +1768,251 @@ try {
 		'ein abgewiesenes Besetzen kommt ohne JavaScript fertig aus dem Server',
 		fehlendeTeile(abweisungBesetzenTeile).length === 0,
 		`fehlt: ${fehlendeTeile(abweisungBesetzenTeile).join(', ')} (Status ${besetzenAbweisung.status}, ${offeneBesetzen.length} offen)`
+	);
+
+	// --- Die Einzelaufgabe, ohne JavaScript von Anfang bis Ende --------------
+	/*
+	 * **Der Kern von Story 3.2 an einem echten Server.** Drei Schritte, so wie
+	 * ein Browser ohne JavaScript sie geht: ausschreiben, fragen, zusagen.
+	 *
+	 * `smoke` belegt die zwei Schritte am Rückgabewert der action. Was es nicht
+	 * sehen kann, ist das **Dokument** dazwischen: ob der Bestätigungssatz
+	 * wirklich ausgeliefert wird, ob die Marke `bestaetigt` im Formular steht und
+	 * ob der zweite POST daraus wirklich eine Zusage macht. Genau die Klasse, für
+	 * die Story 3.0 dieses Skript gebaut hat — und hier trägt sie mehr als
+	 * anderswo: ohne diese Zeilen hinge die einzige Bestätigung des
+	 * Aufgabenbereichs an JavaScript, und niemand hätte es gemerkt.
+	 *
+	 * Der Termin kommt aus dem `min` des ausgelieferten Feldes und nicht aus
+	 * einer eigenen Rechnung: geprüft werden soll, dass **dieses** Formular
+	 * trägt.
+	 */
+	/*
+	 * **Der leere Zustand zuerst, gemessen statt begründet.** Zu diesem Zeitpunkt
+	 * ist noch keine Einzelaufgabe ausgeschrieben, und Block 2 muss darum **ganz**
+	 * fehlen — nicht leer sein. `smoke` prüft dieselbe Zusage am Quelltext des
+	 * `{#if}`; ob daraus im ausgelieferten Dokument wirklich nichts wird, sagt das
+	 * nicht. Die Zeile steht **vor** dem Ausschreiben, weil sie danach nicht mehr
+	 * zu haben wäre.
+	 */
+	const leeresBlock2 = await (await holen(port, '/', { keks: mitgliedKeks })).text();
+	pruefen(
+		'ohne freie Einzelaufgabe fehlt Block 2 im ausgelieferten Dokument ganz',
+		!leeresBlock2.includes('Zum Übernehmen') &&
+			!leeresBlock2.includes('einzel-marke') &&
+			!leeresBlock2.includes('noch niemand'),
+		leeresBlock2.includes('Zum Übernehmen') ? 'die Marke steht da' : 'ein Rest steht da'
+	);
+
+	const ausschreibenHtml = await (await holen(port, '/einzelaufgabe', { keks: adminKeks })).text();
+	const terminMin =
+		/<input\b[^>]*\bname="termin"[^>]*\bmin="([0-9-]+)"/.exec(ausschreibenHtml)?.[1] ?? '';
+	const terminMax =
+		/<input\b[^>]*\bname="termin"[^>]*\bmax="([0-9-]+)"/.exec(ausschreibenHtml)?.[1] ?? '';
+	const einzelTitel = 'Setzlinge bei der Gärtnerei abholen';
+
+	/*
+	 * **Nicht am Fensterrand posten.** `terminMax` ist der letzte zulässige Tag,
+	 * gelesen aus einem GET von davor. Fällt zwischen dem GET und dem POST
+	 * Mitternacht in Europe/Zurich, hat sich das Fenster um einen Tag verschoben,
+	 * der Server antwortet mit FRIST_AUSSERHALB, und der Lauf wäre einmal je
+	 * Nacht zufällig rot. Geschickt wird darum ein Tag **in** der Mitte; die zwei
+	 * Grenzen selbst sind eine Zeile weiter unten am ausgelieferten Feld gemessen,
+	 * und die Schranke in der action belegt `smoke` an fester Uhr.
+	 */
+	const terminMitte = new Intl.DateTimeFormat('en-CA', {
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+		timeZone: 'Europe/Zurich',
+	}).format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+	const ausgeschrieben = await abschicken(port, '/einzelaufgabe?/ausschreiben', adminKeks, {
+		titel: einzelTitel,
+		termin: terminMitte,
+	});
+	/*
+	 * **Das Dokument mit dem Parameter, und nicht nur der Location-Kopf.** Die
+	 * Weiterleitung sagt, wohin geschickt wird; ob die Startseite daraus eine
+	 * Bestätigung macht, sagt sie nicht. Ein Tippfehler im Parameternamen liesse
+	 * die Zeile darunter grün, und wer ausschreibt, landete auf einer Seite ohne
+	 * jede Rückmeldung.
+	 */
+	const bestaetigungHtml = await (
+		await holen(port, '/?ausgeschrieben', { keks: adminKeks })
+	).text();
+	const startseiteHtmlEinzel = await (await holen(port, '/', { keks: mitgliedKeks })).text();
+	const ausschreibenTeile = [
+		[
+			'das Dokument /?ausgeschrieben trägt den Satz `Ausgeschrieben.`',
+			bestaetigungHtml.includes('Ausgeschrieben.'),
+		],
+		[
+			'und /ohne Parameter trägt ihn nicht — die Gegenprobe',
+			!startseiteHtmlEinzel.includes('Ausgeschrieben.'),
+		],
+		[
+			'das Terminfeld trägt ein Fenster',
+			terminMin !== '' && terminMax !== '' && terminMin < terminMax,
+		],
+		['der POST endet in einer Weiterleitung', ausgeschrieben.status === 303],
+		[
+			'und zwar auf /?ausgeschrieben — nicht auf ?abgelegt',
+			(ausgeschrieben.headers.get('location') ?? '') === '/?ausgeschrieben',
+		],
+		['danach steht der Titel auf der Startseite', startseiteHtmlEinzel.includes(einzelTitel)],
+		['mit dem Wort `noch niemand`', startseiteHtmlEinzel.includes('noch niemand')],
+		[
+			'und einem Knopf `Übernehmen`',
+			/<button\b[^>]*type="submit"[^>]*>\s*Übernehmen\s*</.test(startseiteHtmlEinzel),
+		],
+		[
+			// SvelteKit liefert interne Ziele **relativ** aus (`./einzelaufgaben`),
+			// weil resolve() gegen die Basis auflöst. Das Muster lässt beide Formen
+			// zu und nagelt den Pfad fest, nicht die Schreibweise davor.
+			'die Zeile führt auf die Unterseite',
+			/href="\.?\/einzelaufgaben"/.test(startseiteHtmlEinzel),
+		],
+	] as const;
+	pruefen(
+		'eine Einzelaufgabe lässt sich ohne JavaScript ausschreiben und steht danach auf /',
+		fehlendeTeile(ausschreibenTeile).length === 0,
+		`fehlt: ${fehlendeTeile(ausschreibenTeile).join(', ')} (Status ${ausgeschrieben.status})`
+	);
+
+	/*
+	 * **Schritt 1: fragen — und nichts ändern.** Die Antwort auf einen POST ohne
+	 * `bestaetigt` ist ein vollständiges Dokument mit dem Satz, und die Gegenprobe
+	 * daneben ist die eigentliche Zusage: das Wort `noch niemand` steht danach
+	 * immer noch da.
+	 */
+	const einzelId =
+		/<input\b[^>]*\bname="einzelaufgabeId"[^>]*\bvalue="([0-9]+)"/.exec(
+			startseiteHtmlEinzel
+		)?.[1] ?? '';
+	const gefragtAntwort = await abschicken(port, '/?/uebernehmen', mitgliedKeks, {
+		einzelaufgabeId: einzelId,
+	});
+	const gefragtHtml = await gefragtAntwort.text();
+	const nachFrageHtml = await (await holen(port, '/', { keks: mitgliedKeks })).text();
+	const frageTeile = [
+		['die Id stand im ausgelieferten Formular', einzelId !== ''],
+		[
+			'die Antwort ist ein HTML-Dokument',
+			(gefragtAntwort.headers.get('content-type') ?? '').startsWith('text/html'),
+		],
+		[
+			'sie trägt den Bestätigungssatz mit Titel und Termin',
+			new RegExp(`Du übernimmst: ${einzelTitel}, [0-9]`).test(gefragtHtml),
+		],
+		[
+			'und ein Formular mit der Marke bestaetigt',
+			/<input\b[^>]*\bname="bestaetigt"[^>]*\bvalue="1"/.test(gefragtHtml),
+		],
+		[
+			'genau eine Frage im ganzen Dokument',
+			(gefragtHtml.match(/Du übernimmst:/g) ?? []).length === 1,
+		],
+		[
+			// Die Gegenprobe: gefragt ist nicht zugesagt. Ohne sie bliebe die Zeile
+			// grün, wenn der erste POST schon schriebe.
+			'und nichts ist geschrieben — die Aufgabe steht weiterhin als frei da',
+			nachFrageHtml.includes('noch niemand') && !nachFrageHtml.includes('Manu Mitglied'),
+		],
+	] as const;
+	pruefen(
+		'der erste POST fragt nur — die Bestätigung kommt ohne JavaScript aus dem Server',
+		fehlendeTeile(frageTeile).length === 0,
+		`fehlt: ${fehlendeTeile(frageTeile).join(', ')} (Status ${gefragtAntwort.status})`
+	);
+
+	/*
+	 * **Schritt 2: zusagen.** Derselbe POST mit der Marke. Danach trägt die
+	 * Einzelaufgabe einen Namen, sie ist von `/` verschwunden und steht auf
+	 * /einzelaufgaben — die drei Zeilen der Akzeptanzkriterien, an drei
+	 * ausgelieferten Dokumenten gemessen.
+	 */
+	const zugesagt = await abschicken(port, '/?/uebernehmen', mitgliedKeks, {
+		einzelaufgabeId: einzelId,
+		bestaetigt: '1',
+	});
+	const nachZusageHtml = await (await holen(port, '/', { keks: mitgliedKeks })).text();
+	const unterseiteHtml = await (
+		await holen(port, '/einzelaufgaben', { keks: mitgliedKeks })
+	).text();
+	const zusageTeile = [
+		['der POST endet nicht in einem Fehler', zugesagt.status < 400],
+		['die Startseite zeigt die Einzelaufgabe nicht mehr', !nachZusageHtml.includes(einzelTitel)],
+		['und damit auch keinen Knopf `Übernehmen` mehr', !/>\s*Übernehmen\s*</.test(nachZusageHtml)],
+		['die Unterseite zeigt sie', unterseiteHtml.includes(einzelTitel)],
+		['mit dem Namen der zusagenden Person', unterseiteHtml.includes('Manu Mitglied')],
+		['und ohne `noch niemand` an dieser Zeile', !unterseiteHtml.includes('noch niemand')],
+		[
+			/*
+			 * Die Unterseite handelt nicht: kein Formular, kein Knopf. Gemessen wird
+			 * der **Seitenbereich** und nicht das ganze Dokument — die geteilte Hülle
+			 * aus +layout.svelte liegt darum herum, und ein künftiger Knopf dort
+			 * machte diese Zeile aus einem Grund rot, der mit dieser Seite nichts zu
+			 * tun hat.
+			 */
+			'die Unterseite trägt kein Formular und keinen Knopf',
+			(() => {
+				// Vom Seitentitel bis zum Ende des Hauptbereichs — die Hülle aus
+				// +layout.svelte (Titelleiste, Navigationsleiste) bleibt draussen.
+				const von = unterseiteHtml.indexOf('<h1 class="seitentitel');
+				const bis = unterseiteHtml.indexOf('</main>');
+				const seite = von >= 0 && bis > von ? unterseiteHtml.slice(von, bis) : '';
+				return seite !== '' && !/<form\b/.test(seite) && !/<button\b/.test(seite);
+			})(),
+		],
+		[
+			'weder Hash noch Klartext-Token',
+			!saat.hashes.some((hash) => unterseiteHtml.includes(hash)) &&
+				!saat.klartexte.some((token) => unterseiteHtml.includes(token)),
+		],
+	] as const;
+	pruefen(
+		'der zweite POST sagt zu — und die Einzelaufgabe wechselt die Seite',
+		fehlendeTeile(zusageTeile).length === 0,
+		`fehlt: ${fehlendeTeile(zusageTeile).join(', ')} (Status ${zugesagt.status})`
+	);
+
+	/*
+	 * **Der verlorene Griff, als Dokument.** Dieselbe Zusage wie beim abgewiesenen
+	 * Besetzen weiter oben und aus demselben Grund: `smoke` misst den
+	 * Rückgabewert der action, und der sagt nichts darüber, ob der Satz jemals
+	 * ausgeliefert wird. Wer zu spät kommt, muss ihn ohne JavaScript im Dokument
+	 * lesen — die Live-Region wird bei einem frischen Dokument nicht angesagt, der
+	 * Satz steht aber im Rumpf.
+	 *
+	 * Geschickt wird derselbe POST ein zweites Mal: die Aufgabe ist jetzt
+	 * übernommen, und die Vorbedingung im UPDATE trifft keine Zeile mehr.
+	 */
+	const zuSpaet = await abschicken(port, '/?/uebernehmen', adminKeks, {
+		einzelaufgabeId: einzelId,
+		bestaetigt: '1',
+	});
+	const zuSpaetHtml = await zuSpaet.text();
+	const zuSpaetTeile = [
+		['die Antwort ist ein 400', zuSpaet.status === 400],
+		['und ein HTML-Dokument', (zuSpaet.headers.get('content-type') ?? '').startsWith('text/html')],
+		['der Satz steht im Rumpf', zuSpaetHtml.includes(EINZELAUFGABE_NICHT_ANSPRECHBAR)],
+		[
+			'er steht in der oberen Fehlerregion',
+			/<p class="fehler live"[^>]*>[^<]*Diese Einzelaufgabe lässt sich nicht ansprechen/.test(
+				zuSpaetHtml
+			),
+		],
+		[
+			// Und keine Frage daneben: ein abgewiesener zweiter Schritt stellt sie
+			// nicht noch einmal.
+			'und keine Bestätigungsfrage daneben',
+			!zuSpaetHtml.includes('Du übernimmst:'),
+		],
+	] as const;
+	pruefen(
+		'wer zu spät zusagt, liest den Satz ohne JavaScript im Dokument',
+		fehlendeTeile(zuSpaetTeile).length === 0,
+		`fehlt: ${fehlendeTeile(zuSpaetTeile).join(', ')} (Status ${zuSpaet.status})`
 	);
 
 	// --- Was der Server dabei selbst gesagt hat -------------------------------

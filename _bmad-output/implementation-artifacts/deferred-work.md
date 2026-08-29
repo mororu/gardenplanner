@@ -630,3 +630,101 @@ belegt; die Proben stehen einzeln in der Tabelle in `README.md`.
   gebaut (der Zeilenbezug, die zwei `aria-current`-Werte) und beide **gemessen**
   — abgenommen ist damit die Struktur im ausgelieferten Dokument, nicht das
   Erlebnis mit einem Screenreader.
+
+## Zurückgestellt in Story 3.2 (2026-08-29)
+
+- betrifft: der Termin auf `/einzelaufgabe` geht ohne JavaScript verloren, wenn
+    der Versand abgewiesen wird
+  fassung: `abweisen` trägt **einen** Rückweg für eine verworfene Eingabe
+    (`eingabe`), und den bekommt der Titel — er ist der Wert, den ein Feld aus
+    lauter unsichtbaren Zeichen tatsächlich verliert. Der Termin steht im `$state`
+    der Komponente und übersteht einen abgewiesenen Versand **mit** JavaScript;
+    ohne ist er danach leer. Die geteilte Form für inzwischen sechs Seiten dafür
+    aufzuweiten war der teurere Handel — dieselbe Abwägung wie beim
+    Wochenschlüssel im vierten Argument aus Story 3.1.
+  warum tragbar: das Feld trägt `required`, `min` und `max`, und diese drei prüft
+    der Browser von sich aus, ohne JavaScript. Die zwei serverseitigen
+    Termin-Sätze sind die Auffanglinie für einen gebauten POST, nicht der übliche
+    Weg. Der Titel dagegen passiert `required` und fällt erst am Server — er
+    reist darum zurück.
+  dritter Weg, geprüft und verworfen: die action könnte den Termin **neben**
+    `abweisen` in die Nutzlast legen, statt die geteilte Form zu verbreitern. Das
+    hiesse aber, den Rückgabewert nicht mehr aus `abweisen` zu bilden — und genau
+    das ist die Zusage, die seit Epic 2 gilt und die `smoke` festnagelt („keine
+    Seite erklärt eine eigene"). Eine Abweisung, die an einer Stelle anders
+    entsteht als an den anderen sechs, ist die Drift, gegen die die eine Form
+    gebaut wurde. Der Handel wäre: eine gerettete Datumseingabe gegen die
+    Einheitlichkeit aller Abweisungen.
+  auslöser: eine dritte Seite mit zwei Feldern, deren zweites ohne
+    Browserprüfung auskommt. Dann trägt die eine Form nicht mehr, und der Rückweg
+    gehört verbreitert — an allen sechs Stellen zugleich, nicht an einer.
+  status: offen
+
+## Aus dem Review zu Story 3.2 (2026-08-29)
+
+- betrifft: eine freie Einzelaufgabe mit vergangenem Termin steht **oben** auf
+    der Startseite
+  evidence: `freieEinzelaufgabenLesen` filtert bewusst nicht nach Zeit und
+    ordnet aufsteigend nach Termin. Beides zusammen hat eine Folge, die beim Bau
+    nicht benannt war: eine im März ausgeschriebene und nie übernommene Aufgabe
+    steht im September nicht etwa unten, sondern **an erster Stelle** von Block 2
+    — an der aufmerksamkeitsstärksten Stelle der Anwendung, ohne jedes Zeichen,
+    dass ihr Termin vorbei ist. Der Pool nebenan trägt für dieselbe Lage seit
+    Story 2.2 `seit N Wochen überfällig`.
+  status: offen, gehört zum Entscheid über das Verfallen (Ask First in der
+    Spezifikation). Drei Fassungen sind denkbar: eine zweite Textzeile wie im
+    Pool, eine Sortierung, die Vergangenes nach hinten stellt, oder ein Verfallen
+    nach Frist. Die erste ist die billigste und passt zur Hausregel „der Zustand
+    trägt das Wort".
+
+- betrifft: `/einzelaufgaben` wächst unbegrenzt und beginnt mit dem Ältesten
+  evidence: dieselbe aufsteigende Ordnung über **alle** Zeilen, ohne Blättern,
+    ohne Archiv und ohne Trennung von Vergangenem. Die Seite beantwortet „wer hat
+    was übernommen" nach einer Saison unterhalb eines Bildschirms voll erledigter
+    Arbeit. Heute belanglos — zwanzig Leute schreiben eine Handvoll im Jahr aus —,
+    und die Auslösebedingung ist dieselbe wie beim Eintrag darüber.
+  status: offen
+
+- betrifft: kein Korrigieren, kein Zurückgeben, kein Löschen — und die
+    Asymmetrie, die daraus folgt
+  evidence: ein Tippfehler im Titel einer ausgeschriebenen Einzelaufgabe bleibt
+    für alle sichtbar stehen; wer übernommen hat, kommt nicht mehr heraus; der
+    einzige Weg zurück auf „frei" ist das Beenden eines Zugangs. Der Review nennt
+    die Asymmetrie beim Namen und sie ist der eigentliche Punkt: das **umkehrbare**
+    Abhaken im Pool fragt nichts (`aufgabeWiederOeffnen` steht daneben), die
+    **unumkehrbare** Übernahme bekommt den Dialog. Das ist nicht falsch — die
+    Bestätigung sitzt genau dort, wo die Folge bleibt —, aber es heisst, dass die
+    Bestätigung die einzige Sicherung ist.
+  status: offen, drei Ask-First-Punkte der Spezifikation hängen daran (Abgeben,
+    Erledigt-Zustand, Verfallen)
+
+- betrifft: ein doppelter POST ohne JavaScript legt zwei gleichlautende
+    Einzelaufgaben an
+  evidence: `imFlug` sperrt den zweiten Versand nur mit JavaScript; ohne bleibt
+    ein Doppelantippen oder ein Zurück-und-nochmal-Absenden ungebremst, und es
+    gibt keine Löschen-Aktion, die aufräumte. **Pre-existing, nicht von dieser
+    Story eingeführt:** `/aufgabe` trägt dieselbe Lücke seit Story 1.5, mit
+    derselben Begründung im Kommentar. Wer sie schliesst, schliesst sie an beiden
+    Stellen — etwa über eine Eindeutigkeit oder ein Erkennen der gleichen Zeile
+    im selben Zeitfenster.
+  status: offen
+
+- betrifft: `maxlength` zählt UTF-16-Einheiten, die Prüfung zählt Codepoints
+  evidence: ein Titel aus Emoji wird vom Browser bei 200 **Einheiten**
+    abgeschnitten, während der Server 200 **Codepoints** zuliesse — die
+    Begrenzung greift dann früher als zugesagt. **Pre-existing:** `/aufgabe`
+    trägt dieselbe Paarung seit Story 1.5, `/verwaltung` bei den Namen ebenso.
+    Ein Fix gehört an alle drei zugleich.
+  status: offen
+
+- betrifft: `.erfassen` liegt zweimal — in `/aufgabe` und `/einzelaufgabe`
+  evidence: vier gleichlautende Zeilen Flexlayout. Bewusst **nicht** mit den
+    anderen fünf Klassen ins geteilte Stilblatt gezogen: `.leer`, `.karte`,
+    `.marke` und die zwei Bestätigungsregeln tragen eine **Rolle** — leerer
+    Zustand, Karte, Abschnittsmarke —, und darum gehören sie dorthin. `.erfassen`
+    ist reines Formularlayout ohne Aussage; eine generische Flexklasse im
+    geteilten Blatt wäre der Anfang einer Utility-Sammlung, die dieses Projekt
+    nicht hat. Zwei Kopien sind hier der kleinere Preis, und der Entscheid steht
+    hier, damit die nächste Story ihn nicht neu treffen muss.
+  status: getragen
+

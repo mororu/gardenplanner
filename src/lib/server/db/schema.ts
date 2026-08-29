@@ -8,14 +8,18 @@ import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core
  * Drizzle. Zeitstempel sind Integer in Unix-Sekunden, nie ISO-Strings und nie
  * Date-Objekte.
  *
- * In diesem Stand gibt es drei Tabellen: members aus Story 1.2, tasks aus
- * Story 1.4 (seit Story 2.1 um due_at erweitert) und duty_weeks aus Story 3.1.
- * Story 2.2 hat an tasks **nichts** geändert: die Überfälligkeit wird gerechnet
- * und nicht gespeichert, und die Rechnung steht in src/lib/zeit.ts.
- * signup_tasks kommt mit Story 3.2. Getrennte Tabellen ohne gemeinsame
+ * In diesem Stand gibt es vier Tabellen: members aus Story 1.2, tasks aus
+ * Story 1.4 (seit Story 2.1 um due_at erweitert), duty_weeks aus Story 3.1 und
+ * signup_tasks aus Story 3.2. Story 2.2 hat an tasks **nichts** geändert: die
+ * Überfälligkeit wird gerechnet und nicht gespeichert, und die Rechnung steht
+ * in src/lib/zeit.ts. Getrennte Tabellen ohne gemeinsame
  * Zuständigkeitsspalte, keine Basistabelle und keine Typspalte darüber (AD-3):
- * die drei Arten sind verschieden verbindlich, und genau das soll das Schema
- * zeigen.
+ * die drei Aufgabenarten sind verschieden verbindlich, und genau das soll das
+ * Schema zeigen — nachlesbar an **einer** Spalte:
+ *
+ *   tasks         keine Mitgliedsspalte für die Zuständigkeit  namenlos
+ *   signup_tasks  member_id **nullbar**                        null oder eine
+ *   duty_weeks    member_id **nicht nullbar**                  genau eine
  */
 export const members = sqliteTable('members', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
@@ -293,3 +297,89 @@ export type NewDutyWeek = typeof dutyWeeks.$inferInsert;
  * aussieht.
  */
 export const DIENSTART_TRAENKEN = 'traenken';
+
+/**
+ * Die ausgeschriebene Einzelaufgabe. Setzlinge abholen, den Anhänger fahren —
+ * etwas Unregelmässiges, das genau **eine** Person übernimmt, und für alle
+ * sichtbar, ob und wer.
+ *
+ * **Die mittlere der drei Verbindlichkeiten** (AD-4), und sie steht in der
+ * Nullbarkeit einer einzigen Spalte. tasks hat für die Zuständigkeit gar keine
+ * Spalte: der Pool ist namenlos, jede greift, was sie schafft. duty_weeks hat
+ * eine **nicht nullbare**: eine Dienstwoche ohne zuständige Person ist kein
+ * Datensatz, sondern seine Abwesenheit. Hier ist sie **nullbar**, denn beide
+ * Zustände sind echte Zustände derselben Sache: ausgeschrieben und noch frei,
+ * oder ausgeschrieben und übernommen. Genau dieser Unterschied ist der Grund,
+ * warum es keine Basistabelle über den drei Arten gibt — sie hätte ihn verdeckt.
+ *
+ * **Kein Erledigt-Zustand.** Es gibt kein completed_at und kein Abhaken: eine
+ * Einzelaufgabe ist getan, wenn der Termin vorbei ist, und wer sie übernommen
+ * hat, hat das vor allen zugesagt. Ein Häkchen daneben wäre eine zweite
+ * Verbindlichkeit über derselben Sache.
+ */
+export const signupTasks = sqliteTable('signup_tasks', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	/*
+	 * Worum es geht, in einem Satz — dieselbe Auslegung wie bei tasks.text und
+	 * durch dieselbe Kette geprüft: aufgabentextFalten und AUFGABE_HOECHSTLAENGE
+	 * in src/lib/aufgabentext.ts. Kein Titel plus Beschreibung, kein Ort, keine
+	 * Kategorie.
+	 */
+	titel: text('titel').notNull(),
+	/*
+	 * Wann sie fällig ist, in Unix-Sekunden auf dem **Ende** des gewählten Tages
+	 * in Europe/Zurich — dieselbe Umrechnung wie bei tasks.due_at, über
+	 * tagesendeInUnixSekunden in src/lib/zeit.ts.
+	 *
+	 * **notNull, anders als due_at.** Eine Poolaufgabe darf ohne Frist entstehen:
+	 * wer im Beet steht, tippt einen Satz und ist fertig. Eine Einzelaufgabe ohne
+	 * Termin wäre dagegen keine: „jemand holt irgendwann Setzlinge" ist genau die
+	 * Unverbindlichkeit, gegen die diese Tabelle steht. Der Termin ist Teil
+	 * dessen, was übernommen wird — er steht im Bestätigungssatz.
+	 */
+	terminAt: integer('termin_at').notNull(),
+	/*
+	 * Wer übernommen hat — **nullbar**, und das ist der Kern dieser Tabelle.
+	 *
+	 * null heisst: ausgeschrieben, noch frei. Ein Wert heisst: diese Person hat
+	 * zugesagt, und ihr Name steht daneben. Es gibt genau einen Übernehmer und
+	 * keine Warteliste; ein zweiter müsste die Spalte überschreiben, und genau
+	 * das verhindert die Vorbedingung im UPDATE (./queries/signup-tasks.ts).
+	 *
+	 * Der Fremdschlüssel ist tragfähig, weil Zugang beenden deaktiviert statt
+	 * löscht — dieselbe Begründung wie bei tasks.completed_by und
+	 * duty_weeks.member_id. Die Zeile eines ausgetretenen Mitglieds bleibt darum
+	 * stehen; **dargestellt** wird die Einzelaufgabe wieder als frei, und die
+	 * Nächste kann sie nehmen. Das ist die andere Folge als beim Dienstplan, wo
+	 * dieselbe Lage auf `— unbesetzt —` fällt und auf die Verwaltung wartet: eine
+	 * Einzelaufgabe darf sich jede holen, eine Dienstwoche teilt die Verwaltung
+	 * zu.
+	 *
+	 * Es gibt bewusst **keine** Zeitmarke der Übernahme daneben. Sie stünde in
+	 * keiner Ansicht und beantwortete keine Frage; wer wann zugesagt hat, ist
+	 * keine Auskunft, die diese Gemeinschaft von ihrem Werkzeug erwartet.
+	 */
+	memberId: integer('member_id').references(() => members.id),
+	/* Wie bei members, tasks und duty_weeks über $defaultFn im Schema. */
+	createdAt: integer('created_at')
+		.notNull()
+		.$defaultFn(() => Math.floor(Date.now() / 1000)),
+});
+
+/*
+ * **Kein Index**, und das ist eine Entscheidung wie bei tasks und keine
+ * Auslassung. Die Listen ordnen nach termin_at und lesen den Namen über einen
+ * leftJoin auf members.id — der Primärschlüssel der anderen Seite, der ohnehin
+ * einen Index hat. Was ein Index auf termin_at spart, ist die Sortierung einer
+ * Tabelle, die auf Jahre in eine Speicherseite passt: zwanzig Leute schreiben
+ * eine Handvoll Einzelaufgaben im Jahr aus, und es gibt kein Blättern und keine
+ * Filterung in SQL. Er kostete dafür Schreibarbeit an jeder Zeile.
+ *
+ * Die Auslösebedingung ist benannt: eine Ansicht, die nach Zeitraum **filtert**
+ * statt alles zu lesen — etwa ein Archiv vergangener Termine. Dann liest die
+ * Abfrage einen Ausschnitt statt der ganzen Tabelle, und ein Index auf
+ * termin_at trägt zum ersten Mal etwas.
+ */
+
+export type SignupTask = typeof signupTasks.$inferSelect;
+export type NewSignupTask = typeof signupTasks.$inferInsert;

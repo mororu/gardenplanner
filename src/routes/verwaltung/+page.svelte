@@ -704,17 +704,6 @@
 </dialog>
 
 <style>
-	/* Abschnittstitel in der section-Rolle — keine zweite display-Grösse */
-	.abschnittstitel {
-		margin: 0;
-		color: var(--ink-primary);
-		font-family: var(--section-font);
-		font-size: var(--section-size);
-		font-weight: var(--section-weight);
-		line-height: var(--section-line);
-		letter-spacing: var(--section-tracking);
-	}
-
 	/* Tiefe nur tonal: aufgehellte Fläche plus Haarlinie, kein Schatten. */
 	.einmal {
 		display: flex;
@@ -843,48 +832,5 @@
 		flex-direction: column;
 		gap: var(--space-2);
 		padding: 0 var(--space-3) var(--space-3);
-	}
-
-	/*
-		<dialog> bringt Zentrierung, Fokusfang, Esc und den Hintergrund selbst
-		mit. Gesetzt wird nur, was der Browser sonst in Systemfarben malt — in
-		einer Komponente ist jede Systemfarbe falsch, weil hier beide Modi
-		gestaltet sind.
-	*/
-	.bestaetigung {
-		max-width: var(--measure);
-		margin: auto;
-		padding: var(--space-4);
-		border: var(--border-hairline) solid var(--hairline);
-		border-radius: var(--radius-lg);
-		background-color: var(--surface-raised);
-		color: var(--ink-primary);
-	}
-
-	/*
-		Auch der Hintergrund kommt aus einem Token. Die Vorgabe des Browsers ist
-		ein halbdurchsichtiges Schwarz und damit eine Farbe, die der Rahmen
-		nirgends kennt — im dunklen Modus verschluckt sie die ohnehin dunkle
-		Seite. Die Deckkraft macht das Durchscheinen; eine Alpha-Farbe wäre ein
-		Literal und hier zu Recht verboten.
-	*/
-	.bestaetigung::backdrop {
-		background-color: var(--ink-primary);
-		opacity: 0.6;
-	}
-
-	.bestaetigung__text {
-		margin: var(--space-3) 0 var(--space-4);
-		color: var(--ink-primary);
-		font-family: var(--body-font);
-		font-size: var(--body-size);
-		font-weight: var(--body-weight);
-		line-height: var(--body-line);
-	}
-
-	.bestaetigung__knoepfe {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
 	}
 </style>

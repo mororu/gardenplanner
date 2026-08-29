@@ -636,19 +636,6 @@
 	}
 
 	/*
-		Der leere Zustand des Prüfschritts, im Ton von `Nichts offen.` auf `/`: er
-		sagt, was gilt, und nennt den Weg hinaus.
-	*/
-	.leer {
-		margin: 0;
-		color: var(--ink-secondary);
-		font-family: var(--body-font);
-		font-size: var(--body-size);
-		font-weight: var(--body-weight);
-		line-height: var(--body-line);
-	}
-
-	/*
 		Der Satz für den Fall ohne JavaScript. Als Karte und nicht als blosser
 		Absatz: er ist die einzige Auskunft auf einer Seite, deren Bedienelemente
 		dann alle wirkungslos sind, und muss sich von ihnen absetzen. Dieselbe

@@ -6,18 +6,38 @@
 	 * führt es auf die Fehlerseite mit `Diese Seite gibt es nicht.` /mehr steht
 	 * seit Story 1.3, /dienstplan seit Story 3.1.
 	 *
+	 * Die Zahl der **Ziele** bleibt bei vier: Story 3.2 legt zwei Routen an, aber
+	 * keine davon ist ein Ort, den man mehrmals in der Woche aufsucht. Eine
+	 * fünfte Beschriftung in einer Leiste, die bei 375px vier trägt, wäre der
+	 * teurere Handel.
+	 *
 	 * **`gehoertDazu` nennt die Routen, die zu einem Ziel gehören, ohne unter
 	 * dessen Pfad zu liegen.** Das ist keine Bequemlichkeit, sondern die Antwort
 	 * auf eine Frage, die dieses Projekt seit Story 1.5 offen mit sich trug
 	 * (Eintrag 28 der zurückgestellten Arbeit): auf /aufgabe, /monatsplan und
 	 * /verwaltung war **kein** Eintrag markiert, und die ganze Erfassung lief
-	 * ohne Ortsangabe. Mit /dienstplan als echtem Ziel und der Ausschreib-Route
-	 * aus Story 3.2 wären es vier solche Seiten statt zwei — darum jetzt.
+	 * ohne Ortsangabe. Mit /dienstplan als echtem Ziel und den zwei Routen aus
+	 * Story 3.2 sind es fünf solche Seiten statt zwei.
 	 *
 	 * Zugeordnet wird nach dem **Weg dorthin**, nicht nach dem Thema: /aufgabe
 	 * wird vom Knopf `+ Aufgabe` unter dem Pool erreicht und gehört darum zu `/`;
-	 * /monatsplan und /verwaltung stehen als Einträge auf /mehr. Wer die Leiste
-	 * liest, soll dort stehen sehen, woher er kam.
+	 * /monatsplan, /verwaltung, /einzelaufgabe und /einzelaufgaben stehen als
+	 * Einträge auf /mehr. Wer die Leiste liest, soll dort stehen sehen, woher er
+	 * kam.
+	 *
+	 * **Die Seite `/einzelaufgaben` hängt an `Mehr`**, obwohl Block 2 auf `/` auch
+	 * dorthin führt. Der Weg, der **immer** besteht, ist der Eintrag auf /mehr: der
+	 * Block auf `/` fehlt ganz, sobald keine Einzelaufgabe frei ist. Eine
+	 * Zuordnung an `/` hiesse, dass die Leiste je nach Datenlage etwas anderes
+	 * behauptet.
+	 *
+	 * **Die zwei neuen Pfade unterscheiden sich um einen Buchstaben** —
+	 * `/einzelaufgabe` und `/einzelaufgaben`. `trifft` unten vergleicht auf Gleichheit oder an der
+	 * Segmentgrenze, und keiner der beiden Vergleiche trifft den Nachbarn: für
+	 * `/einzelaufgaben` ist `/einzelaufgabe` weder gleich noch ein Präfix mit
+	 * folgendem Schrägstrich. scripts/smoke-zugang.ts hält zusätzlich fest, dass
+	 * jede Route zu **genau einem** Eintrag gehört und nicht bloss zu mindestens
+	 * einem.
 	 *
 	 * Eine Formularroute, die zu **keinem** Ziel gehört, gibt es nicht und soll
 	 * es nicht geben: eine Seite, die man erreicht, ohne dass die Leiste etwas
@@ -28,7 +48,11 @@
 		{ href: '/', beschriftung: 'Aufgaben', gehoertDazu: ['/aufgabe'] },
 		{ href: '/dienstplan', beschriftung: 'Dienstplan', gehoertDazu: [] },
 		{ href: '/wissen', beschriftung: 'Wissen', gehoertDazu: [] },
-		{ href: '/mehr', beschriftung: 'Mehr', gehoertDazu: ['/monatsplan', '/verwaltung'] },
+		{
+			href: '/mehr',
+			beschriftung: 'Mehr',
+			gehoertDazu: ['/monatsplan', '/verwaltung', '/einzelaufgabe', '/einzelaufgaben'],
+		},
 	];
 
 	type Ziel = (typeof ziele)[number];

@@ -305,3 +305,161 @@ select.feld {
 .zeile__text {
 	overflow-wrap: anywhere;
 }
+
+/*
+ * Abschnittstitel in der section-Rolle — keine zweite display-Grösse.
+ *
+ * Lag bis Story 3.2 in /verwaltung. Seit die Startseite die zweite Bestätigung
+ * trägt, hat er zwei Leser, und zwei Kopien derselben Regel sind das Muster,
+ * aus dem Drift entsteht (Retro-Posten D1). `smoke` behauptet ihn als Teil der
+ * Seitenform: genau einmal, in diesem Stilblatt.
+ */
+.abschnittstitel {
+	margin: 0;
+	color: var(--ink-primary);
+	font-family: var(--section-font);
+	font-size: var(--section-size);
+	font-weight: var(--section-weight);
+	line-height: var(--section-line);
+	letter-spacing: var(--section-tracking);
+}
+
+/*
+ * Die Bestätigung. Zwei im ganzen Produkt und keine mehr: der Widerruf einer
+ * Einladung auf /verwaltung und das Übernehmen einer Einzelaufgabe auf `/`.
+ *
+ * Sie stand bis Story 3.2 in /verwaltung und ist mit der zweiten Wurfstelle
+ * hierher gezogen — nicht kopiert. Zwei Dialoge, die sich um einen Radius oder
+ * eine Hintergrunddeckkraft unterscheiden, wären zwei Dialoge; sie sollen
+ * derselbe sein.
+ *
+ * <dialog> bringt Zentrierung, Fokusfang, Esc und den Hintergrund selbst mit.
+ * Gesetzt wird nur, was der Browser sonst in Systemfarben malt — jede
+ * Systemfarbe wäre hier falsch, weil beide Modi gestaltet sind.
+ */
+.bestaetigung {
+	max-width: var(--measure);
+	margin: auto;
+	padding: var(--space-4);
+	border: var(--border-hairline) solid var(--hairline);
+	border-radius: var(--radius-lg);
+	background-color: var(--surface-raised);
+	color: var(--ink-primary);
+}
+
+/*
+ * Auch der Hintergrund kommt aus einem Token. Die Vorgabe des Browsers ist ein
+ * halbdurchsichtiges Schwarz und damit eine Farbe, die der Rahmen nirgends
+ * kennt — im dunklen Modus verschluckt sie die ohnehin dunkle Seite. Die
+ * Deckkraft macht das Durchscheinen; eine Alpha-Farbe wäre ein Literal und hier
+ * zu Recht verboten.
+ */
+.bestaetigung::backdrop {
+	background-color: var(--ink-primary);
+	opacity: 0.6;
+}
+
+.bestaetigung__text {
+	margin: var(--space-3) 0 var(--space-4);
+	color: var(--ink-primary);
+	font-family: var(--body-font);
+	font-size: var(--body-size);
+	font-weight: var(--body-weight);
+	line-height: var(--body-line);
+}
+
+.bestaetigung__knoepfe {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+/*
+ * Der leere Zustand. Ein Satz in der Nebentext-Farbe, in Fliesstextgrösse — er
+ * sagt, was gilt, und nicht, dass etwas fehlt.
+ *
+ * Lag bis Story 3.2 dreimal gleichlautend in `/`, `/monatsplan` und
+ * `/einzelaufgaben`. Die dritte Kopie entstand in dieser Story, und damit war
+ * der Retro-Posten D1 dabei, an einer neuen Stelle nachzuwachsen.
+ */
+.leer {
+	margin: 0;
+	color: var(--ink-secondary);
+	font-family: var(--body-font);
+	font-size: var(--body-size);
+	font-weight: var(--body-weight);
+	line-height: var(--body-line);
+}
+
+/*
+ * Die Karte: eine Zeile einer Liste, deren Einträge je einen Namen tragen.
+ *
+ * Tiefe nur tonal — aufgehellte Fläche plus Haarlinie, kein Schatten (UX-DR14).
+ * Sie steht unter den Wochen des Dienstplans und unter den Einzelaufgaben, und
+ * sie steht ausdrücklich **nicht** unter einer Poolzeile: der Pool ist namenlos,
+ * seine Zeilen sind Kästchen mit Text und keine Karten. Die Form trägt damit
+ * eine Aussage, und die ist an allen Orten dieselbe.
+ *
+ * `min-width: 0` gehört zur Karte und nicht zu ihrem Inhalt: ohne sie weitet ein
+ * langer Titel ohne Trennstelle das Flexkind, statt zu brechen — die
+ * Umbruchregel `.zeile__text` greift erst, wenn die Breite überhaupt begrenzt
+ * ist.
+ *
+ * Lag bis Story 3.2 als `.woche` in `/dienstplan`. Diese Story hätte zwei
+ * weitere Kopien daraus gemacht.
+ */
+.karte {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	min-width: 0;
+	padding: var(--space-3);
+	border: var(--border-hairline) solid var(--hairline);
+	border-radius: var(--radius-md);
+	background-color: var(--surface-raised);
+}
+
+/*
+ * Die engere Fassung: drei kurze Zeilen — Titel, Termin, Name — gehören enger
+ * zusammen als ein Wochenkopf und sein aufklappbares Formular. Der Unterschied
+ * ist **eine** Eigenschaft und darum ein Modifikator, keine zweite Karte;
+ * dieselbe Bauform wie `.hinweis--am-feld` darüber.
+ */
+.karte--eng {
+	gap: var(--space-1);
+}
+
+/*
+ * Ziffern in Tabellenstellung, für Nebentext, der aus Zahlen besteht: eine Liste
+ * von Daten untereinander liest sich schlecht, wenn die Zahlen springen.
+ * Modifikator und keine eigene Regel — die Schrift ist dieselbe wie bei
+ * `.hinweis`, nur ihre Ziffernbreite nicht.
+ */
+.hinweis--ziffern {
+	font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Die Abschnittsmarke in der label-Rolle: 12px, Grossbuchstaben über
+ * text-transform.
+ *
+ * Im Markup steht `Offen` und nicht `OFFEN` — ein Screenreader liest
+ * Grossbuchstaben mancher Stimmen buchstabierend vor, und die Grossschreibung
+ * ist eine Gestaltungsaussage, keine des Textes. Zugleich ist sie über
+ * aria-labelledby der zugängliche Name der Liste darunter: die heisst dann
+ * „Offen" und nicht „Liste mit 4 Einträgen".
+ *
+ * Lag bis Story 3.2 in `/`. Die Startseite trägt seither zwei Marken (`Offen`
+ * und `Zum Übernehmen`) und `/einzelaufgaben` eine dritte — zwei Dateien, und
+ * damit gehört sie hierher.
+ */
+.marke {
+	margin: 0;
+	color: var(--ink-secondary);
+	font-family: var(--label-font);
+	font-size: var(--label-size);
+	font-weight: var(--label-weight);
+	line-height: var(--label-line);
+	letter-spacing: var(--label-tracking);
+	text-transform: uppercase;
+}

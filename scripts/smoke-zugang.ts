@@ -80,13 +80,14 @@ import {
 	sitzungLoeschen,
 	sitzungsgeheimnisPruefen,
 } from '../src/lib/server/auth.ts';
-import { PLAN_HOECHSTZAHL } from '../src/lib/aufgabentext.ts';
+import { AUFGABE_HOECHSTLAENGE, PLAN_HOECHSTZAHL } from '../src/lib/aufgabentext.ts';
 import { datenbank, datenschichtStarten } from '../src/lib/server/db/index.ts';
 import {
 	DIENSTART_TRAENKEN,
 	dutyWeeks,
 	members,
 	ohneTokenHash,
+	signupTasks,
 	tasks,
 } from '../src/lib/server/db/schema.ts';
 import type { AngemeldetesMitglied, NewTask } from '../src/lib/server/db/schema.ts';
@@ -111,6 +112,20 @@ import {
 	aufgabenStapelAnlegen,
 	offeneAufgabenAuflisten,
 } from '../src/lib/server/db/queries/tasks.ts';
+/*
+ * Die Einzelaufgaben-Schicht aus Story 3.2. Sie kommt als **Wert** herein und
+ * wird ausgeführt, aus demselben Grund wie die Dienstplan-Schicht darüber: dass
+ * eine Zeile auf ein beendetes Mitglied wieder als frei gilt und dass zwei
+ * gleichzeitige Zusagen nicht beide durchkommen, sind Zusagen der Abfrage und
+ * nicht der Oberfläche.
+ */
+import {
+	einzelaufgabeAusschreiben,
+	einzelaufgabeUebernehmen,
+	einzelaufgabenLesen,
+	freieEinzelaufgabeLesen,
+	freieEinzelaufgabenLesen,
+} from '../src/lib/server/db/queries/signup-tasks.ts';
 import { tokenErzeugen, tokenHashen } from '../src/lib/server/token.ts';
 /*
  * Aus zeit.ts kommen seit Story 2.2 fünf Werte herein, und zwei davon sind
@@ -167,6 +182,7 @@ import {
 	AUFGABE_NICHT_ANSPRECHBAR,
 	DATUM_FEHLT,
 	EIGENER_ZUGANG_GESCHUETZT,
+	EINZELAUFGABE_NICHT_ANSPRECHBAR,
 	FRIST_AUSSERHALB,
 	KEIN_ZUGANG,
 	MITGLIED_NICHT_ANSPRECHBAR,
@@ -183,7 +199,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 536;
+const ERWARTETE_BEHAUPTUNGEN = 591;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -619,6 +635,34 @@ async function dienstplanLaden(): Promise<DienstplanModul> {
 	dienstplanModul ??=
 		(await import('../src/routes/dienstplan/+page.server.ts')) as unknown as DienstplanModul;
 	return dienstplanModul;
+}
+
+/*
+ * Die zwei Seiten der Einzelaufgabe aus Story 3.2.
+ *
+ * Beide loads nehmen **kein** Ereignis, und beide Typen sagen das mit —
+ * derselbe Beleg wie bei /monatsplan: der Aufruf unten fährt ohne Argument, und
+ * eine load, die je ein Ereignis fordert, greift auf `undefined` zu und wirft.
+ *
+ * `/einzelaufgaben` hat kein `actions`, und das ist keine Auslassung dieses
+ * Typs, sondern eine Zusage: übernommen wird auf `/`, wo die freien
+ * Einzelaufgaben stehen. Eine eigene Behauptung darunter hält sie fest.
+ */
+type EinzelaufgabeModul = { load: () => unknown; actions: Record<string, Aktion> };
+type EinzelaufgabenModul = { load: () => unknown };
+let einzelaufgabeModul: EinzelaufgabeModul | null = null;
+let einzelaufgabenModul: EinzelaufgabenModul | null = null;
+
+async function einzelaufgabeLaden(): Promise<EinzelaufgabeModul> {
+	einzelaufgabeModul ??=
+		(await import('../src/routes/einzelaufgabe/+page.server.ts')) as unknown as EinzelaufgabeModul;
+	return einzelaufgabeModul;
+}
+
+async function einzelaufgabenLaden(): Promise<EinzelaufgabenModul> {
+	einzelaufgabenModul ??=
+		(await import('../src/routes/einzelaufgaben/+page.server.ts')) as unknown as EinzelaufgabenModul;
+	return einzelaufgabenModul;
 }
 
 /*
@@ -3377,8 +3421,17 @@ try {
 			break;
 		}
 	}
+	/*
+	 * Seit Story 3.2 fragt der Effekt nach `meldungAngekommen` und nicht mehr
+	 * direkt nach dem einen Parameter: /einzelaufgabe kommt mit `?ausgeschrieben`
+	 * auf demselben Weg an und braucht dieselbe Ansage. Die Behauptung folgt
+	 * dorthin und wird **nicht schwächer** — die Zeile darunter hält fest, dass
+	 * der geteilte Wahrheitswert wirklich beide Parameter deckt. Ohne sie liesse
+	 * sich `meldungAngekommen` auf einen von beiden verengen, und die Ansage
+	 * einer der zwei Seiten fiele still aus.
+	 */
 	const fokusTeile = [
-		['nur mit dem Parameter', /data\.abgelegt === null/.test(fokusEffekt)],
+		['nur mit einer angekommenen Meldung', /!meldungAngekommen/.test(fokusEffekt)],
 		['nie nach einem Versand', /form !== null/.test(fokusEffekt)],
 		['nur mit gebundenem Element', /meldungKasten === null/.test(fokusEffekt)],
 		['und holt den Fokus', /meldungKasten\.focus\(\)/.test(fokusEffekt)],
@@ -3389,6 +3442,34 @@ try {
 		fokusEffekt === ''
 			? 'kein $effect mit fokusGeholt gefunden'
 			: `fehlt: ${fehlendeTeile(fokusTeile).join(', ')} — Rumpf: ${fokusEffekt}`
+	);
+	/*
+	 * Der Rumpf wird über die **Klammerbalance** geschnitten und nicht mit
+	 * `([^)]*)`: sobald der Ausdruck selbst eine Klammer trägt — ein Aufruf, eine
+	 * Gruppierung —, schnitte das Muster mitten hinein und läse zufällig weniger.
+	 */
+	const angekommenAuf = startseitenCode.indexOf(
+		'(',
+		startseitenCode.indexOf('const meldungAngekommen')
+	);
+	let angekommenRumpf = '';
+	if (angekommenAuf > 0) {
+		let tiefe = 0;
+		for (let i = angekommenAuf; i < startseitenCode.length; i += 1) {
+			if (startseitenCode[i] === '(') tiefe += 1;
+			else if (startseitenCode[i] === ')') {
+				tiefe -= 1;
+				if (tiefe === 0) {
+					angekommenRumpf = startseitenCode.slice(angekommenAuf + 1, i);
+					break;
+				}
+			}
+		}
+	}
+	pruefen(
+		'und der geteilte Wahrheitswert deckt beide Parameter — abgelegt und ausgeschrieben',
+		/data\.abgelegt !== null/.test(angekommenRumpf) && /data\.ausgeschrieben/.test(angekommenRumpf),
+		angekommenRumpf === '' ? 'meldungAngekommen nicht gefunden' : angekommenRumpf
 	);
 	// =======================================================================
 	// /monatsplan — Story 2.1: den Monatsplan in einem Zug ablegen.
@@ -5726,13 +5807,23 @@ try {
 		['/monatsplan', quelltext('src', 'routes', 'monatsplan', '+page.server.ts')],
 		['/verwaltung', quelltext('src', 'routes', 'verwaltung', '+page.server.ts')],
 		['/dienstplan', quelltext('src', 'routes', 'dienstplan', '+page.server.ts')],
+		['/einzelaufgabe', quelltext('src', 'routes', 'einzelaufgabe', '+page.server.ts')],
 	] as const;
+	/*
+	 * **Die Seite /einzelaufgaben steht in keiner der zwei Listen**, und das ist
+	 * keine Auslassung: die Listen führen die Seiten mit einem Formular. Jene Seite hat
+	 * keines — sie liest nur —, und die zwei Behauptungen darüber (jede Seite
+	 * zieht `abweisen` aus dem Modul, jeder Rückruf fängt einen Wurf ab) hätten
+	 * dort nichts zu greifen. Dass sie wirklich keines hat, hält der Story-3.2-
+	 * Block weiter unten fest.
+	 */
 	const seitenKomponenten = [
 		['/', quelltext('src', 'routes', '+page.svelte')],
 		['/aufgabe', quelltext('src', 'routes', 'aufgabe', '+page.svelte')],
 		['/monatsplan', quelltext('src', 'routes', 'monatsplan', '+page.svelte')],
 		['/verwaltung', quelltext('src', 'routes', 'verwaltung', '+page.svelte')],
 		['/dienstplan', quelltext('src', 'routes', 'dienstplan', '+page.svelte')],
+		['/einzelaufgabe', quelltext('src', 'routes', 'einzelaufgabe', '+page.svelte')],
 	] as const;
 
 	const abweisenTeile = [
@@ -5745,7 +5836,7 @@ try {
 			!seitenServer.some(([, text]) => /function abweisen\s*[(<]/.test(text)),
 		],
 		[
-			'alle fünf ziehen sie aus dem Modul',
+			'alle sechs ziehen sie aus dem Modul',
 			seitenServer.every(([, text]) =>
 				/import \{ abweisen \} from '[^']*\/abweisen\.ts';/.test(text)
 			),
@@ -5841,6 +5932,28 @@ try {
 		['.fehler', /^[ \t]*\.fehler\s*\{/m],
 		['.live:empty', /^[ \t]*\.live:empty\s*\{/m],
 		['.hinweis', /^[ \t]*\.hinweis\s*\{/m],
+		/*
+		 * Seit Story 3.2 gehören die Bestätigung und der Abschnittstitel dazu. Der
+		 * Dialog lag bis dahin in /verwaltung und war dort allein; mit der zweiten
+		 * Bestätigung auf `/` wäre die Kopie entstanden, gegen die dieser ganze
+		 * Block steht — zwei Dialoge, die sich um einen Radius unterscheiden, sind
+		 * zwei Dialoge.
+		 */
+		['.abschnittstitel', /^[ \t]*\.abschnittstitel\s*\{/m],
+		['.bestaetigung', /^[ \t]*\.bestaetigung\s*\{/m],
+		['.bestaetigung__text', /^[ \t]*\.bestaetigung__text\s*\{/m],
+		['.bestaetigung__knoepfe', /^[ \t]*\.bestaetigung__knoepfe\s*\{/m],
+		/*
+		 * Und die vier, die der Review zu Story 3.2 gefunden hat: die Story legte
+		 * zwei Seiten an und hätte dabei aus je einer bestehenden Regel drei
+		 * Kopien gemacht. Der Posten D1 wächst genau so nach — nicht dadurch, dass
+		 * jemand kopiert, sondern dadurch, dass eine neue Seite dasselbe noch
+		 * einmal braucht.
+		 */
+		['.leer', /^[ \t]*\.leer\s*\{/m],
+		['.karte', /^[ \t]*\.karte\s*\{/m],
+		['.karte--eng', /^[ \t]*\.karte--eng\s*\{/m],
+		['.marke', /^[ \t]*\.marke\s*\{/m],
 	] as const;
 	const STILBLATT = join('src', 'lib', 'styles', 'bedienelemente.css');
 	const unterSrc = baum.filter((datei) => datei.pfad.startsWith(join('src', '')));
@@ -5931,6 +6044,50 @@ try {
 			(route) => [`${route} gehört zu einem Eintrag`, genannteRouten.includes(route)] as const
 		),
 	] as const;
+	/*
+	 * **Genau ein** Eintrag je Route und nicht bloss mindestens einer. Story 3.2
+	 * legt mit /einzelaufgabe und /einzelaufgaben zwei Pfade an, die sich um
+	 * einen Buchstaben unterscheiden; griffe der Vergleich an der Segmentgrenze
+	 * daneben, gehörte einer von beiden zu zwei Einträgen, und die Leiste
+	 * markierte zwei Ziele zugleich. Die Zuordnung ist eine
+	 * Gestaltungsentscheidung — dass sie **eindeutig** ist, ist es nicht.
+	 *
+	 * **Die Regel wird ausgeführt und nicht gezählt.** Eine erste Fassung suchte
+	 * bloss nach zweimal derselben Zeichenkette im `ziele`-Literal; das hätte
+	 * einen Tippfehler gefunden, aber nie eine Segmentgrenzen-Verwechslung — und
+	 * genau die nennt der Kommentar in der Komponente als ihren Zweck. Der
+	 * Vergleich steht hier darum nachgebildet, und die Einträge werden einzeln
+	 * geschnitten: ein Ziel beansprucht eine Route, wenn sein eigener Pfad oder
+	 * einer seiner zugehörigen sie trifft.
+	 *
+	 * Die Nachbildung ist der Preis: sie kann von der Komponente abdriften. Die
+	 * Zeile darunter hält beide Fassungen zusammen, indem sie den Ausdruck dort
+	 * festnagelt.
+	 */
+	const trifftHier = (pfad: string, href: string): boolean =>
+		pfad === href || (href !== '/' && pfad.startsWith(`${href}/`));
+	const eintraege = zieleRumpf
+		.split(/\bhref:/)
+		.slice(1)
+		.map((teil) => [...teil.matchAll(/'(\/[^']*)'/g)].map((treffer) => treffer[1] ?? ''));
+	const mehrdeutig = gerenderteRouten
+		.map((route) => ({
+			route,
+			zahl: eintraege.filter((pfade) => pfade.some((pfad) => trifftHier(route, pfad))).length,
+		}))
+		.filter(({ zahl }) => zahl !== 1);
+	pruefen(
+		'jede gerenderte Route wird von genau einem Eintrag beansprucht, nicht von zweien',
+		eintraege.length === 4 && mehrdeutig.length === 0,
+		`${eintraege.length} Einträge geschnitten; mehrdeutig: ${mehrdeutig
+			.map(({ route, zahl }) => `${route} von ${zahl}`)
+			.join(', ')}`
+	);
+	pruefen(
+		'und der Vergleich in der Komponente ist der hier nachgebildete',
+		/pfad === href \|\| \(href !== '\/' && pfad\.startsWith\(`\$\{href\}\/`\)\)/.test(navCode),
+		(/const trifft =[\s\S]{0,200}/.exec(navCode) ?? [''])[0]
+	);
 	pruefen(
 		'jede gerenderte Route steht in der Navigationsleiste — als Ziel oder als zugehörig',
 		fehlendeTeile(navTeile).length === 0,
@@ -5964,21 +6121,57 @@ try {
 	 * Fall und den Satz, den er zeigt — ein `if` ohne Satz wäre ein stiller
 	 * Fehlschlag, und ein eigener Satz je Seite wäre die nächste Drift.
 	 */
-	const wurfTeile = seitenKomponenten.map(
-		([name, text]) =>
-			[
-				`${name} fängt result.type === 'error' ab und zeigt den geteilten Satz`,
-				/if \(result\.type === 'error'\) \{/.test(text) &&
-					/versandFehler = VERSAND_FEHLGESCHLAGEN;/.test(text) &&
+	/*
+	 * **Gezählt werden Rückrufe, nicht Dateien** — und das ist der Unterschied,
+	 * den der Review zu Story 3.2 aufgedeckt hat. Bis dahin lief diese Behauptung
+	 * je Seitendatei einmal über den ganzen Text, und die Beschriftung sprach
+	 * trotzdem von Rückrufen. Solange jede Seite genau einen trug, stimmten beide
+	 * Zählweisen zufällig überein; seit `/` zwei hat — das Abhaken im Pool und das
+	 * Bestätigen der Übernahme —, deckte der eine den anderen. Ein neuer Rückruf
+	 * auf einer Seite, die schon einen hat, wäre ungedeckt eingezogen.
+	 *
+	 * Geschnitten wird an `return async (…) => {`: so beginnt in diesem Baum jede
+	 * Fortsetzung einer SubmitFunction, und genau die kann ein `result` sehen. Der
+	 * dritte `use:enhance` auf `/` (der Knopf in der Zeile) hat keine — sein
+	 * Rückruf bricht den Versand ab und gibt nichts zurück. Er wird darum nicht
+	 * gezählt und muss auch nichts abfangen.
+	 *
+	 * Der Schnitt beginnt am **Pfeil** und nicht am Fund: `return async ({` trägt
+	 * seine eigene geschweifte Klammer für die Destrukturierung, und glatterRumpf
+	 * nähme die — es käme `{ update, result }` heraus statt des Rumpfs. Gemessen,
+	 * nicht vermutet: mit dem Fundort schnitt die erste Fassung sieben leere
+	 * Rümpfe und machte alle sieben Zeilen rot.
+	 */
+	const rueckrufe = seitenKomponenten.flatMap(([name, text]) =>
+		[...text.matchAll(/return async \([^)]*\) => \{/g)].map((treffer, i) => {
+			const pfeil = (treffer.index ?? 0) + treffer[0].length - 1;
+			return [`${name}, Rückruf ${i + 1}`, glatterRumpf(text, pfeil)] as const;
+		})
+	);
+	const wurfTeile = [
+		['es gibt überhaupt Rückrufe zu prüfen', rueckrufe.length >= 7] as const,
+		...rueckrufe.map(
+			([name, rumpf]) =>
+				[
+					`${name} fängt result.type === 'error' ab und zeigt den geteilten Satz`,
+					/if \(result\.type === 'error'\) \{/.test(rumpf) &&
+						/versandFehler = VERSAND_FEHLGESCHLAGEN;/.test(rumpf),
+				] as const
+		),
+		...seitenKomponenten.map(
+			([name, text]) =>
+				[
+					`${name} zieht den Satz aus dem geteilten Modul`,
 					// Der Import wird über den **Namen** geprüft und nicht über die ganze
 					// Zeile: /monatsplan zieht seit dem Fenster an `Fällig bis` drei
 					// Namen aus demselben Modul, und eine Behauptung über die Form der
 					// Importzeile prüfte die Zeichensetzung statt der Herkunft.
 					/import \{[^}]*\bVERSAND_FEHLGESCHLAGEN\b[^}]*\} from '\$lib\/texte';/.test(text),
-			] as const
-	);
+				] as const
+		),
+	];
 	pruefen(
-		'alle fünf use:enhance-Rückrufe fangen einen Wurf ab, mit einem Satz für alle',
+		`alle ${rueckrufe.length} use:enhance-Rückrufe fangen einen Wurf ab, mit einem Satz für alle`,
 		fehlendeTeile(wurfTeile).length === 0,
 		`verletzt: ${fehlendeTeile(wurfTeile).join(', ')}`
 	);
@@ -6448,6 +6641,722 @@ try {
 		'der Diensthinweis auf / fehlt ganz oder gar nicht — und ist kein Bedienelement',
 		fehlendeTeile(hinweisTeile).length === 0,
 		`fehlt: ${fehlendeTeile(hinweisTeile).join(', ')}`
+	);
+
+	// =======================================================================
+	// /einzelaufgabe, /einzelaufgaben und Block 2 auf / — Story 3.2.
+	//
+	// Drei Schichten, jede eigens: die Abfrageschicht gegen dieselbe Datenbank,
+	// die zwei neuen Routen darüber und die zweischrittige Übernahme auf `/`.
+	//
+	// Die Abfrageschicht steht zuerst und ohne Route, weil alles darüber auf ihr
+	// steht: gälte eine Zeile auf ein beendetes Mitglied als besetzt, blieben die
+	// Behauptungen über Block 2 und über das Übernehmen **trotzdem grün** — sie
+	// zeigten und bestätigten dann eben einträchtig die falsche Menge.
+	// =======================================================================
+	const einzelaufgabe = await einzelaufgabeLaden();
+	const einzelaufgabenSeite = await einzelaufgabenLaden();
+
+	/** Die vollständige Zeile einer Einzelaufgabe, oder null. */
+	const einzelZeile = (id: number) =>
+		datenbank().select().from(signupTasks).where(eq(signupTasks.id, id)).get() ?? null;
+
+	/** Ein Termin als Feldwert, N Tage von heute entfernt. */
+	const terminFeldwert = (tageVoraus: number) => {
+		const tag = new Date((Math.floor(Date.now() / 1000) + tageVoraus * 24 * 60 * 60) * 1000);
+		return new Intl.DateTimeFormat('en-CA', {
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			timeZone: 'Europe/Zurich',
+		}).format(tag);
+	};
+
+	// -----------------------------------------------------------------------
+	// Die Abfrageschicht
+	// -----------------------------------------------------------------------
+	/*
+	 * Drei Zeilen, ausdrücklich **nicht** in der Reihenfolge ihrer Termine
+	 * angelegt: die Ids laufen spaeterTermin < frueherTermin < mittlererTermin,
+	 * die Liste muss trotzdem nach dem Termin ordnen. Eine Sortierung nach der Id
+	 * oder nach created_at wäre damit rot — genau die zwei Ordnungen, die der
+	 * Pool nebenan benutzt und aus denen hier versehentlich eine abgeschrieben
+	 * werden könnte.
+	 */
+	const spaeterTermin = einzelaufgabeAusschreiben(
+		'Anhänger zur Kompostannahme fahren',
+		tagesendeInUnixSekunden(terminFeldwert(30)) ?? 0
+	);
+	const frueherTermin = einzelaufgabeAusschreiben(
+		'Setzlinge bei der Gärtnerei abholen',
+		tagesendeInUnixSekunden(terminFeldwert(3)) ?? 0
+	);
+	const mittlererTermin = einzelaufgabeAusschreiben(
+		'Wasserschlauch flicken',
+		tagesendeInUnixSekunden(terminFeldwert(12)) ?? 0
+	);
+	const dreiEinzelIds = new Set([spaeterTermin.id, frueherTermin.id, mittlererTermin.id]);
+
+	pruefen(
+		'eine frisch ausgeschriebene Einzelaufgabe hat keinen Übernehmer — die Spalte ist leer',
+		(einzelZeile(frueherTermin.id) as { memberId?: unknown } | null)?.memberId === null &&
+			frueherTermin.uebernehmer === null,
+		JSON.stringify(einzelZeile(frueherTermin.id))
+	);
+	pruefenGleich(
+		'die Liste ordnet nach dem Termin, nicht nach Id und nicht nach Anlage',
+		einzelaufgabenLesen()
+			.filter((zeile) => dreiEinzelIds.has(zeile.id))
+			.map((zeile) => zeile.id)
+			.join(' | '),
+		`${frueherTermin.id} | ${mittlererTermin.id} | ${spaeterTermin.id}`
+	);
+	pruefen(
+		'und sie reicht weder member_id noch created_at heraus — nur was die Seite zeigt',
+		einzelaufgabenLesen().every(
+			(zeile) => Object.keys(zeile).sort().join(',') === 'id,terminAt,titel,uebernehmer'
+		),
+		JSON.stringify(einzelaufgabenLesen()[0] ?? null)
+	);
+
+	/*
+	 * **Zwei Zusagen auf dieselbe Zeile, hintereinander.** Was hier gemessen wird,
+	 * ist nicht Nebenläufigkeit — dieses Skript ist einfädig, und SQLite schreibt
+	 * ohnehin serialisiert. Gemessen wird die Eigenschaft, auf der der Ausgang
+	 * eines echten Wettrennens beruht: die Vorbedingung steht in der
+	 * where-Klausel des UPDATE, also **im selben Statement** wie das Schreiben.
+	 * Der zweite Aufruf trifft darum keine Zeile und bekommt null, statt die
+	 * erste zu überschreiben.
+	 *
+	 * Wäre die Prüfung ein Select in der Route, bliebe diese Zeile grün und der
+	 * Fehler bestünde trotzdem: zwischen Lesen und Schreiben läge ein Fenster.
+	 * Genau darum steht daneben die Behauptung über den Namen — sie zeigt, dass
+	 * die **erste** Zusage die ist, die stehenbleibt.
+	 */
+	const ersteZusage = einzelaufgabeUebernehmen(mittlererTermin.id, {
+		id: nico.id,
+		name: nico.name,
+	});
+	const zweiteZusage = einzelaufgabeUebernehmen(mittlererTermin.id, {
+		id: vera.id,
+		name: vera.name,
+	});
+	pruefen(
+		'die erste Zusage trifft die Zeile, die zweite keine',
+		ersteZusage?.uebernehmer === nico.name && zweiteZusage === null,
+		`erste: ${JSON.stringify(ersteZusage)}, zweite: ${JSON.stringify(zweiteZusage)}`
+	);
+	pruefenGleich(
+		'und die Zeile trägt weiterhin den Namen der ersten',
+		einzelaufgabenLesen().find((zeile) => zeile.id === mittlererTermin.id)?.uebernehmer ?? null,
+		nico.name
+	);
+	pruefen(
+		'die übernommene verlässt die freie Liste, die zwei anderen bleiben',
+		freieEinzelaufgabenLesen()
+			.filter((zeile) => dreiEinzelIds.has(zeile.id))
+			.map((zeile) => zeile.id)
+			.join(' | ') === `${frueherTermin.id} | ${spaeterTermin.id}`,
+		JSON.stringify(freieEinzelaufgabenLesen().map((zeile) => zeile.id))
+	);
+	pruefen(
+		'und freieEinzelaufgabeLesen gibt für sie null — sie ist nicht mehr ansprechbar',
+		freieEinzelaufgabeLesen(mittlererTermin.id) === null,
+		JSON.stringify(freieEinzelaufgabeLesen(mittlererTermin.id))
+	);
+
+	/*
+	 * **Ein beendeter Zugang gibt die Einzelaufgabe frei.** Dieselbe Lage wie im
+	 * Dienstplan, mit der anderen Folge: dort fällt die Woche auf `— unbesetzt —`
+	 * und wartet auf die Verwaltung, hier fällt die Aufgabe zurück in Block 2 und
+	 * wartet auf die Nächste. Der Datensatz bleibt in beiden Fällen stehen.
+	 */
+	const scheidende = mitgliedAnlegen({
+		name: 'Scheidende',
+		inviteTokenHash: tokenHashen(tokenErzeugen()),
+		isAdmin: false,
+	});
+	einzelaufgabeUebernehmen(spaeterTermin.id, { id: scheidende.id, name: scheidende.name });
+	pruefenGleich(
+		'vor dem Beenden trägt die Einzelaufgabe den Namen der scheidenden Person',
+		einzelaufgabenLesen().find((zeile) => zeile.id === spaeterTermin.id)?.uebernehmer ?? null,
+		'Scheidende'
+	);
+	mitgliedDeaktivieren(scheidende.id);
+	const nachBeenden = einzelaufgabenLesen().find((zeile) => zeile.id === spaeterTermin.id);
+	pruefen(
+		'nach dem Beenden gilt sie wieder als frei — und die Zeile steht weiterhin da',
+		nachBeenden?.uebernehmer === null &&
+			(einzelZeile(spaeterTermin.id) as { memberId?: unknown } | null)?.memberId === scheidende.id,
+		`Anzeige: ${JSON.stringify(nachBeenden)}, Zeile: ${JSON.stringify(einzelZeile(spaeterTermin.id))}`
+	);
+	pruefen(
+		'sie steht wieder in der freien Liste und lässt sich neu übernehmen',
+		freieEinzelaufgabenLesen().some((zeile) => zeile.id === spaeterTermin.id) &&
+			einzelaufgabeUebernehmen(spaeterTermin.id, { id: vera.id, name: vera.name })?.uebernehmer ===
+				vera.name,
+		JSON.stringify(einzelZeile(spaeterTermin.id))
+	);
+
+	// -----------------------------------------------------------------------
+	// /einzelaufgabe — ausschreiben
+	// -----------------------------------------------------------------------
+	/*
+	 * Die load fährt **ohne Argument**: sie liest weder locals noch cookies noch
+	 * die Adresse. Fordert sie je ein Ereignis, greift sie auf `undefined` zu und
+	 * wirft — der Rahmen macht daraus eine benannte Verletzung.
+	 */
+	const ausschreibeLoad = wertVon(await routenausgang(() => einzelaufgabe.load()));
+	const erwartetesFenster = fristfenster(Math.floor(Date.now() / 1000));
+	pruefen(
+		'die load von /einzelaufgabe gibt dasselbe Fenster wie `Fällig bis` — ein Jahr in jede Richtung',
+		ausschreibeLoad.terminFrueheste === erwartetesFenster.frueheste &&
+			ausschreibeLoad.terminSpaeteste === erwartetesFenster.spaeteste,
+		JSON.stringify(ausschreibeLoad)
+	);
+	pruefen(
+		'und keine Vorgabe — der Termin ist der Kern der Zusage und wird nicht vorbelegt',
+		!('terminVorgabe' in ausschreibeLoad) && Object.keys(ausschreibeLoad).length === 3,
+		JSON.stringify(Object.keys(ausschreibeLoad))
+	);
+	/*
+	 * Die Längengrenze kommt **aus der load** und nicht als Literal aus dem
+	 * Markup. Das ist eine Ableitung und keine Prüfung: wer AUFGABE_HOECHSTLAENGE
+	 * verschiebt, bekommt ein Feld, das mitgeht, statt einen roten Lauf.
+	 */
+	pruefenGleich(
+		'die Längengrenze des Titelfelds kommt aus der geteilten Konstante',
+		ausschreibeLoad.titelGrenze,
+		AUFGABE_HOECHSTLAENGE
+	);
+
+	const ausschreibenMit = (formular: Record<string, string>) =>
+		routenausgang(() =>
+			einzelaufgabe.actions.ausschreiben(
+				alsMitglied('/einzelaufgabe', nicoLocals, formular).alsRequestEvent()
+			)
+		);
+
+	const vorAusschreiben = einzelaufgabenLesen().length;
+	/*
+	 * Ein Titel aus lauter unsichtbaren Zeichen: er passiert `required` im
+	 * Browser und muss am Server fallen. Genau die dritte Wurfstelle der Faltung
+	 * aus Posten B5 der Triage — U+2800 ist das Braille-Leerzeichen, das `trim()`
+	 * nicht als Leerraum sieht.
+	 */
+	const unsichtbarerTitel = await ausschreibenMit({
+		titel: '⠀​ㅤ',
+		termin: terminFeldwert(7),
+	});
+	pruefen(
+		'ein Titel aus lauter unsichtbaren Zeichen wird abgewiesen, am Feld titel',
+		unsichtbarerTitel.art === 'fehlschlag' &&
+			unsichtbarerTitel.status === 400 &&
+			unsichtbarerTitel.daten.feld === 'titel',
+		unsichtbarerTitel.art === 'fehlschlag'
+			? JSON.stringify(unsichtbarerTitel.daten)
+			: `Ausgang ${unsichtbarerTitel.art}`
+	);
+	const ohneTitelfeld = await ausschreibenMit({ termin: terminFeldwert(7) });
+	pruefen(
+		'ein ganz fehlendes Titelfeld fällt auf denselben Satz wie ein leeres',
+		ohneTitelfeld.art === 'fehlschlag' &&
+			ohneTitelfeld.daten.feld === 'titel' &&
+			ohneTitelfeld.daten.meldung ===
+				(unsichtbarerTitel.art === 'fehlschlag' ? unsichtbarerTitel.daten.meldung : ''),
+		ohneTitelfeld.art === 'fehlschlag'
+			? JSON.stringify(ohneTitelfeld.daten)
+			: `Ausgang ${ohneTitelfeld.art}`
+	);
+	const titelZuLang = await ausschreibenMit({
+		titel: 'x'.repeat(AUFGABE_HOECHSTLAENGE + 1),
+		termin: terminFeldwert(7),
+	});
+	pruefen(
+		'ein Titel über der geteilten Längengrenze ebenso — und die Eingabe reist zurück',
+		titelZuLang.art === 'fehlschlag' &&
+			titelZuLang.daten.feld === 'titel' &&
+			titelZuLang.daten.eingabe === 'x'.repeat(AUFGABE_HOECHSTLAENGE + 1),
+		titelZuLang.art === 'fehlschlag'
+			? JSON.stringify(titelZuLang.daten.feld)
+			: `Ausgang ${titelZuLang.art}`
+	);
+	pruefen(
+		'ein Titel genau auf der Grenze geht durch — die Grenze ist ein Höchstwert, kein Verbot',
+		(await ausschreibenMit({ titel: 'y'.repeat(AUFGABE_HOECHSTLAENGE), termin: terminFeldwert(7) }))
+			.art === 'weiter',
+		'—'
+	);
+
+	const ohneTermin = await ausschreibenMit({ titel: 'Laubrechen bringen' });
+	pruefen(
+		'ein fehlender Termin wird abgewiesen, am Feld termin',
+		ohneTermin.art === 'fehlschlag' && ohneTermin.daten.feld === 'termin',
+		ohneTermin.art === 'fehlschlag' ? JSON.stringify(ohneTermin.daten) : `Ausgang ${ohneTermin.art}`
+	);
+	/*
+	 * **Und der Titel reist mit zurück.** Das ist die eine Zusage, die diese Story
+	 * für den Weg ohne JavaScript gibt: wer einen Titel getippt und dann ein
+	 * Datum ausserhalb des Fensters gewählt hat, findet den Titel wieder. Sie hing
+	 * an nichts — `abweisen` hat `eingabe = ''` als Vorgabe, das dritte Argument
+	 * wegzulassen ist also kein Typfehler, und keine der vier Termin-Zeilen las
+	 * `daten.eingabe`.
+	 */
+	const ausserhalb = await ausschreibenMit({
+		titel: 'Laubrechen bringen',
+		termin: terminFeldwert(FRIST_FENSTER_TAGE + 2),
+	});
+	const rueckwegTeile = [
+		[
+			'aus der Formprüfung des Termins',
+			ohneTermin.art === 'fehlschlag' && ohneTermin.daten.eingabe === 'Laubrechen bringen',
+		],
+		[
+			'und aus der Fensterschranke',
+			ausserhalb.art === 'fehlschlag' && ausserhalb.daten.eingabe === 'Laubrechen bringen',
+		],
+	] as const;
+	pruefen(
+		'der getippte Titel reist auch aus einer Termin-Abweisung zurück ins Feld',
+		fehlendeTeile(rueckwegTeile).length === 0,
+		`fehlt: ${fehlendeTeile(rueckwegTeile).join(', ')}`
+	);
+	abgewiesen(
+		'ein unmöglicher Tag ebenso, mit demselben Satz',
+		await ausschreibenMit({ titel: 'Laubrechen bringen', termin: '2026-02-31' }),
+		(ohneTermin.art === 'fehlschlag' ? String(ohneTermin.daten.meldung) : '') || 'kein Satz'
+	);
+	pruefen(
+		'und der Satz ist **nicht** DATUM_FEHLT — ein Termin ist kein Fälligkeitsdatum eines Stapels',
+		ohneTermin.art === 'fehlschlag' && ohneTermin.daten.meldung !== DATUM_FEHLT,
+		ohneTermin.art === 'fehlschlag' ? String(ohneTermin.daten.meldung) : `Ausgang ${ohneTermin.art}`
+	);
+	abgewiesen(
+		'ein Termin jenseits des Fensters wird mit dem geteilten Satz abgewiesen',
+		await ausschreibenMit({
+			titel: 'Laubrechen bringen',
+			termin: terminFeldwert(FRIST_FENSTER_TAGE + 2),
+		}),
+		FRIST_AUSSERHALB
+	);
+	abgewiesen(
+		'und einer weit in der Vergangenheit ebenso',
+		await ausschreibenMit({
+			titel: 'Laubrechen bringen',
+			termin: terminFeldwert(-(FRIST_FENSTER_TAGE + 2)),
+		}),
+		FRIST_AUSSERHALB
+	);
+	pruefenGleich(
+		'keiner dieser acht abgewiesenen Versuche hat eine Zeile angelegt',
+		einzelaufgabenLesen().length,
+		vorAusschreiben + 1
+	);
+
+	const ausgeschrieben = await ausschreibenMit({
+		titel: '  Setzlinge   abholen  ',
+		termin: terminFeldwert(9),
+	});
+	pruefen(
+		'ein gültiges Paar legt ab und leitet mit 303 auf /?ausgeschrieben',
+		ausgeschrieben.art === 'weiter' &&
+			ausgeschrieben.status === 303 &&
+			ausgeschrieben.ort === '/?ausgeschrieben',
+		ausgeschrieben.art === 'weiter'
+			? `${ausgeschrieben.status} auf ${ausgeschrieben.ort}`
+			: `Ausgang ${ausgeschrieben.art}`
+	);
+	/*
+	 * **Der Parameter ausgeführt, nicht behauptet.** Die Zeile darüber misst den
+	 * `location`-Kopf der Weiterleitung; ob die load von `/` daraus etwas macht,
+	 * sagt sie nicht. Ein Tippfehler im Parameternamen liesse sie grün, und wer
+	 * ausschreibt, landete auf einer Startseite ohne jede Bestätigung — und ohne
+	 * den einmaligen Fokusgriff, der an demselben Wahrheitswert hängt. Dieselbe
+	 * Form wie die vier Zeilen über `?abgelegt` weiter oben.
+	 */
+	const ausgeschriebenTeile = [
+		[
+			'mit dem Parameter ist er wahr',
+			wertVon(await startseiteLadenAn('/?ausgeschrieben')).ausgeschrieben === true,
+		],
+		['ohne ihn falsch', wertVon(await startseiteLadenAn('/')).ausgeschrieben === false],
+		[
+			'und er ist von `?abgelegt` unabhängig',
+			wertVon(await startseiteLadenAn('/?abgelegt')).ausgeschrieben === false &&
+				wertVon(await startseiteLadenAn('/?ausgeschrieben')).abgelegt === null,
+		],
+	] as const;
+	pruefen(
+		'die load von / liest `?ausgeschrieben` als eigenen Wahrheitswert',
+		fehlendeTeile(ausgeschriebenTeile).length === 0,
+		`fehlt: ${fehlendeTeile(ausgeschriebenTeile).join(', ')}`
+	);
+	pruefen(
+		'und die Oberfläche macht daraus den Satz `Ausgeschrieben.`',
+		/if \(data\.ausgeschrieben\) return 'Ausgeschrieben\.';/.test(rueckmeldungRumpf),
+		rueckmeldungRumpf === '' ? 'rueckmeldung nicht gefunden' : rueckmeldungRumpf
+	);
+	pruefen(
+		'und aus einer beantworteten Übernahme den Satz mit dem Titel',
+		/if \(form\.art === 'uebernommen'\) \{ return `\$\{form\.meldung\} \$\{form\.titel\}`; \}/.test(
+			rueckmeldungRumpf
+		),
+		rueckmeldungRumpf === '' ? 'rueckmeldung nicht gefunden' : rueckmeldungRumpf
+	);
+
+	const gefalteteZeile = einzelaufgabenLesen().find((zeile) => zeile.titel === 'Setzlinge abholen');
+	pruefen(
+		'gespeichert ist die **gefaltete** Fassung, und sie hat keinen Übernehmer',
+		gefalteteZeile !== undefined && gefalteteZeile.uebernehmer === null,
+		JSON.stringify(gefalteteZeile ?? null)
+	);
+	pruefenGleich(
+		'der Termin ist das Tagesende in der Zone — dieselbe Rechnung wie an `Fällig bis`',
+		gefalteteZeile?.terminAt ?? 0,
+		tagesendeInUnixSekunden(terminFeldwert(9)) ?? -1
+	);
+
+	// -----------------------------------------------------------------------
+	// /einzelaufgaben — lesen, und sonst nichts
+	// -----------------------------------------------------------------------
+	const einzelListe = wertVon(await routenausgang(() => einzelaufgabenSeite.load()));
+	pruefenGleich(
+		'die load von /einzelaufgaben gibt alle — freie wie übernommene',
+		JSON.stringify(einzelListe.einzelaufgaben),
+		JSON.stringify(einzelaufgabenLesen())
+	);
+	pruefen(
+		'und /einzelaufgaben hat keine action — übernommen wird auf /, an einer Stelle',
+		!('actions' in (einzelaufgabenSeite as Record<string, unknown>)) &&
+			!/export const actions/.test(quelltext('src', 'routes', 'einzelaufgaben', '+page.server.ts')),
+		Object.keys(einzelaufgabenSeite).join(', ')
+	);
+
+	// -----------------------------------------------------------------------
+	// Übernehmen auf / — zwei Schritte an einer action
+	// -----------------------------------------------------------------------
+	const uebernehmenMit = (wer: AngemeldetesMitglied, formular: Record<string, string>) =>
+		routenausgang(() =>
+			startseite.actions.uebernehmen(alsMitglied('/', wer, formular).alsRequestEvent())
+		);
+
+	const zuNehmen = freieEinzelaufgabenLesen().find((zeile) => zeile.id === frueherTermin.id);
+	const abdruckVorFrage = JSON.stringify(einzelZeile(frueherTermin.id));
+	const gefragt = await uebernehmenMit(nicoLocals, { einzelaufgabeId: String(frueherTermin.id) });
+	pruefen(
+		'ein POST ohne `bestaetigt` fragt nur — mit Titel und Termin aus der Datenbank',
+		gefragt.art === 'wert' &&
+			gefragt.wert.art === 'fragen' &&
+			gefragt.wert.einzelaufgabeId === frueherTermin.id &&
+			gefragt.wert.titel === zuNehmen?.titel &&
+			gefragt.wert.terminAt === zuNehmen?.terminAt,
+		gefragt.art === 'wert' ? JSON.stringify(gefragt.wert) : `Ausgang ${gefragt.art}`
+	);
+	pruefenGleich(
+		'und er ändert **nichts** — die Bestätigung ist eine Frage, keine Zusage',
+		JSON.stringify(einzelZeile(frueherTermin.id)),
+		abdruckVorFrage
+	);
+
+	const bestaetigt = await uebernehmenMit(nicoLocals, {
+		einzelaufgabeId: String(frueherTermin.id),
+		bestaetigt: '1',
+	});
+	pruefen(
+		'erst der POST **mit** `bestaetigt` schreibt und meldet Satz und Titel zurück',
+		bestaetigt.art === 'wert' &&
+			bestaetigt.wert.art === 'uebernommen' &&
+			bestaetigt.wert.meldung === 'Übernommen.' &&
+			bestaetigt.wert.titel === zuNehmen?.titel,
+		bestaetigt.art === 'wert' ? JSON.stringify(bestaetigt.wert) : `Ausgang ${bestaetigt.art}`
+	);
+	pruefenGleich(
+		'die Zeile trägt jetzt den Namen der zusagenden Person',
+		einzelaufgabenLesen().find((zeile) => zeile.id === frueherTermin.id)?.uebernehmer ?? null,
+		nico.name
+	);
+	pruefen(
+		'und die Antwort trägt weder Mitglieds-Id noch Token',
+		bestaetigt.art === 'wert' &&
+			!('mitgliedId' in bestaetigt.wert) &&
+			!traegtToken(wertVon(bestaetigt)),
+		JSON.stringify(wertVon(bestaetigt))
+	);
+	pruefen(
+		'sie ist damit aus Block 2 auf / verschwunden',
+		!((wertVon(await startseiteLadenAn('/')).einzelaufgaben as { id: number }[]) ?? []).some(
+			(zeile) => zeile.id === frueherTermin.id
+		),
+		JSON.stringify(wertVon(await startseiteLadenAn('/')).einzelaufgaben)
+	);
+
+	/*
+	 * Vier nicht ansprechbare Zustände, **ein** Satz — und der zweite Schritt
+	 * verhält sich wie der erste. Eine Verzweigung im Wortlaut wäre ein
+	 * Aufzählungskanal, an dem sich ablesen liesse, welche Einzelaufgaben es gibt
+	 * und in welchem Zustand sie sind.
+	 */
+	abgewiesen(
+		'eine schon übernommene Einzelaufgabe lässt sich nicht ansprechen',
+		await uebernehmenMit(veraLocals, {
+			einzelaufgabeId: String(frueherTermin.id),
+			bestaetigt: '1',
+		}),
+		EINZELAUFGABE_NICHT_ANSPRECHBAR
+	);
+	abgewiesen(
+		'und auch nicht befragen',
+		await uebernehmenMit(veraLocals, { einzelaufgabeId: String(frueherTermin.id) }),
+		EINZELAUFGABE_NICHT_ANSPRECHBAR
+	);
+	abgewiesen(
+		'eine fehlende Id ebenso',
+		await uebernehmenMit(nicoLocals, {}),
+		EINZELAUFGABE_NICHT_ANSPRECHBAR
+	);
+	abgewiesen(
+		'eine nicht numerische ebenso',
+		await uebernehmenMit(nicoLocals, { einzelaufgabeId: 'sieben' }),
+		EINZELAUFGABE_NICHT_ANSPRECHBAR
+	);
+	abgewiesen(
+		'eine unbekannte ebenso',
+		await uebernehmenMit(nicoLocals, { einzelaufgabeId: '999999', bestaetigt: '1' }),
+		EINZELAUFGABE_NICHT_ANSPRECHBAR
+	);
+
+	// -----------------------------------------------------------------------
+	// Block 2 auf / und die eine Bestätigung, am Quelltext
+	// -----------------------------------------------------------------------
+	const startseiteCodeEinzel = seitenKomponenten[0][1];
+	const einzelBlock =
+		/\{#if data\.einzelaufgaben\.length > 0\}[\s\S]*?\n\t\{\/if\}/.exec(
+			startseiteCodeEinzel
+		)?.[0] ?? '';
+	const blockTeile = [
+		['der Block hängt an {#if data.einzelaufgaben.length > 0}', einzelBlock !== ''],
+		['und hat kein {:else} — er fehlt ganz oder gar nicht', !/\{:else\}/.test(einzelBlock)],
+		['er trägt den Wortlaut `noch niemand`', /noch niemand/.test(einzelBlock)],
+		['und den Knopf `Übernehmen`', />\s*Übernehmen\s*</.test(einzelBlock)],
+		[
+			'der Knopf nennt seine Zeile über aria-labelledby',
+			/aria-labelledby="uebernehmen-\{aufgabe\.id\} einzel-titel-\{aufgabe\.id\}"/.test(
+				einzelBlock
+			),
+		],
+		[
+			'der Fusslink führt auf /einzelaufgaben',
+			/href=\{resolve\('\/einzelaufgaben'\)\}/.test(einzelBlock),
+		],
+		/*
+		 * Block 1 vor Block 2 vor Block 3 — die Reihenfolge aus AD-14, gemessen an
+		 * den drei Marken statt behauptet.
+		 */
+		[
+			'er steht nach dem Diensthinweis und vor der Marke des Pools',
+			startseiteCodeEinzel.indexOf('{#if data.dienst !== null}') <
+				startseiteCodeEinzel.indexOf('{#if data.einzelaufgaben.length > 0}') &&
+				startseiteCodeEinzel.indexOf('{#if data.einzelaufgaben.length > 0}') <
+					startseiteCodeEinzel.indexOf('<h2 class="marke" id="offen-marke">'),
+		],
+	] as const;
+	pruefen(
+		'Block 2 auf / fehlt ganz oder gar nicht — und steht zwischen Dienst und Pool',
+		fehlendeTeile(blockTeile).length === 0,
+		`fehlt: ${fehlendeTeile(blockTeile).join(', ')}`
+	);
+
+	/*
+	 * **Der Weg ohne JavaScript, am Markup festgenagelt.** Die action beantwortet
+	 * den ersten POST mit `art: 'fragen'` — das ist oben ausgeführt belegt. Was
+	 * hier fehlen könnte, ohne dass jene Behauptung rot würde, ist die Stelle,
+	 * die diese Antwort **anzeigt**: ohne sie bekäme ein Browser ohne JavaScript
+	 * ein Dokument, in dem nichts von der Frage steht, und der Knopf sähe wirkungslos
+	 * aus.
+	 */
+	const jsFreiTeile = [
+		['die Antwort `fragen` wird gerendert', /form\.art === 'fragen'/.test(startseiteCodeEinzel)],
+		['der Bestätigungssatz steht im Markup', /uebernahmeSatz\(frage\)/.test(einzelBlock)],
+		[
+			'und trägt die Marke bestaetigt in einem versteckten Feld',
+			/<input type="hidden" name="bestaetigt" value="1" \/>/.test(einzelBlock),
+		],
+		[
+			'das Formular der Zeile ist ein echtes POST-Formular auf ?/uebernehmen',
+			/<form[\s\S]{0,200}?method="POST"[\s\S]{0,80}?action="\?\/uebernehmen"/.test(einzelBlock),
+		],
+		[
+			'und `Abbrechen` steht vor `Übernehmen`',
+			einzelBlock.indexOf('>Abbrechen<') > 0 &&
+				einzelBlock.indexOf('>Abbrechen<') < einzelBlock.lastIndexOf('Übernehmen'),
+		],
+	] as const;
+	pruefen(
+		'die Bestätigung trägt auch ohne JavaScript — sie wird als Dokument gerendert',
+		fehlendeTeile(jsFreiTeile).length === 0,
+		`fehlt: ${fehlendeTeile(jsFreiTeile).join(', ')}`
+	);
+
+	/*
+	 * **Die Zeile trägt entweder ihren Knopf oder ihre Frage, nie beides.**
+	 * Befund aus dem Review zu dieser Story: ohne die Bedingung stünde unter der
+	 * offenen Frage noch der Knopf, der dieselbe action ein zweites Mal abschickt
+	 * und damit nur dieselbe Frage noch einmal stellt — und nach dem Hydrieren
+	 * eines Frage-Dokuments öffnete er den Dialog **über** der sichtbaren Frage.
+	 * Zwei gleich beschriftete Knöpfe in einer Zeile sind ausserdem für jede
+	 * Person ununterscheidbar, die sie einzeln vorgelesen bekommt.
+	 */
+	const knopfBlock = /\{#if !frageHier\}[\s\S]*?\{\/if\}/.exec(einzelBlock)?.[0] ?? '';
+	const zweiKnoepfeTeile = [
+		['der Knopf der Zeile hängt an {#if !frageHier}', knopfBlock !== ''],
+		['und das ist wirklich sein Formular', /action="\?\/uebernehmen"/.test(knopfBlock)],
+		[
+			'die Frage hängt an derselben Bedingung, nur umgekehrt',
+			/\{#if frageHier && frage !== null\}/.test(einzelBlock),
+		],
+	] as const;
+	pruefen(
+		'eine Zeile mit offener Frage zeigt ihren Übernehmen-Knopf nicht mehr',
+		fehlendeTeile(zweiKnoepfeTeile).length === 0,
+		`fehlt: ${fehlendeTeile(zweiKnoepfeTeile).join(', ')}`
+	);
+
+	/*
+	 * **Die Frage kann ihre Zeile verlieren, und dann sagt es jemand.** Zwischen
+	 * der Antwort der action und dem Rendern läuft die load erneut; hat in diesem
+	 * Fenster jemand anders zugesagt, steht die Aufgabe nicht mehr in
+	 * `data.einzelaufgaben`, und die Frage hätte keine Zeile mehr, an der sie
+	 * erscheinen könnte. Ohne diesen Zweig fiele sie lautlos aus — der Knopf sähe
+	 * aus, als hätte er nichts getan. Ebenfalls ein Befund aus dem Review.
+	 */
+	const verlusteTeile = [
+		[
+			'die Zeile zur Frage wird gesucht',
+			/const frageZeile = \$derived\(/.test(startseiteCodeEinzel) &&
+				/data\.einzelaufgaben\.find\(\(zeile\) => zeile\.id === frage\.id\)/.test(
+					startseiteCodeEinzel
+				),
+		],
+		[
+			'fehlt sie, sagt die Fehlerregion den geteilten Satz',
+			/frage !== null && frageZeile === undefined\s*\? EINZELAUFGABE_NICHT_ANSPRECHBAR/.test(
+				startseiteCodeEinzel
+			),
+		],
+		[
+			'und der Satz kommt aus dem geteilten Modul',
+			/import \{[^}]*\bEINZELAUFGABE_NICHT_ANSPRECHBAR\b[^}]*\} from '\$lib\/texte';/.test(
+				startseiteCodeEinzel
+			),
+		],
+		[
+			'die Ansage oben nennt die Frage nur, solange ihre Zeile steht',
+			/form\.art === 'fragen' && frageZeile !== undefined/.test(startseiteCodeEinzel),
+		],
+	] as const;
+	pruefen(
+		'verliert die Frage ihre Zeile, fällt sie nicht lautlos aus',
+		fehlendeTeile(verlusteTeile).length === 0,
+		`fehlt: ${fehlendeTeile(verlusteTeile).join(', ')}`
+	);
+
+	/*
+	 * **Abbrechen ändert nichts, und das steht in der Form der zwei Wege.**
+	 * Im Dokument ist `Abbrechen` ein Link auf `/` — ein GET, das die Antwort der
+	 * action verwirft. Im Dialog ist es ein `type="button"`, das nur schliesst.
+	 * Wäre einer der beiden ein `submit`, verwandelte sich das Verwerfen in eine
+	 * Zusage, und keine Behauptung über einen Rückgabewert sähe es.
+	 */
+	const abbrechenTeile = [
+		[
+			'im Dokument ist Abbrechen ein Link auf /',
+			/<a class="button-quiet" href=\{resolve\('\/'\)\}>Abbrechen<\/a>/.test(einzelBlock),
+		],
+		[
+			'im Dialog ist es ein type="button", das nur schliesst',
+			/<button[^>]*type="button"[\s\S]{0,200}?onclick=\{\(\) => dialog\?\.close\(\)\}/.test(
+				startseiteCodeEinzel
+			),
+		],
+		[
+			'und keiner der beiden trägt die Marke bestaetigt',
+			!/Abbrechen[\s\S]{0,120}?name="bestaetigt"/.test(startseiteCodeEinzel),
+		],
+	] as const;
+	pruefen(
+		'Abbrechen verwirft — auf beiden Wegen, und keiner davon schickt ab',
+		fehlendeTeile(abbrechenTeile).length === 0,
+		`fehlt: ${fehlendeTeile(abbrechenTeile).join(', ')}`
+	);
+
+	/*
+	 * **Der Satz steht an einer Stelle.** Dialog und Dokument zeigen denselben
+	 * Wortlaut, weil beide dieselbe Funktion rufen. Zwei Literale wären zwei
+	 * Sätze, sobald jemand einen davon anfasst — und die Person, die ohne
+	 * JavaScript zusagt, läse dann etwas anderes als die daneben.
+	 */
+	pruefenGleich(
+		'`Du übernimmst:` steht genau einmal unter src/ — in uebernahmeSatz',
+		unterSrc
+			.filter((datei) => datei.text.includes('Du übernimmst:'))
+			.map((datei) => datei.pfad)
+			.join(', '),
+		join('src', 'routes', '+page.svelte')
+	);
+
+	/*
+	 * **Zwei Bestätigungen im ganzen Produkt und keine mehr.** Das Abhaken im
+	 * Pool bleibt eine einzige Interaktion ohne Rückfrage; diese Ausnahme darf
+	 * nicht dorthin ausstrahlen. Gezählt werden die <dialog>-Elemente im Baum.
+	 */
+	const dialogSeiten = unterSrc
+		.filter((datei) => datei.pfad.endsWith('.svelte') && /<dialog\b/.test(datei.text))
+		.map((datei) => datei.pfad)
+		.sort();
+	pruefenGleich(
+		'genau zwei Bestätigungen im Produkt: der Widerruf und die Übernahme',
+		dialogSeiten.join(', '),
+		[join('src', 'routes', '+page.svelte'), join('src', 'routes', 'verwaltung', '+page.svelte')]
+			.sort()
+			.join(', ')
+	);
+	pruefen(
+		'und der Aufgaben-Pool auf / trägt keine — kein Dialog, keine Marke bestaetigt',
+		!imPool.includes('<dialog') && !imPool.includes('bestaetigt'),
+		imPool === '' ? 'der {#if}-Block des Pools liess sich nicht schneiden' : '—'
+	);
+
+	/*
+	 * Das `maxlength` am Titelfeld gegen die Konstante im geteilten Modul, und
+	 * das Fenster am Terminfeld gegen die load. Ein Feld, das mehr zulässt als
+	 * der Server annimmt, verspricht eine Eingabe, die abgewiesen wird.
+	 */
+	const ausschreibeKomponente = quelltext('src', 'routes', 'einzelaufgabe', '+page.svelte');
+	/** Nur das Markup, ohne <script> und ohne HTML-Kommentare. */
+	const ausschreibeMarkup = ausschreibeKomponente
+		.slice(ausschreibeKomponente.indexOf('</script>'))
+		.replace(/<!--[\s\S]*?-->/g, '');
+	const feldTeileEinzel = [
+		[
+			// Abgeleitet und nicht abgeschrieben: das Attribut liest den Wert aus der
+			// load, und die load gibt die Konstante — belegt eine Zeile weiter oben.
+			'maxlength kommt aus der load und nicht als Literal',
+			/maxlength=\{data\.titelGrenze\}/.test(ausschreibeKomponente) &&
+				!/maxlength="[0-9]/.test(ausschreibeKomponente),
+		],
+		['min kommt aus der load', /min=\{data\.terminFrueheste\}/.test(ausschreibeKomponente)],
+		['max ebenso', /max=\{data\.terminSpaeteste\}/.test(ausschreibeKomponente)],
+		[
+			// Nur im Markup gezählt und ohne Kommentare: das Wort steht sonst auch in
+			// der Begründung darüber, und die Zahl zählte dann Prosa.
+			'beide Felder sind Pflicht',
+			(ausschreibeMarkup.match(/\brequired\b/g) ?? []).length === 2,
+		],
+	] as const;
+	pruefen(
+		'die Felder auf /einzelaufgabe tragen dieselben Grenzen wie die action',
+		fehlendeTeile(feldTeileEinzel).length === 0,
+		`fehlt: ${fehlendeTeile(feldTeileEinzel).join(', ')}`
 	);
 } catch (fehler) {
 	unerwarteterWurf('smoke', fehler);

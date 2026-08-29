@@ -188,7 +188,7 @@
 			{@const dieseWoche = schluessel(eintrag)}
 			{@const fehlerHier = fehlerAnDerAuswahl !== '' && fehlerWoche === dieseWoche}
 			{@const istLaufend = dieseWoche === data.laufendeWoche}
-			<li class="woche" class:woche--laufend={istLaufend}>
+			<li class="karte woche" class:woche--laufend={istLaufend}>
 				<div class="woche__kopf">
 					<div class="woche__spalte">
 						<!--
@@ -349,16 +349,6 @@
 		margin: 0;
 		padding: 0;
 		list-style: none;
-	}
-
-	.woche {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
-		background-color: var(--surface-raised);
-		border: var(--border-hairline) solid var(--hairline);
-		border-radius: var(--radius-md);
-		padding: var(--space-3);
 	}
 
 	/*

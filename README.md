@@ -1261,146 +1261,167 @@ Der Grund für all das ist gemessen. Die Tabelle nennt nur Mutationen, die
 **vorher grün** blieben — eine Mutation, die schon vorher rot war, beweist nichts
 über die Prüfung, die dazukam:
 
-| Mutation                                                          | War grün bis         | Wird heute rot in                                                                                                                                                                                                                      |
-| ----------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `\|\| !mitglied.isActive` aus der **Einlöseroute** entfernt       | Iteration 2          | widerrufenes gespeichertes Token                                                                                                                                                                                                       |
-| `httpOnly: true` aus den Cookie-Optionen entfernt                 | Iteration 2          | drei Cookie-Attribut-Behauptungen                                                                                                                                                                                                      |
-| Wächter schlägt jedes Mitglied nur einmal pro Prozess nach        | Iteration 2          | Widerruf einer lebenden Sitzung                                                                                                                                                                                                        |
-| `secure: false` in den Cookie-Optionen                            | Iteration 3          | drei Cookie-Attribut-Behauptungen                                                                                                                                                                                                      |
-| die beiden Konstanten in `handleError` getauscht                  | Iteration 3          | zwei `handleError`-Behauptungen                                                                                                                                                                                                        |
-| ein Aufruf in `startPruefen` in ein schluckendes `catch`          | Iteration 3          | `startPruefen` und der `init`-Unterprozess                                                                                                                                                                                             |
-| `setHeaders` an **einer** der beiden 403-Wurfstellen              | Iteration 3          | Kopfzeilen-Behauptung und beide Abdrücke                                                                                                                                                                                               |
-| `?? './data/dev.sqlite'` statt Fail-Fast in `drizzle.config.ts`   | Iteration 3          | `db:check`, Prüfung Fail-Fast                                                                                                                                                                                                          |
-| ein Befund in `db:check` zur Warnung gemacht                      | Iteration 3          | `db:check:selftest`, zwei von drei Proben                                                                                                                                                                                              |
-| Zeilenkommentare wieder in **jeder** Datei ausgeblendet           | Iteration 3          | `gate:selftest`, Probe `regel-1b`                                                                                                                                                                                                      |
-| `invalidateAll: false` aus dem Rückruf auf `/` entfernt           | Story 1.4            | die Textprüfung an `+page.svelte`                                                                                                                                                                                                      |
-| ein `<label>` um den Aufgabentext                                 | Story 1.4            | die Textprüfung an `+page.svelte`                                                                                                                                                                                                      |
-| `completed_at IS NULL` aus `aufgabeAbhaken` entfernt              | Story 1.4            | zweites `abhaken`, der erste Abhakende                                                                                                                                                                                                 |
-| `completed_by` in die Projektion der offenen Aufgaben             | Story 1.4            | zwei Seitendaten-Behauptungen, `check`                                                                                                                                                                                                 |
-| ein rohes `140ms` in einem Komponenten-`<style>`                  | Story 1.4            | `gate`, Regel 1                                                                                                                                                                                                                        |
-| die Längenprüfung aus `ablegen` entfernt                          | Story 1.5            | `smoke`, 201 Codepoints                                                                                                                                                                                                                |
-| `returning()` statt `returning(sichtbareSpalten)`                 | Story 1.5            | `check`, die Annotation `NurSichtbar`                                                                                                                                                                                                  |
-| `action="?/ablegen"` verschrieben                                 | Story 1.5            | `gate`, Regel 11                                                                                                                                                                                                                       |
-| `name="text"` am Feld in `name="aufgabentext"` umbenannt          | Story 1.5            | `smoke`, die Verdrahtung des Formulars                                                                                                                                                                                                 |
-| `+ Aufgabe` in den `{:else}`-Zweig geschoben                      | Story 1.5            | `smoke`, die Verortung des Ankers                                                                                                                                                                                                      |
-| `tabindex="-1"` an der Meldungsregion entfernt                    | Story 1.5            | `smoke`, tabindex und bind:this                                                                                                                                                                                                        |
-| `maxlength` am Feld von der Konstante abgekoppelt                 | Story 1.5            | `smoke`, das Band zur Längengrenze                                                                                                                                                                                                     |
-| die `load` von `/` liest `locals`                                 | Story 1.5            | `smoke`, das werfende Ereignis                                                                                                                                                                                                         |
-| `dueAt` aus `sichtbareSpalten` entfernt                           | Story 2.1            | `check`, `satisfies` auf der Spaltenauswahl                                                                                                                                                                                            |
-| `action="?/ablegen"` auf `/monatsplan` verschrieben               | Story 2.1            | `gate`, Regel 11                                                                                                                                                                                                                       |
-| Tagesende durch Mitternacht UTC ersetzt                           | Story 2.1            | `smoke`, das gemeinsame `due_at`                                                                                                                                                                                                       |
-| `due_at` je Zeile um eins erhöht                                  | Story 2.1            | `smoke`, das gemeinsame `due_at`                                                                                                                                                                                                       |
-| die Zeilenlängen-Prüfung aus `ablegen` entfernt                   | Story 2.1            | `smoke`, zwei Zeilen zu 201 Codepoints                                                                                                                                                                                                 |
-| `use:enhance` am Monatsplan-Formular entfernt                     | Story 2.1            | `smoke`, die Verdrahtung des Formulars                                                                                                                                                                                                 |
-| das `×` als `<span role="button">` statt als `<button>`           | Story 2.1            | `smoke`, das × ist ein echter Knopf                                                                                                                                                                                                    |
-| `zeilenListe.length === 0` aus dem Ablegen-Knopf entfernt         | Story 2.1            | `smoke`, der Knopf sperrt bei null Zeilen                                                                                                                                                                                              |
-| `zurueck` setzt das Textfeld zusätzlich zurück                    | Story 2.1            | `smoke`, `Zurück zum Text`                                                                                                                                                                                                             |
-| leere Zeilen fallen in `zeilenErkennen` nicht mehr weg            | Story 2.1            | `smoke`, die 24 aus 27 Zeilen                                                                                                                                                                                                          |
-| die Versatzrechnung in `zeit.ts` durch `annahme - 7200` ersetzt   | Story 2.1            | `smoke`, Winterzeit und beide Umstellungstage                                                                                                                                                                                          |
-| `PLAN_HOECHSTZAHL` zurück in die Route statt ins geteilte Modul   | Story 2.1            | `check`, der Import in der Komponente                                                                                                                                                                                                  |
-| die Datumssperre aus `weiterGesperrt` entfernt                    | Story 2.1            | `smoke`, `Weiter` sperrt aus drei Gründen                                                                                                                                                                                              |
-| `quittiert = false` vor dem Versand entfernt                      | Story 2.1            | `smoke`, der Fehlersatz wird quittiert                                                                                                                                                                                                 |
-| der Fokusgriff in `entfernen` entfernt                            | Story 2.1            | `smoke`, das Entfernen lässt den Fokus stehen                                                                                                                                                                                          |
-| das `<noscript>` entfernt                                         | Story 2.1            | `smoke`, /monatsplan sagt es ohne JavaScript                                                                                                                                                                                           |
-| die Leerheits-Wache aus `aufgabenStapelAnlegen` entfernt          | Story 2.1            | `smoke`, unerwarteter Wurf aus `values([])`                                                                                                                                                                                            |
-| `aria-describedby` vom Zähler am Textfeld entfernt                | Story 2.1            | `smoke`, beide Felder sind beschrieben                                                                                                                                                                                                 |
-| das `<=` in `wochenOffenSeit` durch `<` ersetzt                   | Story 2.2            | `smoke`, `wochenOffenSeit` und die feste Uhr an der Schwelle (zwei Behauptungen; die dritte, an der echten Uhr, wird nur rot, wenn Saat und `load` in dieselbe Sekunde fallen — ihre benannte Toleranz lässt sonst `3` zu)             |
-| `dueAt ?? createdAt` auf `createdAt` verkürzt                     | Story 2.2            | `smoke`, drei Zeilen der Überfälligkeitsmatrix plus die `load`-Behauptung                                                                                                                                                              |
-| `aria-describedby` aufs wiederOeffnen-Kästchen verschoben         | Story 2.2            | `smoke`, die formularweise geschnittene Beschreibungs-Behauptung                                                                                                                                                                       |
-| der `{#if istUeberfaellig}`-Block vor den Aufgabentext gestellt   | Story 2.2            | `smoke`, die Reihenfolge im Spaltencontainer                                                                                                                                                                                           |
-| `flex-direction: column` aus `.zeile__spalte` entfernt            | Story 2.2            | `smoke`, der Rumpf der Spaltenregel                                                                                                                                                                                                    |
-| `min-width: 0` aus `.zeile__spalte` entfernt                      | Story 2.2            | `smoke`, der Rumpf der Spaltenregel                                                                                                                                                                                                    |
-| ein nackter `21 * 24 * 60 * 60` in `queries/tasks.ts`             | Story 2.2            | `smoke`, die Schwelle über den ganzen Baum                                                                                                                                                                                             |
-| ein `setImmediate` in der Komponente                              | Story 2.2            | `smoke`, die Timer-Wache über `src/`                                                                                                                                                                                                   |
-| eine Spalte `ueberfaellig_seit` im Schema                         | Story 2.2            | `smoke`, das Spaltenverbot über Schema und Migrationen                                                                                                                                                                                 |
-| `!istErledigt` aus der Bedingung der zweiten Zeile entfernt       | Story 2.2            | `smoke`, die Überfälligkeitszeile                                                                                                                                                                                                      |
-| `redirect(303, '/')` der Einlöseroute auf `302`                   | Story 3.0            | `smoke:http`, der Status des Einlösens                                                                                                                                                                                                 |
-| `sameSite: 'lax'` auf `'strict'`                                  | Story 3.0            | `smoke:http`, das Cookie an der echten Antwort                                                                                                                                                                                         |
-| `secure` in den Cookie-Optionen auf `false`                       | Story 3.0            | `smoke:http`, das Cookie an der echten Antwort                                                                                                                                                                                         |
-| `maxAge: LAUFZEIT_SEKUNDEN` auf `60`                              | Story 3.0            | `smoke:http`, die Jahreslaufzeit                                                                                                                                                                                                       |
-| `mitKopfzeilen` vom **Einlösepfad** genommen                      | Story 3.0            | `smoke:http`, die `Referrer-Policy` auf der 403 der Einlöseroute                                                                                                                                                                       |
-| `mitKopfzeilen` vom **normalen** Pfad genommen                    | Story 3.0            | `smoke:http`, die `Referrer-Policy` auf `/`                                                                                                                                                                                            |
-| `Fehler %sveltekit.status%` in `src/error.html` umformuliert      | Story 3.0            | `smoke:http`, der Status im Text der Hülle                                                                                                                                                                                             |
-| `error(403, KEIN_ZUGANG)` im Wächter auf einen eigenen Satz       | Story 3.0            | `smoke:http`, fünf Behauptungen: Byte-Gleichheit, `title`, `h1`, das JSON-Feld und die Ununterscheidbarkeit der zwei 403                                                                                                               |
-| `error(403, …)` im Wächter auf `401`                              | Story 3.0            | `smoke:http`, fünf Behauptungen: beide Statusprüfungen, Byte-Gleichheit, `Fehler 403` und die Ununterscheidbarkeit                                                                                                                     |
-| `%sveltekit.head%` wörtlich in einen Kommentar von `src/app.html` | Story 3.0            | `smoke:http`, sechs Behauptungen: Platzhalter und Kommentarmarken auf **allen drei** Seiten                                                                                                                                            |
-| `inviteTokenHash` in die Spaltenliste von `/verwaltung`           | Story 3.0            | `smoke:http`, der Token-Hash im ausgelieferten HTML                                                                                                                                                                                    |
-| `!mitglied.isAdmin` aus `adminOderWeg` entfernt                   | Story 3.0            | `smoke:http`, die Adminweiche über HTTP, zwei Behauptungen                                                                                                                                                                             |
-| `istAdmin` auf `/mehr` fest auf `true`                            | Story 3.0            | `smoke:http`, `/mehr` ohne Verwaltungs-Eintrag                                                                                                                                                                                         |
-| `<title>Mehr</title>` geleert                                     | Story 3.0            | `smoke:http`, die Titel-Gegenprobe                                                                                                                                                                                                     |
-| ein `, aufgenommen am` ins Markup von `/verwaltung`               | Story 3.0            | `smoke:http`, das Bruchstück des Bestätigungstexts                                                                                                                                                                                     |
-| `build/` beiseitegeschoben                                        | Story 3.0            | `smoke:http`, beide Bau-Behauptungen samt benannter Meldung                                                                                                                                                                            |
-| eine Datei unter `src/` nach dem Bau angefasst                    | Story 3.0            | `smoke:http`, die Aktualität des Baus                                                                                                                                                                                                  |
-| `redirect(303, '/')` auf `'/mehr'` umgelenkt                      | Story 3.0 (Review)   | `smoke:http`, das Ziel der 303                                                                                                                                                                                                         |
-| `const COOKIE = 'sitzung'` in `'zugang'` umbenannt                | Story 3.0 (Review)   | `smoke:http`, 18 Behauptungen — der Cookie-Name und alles, was danach ein Cookie braucht                                                                                                                                               |
-| `path: '/'` in den Cookie-Optionen auf `'/i'`                     | Story 3.0 (Review)   | `smoke:http`, `Path=/`                                                                                                                                                                                                                 |
-| ein `console.error` in den Wächter gestellt                       | Story 3.0 (Review)   | `smoke:http`, die stille Fehlerausgabe des Servers                                                                                                                                                                                     |
-| `gescheitert += 1` aus `pruefen` entfernt                         | Story 3.0 (Review)   | `smoke:selftest`, drei Behauptungen — **`smoke` und `smoke:http` bleiben dabei grün**, genau das ist der Grund für den Selbsttest                                                                                                      |
-| `gelaufen += 1` aus `pruefen` entfernt                            | Story 3.0 (Review)   | `smoke:selftest`                                                                                                                                                                                                                       |
-| `gescheitert += 1` aus `unerwarteterWurf` entfernt                | Story 3.0 (Review)   | `smoke:selftest`                                                                                                                                                                                                                       |
-| `klartexte` im Prüfskript auf einen Wert gesetzt, der dasteht     | Story 3.0 (Review)   | `smoke:http`, fünf Klartext-Behauptungen — die Gegenprobe, dass die Suche nicht ins Leere greift                                                                                                                                       |
-| `is_active = 1` aus `mitgliedUmbenennen` entfernt                 | Story 3.0.1          | `smoke`, die zwei Behauptungen an der Repository-Funktion selbst — über eine action ist die Bedingung nicht mehr erreichbar, siehe unten                                                                                               |
-| `aktivesMitgliedLesen` aus der action `umbenennen` genommen       | Story 3.0.1          | `smoke`, zwei Zeilen von „Id … und Name leer zugleich"                                                                                                                                                                                 |
-| `feld: 'neuerName'` beim Abweisen auf `'name'` geändert           | Story 3.0.1          | `smoke`, drei Marken-Behauptungen des Umbenennens                                                                                                                                                                                      |
-| das vierte Argument `zeile` beim Abweisen weggelassen             | Story 3.0.1          | `smoke`, drei Zeilen „nennt die abgewiesene Zeile"                                                                                                                                                                                     |
-| die Namensprüfung vor die Zeilenprüfung gezogen                   | Story 3.0.1          | `smoke`, drei Zeilen „Id … und Name leer zugleich"                                                                                                                                                                                     |
-| die eigene Zeile im Umbenennen gesperrt                           | Story 3.0.1          | `smoke`, zwei Behauptungen über die eigene Zeile                                                                                                                                                                                       |
-| `adminOderWeg` aus `umbenennen` entfernt                          | Story 3.0.1          | `smoke`, die Adminschranke, die unveränderte Zeile und die Attrappen-Klammer                                                                                                                                                           |
-| `create-admin` holt sich seine eigene Faltkette zurück            | Story 3.0.1          | `smoke`, drei `create-admin`-Behauptungen und die Wurfstellen-Behauptung                                                                                                                                                               |
-| eine Kopie von `namePruefen` als **Pfeilfunktion** daneben        | Story 3.0.1          | `smoke`, die Wurfstellen-Behauptung — mit dem Muster vor dem Review blieb sie grün                                                                                                                                                     |
-| `maxlength` wieder als Literal `80` im Markup                     | Story 3.0.1          | `smoke`, die Wurfstellen-Behauptung, Teil „kein Namensfeld trägt sie als Literal"                                                                                                                                                      |
-| `name="neuerName"` im Markup verschrieben                         | Story 3.0.1          | `smoke`, die Verdrahtung des Formulars; `smoke:http`, das ausgelieferte Feld                                                                                                                                                           |
-| `method="POST"` am Umbenennen-Formular entfernt                   | Story 3.0.1          | `smoke`, die Verdrahtung des Formulars; `smoke:http`, das ausgelieferte Formular                                                                                                                                                       |
-| das versteckte `mitgliedId` aus dem Umbenennen-Formular entfernt  | Story 3.0.1          | `smoke:http`, die ausgelieferte Zeilen-Id — eine Suche über das ganze Dokument blieb hier grün, siehe unten                                                                                                                            |
-| die `value`-Bindung des Umbenennen-Feldes entfernt                | Story 3.0.1          | `smoke`, die Verdrahtung des Formulars                                                                                                                                                                                                 |
-| `nameEingabe` ohne die Marke `feld === 'name'`                    | Story 3.0.1          | `smoke`, die drei Einzelzusagen der Komponente                                                                                                                                                                                         |
-| der Zweig `art === 'umbenannt'` aus `rueckmeldung` entfernt       | Story 3.0.1          | `smoke`, die drei Einzelzusagen der Komponente                                                                                                                                                                                         |
-| das `<details>` aus dem `{:else}`-Zweig gezogen                   | Story 3.0.1          | `smoke`, die drei Einzelzusagen der Komponente                                                                                                                                                                                         |
-| der Satz zur Zeile hinter ein `{#if}` gestellt                    | Story 3.0.1          | `smoke`, die Live-Region zur Zeile                                                                                                                                                                                                     |
-| das Selbstumbenennen wieder auf `vera` gelegt                     | Story 3.0.1          | `smoke`, die Klammer zwischen Attrappe und Datenbank                                                                                                                                                                                   |
-| der Fokusgriff auf das Feld der abgewiesenen Zeile entfernt       | Story 3.0.1          | `smoke`, die vier Einzelzusagen der Komponente                                                                                                                                                                                         |
-| der Fokus nach dem Erfolg von der Rückmeldung weggenommen         | Story 3.0.1          | `smoke`, die vier Einzelzusagen der Komponente                                                                                                                                                                                         |
-| `disabled={imFlug}` vom Umbenennen-Knopf entfernt                 | Story 3.0.1          | `smoke`, die Verdrahtung des Formulars                                                                                                                                                                                                 |
-| der Absendeknopf ganz entfernt                                    | Story 3.0.1          | `smoke:http`, das ausgelieferte Formular                                                                                                                                                                                               |
-| `open={fehlerHier}` vom `<details>` entfernt                      | Story 3.0.1 (Review) | `smoke`, die Verdrahtung des Formulars; `smoke:http`, das abgewiesene Dokument — beide Behauptungen sind erst durch diese Mutation entstanden, siehe unten                                                                             |
-| der Satz zur Zeile auf `{fehlerAmNeuenNamen}` ohne Zeilenbezug    | Story 3.0.1 (Review) | `smoke`, die Live-Region zur Zeile; `smoke:http`, die Zählung über die Regionen des abgewiesenen Dokuments                                                                                                                             |
-| die ISO-Wochennummer um eine Woche verschoben                     | Story 3.1            | `smoke`, die Wochenrechnung am Jahreswechsel                                                                                                                                                                                           |
-| das ISO-Jahr aus dem Montag statt dem Donnerstag gelesen          | Story 3.1            | `smoke`, dieselbe Kette — die Zeile `30.12.2019 gehört schon zur Woche 1 von 2020`. **Nicht** die Zeile über den 1.1.2027: dort liegen Montag und Donnerstag im selben Kalenderjahr, und die Mutation bleibt grün (Review Durchgang 2) |
-| die Wochenrechnung ohne Zone, auf UTC                             | Story 3.1            | `smoke`, `Montag 00:30 Ortszeit zählt schon zur neuen Woche`                                                                                                                                                                           |
-| das Wochenfenster wieder an heute statt am Montag verankert       | Story 3.1            | `smoke`, `drei Monate ergeben 13 oder 14 Wochen` — an einem Sonntag waren es fünfzehn, gemessen                                                                                                                                        |
-| `onConflictDoUpdate` aus `dienstwocheBesetzen` entfernt           | Story 3.1            | `smoke`, zwei Zeilen: die Zahl der Datensätze und die Id der Zeile                                                                                                                                                                     |
-| `is_active` aus der Anzeigeabfrage des Dienstplans genommen       | Story 3.1            | `smoke`, `nach dem Beenden des Zugangs steht die Woche als unbesetzt`                                                                                                                                                                  |
-| `adminOderWeg` aus `besetzen` entfernt                            | Story 3.1            | `smoke`, die Adminschranke und die Zahl der Datensätze danach                                                                                                                                                                          |
-| die Fensterschranke aus `besetzen` entfernt                       | Story 3.1            | `smoke`, drei Zeilen über Wochen ausserhalb und in der Vergangenheit                                                                                                                                                                   |
-| die Namensauswahl auch an Nicht-Admins gegeben                    | Story 3.1            | `smoke`, `ein Mitglied ohne Adminrechte bekommt sie nicht`; `smoke:http`, kein Name im ausgelieferten HTML                                                                                                                             |
-| das Besetzen-Formular auch ohne Adminrechte gerendert             | Story 3.1            | `smoke:http`, das ausgelieferte HTML des Mitglieds                                                                                                                                                                                     |
-| `method="POST"` vom Besetzen-Formular entfernt                    | Story 3.1            | `smoke:http`, das ausgelieferte Formular                                                                                                                                                                                               |
-| der Diensthinweis auch ohne eigenen Dienst gerendert              | Story 3.1            | `smoke:http`, `und im Dokument der anderen Person fehlt er ganz`. Die frühere Angabe `smoke`, `wer keinen hat, bekommt null` misst den Rückgabewert der load und bliebe grün (Review Durchgang 2)                                      |
-| `selected` vom vorgewählten `<option>` entfernt                   | Story 3.1 (Review)   | `smoke:http`, drei Zeilen der Vorbelegung — die Textprüfung an der Komponente blieb grün, siehe unten                                                                                                                                  |
-| die Eindeutigkeitsbedingung aus `duty_weeks` entfernt             | Story 3.1            | `db:check`, die Abweichungsprüfung gegen die Migrationskette — **nicht** `smoke`: die Prüfdatenbank entsteht aus `drizzle/`, der Index steht dort, und jede Behauptung über die Zahl der Zeilen bliebe grün (Review Durchgang 2)       |
-| `<svelte:head>` mit dem Titel von `/dienstplan` entfernt          | Story 3.1 (Review)   | `smoke:http`, die Seitenschleife über **jede** gerenderte Seite — der Dienstplan fehlte dort und ging ohne Titel in Betrieb                                                                                                            |
-| die Markierung der laufenden Woche entfernt                       | Story 3.1 (Review)   | `smoke:http`, `die laufende Woche ist im ausgelieferten Plan genau einmal markiert` — vorher war nur der Erzeuger belegt, nicht der Verbraucher                                                                                        |
-| das ISO-Jahr aus der Wochenzeile entfernt                         | Story 3.1 (Review)   | `smoke:http`, `jede Wochenzeile nennt ihr ISO-Jahr` — ohne es standen `KW 53` und `KW 1` untereinander, ohne dass etwas das Jahr nannte                                                                                                |
-| der Zeilenbezug am Satz des abgewiesenen Besetzens entfernt       | Story 3.1 (Review)   | `smoke:http`, die Zählung über die Live-Regionen des abgewiesenen Dienstplan-Dokuments                                                                                                                                                 |
-| die Auswahl auch ins Dokument ohne Adminrechte gegeben            | Story 3.1 (Review)   | `smoke:http`, `ein besetzter Plan zeigt dem Mitglied den Namen, aber nie die Auswahl` — vorher am **leeren** Plan gemessen, auf dem ohnehin kein Name stand                                                                            |
-| nur die Fenstergrenze an heute statt am Montag gerechnet          | Story 3.1 (Review)   | `smoke`, `vom Montag derselben Woche aus gefragt kommt dieselbe Folge` — diese Nachbarin der benannten Mutation kam vorher durch                                                                                                       |
-| eine lokale `.hinweis`-Regel in `/dienstplan` zurückgestellt      | Review 3.1           | `smoke`, `die Seitenform liegt an einer Stelle` — `.hinweis` steht seit dem 2026-08-29 mit in der Liste                                                                                                                                |
-| der Verweis am `Besetzen`-Griff entfernt                          | 3.0.1 + 3.1          | `smoke:http`, zwei Zeilen: die Vollständigkeit über alle Arten und der Griff namentlich                                                                                                                                                |
-| der Verweis zeigt nur auf die Zeile, nicht auch auf sich selbst   | 3.0.1 + 3.1          | `smoke:http`, dieselben zwei Zeilen — sonst hiesse der Griff `Anna Meier`, und niemand wüsste, was er tut                                                                                                                              |
-| eine Kennung im Verweis verschrieben                              | 3.0.1 + 3.1          | `smoke:http`, `jeder Verweis löst sich im ausgelieferten Dokument auf` — die Meldung nennt die tote Kennung                                                                                                                            |
-| `bekannterName` aus der where-Klausel des Umbenennens genommen    | 3.0.1                | `smoke`, fünf Zeilen — der Versand aus dem veralteten Tab schreibt `Anna Meier` über `Anna Berger`, genau der Fehler, um den es geht                                                                                                   |
-| das versteckte `bekannterName` aus dem Formular entfernt          | 3.0.1                | `smoke:http`, `/verwaltung liefert das Umbenennen-Formular aus`                                                                                                                                                                        |
-| die Prüfung des Fensters aus der action `ablegen` genommen        | Eintrag 31           | `smoke`, sechs Zeilen über die zwei vertippten Jahre                                                                                                                                                                                   |
-| `FRIST_FENSTER_TAGE` von 365 auf 366 verschoben                   | Eintrag 31           | `smoke`, sechs Zeilen: die Konstante selbst, beide Fenstergrenzen, der Schalttag und die zwei Grenztage                                                                                                                                |
-| das Fenster als Kalenderjahr statt in Tagen gerechnet             | Eintrag 31           | `smoke`, `über einen Schalttag hinweg zählt das Fenster Tage und keine Jahre` — die anderen fünf Zeilen bleiben grün, weil 2026 und 2027 keine Schaltjahre sind                                                                        |
-| `min` und `max` vom Datumsfeld genommen                           | Eintrag 31           | `smoke:http`, drei Zeilen am ausgelieferten Feld                                                                                                                                                                                       |
-| der Satz zurück auf `seit N Wochen offen`                         | Eintrag 39           | `smoke`, der Satz im Markup; `smoke:http`, der ausgelieferte Absatz und die Suche nach dem alten Wortlaut                                                                                                                              |
-| `/verwaltung` aus der Zuordnung der Navigationsleiste genommen    | Eintrag 28           | `smoke`, `jede gerenderte Route steht in der Navigationsleiste` — die Meldung nennt die fehlende Route                                                                                                                                 |
-| beide `aria-current`-Fälle auf `page` zusammengezogen             | Eintrag 28           | `smoke`, `aria-current unterscheidet die angezeigte Seite vom laufenden Abschnitt`                                                                                                                                                     |
-| `/aufgabe` aus der Zuordnung genommen                             | Eintrag 28           | `smoke:http`, zwei Zeilen am ausgelieferten Dokument von `/aufgabe`                                                                                                                                                                    |
-| `U+200D` wieder bedingungslos ausgesiebt                          | Einträge 23, 24      | `smoke`, sechs Zeilen — die drei Emoji-Folgen, je an beiden Lesern                                                                                                                                                                     |
-| das Sieb zurück auf die fünf Nullbreiten-Zeichen                  | Einträge 23, 24      | `smoke`, zwölf Zeilen — sechs Zeichen, je an beiden Lesern                                                                                                                                                                             |
-| eine eigene Zeichenklasse in `mitgliedsname.ts` daneben           | Einträge 23, 24      | `smoke`, `die Liste der unsichtbaren Zeichen steht genau einmal` — die Meldung nennt beide Fundstellen                                                                                                                                 |
+| Mutation                                                           | War grün bis         | Wird heute rot in                                                                                                                                                                                                                      |
+| ------------------------------------------------------------------ | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `\|\| !mitglied.isActive` aus der **Einlöseroute** entfernt        | Iteration 2          | widerrufenes gespeichertes Token                                                                                                                                                                                                       |
+| `httpOnly: true` aus den Cookie-Optionen entfernt                  | Iteration 2          | drei Cookie-Attribut-Behauptungen                                                                                                                                                                                                      |
+| Wächter schlägt jedes Mitglied nur einmal pro Prozess nach         | Iteration 2          | Widerruf einer lebenden Sitzung                                                                                                                                                                                                        |
+| `secure: false` in den Cookie-Optionen                             | Iteration 3          | drei Cookie-Attribut-Behauptungen                                                                                                                                                                                                      |
+| die beiden Konstanten in `handleError` getauscht                   | Iteration 3          | zwei `handleError`-Behauptungen                                                                                                                                                                                                        |
+| ein Aufruf in `startPruefen` in ein schluckendes `catch`           | Iteration 3          | `startPruefen` und der `init`-Unterprozess                                                                                                                                                                                             |
+| `setHeaders` an **einer** der beiden 403-Wurfstellen               | Iteration 3          | Kopfzeilen-Behauptung und beide Abdrücke                                                                                                                                                                                               |
+| `?? './data/dev.sqlite'` statt Fail-Fast in `drizzle.config.ts`    | Iteration 3          | `db:check`, Prüfung Fail-Fast                                                                                                                                                                                                          |
+| ein Befund in `db:check` zur Warnung gemacht                       | Iteration 3          | `db:check:selftest`, zwei von drei Proben                                                                                                                                                                                              |
+| Zeilenkommentare wieder in **jeder** Datei ausgeblendet            | Iteration 3          | `gate:selftest`, Probe `regel-1b`                                                                                                                                                                                                      |
+| `invalidateAll: false` aus dem Rückruf auf `/` entfernt            | Story 1.4            | die Textprüfung an `+page.svelte`                                                                                                                                                                                                      |
+| ein `<label>` um den Aufgabentext                                  | Story 1.4            | die Textprüfung an `+page.svelte`                                                                                                                                                                                                      |
+| `completed_at IS NULL` aus `aufgabeAbhaken` entfernt               | Story 1.4            | zweites `abhaken`, der erste Abhakende                                                                                                                                                                                                 |
+| `completed_by` in die Projektion der offenen Aufgaben              | Story 1.4            | zwei Seitendaten-Behauptungen, `check`                                                                                                                                                                                                 |
+| ein rohes `140ms` in einem Komponenten-`<style>`                   | Story 1.4            | `gate`, Regel 1                                                                                                                                                                                                                        |
+| die Längenprüfung aus `ablegen` entfernt                           | Story 1.5            | `smoke`, 201 Codepoints                                                                                                                                                                                                                |
+| `returning()` statt `returning(sichtbareSpalten)`                  | Story 1.5            | `check`, die Annotation `NurSichtbar`                                                                                                                                                                                                  |
+| `action="?/ablegen"` verschrieben                                  | Story 1.5            | `gate`, Regel 11                                                                                                                                                                                                                       |
+| `name="text"` am Feld in `name="aufgabentext"` umbenannt           | Story 1.5            | `smoke`, die Verdrahtung des Formulars                                                                                                                                                                                                 |
+| `+ Aufgabe` in den `{:else}`-Zweig geschoben                       | Story 1.5            | `smoke`, die Verortung des Ankers                                                                                                                                                                                                      |
+| `tabindex="-1"` an der Meldungsregion entfernt                     | Story 1.5            | `smoke`, tabindex und bind:this                                                                                                                                                                                                        |
+| `maxlength` am Feld von der Konstante abgekoppelt                  | Story 1.5            | `smoke`, das Band zur Längengrenze                                                                                                                                                                                                     |
+| die `load` von `/` liest `locals`                                  | Story 1.5            | `smoke`, das werfende Ereignis                                                                                                                                                                                                         |
+| `dueAt` aus `sichtbareSpalten` entfernt                            | Story 2.1            | `check`, `satisfies` auf der Spaltenauswahl                                                                                                                                                                                            |
+| `action="?/ablegen"` auf `/monatsplan` verschrieben                | Story 2.1            | `gate`, Regel 11                                                                                                                                                                                                                       |
+| Tagesende durch Mitternacht UTC ersetzt                            | Story 2.1            | `smoke`, das gemeinsame `due_at`                                                                                                                                                                                                       |
+| `due_at` je Zeile um eins erhöht                                   | Story 2.1            | `smoke`, das gemeinsame `due_at`                                                                                                                                                                                                       |
+| die Zeilenlängen-Prüfung aus `ablegen` entfernt                    | Story 2.1            | `smoke`, zwei Zeilen zu 201 Codepoints                                                                                                                                                                                                 |
+| `use:enhance` am Monatsplan-Formular entfernt                      | Story 2.1            | `smoke`, die Verdrahtung des Formulars                                                                                                                                                                                                 |
+| das `×` als `<span role="button">` statt als `<button>`            | Story 2.1            | `smoke`, das × ist ein echter Knopf                                                                                                                                                                                                    |
+| `zeilenListe.length === 0` aus dem Ablegen-Knopf entfernt          | Story 2.1            | `smoke`, der Knopf sperrt bei null Zeilen                                                                                                                                                                                              |
+| `zurueck` setzt das Textfeld zusätzlich zurück                     | Story 2.1            | `smoke`, `Zurück zum Text`                                                                                                                                                                                                             |
+| leere Zeilen fallen in `zeilenErkennen` nicht mehr weg             | Story 2.1            | `smoke`, die 24 aus 27 Zeilen                                                                                                                                                                                                          |
+| die Versatzrechnung in `zeit.ts` durch `annahme - 7200` ersetzt    | Story 2.1            | `smoke`, Winterzeit und beide Umstellungstage                                                                                                                                                                                          |
+| `PLAN_HOECHSTZAHL` zurück in die Route statt ins geteilte Modul    | Story 2.1            | `check`, der Import in der Komponente                                                                                                                                                                                                  |
+| die Datumssperre aus `weiterGesperrt` entfernt                     | Story 2.1            | `smoke`, `Weiter` sperrt aus drei Gründen                                                                                                                                                                                              |
+| `quittiert = false` vor dem Versand entfernt                       | Story 2.1            | `smoke`, der Fehlersatz wird quittiert                                                                                                                                                                                                 |
+| der Fokusgriff in `entfernen` entfernt                             | Story 2.1            | `smoke`, das Entfernen lässt den Fokus stehen                                                                                                                                                                                          |
+| das `<noscript>` entfernt                                          | Story 2.1            | `smoke`, /monatsplan sagt es ohne JavaScript                                                                                                                                                                                           |
+| die Leerheits-Wache aus `aufgabenStapelAnlegen` entfernt           | Story 2.1            | `smoke`, unerwarteter Wurf aus `values([])`                                                                                                                                                                                            |
+| `aria-describedby` vom Zähler am Textfeld entfernt                 | Story 2.1            | `smoke`, beide Felder sind beschrieben                                                                                                                                                                                                 |
+| das `<=` in `wochenOffenSeit` durch `<` ersetzt                    | Story 2.2            | `smoke`, `wochenOffenSeit` und die feste Uhr an der Schwelle (zwei Behauptungen; die dritte, an der echten Uhr, wird nur rot, wenn Saat und `load` in dieselbe Sekunde fallen — ihre benannte Toleranz lässt sonst `3` zu)             |
+| `dueAt ?? createdAt` auf `createdAt` verkürzt                      | Story 2.2            | `smoke`, drei Zeilen der Überfälligkeitsmatrix plus die `load`-Behauptung                                                                                                                                                              |
+| `aria-describedby` aufs wiederOeffnen-Kästchen verschoben          | Story 2.2            | `smoke`, die formularweise geschnittene Beschreibungs-Behauptung                                                                                                                                                                       |
+| der `{#if istUeberfaellig}`-Block vor den Aufgabentext gestellt    | Story 2.2            | `smoke`, die Reihenfolge im Spaltencontainer                                                                                                                                                                                           |
+| `flex-direction: column` aus `.zeile__spalte` entfernt             | Story 2.2            | `smoke`, der Rumpf der Spaltenregel                                                                                                                                                                                                    |
+| `min-width: 0` aus `.zeile__spalte` entfernt                       | Story 2.2            | `smoke`, der Rumpf der Spaltenregel                                                                                                                                                                                                    |
+| ein nackter `21 * 24 * 60 * 60` in `queries/tasks.ts`              | Story 2.2            | `smoke`, die Schwelle über den ganzen Baum                                                                                                                                                                                             |
+| ein `setImmediate` in der Komponente                               | Story 2.2            | `smoke`, die Timer-Wache über `src/`                                                                                                                                                                                                   |
+| eine Spalte `ueberfaellig_seit` im Schema                          | Story 2.2            | `smoke`, das Spaltenverbot über Schema und Migrationen                                                                                                                                                                                 |
+| `!istErledigt` aus der Bedingung der zweiten Zeile entfernt        | Story 2.2            | `smoke`, die Überfälligkeitszeile                                                                                                                                                                                                      |
+| `redirect(303, '/')` der Einlöseroute auf `302`                    | Story 3.0            | `smoke:http`, der Status des Einlösens                                                                                                                                                                                                 |
+| `sameSite: 'lax'` auf `'strict'`                                   | Story 3.0            | `smoke:http`, das Cookie an der echten Antwort                                                                                                                                                                                         |
+| `secure` in den Cookie-Optionen auf `false`                        | Story 3.0            | `smoke:http`, das Cookie an der echten Antwort                                                                                                                                                                                         |
+| `maxAge: LAUFZEIT_SEKUNDEN` auf `60`                               | Story 3.0            | `smoke:http`, die Jahreslaufzeit                                                                                                                                                                                                       |
+| `mitKopfzeilen` vom **Einlösepfad** genommen                       | Story 3.0            | `smoke:http`, die `Referrer-Policy` auf der 403 der Einlöseroute                                                                                                                                                                       |
+| `mitKopfzeilen` vom **normalen** Pfad genommen                     | Story 3.0            | `smoke:http`, die `Referrer-Policy` auf `/`                                                                                                                                                                                            |
+| `Fehler %sveltekit.status%` in `src/error.html` umformuliert       | Story 3.0            | `smoke:http`, der Status im Text der Hülle                                                                                                                                                                                             |
+| `error(403, KEIN_ZUGANG)` im Wächter auf einen eigenen Satz        | Story 3.0            | `smoke:http`, fünf Behauptungen: Byte-Gleichheit, `title`, `h1`, das JSON-Feld und die Ununterscheidbarkeit der zwei 403                                                                                                               |
+| `error(403, …)` im Wächter auf `401`                               | Story 3.0            | `smoke:http`, fünf Behauptungen: beide Statusprüfungen, Byte-Gleichheit, `Fehler 403` und die Ununterscheidbarkeit                                                                                                                     |
+| `%sveltekit.head%` wörtlich in einen Kommentar von `src/app.html`  | Story 3.0            | `smoke:http`, sechs Behauptungen: Platzhalter und Kommentarmarken auf **allen drei** Seiten                                                                                                                                            |
+| `inviteTokenHash` in die Spaltenliste von `/verwaltung`            | Story 3.0            | `smoke:http`, der Token-Hash im ausgelieferten HTML                                                                                                                                                                                    |
+| `!mitglied.isAdmin` aus `adminOderWeg` entfernt                    | Story 3.0            | `smoke:http`, die Adminweiche über HTTP, zwei Behauptungen                                                                                                                                                                             |
+| `istAdmin` auf `/mehr` fest auf `true`                             | Story 3.0            | `smoke:http`, `/mehr` ohne Verwaltungs-Eintrag                                                                                                                                                                                         |
+| `<title>Mehr</title>` geleert                                      | Story 3.0            | `smoke:http`, die Titel-Gegenprobe                                                                                                                                                                                                     |
+| ein `, aufgenommen am` ins Markup von `/verwaltung`                | Story 3.0            | `smoke:http`, das Bruchstück des Bestätigungstexts                                                                                                                                                                                     |
+| `build/` beiseitegeschoben                                         | Story 3.0            | `smoke:http`, beide Bau-Behauptungen samt benannter Meldung                                                                                                                                                                            |
+| eine Datei unter `src/` nach dem Bau angefasst                     | Story 3.0            | `smoke:http`, die Aktualität des Baus                                                                                                                                                                                                  |
+| `redirect(303, '/')` auf `'/mehr'` umgelenkt                       | Story 3.0 (Review)   | `smoke:http`, das Ziel der 303                                                                                                                                                                                                         |
+| `const COOKIE = 'sitzung'` in `'zugang'` umbenannt                 | Story 3.0 (Review)   | `smoke:http`, 18 Behauptungen — der Cookie-Name und alles, was danach ein Cookie braucht                                                                                                                                               |
+| `path: '/'` in den Cookie-Optionen auf `'/i'`                      | Story 3.0 (Review)   | `smoke:http`, `Path=/`                                                                                                                                                                                                                 |
+| ein `console.error` in den Wächter gestellt                        | Story 3.0 (Review)   | `smoke:http`, die stille Fehlerausgabe des Servers                                                                                                                                                                                     |
+| `gescheitert += 1` aus `pruefen` entfernt                          | Story 3.0 (Review)   | `smoke:selftest`, drei Behauptungen — **`smoke` und `smoke:http` bleiben dabei grün**, genau das ist der Grund für den Selbsttest                                                                                                      |
+| `gelaufen += 1` aus `pruefen` entfernt                             | Story 3.0 (Review)   | `smoke:selftest`                                                                                                                                                                                                                       |
+| `gescheitert += 1` aus `unerwarteterWurf` entfernt                 | Story 3.0 (Review)   | `smoke:selftest`                                                                                                                                                                                                                       |
+| `klartexte` im Prüfskript auf einen Wert gesetzt, der dasteht      | Story 3.0 (Review)   | `smoke:http`, fünf Klartext-Behauptungen — die Gegenprobe, dass die Suche nicht ins Leere greift                                                                                                                                       |
+| `is_active = 1` aus `mitgliedUmbenennen` entfernt                  | Story 3.0.1          | `smoke`, die zwei Behauptungen an der Repository-Funktion selbst — über eine action ist die Bedingung nicht mehr erreichbar, siehe unten                                                                                               |
+| `aktivesMitgliedLesen` aus der action `umbenennen` genommen        | Story 3.0.1          | `smoke`, zwei Zeilen von „Id … und Name leer zugleich"                                                                                                                                                                                 |
+| `feld: 'neuerName'` beim Abweisen auf `'name'` geändert            | Story 3.0.1          | `smoke`, drei Marken-Behauptungen des Umbenennens                                                                                                                                                                                      |
+| das vierte Argument `zeile` beim Abweisen weggelassen              | Story 3.0.1          | `smoke`, drei Zeilen „nennt die abgewiesene Zeile"                                                                                                                                                                                     |
+| die Namensprüfung vor die Zeilenprüfung gezogen                    | Story 3.0.1          | `smoke`, drei Zeilen „Id … und Name leer zugleich"                                                                                                                                                                                     |
+| die eigene Zeile im Umbenennen gesperrt                            | Story 3.0.1          | `smoke`, zwei Behauptungen über die eigene Zeile                                                                                                                                                                                       |
+| `adminOderWeg` aus `umbenennen` entfernt                           | Story 3.0.1          | `smoke`, die Adminschranke, die unveränderte Zeile und die Attrappen-Klammer                                                                                                                                                           |
+| `create-admin` holt sich seine eigene Faltkette zurück             | Story 3.0.1          | `smoke`, drei `create-admin`-Behauptungen und die Wurfstellen-Behauptung                                                                                                                                                               |
+| eine Kopie von `namePruefen` als **Pfeilfunktion** daneben         | Story 3.0.1          | `smoke`, die Wurfstellen-Behauptung — mit dem Muster vor dem Review blieb sie grün                                                                                                                                                     |
+| `maxlength` wieder als Literal `80` im Markup                      | Story 3.0.1          | `smoke`, die Wurfstellen-Behauptung, Teil „kein Namensfeld trägt sie als Literal"                                                                                                                                                      |
+| `name="neuerName"` im Markup verschrieben                          | Story 3.0.1          | `smoke`, die Verdrahtung des Formulars; `smoke:http`, das ausgelieferte Feld                                                                                                                                                           |
+| `method="POST"` am Umbenennen-Formular entfernt                    | Story 3.0.1          | `smoke`, die Verdrahtung des Formulars; `smoke:http`, das ausgelieferte Formular                                                                                                                                                       |
+| das versteckte `mitgliedId` aus dem Umbenennen-Formular entfernt   | Story 3.0.1          | `smoke:http`, die ausgelieferte Zeilen-Id — eine Suche über das ganze Dokument blieb hier grün, siehe unten                                                                                                                            |
+| die `value`-Bindung des Umbenennen-Feldes entfernt                 | Story 3.0.1          | `smoke`, die Verdrahtung des Formulars                                                                                                                                                                                                 |
+| `nameEingabe` ohne die Marke `feld === 'name'`                     | Story 3.0.1          | `smoke`, die drei Einzelzusagen der Komponente                                                                                                                                                                                         |
+| der Zweig `art === 'umbenannt'` aus `rueckmeldung` entfernt        | Story 3.0.1          | `smoke`, die drei Einzelzusagen der Komponente                                                                                                                                                                                         |
+| das `<details>` aus dem `{:else}`-Zweig gezogen                    | Story 3.0.1          | `smoke`, die drei Einzelzusagen der Komponente                                                                                                                                                                                         |
+| der Satz zur Zeile hinter ein `{#if}` gestellt                     | Story 3.0.1          | `smoke`, die Live-Region zur Zeile                                                                                                                                                                                                     |
+| das Selbstumbenennen wieder auf `vera` gelegt                      | Story 3.0.1          | `smoke`, die Klammer zwischen Attrappe und Datenbank                                                                                                                                                                                   |
+| der Fokusgriff auf das Feld der abgewiesenen Zeile entfernt        | Story 3.0.1          | `smoke`, die vier Einzelzusagen der Komponente                                                                                                                                                                                         |
+| der Fokus nach dem Erfolg von der Rückmeldung weggenommen          | Story 3.0.1          | `smoke`, die vier Einzelzusagen der Komponente                                                                                                                                                                                         |
+| `disabled={imFlug}` vom Umbenennen-Knopf entfernt                  | Story 3.0.1          | `smoke`, die Verdrahtung des Formulars                                                                                                                                                                                                 |
+| der Absendeknopf ganz entfernt                                     | Story 3.0.1          | `smoke:http`, das ausgelieferte Formular                                                                                                                                                                                               |
+| `open={fehlerHier}` vom `<details>` entfernt                       | Story 3.0.1 (Review) | `smoke`, die Verdrahtung des Formulars; `smoke:http`, das abgewiesene Dokument — beide Behauptungen sind erst durch diese Mutation entstanden, siehe unten                                                                             |
+| der Satz zur Zeile auf `{fehlerAmNeuenNamen}` ohne Zeilenbezug     | Story 3.0.1 (Review) | `smoke`, die Live-Region zur Zeile; `smoke:http`, die Zählung über die Regionen des abgewiesenen Dokuments                                                                                                                             |
+| die ISO-Wochennummer um eine Woche verschoben                      | Story 3.1            | `smoke`, die Wochenrechnung am Jahreswechsel                                                                                                                                                                                           |
+| das ISO-Jahr aus dem Montag statt dem Donnerstag gelesen           | Story 3.1            | `smoke`, dieselbe Kette — die Zeile `30.12.2019 gehört schon zur Woche 1 von 2020`. **Nicht** die Zeile über den 1.1.2027: dort liegen Montag und Donnerstag im selben Kalenderjahr, und die Mutation bleibt grün (Review Durchgang 2) |
+| die Wochenrechnung ohne Zone, auf UTC                              | Story 3.1            | `smoke`, `Montag 00:30 Ortszeit zählt schon zur neuen Woche`                                                                                                                                                                           |
+| das Wochenfenster wieder an heute statt am Montag verankert        | Story 3.1            | `smoke`, `drei Monate ergeben 13 oder 14 Wochen` — an einem Sonntag waren es fünfzehn, gemessen                                                                                                                                        |
+| `onConflictDoUpdate` aus `dienstwocheBesetzen` entfernt            | Story 3.1            | `smoke`, zwei Zeilen: die Zahl der Datensätze und die Id der Zeile                                                                                                                                                                     |
+| `is_active` aus der Anzeigeabfrage des Dienstplans genommen        | Story 3.1            | `smoke`, `nach dem Beenden des Zugangs steht die Woche als unbesetzt`                                                                                                                                                                  |
+| `adminOderWeg` aus `besetzen` entfernt                             | Story 3.1            | `smoke`, die Adminschranke und die Zahl der Datensätze danach                                                                                                                                                                          |
+| die Fensterschranke aus `besetzen` entfernt                        | Story 3.1            | `smoke`, drei Zeilen über Wochen ausserhalb und in der Vergangenheit                                                                                                                                                                   |
+| die Namensauswahl auch an Nicht-Admins gegeben                     | Story 3.1            | `smoke`, `ein Mitglied ohne Adminrechte bekommt sie nicht`; `smoke:http`, kein Name im ausgelieferten HTML                                                                                                                             |
+| das Besetzen-Formular auch ohne Adminrechte gerendert              | Story 3.1            | `smoke:http`, das ausgelieferte HTML des Mitglieds                                                                                                                                                                                     |
+| `method="POST"` vom Besetzen-Formular entfernt                     | Story 3.1            | `smoke:http`, das ausgelieferte Formular                                                                                                                                                                                               |
+| der Diensthinweis auch ohne eigenen Dienst gerendert               | Story 3.1            | `smoke:http`, `und im Dokument der anderen Person fehlt er ganz`. Die frühere Angabe `smoke`, `wer keinen hat, bekommt null` misst den Rückgabewert der load und bliebe grün (Review Durchgang 2)                                      |
+| `selected` vom vorgewählten `<option>` entfernt                    | Story 3.1 (Review)   | `smoke:http`, drei Zeilen der Vorbelegung — die Textprüfung an der Komponente blieb grün, siehe unten                                                                                                                                  |
+| die Eindeutigkeitsbedingung aus `duty_weeks` entfernt              | Story 3.1            | `db:check`, die Abweichungsprüfung gegen die Migrationskette — **nicht** `smoke`: die Prüfdatenbank entsteht aus `drizzle/`, der Index steht dort, und jede Behauptung über die Zahl der Zeilen bliebe grün (Review Durchgang 2)       |
+| `<svelte:head>` mit dem Titel von `/dienstplan` entfernt           | Story 3.1 (Review)   | `smoke:http`, die Seitenschleife über **jede** gerenderte Seite — der Dienstplan fehlte dort und ging ohne Titel in Betrieb                                                                                                            |
+| die Markierung der laufenden Woche entfernt                        | Story 3.1 (Review)   | `smoke:http`, `die laufende Woche ist im ausgelieferten Plan genau einmal markiert` — vorher war nur der Erzeuger belegt, nicht der Verbraucher                                                                                        |
+| das ISO-Jahr aus der Wochenzeile entfernt                          | Story 3.1 (Review)   | `smoke:http`, `jede Wochenzeile nennt ihr ISO-Jahr` — ohne es standen `KW 53` und `KW 1` untereinander, ohne dass etwas das Jahr nannte                                                                                                |
+| der Zeilenbezug am Satz des abgewiesenen Besetzens entfernt        | Story 3.1 (Review)   | `smoke:http`, die Zählung über die Live-Regionen des abgewiesenen Dienstplan-Dokuments                                                                                                                                                 |
+| die Auswahl auch ins Dokument ohne Adminrechte gegeben             | Story 3.1 (Review)   | `smoke:http`, `ein besetzter Plan zeigt dem Mitglied den Namen, aber nie die Auswahl` — vorher am **leeren** Plan gemessen, auf dem ohnehin kein Name stand                                                                            |
+| nur die Fenstergrenze an heute statt am Montag gerechnet           | Story 3.1 (Review)   | `smoke`, `vom Montag derselben Woche aus gefragt kommt dieselbe Folge` — diese Nachbarin der benannten Mutation kam vorher durch                                                                                                       |
+| eine lokale `.hinweis`-Regel in `/dienstplan` zurückgestellt       | Review 3.1           | `smoke`, `die Seitenform liegt an einer Stelle` — `.hinweis` steht seit dem 2026-08-29 mit in der Liste                                                                                                                                |
+| der Verweis am `Besetzen`-Griff entfernt                           | 3.0.1 + 3.1          | `smoke:http`, zwei Zeilen: die Vollständigkeit über alle Arten und der Griff namentlich                                                                                                                                                |
+| der Verweis zeigt nur auf die Zeile, nicht auch auf sich selbst    | 3.0.1 + 3.1          | `smoke:http`, dieselben zwei Zeilen — sonst hiesse der Griff `Anna Meier`, und niemand wüsste, was er tut                                                                                                                              |
+| eine Kennung im Verweis verschrieben                               | 3.0.1 + 3.1          | `smoke:http`, `jeder Verweis löst sich im ausgelieferten Dokument auf` — die Meldung nennt die tote Kennung                                                                                                                            |
+| `bekannterName` aus der where-Klausel des Umbenennens genommen     | 3.0.1                | `smoke`, fünf Zeilen — der Versand aus dem veralteten Tab schreibt `Anna Meier` über `Anna Berger`, genau der Fehler, um den es geht                                                                                                   |
+| das versteckte `bekannterName` aus dem Formular entfernt           | 3.0.1                | `smoke:http`, `/verwaltung liefert das Umbenennen-Formular aus`                                                                                                                                                                        |
+| die Prüfung des Fensters aus der action `ablegen` genommen         | Eintrag 31           | `smoke`, sechs Zeilen über die zwei vertippten Jahre                                                                                                                                                                                   |
+| `FRIST_FENSTER_TAGE` von 365 auf 366 verschoben                    | Eintrag 31           | `smoke`, sechs Zeilen: die Konstante selbst, beide Fenstergrenzen, der Schalttag und die zwei Grenztage                                                                                                                                |
+| das Fenster als Kalenderjahr statt in Tagen gerechnet              | Eintrag 31           | `smoke`, `über einen Schalttag hinweg zählt das Fenster Tage und keine Jahre` — die anderen fünf Zeilen bleiben grün, weil 2026 und 2027 keine Schaltjahre sind                                                                        |
+| `min` und `max` vom Datumsfeld genommen                            | Eintrag 31           | `smoke:http`, drei Zeilen am ausgelieferten Feld                                                                                                                                                                                       |
+| der Satz zurück auf `seit N Wochen offen`                          | Eintrag 39           | `smoke`, der Satz im Markup; `smoke:http`, der ausgelieferte Absatz und die Suche nach dem alten Wortlaut                                                                                                                              |
+| `/verwaltung` aus der Zuordnung der Navigationsleiste genommen     | Eintrag 28           | `smoke`, `jede gerenderte Route steht in der Navigationsleiste` — die Meldung nennt die fehlende Route                                                                                                                                 |
+| beide `aria-current`-Fälle auf `page` zusammengezogen              | Eintrag 28           | `smoke`, `aria-current unterscheidet die angezeigte Seite vom laufenden Abschnitt`                                                                                                                                                     |
+| `/aufgabe` aus der Zuordnung genommen                              | Eintrag 28           | `smoke:http`, zwei Zeilen am ausgelieferten Dokument von `/aufgabe`                                                                                                                                                                    |
+| `U+200D` wieder bedingungslos ausgesiebt                           | Einträge 23, 24      | `smoke`, sechs Zeilen — die drei Emoji-Folgen, je an beiden Lesern                                                                                                                                                                     |
+| das Sieb zurück auf die fünf Nullbreiten-Zeichen                   | Einträge 23, 24      | `smoke`, zwölf Zeilen — sechs Zeichen, je an beiden Lesern                                                                                                                                                                             |
+| eine eigene Zeichenklasse in `mitgliedsname.ts` daneben            | Einträge 23, 24      | `smoke`, `die Liste der unsichtbaren Zeichen steht genau einmal` — die Meldung nennt beide Fundstellen                                                                                                                                 |
+| `member_id` in `signup_tasks` auf `notNull()` gesetzt              | Story 3.2            | `db:check`, die Migrationskette weicht vom Schema ab — die Nullbarkeit ist der Kern von AD-4 und darum an der Datenbank gemessen, nicht an der Route                                                                                   |
+| die Vorbedingung des Übernehmens aus der where-Klausel gelockert   | Story 3.2            | `smoke`, `die erste Zusage trifft die Zeile, die zweite keine` — das Wettrennen zweier gleichzeitiger Zusagen                                                                                                                          |
+| `is_active` aus der Freiheitsregel `frei` genommen                 | Story 3.2            | `smoke`, drei Zeilen über die beendete Person — die Einzelaufgabe bliebe an einem Namen hängen, den niemand mehr trägt                                                                                                                 |
+| `freieEinzelaufgabenLesen` filtert nicht mehr                      | Story 3.2            | `smoke`, `die übernommene verlässt die freie Liste` und die Zeile über Block 2 nach dem Übernehmen                                                                                                                                     |
+| die Prüfung auf `bestaetigt` aus der action genommen               | Story 3.2            | `smoke`, `und er ändert **nichts**` — der erste POST schriebe dann schon; `smoke:http`, die Gegenprobe am neu geladenen Dokument                                                                                                       |
+| Block 2 auf `/` auch ohne freie Einzelaufgabe gerendert            | Story 3.2            | `smoke`, `Block 2 auf / fehlt ganz oder gar nicht`                                                                                                                                                                                     |
+| `istImFristfenster` aus der action `ausschreiben` entfernt         | Story 3.2            | `smoke`, zwei Zeilen — ein Termin ein Jahr zu weit voraus und einer ebenso weit zurück                                                                                                                                                 |
+| der Bestätigungssatz als zweites Literal in den Dialog geschrieben | Story 3.2            | `smoke`, `Du übernimmst: steht genau einmal unter src/` — sonst läse, wer ohne JavaScript zusagt, einen anderen Satz als die daneben                                                                                                   |
+| die `.bestaetigung`-Regeln wieder in `/verwaltung` kopiert         | Story 3.2            | `smoke`, `die Seitenform liegt an einer Stelle` — die vier Dialog-Klassen stehen seit dieser Story mit in der Liste                                                                                                                    |
+| ein dritter `<dialog>` irgendwo im Baum                            | Story 3.2            | `smoke`, `genau zwei Bestätigungen im Produkt` — die Ausnahme darf nicht auf das Abhaken ausstrahlen                                                                                                                                   |
+| `/einzelaufgaben` aus der Zuordnung der Navigationsleiste genommen | Story 3.2            | `smoke`, `jede gerenderte Route steht in der Navigationsleiste` — die Meldung nennt die fehlende Route                                                                                                                                 |
+| `/einzelaufgabe` zusätzlich dem Ziel `/` zugeordnet                | Story 3.2            | `smoke`, `keine Route gehört zu zwei Einträgen zugleich` — die Zeile, die die Ein-Buchstabe-Nachbarschaft der zwei Pfade bewacht                                                                                                       |
+| eine der zwei neuen Seiten aus der Seitenschleife genommen         | Story 3.2            | `smoke:http`, sieben Zeilen je Seite — der `<title>` zuerst, die Lehre aus Story 3.1                                                                                                                                                   |
+| die Vorbedingung `frei()` aus dem UPDATE des Übernehmens genommen  | Story 3.2 (Review)   | `smoke`, das Wettrennen und der Name der ersten Zusage — seit dem Review ist es **derselbe Ausdruck** wie in den Leseabfragen, nicht mehr eine zweite Schreibweise                                                                     |
+| der Übernehmen-Knopf bleibt neben der offenen Frage stehen         | Story 3.2 (Review)   | `smoke`, `eine Zeile mit offener Frage zeigt ihren Übernehmen-Knopf nicht mehr` — zwei gleich beschriftete Knöpfe in einer Zeile                                                                                                       |
+| die Ansage der Frage aus `rueckmeldung` entfernt                   | Story 3.2 (Review)   | `smoke`, `verliert die Frage ihre Zeile, fällt sie nicht lautlos aus` — ohne JavaScript beginnt der Blick oben, die Frage steht unten                                                                                                  |
+| `meldung: 'Übernommen.'` aus dem Rückgabewert geändert             | Story 3.2 (Review)   | `smoke`, die ausgeführte Zeile des zweiten Schritts — vorher las sie nur `art` und `titel`, und der Fokusgriff hätte in eine leere Region gezeigt                                                                                      |
+| `?ausgeschrieben` im Parameternamen verschrieben                   | Story 3.2 (Review)   | `smoke`, drei Zeilen an der `load`; `smoke:http`, das Dokument `/?ausgeschrieben` — vorher mass nur der `location`-Kopf, und der bleibt bei einem Tippfehler grün                                                                      |
+| das dritte Argument aus einer Termin-Abweisung genommen            | Story 3.2 (Review)   | `smoke`, `der getippte Titel reist auch aus einer Termin-Abweisung zurück` — `abweisen` hat `eingabe = ''` als Vorgabe, das Weglassen war kein Typfehler                                                                               |
+| ein zweiter Rückruf auf einer Seite, die schon einen hat           | Story 3.2 (Review)   | `smoke`, die Wurf-Behauptung zählt seither **Rückrufe** und nicht Dateien — vorher deckte der eine den anderen                                                                                                                         |
+| eine der fünf neu geteilten Klassen wieder in eine Seite kopiert   | Story 3.2 (Review)   | `smoke`, `die Seitenform liegt an einer Stelle` — `.leer`, `.karte`, `.karte--eng` und `.marke` stehen seit dem Review mit in der Liste                                                                                                |
 
 `\|\| !mitglied.isActive` aus dem **Wächter** entfernt steht bewusst **nicht** in
 der Tabelle: diese Mutation war schon vor Iteration 2 rot.
@@ -1546,12 +1567,22 @@ tatsächlich gebundene Adresse, und eine Behauptung hält sie gegen die
 angeforderte. Unterprozess und Wegwerfverzeichnis fallen in einem `finally`, auch
 wenn eine Behauptung rot ist oder etwas Unerwartetes wirft.
 
-**Ausdrücklich nicht enthalten:** POST und `form actions` — `ORIGIN` und der
-freie Port fallen zwangsläufig auseinander, und ein CSRF-Verstoss wäre eine
-Aussage über die Prüfanlage statt über die Anwendung; die actions belegt `smoke`.
-Und kein kopfloser Browser: `showModal()`-Fokus, die Ansage der Live-Regionen
-und die Sperre gegen Doppelversand bleiben ungedeckt und sind als Stufe C an
-ihre eigene Auslösebedingung gebunden.
+**POST und `form actions` sind seit Story 3.1 enthalten** — der Satz hier sagte
+bis Story 3.2 das Gegenteil und stimmte seit der Woche davor nicht mehr. Die
+frühere Sorge war `ORIGIN` gegen den freien Port; sie ist gegenstandslos, seit
+`abschicken` denselben Wert in den `origin`-Kopf setzt, den der Unterprozess in
+seiner Umgebung trägt — dieselbe Zeichenkette, nicht eine zweite, die ihr
+gleicht. Was daran hängt, ist mehr als eine Bequemlichkeit: das Übernehmen einer
+Einzelaufgabe ist ohne JavaScript ein zweischrittiger POST, und die einzige
+Stelle, an der sich das **ausgeführt** belegen lässt, ist ein echter Server.
+
+**Ausdrücklich nicht enthalten:** ein kopfloser Browser. `showModal()`-Fokus, die
+Ansage der Live-Regionen und die Sperre gegen Doppelversand bleiben ungedeckt und
+sind als Stufe C an ihre eigene Auslösebedingung gebunden. Story 3.2 bringt die
+zweite Bestätigung mit Sicherheitszusage und war einmal genau diese Bedingung;
+der Entscheid vom 2026-08-28 hat sie neu gefasst, und der Dialog fällt nicht mehr
+darunter — die Bestätigung, um die es geht, ist eine Eigenschaft des Servers
+geworden und darum ohne Browser messbar.
 
 ### Was `npm run smoke:selftest` prüft
 
@@ -1694,25 +1725,62 @@ Woche gemeint ist.
   Namens, und wer die Seite per Sprache bedient, sagt, was er sieht.
 - **Die Zeilenkennung ist, was die Zeile identifiziert**: auf `/verwaltung` der
   Name samt `— Du`, auf `/dienstplan` die Kalenderwoche samt ISO-Jahr und, wenn
-  sie es ist, `diese Woche`.
+  sie es ist, `diese Woche`, in Block 2 auf `/` der Titel der Einzelaufgabe.
+- **Block 2 auf `/` ist die vierte Zeilenart**, seit Story 3.2. Ihr Knopf heisst
+  in jeder Zeile `Übernehmen` und zeigt darum auf sich selbst und dann auf
+  `einzel-titel-<id>` — `Übernehmen Setzlinge bei der Gärtnerei abholen`. Der
+  Posten war aus Story 3.0.1 und noch einmal aus Story 3.1 zurückgestellt, beide
+  Male mit der Auflage „in einem Zug, nicht an einer Stelle"; die neue Zeilenart
+  ist von Anfang an in der Form gebaut, in die die drei anderen am 2026-08-29
+  gebracht wurden.
 - **Gemessen wird am ausgelieferten HTML**, nicht am Quelltext. Die Kennungen
   tragen den Zeilenschlüssel als Interpolation; am Quelltext stünde dort eine
   geschweifte Klammer, und ob daraus ein **auflösbarer** Verweis wird, sähe man
   nicht. Ein `aria-labelledby` ins Leere ist stiller als gar keins.
-- **Eine benannte Ausnahme**: der Bestätigungsdialog zeigt auf eine Überschrift,
-  die erst mit der gewählten Zeile entsteht. Das ist richtig so — der Dialog ist
-  geschlossen, und sein Inhalt stünde sonst als leerer Satz im Quelltext jedes
-  Besuchers. Die Prüfung führt diese eine Kennung ausdrücklich als Ausnahme.
+- **Eine benannte Ausnahme**: die Bestätigungsdialoge zeigen auf eine
+  Überschrift, die erst mit der gewählten Zeile entsteht. Das ist richtig so —
+  der Dialog ist geschlossen, und sein Inhalt stünde sonst als leerer Satz im
+  Quelltext jedes Besuchers. Die Prüfung führt diese Kennungen ausdrücklich als
+  Ausnahme, und `smoke:http` misst die Gegenrichtung: kein ausgeliefertes
+  Dokument trägt `Du übernimmst: ,` oder `, aufgenommen am` ohne Inhalt.
 - Auf `/` stellte sich die Frage nie: dort holt das Kästchen seinen Namen seit
   Story 1.4 über `aria-labelledby` aus dem Aufgabentext derselben Zeile.
 
 ## Die geteilte Seitenform
 
 `src/lib/styles/bedienelemente.css` gilt auf jeder Seite — `+layout.svelte`
-bindet es neben `fonts.css` ein. Fünf Klassen stehen dort und **nirgends sonst**:
-`.seite`, `.seitentitel`, `.fehler`, `.live:empty` und seit dem 2026-08-29 auch
-`.hinweis`, der Nebentext. `smoke` behauptet je Klasse „genau einmal, im
-geteilten Stilblatt" und nennt im roten Fall die Fundstellen.
+bindet es neben `fonts.css` ein. **Dreizehn** Klassen stehen dort und **nirgends
+sonst**; `smoke` behauptet je Klasse „genau einmal, im geteilten Stilblatt" und
+nennt im roten Fall die Fundstellen:
+
+| Klasse                                             | Rolle                                | geteilt seit |
+| -------------------------------------------------- | ------------------------------------ | ------------ |
+| `.seite`, `.seitentitel`, `.fehler`, `.live:empty` | die Seitenform                       | 2026-08-29   |
+| `.hinweis` (+ `--am-feld`, `--ziffern`)            | Nebentext                            | 2026-08-29   |
+| `.abschnittstitel`                                 | Titel eines Abschnitts               | Story 3.2    |
+| `.bestaetigung` (+ `__text`, `__knoepfe`)          | der modale Dialog                    | Story 3.2    |
+| `.leer`                                            | der leere Zustand                    | Story 3.2    |
+| `.karte` (+ `--eng`)                               | eine Zeile, die einen Namen trägt    | Story 3.2    |
+| `.marke`                                           | die Abschnittsmarke über einer Liste | Story 3.2    |
+
+Der Dialog kam auf demselben Weg dazu wie `.hinweis`, nur früher gesehen: er lag
+in `/verwaltung` und war dort allein, solange es **eine** Bestätigung gab. Mit
+der zweiten auf `/` wäre die Kopie entstanden, gegen die dieser Block steht —
+zwei Dialoge, die sich um einen Radius oder eine Hintergrunddeckkraft
+unterscheiden, sind zwei Dialoge. Er ist gezogen worden, nicht kopiert.
+
+**Die anderen vier fand erst der Review zu Story 3.2**, und sie zeigen, wie der
+Posten wirklich nachwächst: nicht dadurch, dass jemand kopiert, sondern dadurch,
+dass eine neue Seite dasselbe noch einmal braucht. Die Story legte zwei Seiten an
+und machte dabei aus je einer bestehenden Regel drei Kopien — `.leer` stand
+danach in `/`, `/monatsplan` und `/einzelaufgaben`, die Karte in `/dienstplan`,
+`/` und `/einzelaufgaben`. Beide sind gezogen und stehen jetzt mit in der Wache.
+
+**Nicht** geteilt ist `.erfassen`, das Formularlayout von `/aufgabe` und
+`/einzelaufgabe` — vier Zeilen Flex ohne Aussage. Die dreizehn hier tragen je
+eine **Rolle**; eine generische Layoutklasse daneben wäre der Anfang einer
+Utility-Sammlung, die dieses Projekt nicht hat. Der Entscheid steht in
+`deferred-work.md`, damit die nächste Story ihn nicht neu treffen muss.
 
 `.hinweis` kam als letzte dazu, und ihr Weg dorthin ist der Grund für die Wache:
 sie stand in `/dienstplan` und `/monatsplan` mit denselben fünf
@@ -1735,16 +1803,27 @@ Unbebaut ist noch `/wissen`; bis dahin führt es auf die Fehlerseite mit
 `Diese Seite gibt es nicht.`
 
 - **Jede gerenderte Route gehört zu einem Eintrag** — auch die, die nicht unter
-  dessen Pfad liegt. `/aufgabe` gehört zu `Aufgaben`, `/monatsplan` und
-  `/verwaltung` zu `Mehr`. Zugeordnet wird nach dem **Weg dorthin** und nicht
-  nach dem Thema: `/aufgabe` erreicht man über den Knopf `+ Aufgabe` unter dem
-  Pool, die zwei anderen über die Einträge auf `/mehr`. Bis zum 2026-08-29 war
-  auf diesen drei Seiten **kein** Eintrag markiert, und die ganze Erfassung lief
-  ohne Ortsangabe.
+  dessen Pfad liegt. `/aufgabe` gehört zu `Aufgaben`; `/monatsplan`,
+  `/verwaltung`, `/einzelaufgabe` und `/einzelaufgaben` zu `Mehr`. Zugeordnet
+  wird nach dem **Weg dorthin** und nicht nach dem Thema: `/aufgabe` erreicht man
+  über den Knopf `+ Aufgabe` unter dem Pool, die vier anderen über die Einträge
+  auf `/mehr`. Bis zum 2026-08-29 war auf diesen Seiten **kein** Eintrag
+  markiert, und die ganze Erfassung lief ohne Ortsangabe.
+- **`/einzelaufgaben` hängt an `Mehr`, obwohl Block 2 auf `/` auch dorthin
+  führt.** Der Weg, der **immer** besteht, ist der Eintrag auf `/mehr`: der Block
+  fehlt ganz, sobald keine Einzelaufgabe frei ist. Eine Zuordnung an `/` hiesse,
+  dass die Leiste je nach Datenlage etwas anderes behauptet — und die Seite wäre
+  an manchen Tagen unerreichbar.
 - **Die Vollständigkeit ist gemessen, nicht beabsichtigt.** `smoke` liest die
   Routen aus dem Baum (`+page.svelte`) und hält sie gegen die Liste in der
   Komponente. Eine neue Route, die dort nicht eingetragen ist, macht die
-  Prüfliste rot — Story 3.2 legt zwei an.
+  Prüfliste rot — Story 3.2 hat zwei angelegt, und die Zeile hat sie beim ersten
+  Lauf gefunden.
+- **Und jede gehört zu genau einem Eintrag, nicht bloss zu mindestens einem.**
+  `/einzelaufgabe` und `/einzelaufgaben` unterscheiden sich um einen Buchstaben;
+  griffe der Vergleich an der Segmentgrenze daneben, gehörte einer von beiden zu
+  zwei Zielen, und die Leiste markierte zwei zugleich. Die Zuordnung ist eine
+  Gestaltungsentscheidung — dass sie eindeutig ist, ist es nicht.
 - **`aria-current` trägt zwei Werte, weil es zwei Aussagen sind.** `page` heisst
   „das hier ist die angezeigte Seite"; auf `/aufgabe` wäre das am Eintrag
   `Aufgaben` eine Falschaussage. `true` heisst „das hier ist der laufende
@@ -1758,10 +1837,16 @@ Unbebaut ist noch `/wissen`; bis dahin führt es auf die Fehlerseite mit
 ## Aufgaben sehen und abhaken
 
 `/` ist die ganze Anwendung in einem Bild. Die Seite führt genau drei Blöcke in
-dieser Reihenfolge — Diensthinweis, freie Einzelaufgaben, offener Pool. Die
-ersten zwei kommen mit Epic 3 und rendern in diesem Stand nichts; die Reihenfolge
-steht trotzdem schon, weil sie eine Entscheidung über die Aufmerksamkeit im
-Garten ist und nicht eine Folge davon, in welcher Reihenfolge gebaut wurde.
+dieser Reihenfolge — Diensthinweis, freie Einzelaufgaben, offener Pool. Seit
+Story 3.2 sind alle drei gebaut; die Reihenfolge stand schon, als zwei Drittel
+leer waren, weil sie eine Entscheidung über die Aufmerksamkeit im Garten ist und
+nicht eine Folge davon, in welcher Reihenfolge gebaut wurde.
+
+Die ersten zwei **fehlen ganz**, wenn sie nichts zu sagen haben: Block 1 ohne
+eigenen Dienst, Block 2 ohne eine freie Einzelaufgabe. Kein leerer Rahmen, kein
+`{:else}`, kein Satz darüber, dass nichts da ist. Der dritte ist die Ausnahme und
+sagt `Nichts offen.` — der Pool ist der Gegenstand dieser Seite und darf nicht
+verschwinden.
 
 Der dritte Block trägt unter der Marke `OFFEN` alle offenen Aufgaben, **älteste
 zuerst**, vollständig und ohne Nachladen. Erledigte erscheinen nicht — auch nicht
@@ -1772,7 +1857,12 @@ Platz: siehe
 
 - **Ein Antippen erledigt.** Kein Formular, kein Statusfeld, kein Pflichtkommentar,
   kein Bestätigungsdialog, kein zweiter Knopf. Es ist das einzige
-  Interaktionsmuster, das jede Person kennen muss.
+  Interaktionsmuster, das jede Person kennen muss. Story 3.2 stellt mit dem
+  Übernehmen einer Einzelaufgabe die zweite Bestätigung des Produkts **direkt
+  darüber**, in Block 2 derselben Seite, und ändert an dieser Zeile trotzdem
+  nichts: der Pool bleibt namenlos und rückfragefrei. `smoke` hält beides
+  zusammen fest — genau zwei `<dialog>` im ganzen Baum, und keiner davon im
+  `{#if}`-Block des Pools.
 - **Nur das Kästchen ist antippbar**, nicht die Zeile und nicht der Text. Sichtbar
   22px, Trefferfeld 44px über Innenabstand — ein Trefferfeld über die ganze Zeile
   würde im Beet, mit Handschuhen, versehentlich Aufgaben erledigen. Der
@@ -2360,6 +2450,113 @@ Identität nicht" auf „kann nicht unterscheiden", diese misst das Ergebnis sel
 Wer die alte Zeile bei so einer Gelegenheit streicht, statt sie zu verengen,
 behält von der Zusage nur den Kommentar.
 
+## Einzelaufgaben ausschreiben und übernehmen
+
+Eine **Einzelaufgabe** ist etwas Unregelmässiges mit Titel und Termin, das genau
+eine Person übernimmt — Setzlinge abholen, den Anhänger fahren. Ausgeschrieben
+wird auf `/einzelaufgabe` (Eintrag auf `/mehr`), übernommen in Block 2 auf `/`,
+und wer was übernommen hat, steht auf `/einzelaufgaben`. **Ausschreiben und
+Übernehmen dürfen alle**; es gibt keine zweite Schranke neben dem Wächter.
+
+**Die mittlere von drei Verbindlichkeiten, nachlesbar an einer Spalte.** Das ist
+der Kern von AD-4, und das Schema soll ihn zeigen:
+
+| Tabelle        | Mitgliedsspalte               | heisst                                 |
+| -------------- | ----------------------------- | -------------------------------------- |
+| `tasks`        | keine für die Zuständigkeit   | namenlos, jede greift, was sie schafft |
+| `signup_tasks` | `member_id` **nullbar**       | null oder eine Person                  |
+| `duty_weeks`   | `member_id` **nicht nullbar** | genau eine Person                      |
+
+Keine Basistabelle darüber, keine Typspalte, kein gemeinsames Interface. Eine
+Zusammenlegung hätte genau den Unterschied verdeckt, um den es geht.
+
+**Das Übernehmen ist verbindlich und wird darum bestätigt** — die einzige
+Bestätigung im Aufgabenbereich, und die zweite im ganzen Produkt neben dem
+Widerruf einer Einladung. Das Abhaken im Pool bleibt daneben eine einzige
+Interaktion ohne Rückfrage; die Ausnahme darf nicht dorthin ausstrahlen, und
+`smoke` hält das mit einer Zählung über die `<dialog>`-Elemente fest.
+
+**Die Bestätigung ist eine Eigenschaft des Servers, nicht des Browsers.** Die
+action `uebernehmen` auf `/` verzweigt an einem Feld:
+
+```
+POST ?/uebernehmen  ohne `bestaetigt`  → keine Mutation, Rückgabe { art: 'fragen', … }
+POST ?/uebernehmen  mit  `bestaetigt`  → einzelaufgabeUebernehmen(id, mitglied)
+```
+
+Ohne JavaScript ist die Antwort auf den ersten POST ein vollständiges Dokument,
+und die Seite rendert `Du übernimmst: <Titel>, <Termin>.` an der Zeile, um die es
+geht — **statt** ihres Knopfs, nicht darunter: zwei gleich beschriftete Knöpfe in
+einer Zeile, von denen einer bestätigt und der andere nachfragt, sind für jede
+Person ununterscheidbar, die sie einzeln vorgelesen bekommt. Oben in der Meldung
+steht dazu `Bitte bestätigen: <Titel>`, denn die Antwort auf einen POST ist ein
+frisches Dokument, und der Blick beginnt oben. Mit JavaScript bricht der
+`use:enhance`-Rückruf den ersten Versand ab und öffnet statt dessen den Dialog —
+aber nur, wenn der Dialog wirklich aufgeht: fehlt er, läuft der gewöhnliche POST
+durch, und die Ausfallrichtung ist der Weg ohne JavaScript.
+
+**Die Frage kann ihre Zeile verlieren.** Zwischen der Antwort der action und dem
+Rendern läuft die `load` erneut; hat in diesem Fenster jemand anders zugesagt,
+steht die Aufgabe nicht mehr in der Liste, und die Frage hätte keine Zeile mehr,
+an der sie erscheinen könnte. Dann sagt statt dessen die Fehlerregion
+`Diese Einzelaufgabe lässt sich nicht ansprechen.` — derselbe Satz wie beim
+verlorenen Wettrennen, und derselbe Ausgang. Der zweite Versand ist in beiden Fällen derselbe
+POST, und der Satz steht an **einer** Stelle im Baum — sonst läse, wer ohne
+JavaScript zusagt, einen anderen als die daneben.
+
+Der Gegenentwurf steht auf `/verwaltung`: dort ist der Widerruf-Knopf ein
+`type="button"`, und ohne JavaScript passiert nichts. Für eine **zerstörende**
+Handlung einer Adminperson ist das die richtige Ausfallrichtung. Hier wäre sie
+die falsche — Übernehmen ist die Kernhandlung, sie gehört allen, und „ohne
+JavaScript geht es gar nicht" wäre eine stille Einschränkung genau der
+Verbindlichkeit, die entstehen soll. `smoke:http` geht die drei Schritte darum
+als echte POSTs ohne `x-sveltekit-action`: ausschreiben, fragen, zusagen.
+
+**Ein beendeter Zugang gibt die Einzelaufgabe frei.** Dieselbe Lage wie im
+Dienstplan, mit der anderen Folge: dort fällt die Woche auf `— unbesetzt —` und
+wartet auf die Verwaltung, hier fällt die Aufgabe zurück in Block 2 und wartet
+auf die Nächste. Der Datensatz bleibt in beiden Fällen stehen — `member_id` zeigt
+weiter auf die ausgetretene Person, die **Darstellung** fällt zurück. Ein
+`innerJoin` liesse die Zeile statt dessen verschwinden: nicht frei, sondern
+unsichtbar, und niemand käme je auf die Idee, sie zu nehmen.
+
+**Das Wettrennen entscheidet die where-Klausel.** Greifen zwei Personen im selben
+Moment nach derselben Aufgabe, trifft das zweite UPDATE keine Zeile und bekommt
+`null`; die zu spät kommende liest, dass ihr Griff nichts geändert hat, und nicht,
+wer schneller war. Ein Select in der Route hätte genau hier ein Fenster, in dem
+die zweite die erste überschriebe — und die erste hätte vor allen zugesagt und
+stünde nirgends.
+
+**Ein Satz für fünf Zustände.** Fehlende Id, nicht numerische Id, unbekannte Id,
+schon übernommen und das verlorene Wettrennen fallen auf
+`EINZELAUFGABE_NICHT_ANSPRECHBAR` zusammen. Jede Abweichung im Wortlaut wäre ein
+Aufzählungskanal, an dem sich ablesen liesse, welche Einzelaufgaben es gibt und
+in welchem Zustand sie sind — dieselbe Regel wie bei Mitglied, Aufgabe und Woche.
+
+**Der Termin teilt die Regel mit `Fällig bis`, nicht den Satz.** Ein Jahr in jede
+Richtung (`FRIST_FENSTER_TAGE`), `min`/`max` am Feld **und** die Prüfung in der
+action gegen die Uhr des Versands; jenseits davon derselbe `FRIST_AUSSERHALB`.
+Der Satz für das **fehlende** Feld ist ein eigener: „Wähle ein Datum, bis zu dem
+die Aufgaben erledigt sein sollen" beschreibt einen Stapel, nicht einen Termin
+für eine Sache.
+
+**Der Titel ist die dritte Wurfstelle der Faltkette** — `aufgabentextFalten` und
+`AUFGABE_HOECHSTLAENGE`, geteilt mit `/aufgabe` und `/monatsplan`. Die Triage vom
+2026-08-28 hatte diese dritte Stelle als Fälligkeit von Posten B5 benannt und die
+Zeichenklasse einen Tag vorher nach `src/lib/unsichtbar.ts` gezogen; Story 3.2
+hat sie geschenkt bekommen, statt sie zu wiederholen. Ein Titel aus lauter
+U+2800 fällt darum am Server, obwohl er `required` im Browser passiert.
+
+**`/einzelaufgaben` liest und handelt nicht.** Kein Formular, kein Knopf, keine
+action — das ist keine Auslassung, sondern eine gemessene Zusage: übernommen wird
+an **einer** Stelle. Zwei Wege in dieselbe Mutation wären zwei Wege, von denen
+einer beim nächsten Anfassen zurückbleibt.
+
+**Die Ordnung ist der Termin**, dann die Id. Anders als der Pool, der nach
+`created_at` ordnet: eine Poolaufgabe trägt keine Frist, und eine Liste, die sich
+zwischen zwei Aufrufen umsortiert, wäre dort der Fehler. Eine Einzelaufgabe trägt
+einen Termin, und danach entscheidet eine Person, ob sie sie nimmt.
+
 ## Was noch nicht hier ist
 
 - **Eine Aufgabe bearbeiten oder löschen gibt es nicht.** Ein Tippfehler im
@@ -2371,9 +2568,17 @@ behält von der Zusage nur den Kommentar.
   wird: sie wird es 21 Tage nach ihrer **Erfassung**, weil die Frist ersatzweise
   ab `created_at` zählt — ohne dass jemand ein Datum gesetzt hat und ohne dass es
   einen Weg gäbe, diesen Zeitpunkt zu verschieben.
-- Freie Einzelaufgaben, also Block 2 auf `/`: **Story 3.2**. Der Platz ist
-  angelegt, der Block rendert nichts. Block 1, der Diensthinweis, steht seit
-  Story 3.1.
+- **Eine übernommene Einzelaufgabe wieder abgeben gibt es nicht**, und ein
+  Erledigt-Zustand für sie auch nicht. Wer zusagt, sagt zu; die Sache ist getan,
+  wenn der Termin vorbei ist. Ein Häkchen daneben wäre eine zweite
+  Verbindlichkeit über derselben Sache, ein Abgeben die Verhandlung, die dieses
+  Epic gerade abschafft. Beides steht in der Spezifikation von Story 3.2 unter
+  „Ask First" — es ist benannt und nicht vergessen.
+- **Eine freie Einzelaufgabe verfällt nicht.** Steht ihr Termin in der
+  Vergangenheit und hat niemand sie genommen, bleibt sie in Block 2 stehen, wie
+  eine Poolaufgabe stehenbleibt. Das ist eine benannte Warze: ein stilles
+  Verschwinden wäre die schlechtere Antwort auf etwas, das niemand übernommen
+  hat, und es gibt im ganzen Produkt keine Löschen-Aktion.
 - Es gibt bewusst keinen Service Worker: `static/manifest.webmanifest` und die
   Icons genügen für die Installation zum Home-Bildschirm, und ein Datencache
   würde Erledigtes als offen zeigen.

@@ -2,12 +2,18 @@ import type { Actions, RequestEvent, ServerLoadEvent } from '@sveltejs/kit';
 import { abweisen } from '../lib/server/abweisen.ts';
 import { eigeneDienstwoche } from '../lib/server/db/queries/duty-weeks.ts';
 import {
+	einzelaufgabeUebernehmen,
+	freieEinzelaufgabeLesen,
+	freieEinzelaufgabenLesen,
+	type Einzelaufgabe,
+} from '../lib/server/db/queries/signup-tasks.ts';
+import {
 	aufgabeAbhaken,
 	aufgabeWiederOeffnen,
 	offeneAufgabenAuflisten,
 	type OffeneAufgabe,
 } from '../lib/server/db/queries/tasks.ts';
-import { AUFGABE_NICHT_ANSPRECHBAR } from '../lib/texte.ts';
+import { AUFGABE_NICHT_ANSPRECHBAR, EINZELAUFGABE_NICHT_ANSPRECHBAR } from '../lib/texte.ts';
 import { wochendatum } from '../lib/zeit.ts';
 
 /*
@@ -32,7 +38,12 @@ import { wochendatum } from '../lib/zeit.ts';
  */
 
 /**
- * Liest die aufgabeId aus dem Formular, oder null.
+ * Liest eine Id aus dem Formular, oder null.
+ *
+ * Seit Story 3.2 hat sie zwei Leser auf dieser Seite: `aufgabeId` in den zwei
+ * Pool-actions und `einzelaufgabeId` im Übernehmen. Beide meinen dasselbe — eine
+ * positive Ganzzahl aus einem versteckten Feld —, und ein zweiter Leser mit
+ * eigener Prüfung wäre die zweite Wahrheit darüber, was eine Id ist.
  *
  * Wortgleich mit idLesen in ../verwaltung/+page.server.ts, und die Verdopplung
  * ist billiger als eine gemeinsame Stelle: die Funktion ist fünf Zeilen ohne
@@ -70,8 +81,13 @@ function abgelegtLesen(url: URL): number | null {
 }
 
 /**
- * Die offenen Aufgaben, älteste zuerst — dazu der eigene Dienst dieser Woche und
- * ob gerade etwas abgelegt wurde.
+ * Die offenen Aufgaben, älteste zuerst — dazu die freien Einzelaufgaben, der
+ * eigene Dienst dieser Woche und ob gerade etwas abgelegt oder ausgeschrieben
+ * wurde.
+ *
+ * **Die drei Blöcke dieser Seite in der Reihenfolge von AD-14:** Diensthinweis,
+ * freie Einzelaufgaben, Aufgaben-Pool. Der erste ist personenbezogen, die
+ * anderen beiden sind für alle gleich.
  *
  * **Die Aufgabenliste ist für alle dieselbe, und das bleibt so.** Bis Story 3.1
  * las diese Funktion aus dem Ereignis allein die Adresse — weder locals noch
@@ -84,6 +100,11 @@ function abgelegtLesen(url: URL): number | null {
  *   - `cookies` bleibt unberührt — das Ereignis wirft dort weiterhin;
  *   - zwei load-Aufrufe mit **verschiedenen** locals.mitglied geben eine
  *     wortgleiche Aufgabenliste zurück. Verschieden ist allein `dienst`.
+ *
+ * Story 3.2 fügt `einzelaufgaben` hinzu und weicht die Zusage **nicht** weiter
+ * auf: die freien Einzelaufgaben sind für alle dieselben. Wer diese Liste je
+ * nach betrachtender Person verschieden macht — „nur die, die ich nicht selbst
+ * ausgeschrieben habe" wäre die naheliegende Versuchung —, bricht sie.
  *
  * Der namenlose Pool ist damit weiterhin gemessen und nicht bloss behauptet
  * (AD-2). Wer die alte Zeile streicht, statt sie zu verengen, behält davon nur
@@ -130,11 +151,20 @@ function abgelegtLesen(url: URL): number | null {
  * Der Preis ist benannt und abgenommen: die Adresse trägt den Parameter
  * sichtbar, ein Neuladen wiederholt die Meldung, und wer die Adresse von Hand
  * eintippt, sieht sie auch. Eine Bestätigung ohne Folgen verträgt das.
+ *
+ * `ausgeschrieben` ist derselbe Mechanismus mit **eigenem** Parameter, seit
+ * Story 3.2. Ein Wahrheitswert und keine Zahl: /einzelaufgabe schreibt genau
+ * eine aus, es gibt keinen Stapel. Und nicht `?abgelegt` wiederverwendet —
+ * abgelegt wird eine Aufgabe in den Pool, ausgeschrieben wird eine
+ * Einzelaufgabe, und die zwei Verben stehen für zwei Verbindlichkeiten. Ein
+ * gemeinsamer Parameter hiesse `Abgelegt.` über etwas, das niemand abgelegt hat.
  */
 export function load({ locals, url }: ServerLoadEvent): {
 	aufgaben: OffeneAufgabe[];
+	einzelaufgaben: Einzelaufgabe[];
 	dienst: { datum: string } | null;
 	abgelegt: number | null;
+	ausgeschrieben: boolean;
 } {
 	const jetztSekunden = Math.floor(Date.now() / 1000);
 	const mitglied = locals.mitglied;
@@ -156,8 +186,24 @@ export function load({ locals, url }: ServerLoadEvent): {
 	const eigene = mitglied === null ? null : eigeneDienstwoche(mitglied.id, jetztSekunden);
 	return {
 		aufgaben: offeneAufgabenAuflisten(jetztSekunden),
+		/*
+		 * Nur die **freien**. Eine übernommene Einzelaufgabe verlässt diese Seite —
+		 * sie trägt einen Namen, und damit ist sie geregelt; wer wissen will, wer
+		 * was übernommen hat, findet es auf /einzelaufgaben. Die Startseite
+		 * beantwortet die Frage „was ist noch offen", und dazu gehört eine
+		 * übernommene Sache nicht mehr.
+		 *
+		 * Ohne Bezugszeitpunkt und ohne Fenster: ein vergangener Termin nimmt eine
+		 * freie Einzelaufgabe **nicht** aus der Liste. Sie bleibt stehen wie eine
+		 * Poolaufgabe stehenbleibt — es gibt keine Löschen-Aktion und kein
+		 * Verfallen, und ein stilles Verschwinden wäre die schlechtere Antwort auf
+		 * etwas, das niemand übernommen hat.
+		 */
+		einzelaufgaben: freieEinzelaufgabenLesen(),
 		dienst: eigene === null ? null : { datum: wochendatum(eigene.woche) },
 		abgelegt: abgelegtLesen(url),
+		// Ohne Wert und ohne Deutung: der Parameter ist da oder nicht.
+		ausgeschrieben: url.searchParams.has('ausgeschrieben'),
 	};
 }
 
@@ -241,6 +287,94 @@ export const actions = {
 			meldung: 'Wieder offen.',
 			aufgabeId: aufgabe.id,
 			text: aufgabe.text,
+		};
+	},
+
+	/**
+	 * Übernimmt eine freie Einzelaufgabe — **in zwei Schritten, an einer action**.
+	 *
+	 * Das Übernehmen ist verbindlich und wird darum bestätigt; es ist die einzige
+	 * Bestätigung im Aufgabenbereich, und das Abhaken im Pool bleibt daneben eine
+	 * einzige Interaktion ohne Rückfrage. Diese Ausnahme darf nicht dorthin
+	 * ausstrahlen.
+	 *
+	 * **Die Bestätigung ist eine Eigenschaft des Servers und nicht des Browsers.**
+	 * Ein POST ohne `bestaetigt` ändert nichts und beantwortet die Frage, ob es
+	 * das wirklich sein soll; erst ein POST **mit** `bestaetigt` schreibt. Ohne
+	 * JavaScript ist die Antwort auf den ersten POST ein vollständiges Dokument,
+	 * und die Seite rendert die Bestätigung an der Zeile; mit JavaScript bricht
+	 * der use:enhance-Rückruf den ersten Versand ab und öffnet statt dessen den
+	 * Dialog. Der zweite Versand ist in beiden Fällen derselbe POST.
+	 *
+	 * Der Gegenentwurf steht auf /verwaltung: dort ist der Widerruf-Knopf ein
+	 * `type="button"`, und ohne JavaScript passiert nichts. Für eine
+	 * **zerstörende** Handlung einer Adminperson ist das die richtige
+	 * Ausfallrichtung. Hier wäre sie die falsche — Übernehmen ist die Kernhandlung
+	 * dieser Story, sie gehört allen, und „ohne JavaScript geht es gar nicht" wäre
+	 * eine stille Einschränkung genau der Verbindlichkeit, die entstehen soll.
+	 *
+	 * Titel und Termin der Bestätigung kommen aus der **Datenbank** und nicht aus
+	 * dem abgeschickten Formular: ein Bestätigungssatz, dessen Text der Absender
+	 * mitschickt, bestätigt nichts.
+	 *
+	 * Dass ein gebauter POST den ersten Schritt überspringen kann, ist kein Leck.
+	 * Eine Bestätigung ist eine Höflichkeit gegenüber dem Daumen und keine
+	 * Schranke — die Handlung selbst steht jedem aktiven Mitglied offen.
+	 *
+	 * Die Vorbedingung „noch frei" steht in einzelaufgabeUebernehmen und damit in
+	 * der where-Klausel des UPDATE. Diese action prüft den Zustand vor dem
+	 * Schreiben deshalb **nicht** noch einmal: zwischen dem Lesen für die
+	 * Bestätigung und dem Schreiben liegt die Zeit, die jemand zum Lesen braucht,
+	 * und in der kann eine andere zugesagt haben.
+	 */
+	uebernehmen: async ({ locals, request }: RequestEvent) => {
+		const mitglied = locals.mitglied;
+		// Unerreichbar: der Wächter hat vorher mit 403 abgewiesen. Die Prüfung steht
+		// hier, weil der Typ null zulässt — und ein `!` machte diese Seite von einer
+		// Annahme über eine andere Datei abhängig. Ohne Identität gibt es niemanden,
+		// der zusagen könnte, und verändert wird nichts.
+		if (mitglied === null) {
+			return abweisen(EINZELAUFGABE_NICHT_ANSPRECHBAR);
+		}
+
+		const formular = await request.formData();
+		const id = idLesen(formular.get('einzelaufgabeId'));
+		if (id === null) {
+			return abweisen(EINZELAUFGABE_NICHT_ANSPRECHBAR);
+		}
+
+		// Schritt 1: fragen. `has` und nicht ein Wertvergleich — das Feld ist eine
+		// Marke, kein Wert, und ein `bestaetigt=nein` gäbe es im Markup nicht.
+		if (!formular.has('bestaetigt')) {
+			const frei = freieEinzelaufgabeLesen(id);
+			// Unbekannt und schon übernommen fallen hier zusammen.
+			if (frei === null) {
+				return abweisen(EINZELAUFGABE_NICHT_ANSPRECHBAR);
+			}
+			return {
+				art: 'fragen' as const,
+				einzelaufgabeId: frei.id,
+				titel: frei.titel,
+				terminAt: frei.terminAt,
+			};
+		}
+
+		// Schritt 2: schreiben.
+		const uebernommen = einzelaufgabeUebernehmen(id, { id: mitglied.id, name: mitglied.name });
+		// Unbekannt, schon übernommen und das verlorene Wettrennen fallen hier
+		// zusammen — dieselbe Bauform wie beim Abhaken.
+		if (uebernommen === null) {
+			return abweisen(EINZELAUFGABE_NICHT_ANSPRECHBAR);
+		}
+
+		// `art` ist der Diskriminator, den der Rückruf im Markup liest. Der Titel
+		// darf mit — er steht ohnehin in der Liste; die Mitglieds-Id nicht, sie
+		// steht in keiner Ansicht.
+		return {
+			art: 'uebernommen' as const,
+			meldung: 'Übernommen.',
+			einzelaufgabeId: uebernommen.id,
+			titel: uebernommen.titel,
 		};
 	},
 } satisfies Actions;
