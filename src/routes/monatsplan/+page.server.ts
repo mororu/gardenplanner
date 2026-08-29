@@ -2,8 +2,14 @@ import { redirect } from '@sveltejs/kit';
 import type { Actions, RequestEvent } from '@sveltejs/kit';
 import { AUFGABE_HOECHSTLAENGE, PLAN_HOECHSTZAHL, zeilenErkennen } from '../../lib/aufgabentext.ts';
 import { abweisen } from '../../lib/server/abweisen.ts';
+import { DATUM_FEHLT, FRIST_AUSSERHALB } from '../../lib/texte.ts';
 import { aufgabenStapelAnlegen } from '../../lib/server/db/queries/tasks.ts';
-import { monatsendeAlsFeldwert, tagesendeInUnixSekunden } from '../../lib/zeit.ts';
+import {
+	fristfenster,
+	istImFristfenster,
+	monatsendeAlsFeldwert,
+	tagesendeInUnixSekunden,
+} from '../../lib/zeit.ts';
 
 /*
  * /monatsplan — den ganzen Monatsplan in einem Zug ablegen.
@@ -41,8 +47,11 @@ import { monatsendeAlsFeldwert, tagesendeInUnixSekunden } from '../../lib/zeit.t
  * machen.
  */
 
-/** Ohne ein Datum entsteht kein Stapel. Eine Wurfstelle. */
-const DATUM_FEHLT = 'Wähle ein Datum, bis zu dem die Aufgaben erledigt sein sollen.';
+/*
+ * Die zwei Sätze über das Datum stehen in ../../lib/texte.ts: die Komponente
+ * daneben sagt beide früher, und zwei Paare wortgleicher Literale wären genau
+ * die Drift, gegen die jenes Modul steht.
+ */
 
 /** Ohne Zeilen entsteht kein Plan. Eine Wurfstelle. */
 const ZEILEN_FEHLEN = 'Ohne Zeilen entsteht kein Plan. Schreib eine Aufgabe pro Zeile.';
@@ -68,7 +77,8 @@ function zuLangSatz(anzahl: number): string {
 }
 
 /**
- * Die Seitendaten: **nur** die Vorbelegung des Datumsfeldes.
+ * Die Seitendaten: die Vorbelegung des Datumsfeldes und die zwei Grenzen des
+ * Fensters, in dem eine Frist liegen darf.
  *
  * `Fällig bis` ist Pflicht und mit dem Ende des laufenden Monats vorbelegt. Eine
  * Planaufgabe ohne Frist wäre von einer vor Ort erfassten nicht mehr zu
@@ -79,11 +89,30 @@ function zuLangSatz(anzahl: number): string {
  * Geräts, und am Monatsersten um 00:30 stünden zwei verschiedene Werte im Feld.
  * Die Zone kommt aus ../../lib/zeit.ts und steht genau dort.
  *
+ * Die drei Werte entstehen an **einer** Uhr, nicht an dreien: sonst fielen
+ * Vorbelegung und Grenzen um Mitternacht auseinander, und das Feld trüge einen
+ * Vorgabewert, den seine eigene Obergrenze verbietet.
+ *
+ * Die Grenzen sind die Bequemlichkeit — der Kalender des Browsers springt gar
+ * nicht erst weiter, und die Komponente sperrt `Weiter`. Die Instanz bleibt die
+ * action darunter, die dieselbe Regel aus derselben Konstante noch einmal
+ * rechnet: ein POST braucht kein Feld.
+ *
  * Sie nimmt **kein Ereignis** entgegen, und das ist die Aussage: sie liest
  * weder locals noch cookies noch die Adresse. Alle sehen dieselbe Vorgabe.
  */
-export function load(): { faelligBisVorgabe: string } {
-	return { faelligBisVorgabe: monatsendeAlsFeldwert(Math.floor(Date.now() / 1000)) };
+export function load(): {
+	faelligBisVorgabe: string;
+	faelligBisFrueheste: string;
+	faelligBisSpaeteste: string;
+} {
+	const jetzt = Math.floor(Date.now() / 1000);
+	const { frueheste, spaeteste } = fristfenster(jetzt);
+	return {
+		faelligBisVorgabe: monatsendeAlsFeldwert(jetzt),
+		faelligBisFrueheste: frueheste,
+		faelligBisSpaeteste: spaeteste,
+	};
 }
 
 /*
@@ -108,10 +137,11 @@ export const actions = {
 	 * Legt den ganzen Stapel ab und leitet auf die Liste zurück.
 	 *
 	 * **Die Reihenfolge der Prüfungen ist festgelegt** und nicht beliebig: erst
-	 * das Datum, dann ob überhaupt Zeilen da sind, dann die Höchstzahl, dann die
-	 * Zeilenlänge. Sie geht vom Billigen zum Teuren und, wichtiger, vom
-	 * Grundsätzlichen zum Einzelnen: wer das Datum vergessen hat, soll das lesen
-	 * und nicht zuerst erfahren, dass drei Zeilen zu lang sind.
+	 * das Datum — seine Form, dann seine Reichweite —, dann ob überhaupt Zeilen da
+	 * sind, dann die Höchstzahl, dann die Zeilenlänge. Sie geht vom Billigen zum
+	 * Teuren und, wichtiger, vom Grundsätzlichen zum Einzelnen: wer das Datum
+	 * vergessen hat, soll das lesen und nicht zuerst erfahren, dass drei Zeilen zu
+	 * lang sind.
 	 *
 	 * **Ein Aufruf, ein INSERT.** aufgabenStapelAnlegen setzt alle Zeilen mit
 	 * demselben due_at in einem mehrzeiligen INSERT — das ist in SQLite atomar,
@@ -139,6 +169,13 @@ export const actions = {
 		// jede Unterscheidung wäre eine Auskunft ohne Handlung.
 		if (faelligAm === null) {
 			return abweisen(DATUM_FEHLT, 'datum');
+		}
+		// Gleiches Feld, gleicher Platz in der Kette, ein zweiter Satz: erst ob
+		// überhaupt ein Tag gemeint ist, dann ob er in Reichweite liegt. Die Uhr
+		// ist die des **Versands** und nicht die der load — zwischen Aufruf und
+		// Absenden kann eine Nacht liegen, und dann ist das Fenster ein anderes.
+		if (!istImFristfenster(faelligAm, Math.floor(Date.now() / 1000))) {
+			return abweisen(FRIST_AUSSERHALB, 'datum');
 		}
 
 		const rohZeilen = formular.get('zeilen');

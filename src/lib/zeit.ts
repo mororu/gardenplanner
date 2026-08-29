@@ -523,3 +523,109 @@ export function wochendatum(woche: Woche): string {
 		new Date(sonntag * 1000)
 	)}`;
 }
+
+/*
+ * ---------------------------------------------------------------------------
+ * Das Fenster, in dem eine Frist liegen darf.
+ *
+ * Entschieden am 2026-08-28 und bis dahin als Eintrag 31 zurückgestellt: `Fällig
+ * bis` nahm jedes formgültige Datum an, und ein vertipptes Jahr legte bis zu
+ * hundert sofort überfällige Aufgaben an, die keine Löschen-Aktion aufräumt.
+ *
+ * **Die Zahl steht hier**, neben ZEITZONE und UEBERFAELLIG_SEKUNDEN, weil sie
+ * von derselben Art ist: eine Produktentscheidung über Zeit, die genau einmal
+ * geschrieben gehört. Sie steht **unten** und nicht oben bei der Schwelle, weil
+ * sie auf der Tagesarithmetik der Kalenderwoche aufsetzt — tageszahl und
+ * montagVon stehen darüber, und eine zweite Tagesrechnung wäre genau die zweite
+ * Wahrheit, gegen die dieses Modul steht.
+ * ---------------------------------------------------------------------------
+ */
+
+/**
+ * Wie weit eine Frist höchstens von heute entfernt liegen darf: ein Jahr in
+ * **jede** Richtung, hart abgewiesen.
+ *
+ * **Warum ein Fenster und nicht „Vergangenheit abweisen".** Ein Monatsplan wird
+ * auch dann nachgetragen, wenn der Monat schon halb vorbei ist; eine harte
+ * Grenze bei heute bräche diesen legitimen Fall. Eine blosse Warnung wäre die
+ * schlechteste Fassung — wegklickbar, auf der einzigen Handlung ohne
+ * Rückgängig. Das Fenster tut beides nicht und fängt trotzdem jeden plausiblen
+ * Vertipper: `1990`, `2016` und `2062` liegen alle draussen.
+ *
+ * **Symmetrisch, obwohl der Schaden es nicht ist.** Eine Frist ein Jahr zurück
+ * legt bis zu PLAN_HOECHSTZAHL sofort überfällige Aufgaben an, eine ein Jahr
+ * voraus ist bloss sinnlos. Zwei Grenzen mit zwei Sätzen wären der teurere Weg
+ * zum selben Ergebnis; die Asymmetrie steht darum hier im Kommentar und nicht
+ * im Code.
+ *
+ * **365 und nicht „ein Kalenderjahr".** Gezählt wird in Tagen, nicht in
+ * Jahren: ein Schaltjahr verschöbe die Grenze um einen Tag, und dieser Tag
+ * entscheidet über nichts. Die runde Zahl ist ehrlicher als eine Rechnung, die
+ * Genauigkeit vortäuscht, wo keine gebraucht wird.
+ *
+ * Zwei Leser, und sie lesen dieselbe Zahl auf zwei Wegen: fristfenster darunter
+ * macht daraus die zwei Feldwerte für `min`/`max` am Datumsfeld,
+ * istImFristfenster die Prüfung in der action. Das Feld ist die Bequemlichkeit,
+ * die action die Instanz — dasselbe Verhältnis wie `maxlength` zu
+ * AUFGABE_HOECHSTLAENGE.
+ */
+export const FRIST_FENSTER_TAGE = 365;
+
+/** Ein Kalendertag als Feldwert `JJJJ-MM-TT` — die Umkehrung von tageszahl. */
+function feldwertVonTageszahl(tag: number): string {
+	const datum = new Date(tag * TAG_SEKUNDEN * 1000);
+	return `${datum.getUTCFullYear()}-${zweistellig(datum.getUTCMonth() + 1)}-${zweistellig(
+		datum.getUTCDate()
+	)}`;
+}
+
+/** Der Kalendertag, auf den ein Zeitpunkt **in der Zone** fällt. */
+function tageszahlInZone(unixSekunden: number): number {
+	const { jahr, monat, tag } = teileInZone(unixSekunden);
+	return tageszahl(jahr, monat, tag);
+}
+
+/**
+ * Die Grenzen des Fensters als Feldwerte — genau die zwei Zeichenketten, die
+ * als `min` und `max` an das Datumsfeld gehen.
+ *
+ * Sie entstehen auf dem **Server** und nicht im Browser, aus demselben Grund
+ * wie die Vorbelegung daneben: sonst rechnete der Server in UTC und das Gerät
+ * in der Ortszeit, und am Monatsersten um 00:30 stünden zwei verschiedene
+ * Grenzen im Feld.
+ *
+ * @param jetztSekunden Der Bezugszeitpunkt in Unix-Sekunden.
+ */
+export function fristfenster(jetztSekunden: number): { frueheste: string; spaeteste: string } {
+	const heute = tageszahlInZone(jetztSekunden);
+	return {
+		frueheste: feldwertVonTageszahl(heute - FRIST_FENSTER_TAGE),
+		spaeteste: feldwertVonTageszahl(heute + FRIST_FENSTER_TAGE),
+	};
+}
+
+/**
+ * Liegt eine Frist im Fenster?
+ *
+ * Gerechnet wird auf **Kalendertagen in der Zone** und nicht auf einer
+ * Sekundendifferenz. Der Unterschied ist der Grund, warum diese Funktion neben
+ * der Tagesarithmetik steht und nicht neben wochenOffenSeit: dort werden zwei
+ * Zeitpunkte verglichen, und eine Differenz in Sekunden hat keine Zone. Hier
+ * wird ein **Tag** mit einem **Tag** verglichen, und dieselbe Grenze soll den
+ * ganzen Tag über an derselben Stelle liegen — eine Sekundenrechnung liesse die
+ * Grenze im Lauf des Tages um Stunden wandern, weil `faelligAm` das Tagesende
+ * ist und `jetzt` irgendwann davor liegt.
+ *
+ * Die Grenztage selbst liegen **drinnen**: `<=` und nicht `<`. Sie sind genau
+ * die Tage, die `fristfenster` als `min` und `max` an das Feld schreibt, und
+ * ein Datumsfeld lässt seine eigenen Grenzwerte zu. Eine strengere Prüfung als
+ * das Feld wäre eine Abweisung dessen, was die Oberfläche gerade angeboten hat.
+ *
+ * @param faelligAmSekunden Die Frist als Tagesende in der Zone, wie
+ *   tagesendeInUnixSekunden sie liefert.
+ * @param jetztSekunden Der Bezugszeitpunkt in Unix-Sekunden.
+ */
+export function istImFristfenster(faelligAmSekunden: number, jetztSekunden: number): boolean {
+	const abstand = Math.abs(tageszahlInZone(faelligAmSekunden) - tageszahlInZone(jetztSekunden));
+	return abstand <= FRIST_FENSTER_TAGE;
+}

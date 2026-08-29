@@ -82,7 +82,7 @@ import { KEIN_ZUGANG, MITGLIED_NICHT_ANSPRECHBAR } from '../src/lib/texte.ts';
  * mit — genau wie in scripts/smoke-zugang.ts. Eine Seite mehr in `seiten` sind
  * sieben Behauptungen mehr, und dieselbe Zahl steht in README.md.
  */
-const ERWARTETE_BEHAUPTUNGEN = 102;
+const ERWARTETE_BEHAUPTUNGEN = 106;
 
 const GUTES_GEHEIMNIS = 'smoke-http-geheimnis-mit-genug-verschiedenen-zeichen-0123456789';
 
@@ -806,6 +806,71 @@ try {
 			!saat.klartexte.some((token) => html.includes(token))
 		);
 	}
+
+	// --- Das Fenster an `Fällig bis`, am ausgelieferten Feld gemessen ---------
+	/*
+	 * Eintrag 31, entschieden am 2026-08-28: `Fällig bis` nimmt nur noch ein Datum
+	 * an, das höchstens ein Jahr von heute entfernt liegt. Die Regel selbst misst
+	 * `smoke` an fester Uhr; hier wird gemessen, was wirklich **ausgeliefert**
+	 * wird — genau der Unterschied, für den Story 3.0 dieses Skript gebaut hat.
+	 *
+	 * Die zwei erwarteten Tage werden **unabhängig** gerechnet: heute in der Zone,
+	 * dann 365 Tage in Millisekunden davor und danach. Über fristfenster gerechnet
+	 * läse diese Behauptung nur ihre eigene Vorbereitung.
+	 *
+	 * Vor **und** nach der Anfrage gemessen, und beide Werte gelten — dieselbe
+	 * Vorsicht wie bei der Vorbelegung in `smoke`: fiele Mitternacht dazwischen,
+	 * wäre der Lauf einmal im Jahr zufällig rot.
+	 */
+	const tagInZone = (jetztMs: number): string =>
+		new Intl.DateTimeFormat('en-CA', {
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			timeZone: 'Europe/Zurich',
+		}).format(new Date(jetztMs));
+	const TAG_MS = 24 * 60 * 60 * 1000;
+	const vorAbruf = Date.now();
+	const planAntwort = await holen(port, '/monatsplan', { keks: adminKeks });
+	const planHtml = await planAntwort.text();
+	const nachAbruf = Date.now();
+
+	const datumsfeld = /<input\b[^>]*\bid="faellig-bis"[^>]*>/.exec(planHtml)?.[0] ?? '';
+	pruefen(
+		'das ausgelieferte Datumsfeld steht genau einmal im HTML',
+		(planHtml.match(/\bid="faellig-bis"/g) ?? []).length === 1,
+		`gefunden: ${(planHtml.match(/\bid="faellig-bis"/g) ?? []).length}`
+	);
+	const grenzeAus = (name: string): string =>
+		new RegExp(`\\b${name}="([^"]*)"`).exec(datumsfeld)?.[1] ?? '';
+	for (const [name, richtung] of [
+		['min', -1],
+		['max', 1],
+	] as const) {
+		const erlaubt = [
+			tagInZone(vorAbruf + richtung * 365 * TAG_MS),
+			tagInZone(nachAbruf + richtung * 365 * TAG_MS),
+		];
+		pruefen(
+			`das ausgelieferte Feld trägt ${name} = heute ${richtung < 0 ? 'minus' : 'plus'} 365 Tage`,
+			erlaubt.includes(grenzeAus(name)),
+			`war ${JSON.stringify(grenzeAus(name))}, erwartet eines aus ${JSON.stringify(erlaubt)}`
+		);
+	}
+	/*
+	 * Die Vorbelegung muss **innerhalb** der eigenen Grenzen liegen. Das ist keine
+	 * Selbstverständlichkeit, sondern die Zusage, dass alle drei Werte an
+	 * derselben Uhr entstehen: käme die Vorgabe aus einer zweiten Messung, stünde
+	 * am Monatsersten um 00:30 ein Vorgabewert im Feld, den seine eigene
+	 * Obergrenze verbietet — und der Browser meldete es nicht, weil Schritt 1 kein
+	 * `<form>` ist.
+	 */
+	const vorgabe = grenzeAus('value');
+	pruefen(
+		'und die Vorbelegung liegt zwischen den beiden Grenzen',
+		vorgabe !== '' && vorgabe >= grenzeAus('min') && vorgabe <= grenzeAus('max'),
+		`Vorgabe ${JSON.stringify(vorgabe)} zwischen ${JSON.stringify(grenzeAus('min'))} und ${JSON.stringify(grenzeAus('max'))}`
+	);
 
 	// --- Die Adminweiche über HTTP --------------------------------------------
 	const mitgliedEingeloest = await holen(port, `/i/${saat.mitgliedToken}`);

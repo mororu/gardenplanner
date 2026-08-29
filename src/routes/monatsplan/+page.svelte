@@ -7,7 +7,7 @@
 	import { PLAN_HOECHSTZAHL, zeilenErkennen } from '$lib/aufgabentext';
 	import { datumLang } from '$lib/client/utils/date';
 	import { tagesendeInUnixSekunden } from '$lib/zeit';
-	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
+	import { DATUM_FEHLT, FRIST_AUSSERHALB, VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
 	import type { PageProps } from './$types';
 
 	const { data, form }: PageProps = $props();
@@ -104,24 +104,59 @@
 	const faelligLang = $derived(faelligAm === null ? '' : datumLang(faelligAm));
 
 	/**
-	 * Der Satz unter dem Datumsfeld. Leer, solange das Datum taugt.
+	 * Liegt das Datum im Fenster, das die zwei Grenzen aus der load aufspannen?
 	 *
-	 * Das `required` am Feld ist wirkungslos, weil Schritt 1 kein `<form>` ist und
-	 * es nichts gibt, was die Bedingungsprüfung des Browsers auslöste. Wer das
-	 * Feld leert, käme ohne diesen Satz bis in den Prüfschritt und läse dort
-	 * `24 Aufgaben, fällig bis ` — einen Satz, der mitten in einer Präposition
-	 * endet — über einem freigeschalteten Knopf, den erst der Server abwiese.
+	 * **Verglichen wird auf den Zeichenketten**, nicht auf Zeitpunkten, und das
+	 * ist kein Kniff: `JJJJ-MM-TT` sortiert als Text genau wie als Datum, und die
+	 * zwei Grenzen sind buchstäblich dieselben zwei Werte, die unten als `min` und
+	 * `max` am Feld stehen. Diese Zeile sagt damit nichts anderes, als was der
+	 * Browser selbst schon weiss — sie macht es nur hörbar. Eine zweite Uhr im
+	 * Browser wäre der Fehler: sie liefe gegen die des Servers, und die Grenze
+	 * spränge beim Hydrieren.
+	 *
+	 * Die Instanz bleibt die action; sie rechnet aus derselben Konstante noch
+	 * einmal, an ihrer eigenen Uhr.
 	 */
-	const datumHinweis = $derived(
-		faelligAm === null ? 'Wähle ein Datum, bis zu dem die Aufgaben erledigt sein sollen.' : ''
+	const datumImFenster = $derived(
+		faelligBis >= data.faelligBisFrueheste && faelligBis <= data.faelligBisSpaeteste
 	);
 
 	/**
-	 * Warum `Weiter` gesperrt ist — **drei** Gründe, und jeder trägt daneben
-	 * seinen Satz: keine Zeile, zu viele Zeilen, kein brauchbares Datum. Alle
-	 * drei prüft der Server noch einmal; hier werden sie nur früher gesagt.
+	 * Der Satz unter dem Datumsfeld. Leer, solange das Datum taugt.
+	 *
+	 * Das `required` und das `min`/`max` am Feld sind wirkungslos, weil Schritt 1
+	 * kein `<form>` ist und es nichts gibt, was die Bedingungsprüfung des Browsers
+	 * auslöste. Wer das Feld leert, käme ohne diesen Satz bis in den Prüfschritt
+	 * und läse dort `24 Aufgaben, fällig bis ` — einen Satz, der mitten in einer
+	 * Präposition endet — über einem freigeschalteten Knopf, den erst der Server
+	 * abwiese.
+	 *
+	 * **Zwei Zustände, zwei Sätze**, wortgleich mit den zwei Sätzen der action:
+	 * kein brauchbarer Tag, oder ein Tag ausser Reichweite. Die Reihenfolge ist
+	 * dieselbe wie dort — erst die Form, dann die Reichweite —, denn ein leeres
+	 * Feld liegt auch ausserhalb des Fensters, und `Prüfe die Jahreszahl` wäre
+	 * darauf die falsche Auskunft.
 	 */
-	const weiterGesperrt = $derived(erkannt.length === 0 || zuVieleZeilen || faelligAm === null);
+	const datumHinweis = $derived.by(() => {
+		if (faelligAm === null) return DATUM_FEHLT;
+		if (!datumImFenster) return FRIST_AUSSERHALB;
+		return '';
+	});
+
+	/**
+	 * Warum `Weiter` gesperrt ist — **vier** Gründe, und jeder trägt daneben
+	 * seinen Satz: keine Zeile, zu viele Zeilen, kein brauchbares Datum, ein
+	 * Datum ausser Reichweite. Alle vier prüft der Server noch einmal; hier
+	 * werden sie nur früher gesagt.
+	 *
+	 * Der vierte ist seit dem Fenster an `Fällig bis` dabei, und er verdient
+	 * seinen Platz genau hier: wer sich in der Jahreszahl vertippt, hätte sonst
+	 * vierzig Zeilen durch den Prüfschritt getragen, um am Server abgewiesen zu
+	 * werden.
+	 */
+	const weiterGesperrt = $derived(
+		erkannt.length === 0 || zuVieleZeilen || faelligAm === null || !datumImFenster
+	);
 
 	/**
 	 * Der Zwischentext über der Prüfliste.
@@ -413,6 +448,13 @@
 					ohne Frist wäre von einer vor Ort erfassten nicht mehr zu
 					unterscheiden, und die Monatsplan-Ausnahme aus Story 2.2 fiele still
 					aus.
+
+					`min` und `max` spannen das Fenster von einem Jahr in jede Richtung
+					auf. Sie greifen wie das `required` nicht als Bedingungsprüfung, aber
+					sie tun etwas, was kein Satz kann: der Kalender des Browsers springt
+					gar nicht erst über die Grenze hinaus. Getippt werden kann ein Jahr
+					daneben trotzdem — dafür stehen die Sperre an `Weiter` und, als
+					Instanz, die zweite Prüfung in der action.
 				-->
 				<label class="feld__beschriftung" for="faellig-bis">Fällig bis</label>
 				<input
@@ -420,9 +462,11 @@
 					id="faellig-bis"
 					type="date"
 					required
+					min={data.faelligBisFrueheste}
+					max={data.faelligBisSpaeteste}
 					bind:value={faelligBis}
 					oninput={quittieren}
-					aria-invalid={fehlerAmDatum || faelligAm === null ? 'true' : undefined}
+					aria-invalid={fehlerAmDatum || faelligAm === null || !datumImFenster ? 'true' : undefined}
 					aria-describedby={datumBeschreibung === '' ? undefined : datumBeschreibung}
 				/>
 				<!--

@@ -162,3 +162,38 @@ export const VERSAND_FEHLGESCHLAGEN =
  */
 export const WOCHE_NICHT_ANSPRECHBAR =
 	'Diese Woche lässt sich nicht ansprechen. Lade den Plan neu.';
+
+/**
+ * Ohne Datum entsteht kein Stapel. **Zwei** Wurfstellen: die action `ablegen` in
+ * src/routes/monatsplan/+page.server.ts und der Hinweis unter dem Datumsfeld in
+ * der Komponente daneben.
+ *
+ * Ein Satz für vier Zustände — Feld fehlt, Feld leer, keine Form `JJJJ-MM-TT`,
+ * unmögliches Datum wie `2026-02-31` —, aus demselben Grund wie bei
+ * MITGLIED_NICHT_ANSPRECHBAR: jede Unterscheidung wäre eine Auskunft ohne
+ * Handlung.
+ *
+ * Er steht hier und nicht als Literal an beiden Stellen, seit das Fenster an
+ * `Fällig bis` daneben einen **zweiten** solchen Satz gebracht hat. Zwei Paare
+ * wortgleicher Literale sind das Muster, aus dem Drift entsteht: wer den einen
+ * anfasst, sieht den anderen nicht.
+ */
+export const DATUM_FEHLT = 'Wähle ein Datum, bis zu dem die Aufgaben erledigt sein sollen.';
+
+/**
+ * Eine Frist ausserhalb des Fensters von einem Jahr in jede Richtung.
+ * **Zwei** Wurfstellen, dieselben zwei wie bei DATUM_FEHLT.
+ *
+ * Der Satz nennt die **Jahreszahl**, weil sie der Fehler ist: ein Datumsfeld
+ * lässt Tag und Monat kaum verrutschen, das Jahr schon — `2016` statt `2026`
+ * ist ein Anschlag daneben. Die Grenze selbst steht nicht im Satz: „ein Jahr"
+ * ist die Auskunft, die zur Handlung führt, und die zwei Grenzdaten wären eine
+ * Zahl mehr, die niemand nachrechnet.
+ *
+ * Die Zahl dahinter ist FRIST_FENSTER_TAGE in src/lib/zeit.ts, und sie steht
+ * dort genau einmal. Dieser Satz nennt sie nur in Worten — „ein Jahr" bleibt
+ * wahr, solange die Konstante bei 365 steht, und wer sie verschiebt, schreibt
+ * ihn mit.
+ */
+export const FRIST_AUSSERHALB =
+	'Diese Frist liegt mehr als ein Jahr von heute entfernt. Prüfe die Jahreszahl.';

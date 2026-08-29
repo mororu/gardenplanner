@@ -122,7 +122,10 @@ import { tokenErzeugen, tokenHashen } from '../src/lib/server/token.ts';
  * Zusage.
  */
 import {
+	FRIST_FENSTER_TAGE,
+	fristfenster,
 	isoWocheVon,
+	istImFristfenster,
 	istWoche,
 	monatsendeAlsFeldwert,
 	montagDerWoche,
@@ -157,7 +160,9 @@ import { zeilenErkennen } from '../src/lib/aufgabentext.ts';
 import { NAME_FEHLT, NAME_HOECHSTLAENGE, NAME_ZU_LANG } from '../src/lib/mitgliedsname.ts';
 import {
 	AUFGABE_NICHT_ANSPRECHBAR,
+	DATUM_FEHLT,
 	EIGENER_ZUGANG_GESCHUETZT,
+	FRIST_AUSSERHALB,
 	KEIN_ZUGANG,
 	MITGLIED_NICHT_ANSPRECHBAR,
 	NICHT_GEFUNDEN,
@@ -173,7 +178,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 475;
+const ERWARTETE_BEHAUPTUNGEN = 493;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -3323,9 +3328,9 @@ try {
 	const planDaten = wertVon(await routenausgang(() => monatsplan.load()));
 	const nachLoad = Math.floor(Date.now() / 1000);
 	pruefenGleich(
-		'die load von /monatsplan gibt genau ein Feld',
+		'die load von /monatsplan gibt genau drei Felder',
 		Object.keys(planDaten).sort().join(', '),
-		'faelligBisVorgabe'
+		'faelligBisFrueheste, faelligBisSpaeteste, faelligBisVorgabe'
 	);
 	const erlaubteVorgaben = [monatsendeUnabhaengig(vorLoad), monatsendeUnabhaengig(nachLoad)];
 	pruefen(
@@ -3333,6 +3338,75 @@ try {
 		erlaubteVorgaben.includes(textFeld(planDaten, 'faelligBisVorgabe')),
 		`war ${JSON.stringify(textFeld(planDaten, 'faelligBisVorgabe'))}, erwartet ${JSON.stringify(erlaubteVorgaben)}`
 	);
+
+	// -----------------------------------------------------------------------
+	// Das Fenster an `Fällig bis` — Eintrag 31, entschieden am 2026-08-28
+	// -----------------------------------------------------------------------
+	/*
+	 * Gemessen wird an **festen** Uhren und nicht an der laufenden. Das ist hier
+	 * nicht Bequemlichkeit, sondern die einzige Fassung ohne Zeitfenster: eine
+	 * Grenzprobe an der echten Uhr wäre einmal im Jahr rot, wenn zwischen dem
+	 * Bauen des Datums und dem Aufruf Mitternacht liegt. fristfenster und
+	 * istImFristfenster nehmen den Bezugszeitpunkt beide als Parameter, genau
+	 * damit das geht.
+	 *
+	 * Die erwarteten Daten stehen **literal** und sind nicht gerechnet: eine
+	 * Behauptung, die dieselbe Tagesarithmetik ruft, die sie prüft, liest nur ihre
+	 * eigene Vorbereitung.
+	 */
+	pruefenGleich(
+		'FRIST_FENSTER_TAGE ist die Zahl, die hier ausgefahren wird',
+		FRIST_FENSTER_TAGE,
+		365
+	);
+
+	const UHR_2026 = Math.floor(Date.UTC(2026, 8, 30, 10, 0, 0) / 1000);
+	const fenster2026 = fristfenster(UHR_2026);
+	pruefenGleich(
+		'das Fenster um den 30. September 2026 reicht vom 30. September 2025',
+		fenster2026.frueheste,
+		'2025-09-30'
+	);
+	pruefenGleich('… bis zum 30. September 2027', fenster2026.spaeteste, '2027-09-30');
+
+	/*
+	 * Die zweite Uhr steht über einem Schalttag, und sie ist der Beleg für die
+	 * Zusage „365 Tage, nicht ein Kalenderjahr": 365 Tage vor dem 1. März 2028
+	 * liegt der **2.** März 2027, weil der 29. Februar 2028 dazwischenliegt. Wer
+	 * FRIST_FENSTER_TAGE durch eine Jahresrechnung ersetzte, machte hier den 1.
+	 * März 2027 daraus und diese Zeile rot.
+	 */
+	const UHR_2028 = Math.floor(Date.UTC(2028, 2, 1, 10, 0, 0) / 1000);
+	pruefenGleich(
+		'über einen Schalttag hinweg zählt das Fenster Tage und keine Jahre',
+		fristfenster(UHR_2028).frueheste,
+		'2027-03-02'
+	);
+
+	/*
+	 * Und hier schliesst sich der Kreis: **dieselben** zwei Feldwerte, die als
+	 * `min` und `max` an das Datumsfeld gehen, muss die action zulassen — ein
+	 * Feld, dessen eigener Grenzwert abgewiesen wird, böte etwas an, was es nicht
+	 * gibt. Der Tag daneben fällt heraus.
+	 *
+	 * Gerechnet wird über tagesendeInUnixSekunden, weil die action genau das tut;
+	 * die vier Daten selbst stehen wieder literal.
+	 */
+	const imFenster = (feldwert: string): boolean => {
+		const tagesende = tagesendeInUnixSekunden(feldwert);
+		return tagesende !== null && istImFristfenster(tagesende, UHR_2026);
+	};
+	const fensterProben = [
+		['die untere Grenze selbst', '2025-09-30', true],
+		['der Tag davor', '2025-09-29', false],
+		['die obere Grenze selbst', '2027-09-30', true],
+		['der Tag danach', '2027-10-01', false],
+		['ein vertipptes 2016', '2016-09-30', false],
+		['ein vertipptes 2062', '2062-09-30', false],
+	] as const;
+	for (const [wie, feldwert, soll] of fensterProben) {
+		pruefenGleich(`istImFristfenster: ${wie} (${feldwert})`, imFenster(feldwert), soll);
+	}
 
 	// -----------------------------------------------------------------------
 	// src/lib/zeit.ts, ausgeführt an festen Zeitpunkten
@@ -3606,6 +3680,17 @@ try {
 		).size === 1,
 		JSON.stringify([...planSaetze])
 	);
+	/*
+	 * Und dieser eine Satz ist der aus src/lib/texte.ts. Seit die Komponente ihn
+	 * ebenfalls sagt, steht er dort und nicht mehr als Literal in der Route; ohne
+	 * diese Zeile bliebe die Prüfliste grün, wenn eine der zwei Wurfstellen sich
+	 * vom Modul löste — dieselbe Klammer wie bei NAME_FEHLT.
+	 */
+	pruefenGleich(
+		'und es ist DATUM_FEHLT aus dem geteilten Modul',
+		planSaetze.get('mit leerem faelligBis') ?? '',
+		DATUM_FEHLT
+	);
 	pruefen(
 		'der Satz zur Überlänge nennt die Zahl der zu langen Zeilen und die Grenze 200',
 		(planSaetze.get('mit zwei Zeilen zu 201 Codepoints') ?? '').includes('2 Zeilen') &&
@@ -3616,6 +3701,44 @@ try {
 		'der Satz zur Höchstzahl nennt die 100',
 		(planSaetze.get('mit 101 Zeilen') ?? '').includes('100'),
 		JSON.stringify(planSaetze.get('mit 101 Zeilen'))
+	);
+
+	/*
+	 * Die Abweisung wegen des Fensters steht **ausserhalb** der Matrix darüber,
+	 * und zwar mit Absicht: sie trägt am selben Feld einen **anderen** Satz. Die
+	 * Zeile darüber behauptet, dass alle fünf Formfehler denselben Satz tragen —
+	 * hier ist die Unterscheidung gerade erwünscht, weil sie zu einer anderen
+	 * Handlung führt. Ein Datum, das keine Form hat, muss gewählt werden; eines
+	 * mit vertippter Jahreszahl muss korrigiert werden.
+	 *
+	 * Die zwei Daten liegen so weit draussen, dass keine laufende Uhr sie je ins
+	 * Fenster holt — die Grenze selbst ist oben an fester Uhr gemessen.
+	 */
+	const fensterAbweisungen = [
+		['mit dem vertippten 1990-01-01', '1990-01-01'],
+		['mit dem vertippten 2062-01-01', '2062-01-01'],
+	] as const;
+	for (const [wie, feldwert] of fensterAbweisungen) {
+		const vorher = aufgabenZaehlen();
+		const ausgang = await planAblegenMit({ faelligBis: feldwert, zeilen: 'Beet 25 jäten' });
+		pruefen(
+			`ablegen ${wie} ergibt 400 am Feld datum`,
+			ausgang.art === 'fehlschlag' && ausgang.status === 400 && ausgang.daten.feld === 'datum',
+			ausgang.art === 'fehlschlag'
+				? `${ausgang.status} am Feld ${JSON.stringify(ausgang.daten.feld)}`
+				: `Ausgang ${ausgang.art}`
+		);
+		pruefenGleich(`ablegen ${wie} legt keine Zeile an`, aufgabenZaehlen(), vorher);
+		pruefenGleich(
+			`ablegen ${wie} trägt den Satz über die Jahreszahl`,
+			textFeld(datenVon(ausgang), 'meldung'),
+			FRIST_AUSSERHALB
+		);
+	}
+	pruefen(
+		'und dieser Satz ist ein anderer als der der fünf Formfehler',
+		FRIST_AUSSERHALB !== (planSaetze.get('mit leerem faelligBis') ?? ''),
+		`Formfehler sagt ${JSON.stringify(planSaetze.get('mit leerem faelligBis'))}`
 	);
 
 	// -----------------------------------------------------------------------
@@ -3895,8 +4018,10 @@ try {
 				),
 		],
 		[
-			'und markiert sich, solange das Datum nicht taugt',
-			/aria-invalid=\{fehlerAmDatum \|\| faelligAm === null \? 'true' : undefined\}/.test(planCode),
+			'und markiert sich, solange das Datum nicht taugt oder ausser Reichweite liegt',
+			/aria-invalid=\{fehlerAmDatum \|\| faelligAm === null \|\| !datumImFenster\s*\?\s*'true'\s*:\s*undefined\}/.test(
+				planCode
+			),
 		],
 	] as const;
 	pruefen(
@@ -4003,8 +4128,8 @@ try {
 			) && !/<form\b/.test(schrittEins),
 		],
 		[
-			'gesperrt ohne Zeile, über der Höchstzahl und ohne Datum',
-			/const weiterGesperrt = \$derived\(\s*erkannt\.length === 0 \|\| zuVieleZeilen \|\| faelligAm === null\s*\);/.test(
+			'gesperrt ohne Zeile, über der Höchstzahl, ohne Datum und ausser Reichweite',
+			/const weiterGesperrt = \$derived\(\s*erkannt\.length === 0 \|\| zuVieleZeilen \|\| faelligAm === null \|\| !datumImFenster\s*\);/.test(
 				planCode
 			),
 		],
@@ -5525,7 +5650,11 @@ try {
 				`${name} fängt result.type === 'error' ab und zeigt den geteilten Satz`,
 				/if \(result\.type === 'error'\) \{/.test(text) &&
 					/versandFehler = VERSAND_FEHLGESCHLAGEN;/.test(text) &&
-					/import \{ VERSAND_FEHLGESCHLAGEN \} from '\$lib\/texte';/.test(text),
+					// Der Import wird über den **Namen** geprüft und nicht über die ganze
+					// Zeile: /monatsplan zieht seit dem Fenster an `Fällig bis` drei
+					// Namen aus demselben Modul, und eine Behauptung über die Form der
+					// Importzeile prüfte die Zeichensetzung statt der Herkunft.
+					/import \{[^}]*\bVERSAND_FEHLGESCHLAGEN\b[^}]*\} from '\$lib\/texte';/.test(text),
 			] as const
 	);
 	pruefen(
