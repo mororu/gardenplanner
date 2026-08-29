@@ -62,6 +62,7 @@
 			return `${form.meldung} Der Einladungslink für ${form.name} steht oben — nur jetzt.`;
 		}
 		if (form.art === 'widerrufen') return `${form.meldung} ${form.name} hat keinen Zugang mehr.`;
+		if (form.art === 'umbenannt') return `${form.meldung} Die Zeile heisst jetzt ${form.name}.`;
 		return '';
 	});
 
@@ -74,7 +75,26 @@
 	*/
 	let versandFehler = $state('');
 
-	/** Die Meldung eines Fehlschlags, der nicht an das Namensfeld gehört. */
+	/** Die Meldung am Namensfeld einer Zeile, im aufgeklappten Formular selbst. */
+	const fehlerAmNeuenNamen = $derived(
+		form !== null && form.art === 'fehler' && form.feld === 'neuerName' ? form.meldung : ''
+	);
+
+	/**
+	 * **Welche** Zeile abgewiesen wurde — oder null.
+	 *
+	 * Der Wert kommt aus der Antwort des Servers und **nicht** aus einem
+	 * Client-Zustand, den ein use:enhance-Rückruf füllte. Genau darin liegt der
+	 * Unterschied: ohne JavaScript läuft kein Rückruf, und alles, was an ihm
+	 * hinge — das aufgeklappte Formular, die verworfene Eingabe im Feld,
+	 * `aria-invalid`, der Fokus —, fiele lautlos weg. `form` steht dagegen auch
+	 * im vollständigen HTML-Dokument, das ein POST ohne JavaScript zurückgibt.
+	 */
+	const fehlerZeile = $derived(
+		form !== null && form.art === 'fehler' && form.feld === 'neuerName' ? form.zeile : null
+	);
+
+	/** Die Meldung eines Fehlschlags, der an kein Feld gehört. */
 	const fehlerOben = $derived(
 		versandFehler !== ''
 			? versandFehler
@@ -83,13 +103,26 @@
 				: ''
 	);
 
-	/** Die Meldung am Namensfeld, im Formular selbst. */
+	/** Die Meldung am Namensfeld der Aufnahme, im Formular selbst. */
 	const fehlerAmNamen = $derived(
 		form !== null && form.art === 'fehler' && form.feld === 'name' ? form.meldung : ''
 	);
 
-	/** Die Eingabe bleibt nach einem Fehlschlag stehen. */
-	const nameEingabe = $derived(form !== null && form.art === 'fehler' ? form.eingabe : '');
+	/*
+		Die Eingabe bleibt nach einem Fehlschlag stehen — je Feld die eigene.
+
+		Die Marke wird **mitgelesen** und nicht bloss `art === 'fehler'` geprüft:
+		sonst trüge ein abgewiesenes Umbenennen seinen verworfenen Namen in das
+		Aufnahmefeld, und wer danach aufnimmt, nähme jemanden unter dem Namen auf,
+		den er eben zu ändern versucht hat.
+	*/
+	const nameEingabe = $derived(
+		form !== null && form.art === 'fehler' && form.feld === 'name' ? form.eingabe : ''
+	);
+
+	const neuerNameEingabe = $derived(
+		form !== null && form.art === 'fehler' && form.feld === 'neuerName' ? form.eingabe : ''
+	);
 
 	// -------------------------------------------------------------------
 	// Versand: eine Sperre für die ganze Seite, plus Fokus danach
@@ -124,7 +157,7 @@
 	function fokusNach(ergebnis: ActionResult): void {
 		const daten =
 			ergebnis.type === 'success' || ergebnis.type === 'failure'
-				? (ergebnis.data as { art?: unknown } | undefined)
+				? (ergebnis.data as { art?: unknown; zeile?: unknown } | undefined)
 				: undefined;
 		const art = typeof daten?.art === 'string' ? daten.art : '';
 
@@ -133,6 +166,24 @@
 			return;
 		}
 		if (art === 'fehler') {
+			/*
+				Ein abgewiesenes Umbenennen: der Fokus gehört an das Feld **dieser**
+				Zeile und nicht in die obere Region. Die ist in diesem Fall leer und
+				über `.live:empty` aus dem Fluss genommen — der Fokus landete im
+				Nichts, und der Satz, der ihn erklärt, stünde weit weg am Feld.
+
+				Anders als nach einem geglückten Umbenennen, das die Zeile an ihre
+				neue alphabetische Stelle verschiebt: dort steht die Zeile still.
+
+				Über die Id statt über ein bind:this je Zeile — dieselbe Bauform wie
+				der Fokusgriff in monatsplan/+page.svelte. Zwanzig Bindungen für einen
+				Griff wären der teurere Weg zum selben Element.
+			*/
+			const zeile = typeof daten?.zeile === 'number' ? daten.zeile : null;
+			if (zeile !== null) {
+				document.getElementById(`neuer-name-${zeile}`)?.focus();
+				return;
+			}
 			fehlerKasten?.focus();
 			return;
 		}
@@ -168,8 +219,8 @@
 			dialog?.close();
 			/*
 				try/finally: bricht update() ab, bliebe imFlug sonst für immer true und
-				alle drei Knöpfe dieser Seite dauerhaft disabled — Aufnehmen, Neu
-				ausstellen und Widerrufen zugleich. Dieselbe Absicherung wie in
+				jeder Knopf dieser Seite dauerhaft disabled — Aufnehmen, Umbenennen,
+				Neu ausstellen und Widerrufen zugleich. Dieselbe Absicherung wie in
 				aufgabe/+page.svelte, wo sie zuerst entstand.
 			*/
 			try {
@@ -373,7 +424,7 @@
 				type="text"
 				autocomplete="off"
 				required
-				maxlength="80"
+				maxlength={data.namensgrenze}
 				value={nameEingabe}
 				aria-invalid={fehlerAmNamen === '' ? undefined : 'true'}
 				aria-describedby={fehlerAmNamen === '' ? undefined : 'name-fehler'}
@@ -392,9 +443,11 @@
 			Vorlage ist der Fehlersatz auf /monatsplan.
 
 			`assertive` und nicht `polite`: der Satz ist die Antwort auf einen eben
-			abgeschickten Versand. Dass die Seite damit zwei assertive Regionen hat,
-			ist unbedenklich — `feld === null` und `feld === 'name'` schliessen
-			einander aus, und es spricht nie mehr als eine.
+			abgeschickten Versand. Dass die Seite damit mehrere assertive Regionen
+			hat — diese, die obere und eine je aktiver Mitgliedszeile —, ist
+			unbedenklich: die drei Marken `null`, `'name'` und `'neuerName'`
+			schliessen einander aus, und unter `'neuerName'` nennt die Antwort
+			zusätzlich genau eine Zeile. Es spricht nie mehr als eine.
 
 			Das aria-describedby am Feld bleibt **bedingt**: eine Beschreibung, die
 			auf ein leeres Element zeigt, sagt nichts.
@@ -424,7 +477,94 @@
 				{#if !mitglied.isActive}
 					<!-- Beendet steht im **Text**, nicht in einer Farbe. -->
 					<p class="zeile__meta">Zugang beendet.</p>
-				{:else if mitglied.id !== data.ichId}
+				{:else}
+					{@const fehlerHier = fehlerAmNeuenNamen !== '' && fehlerZeile === mitglied.id}
+					<!--
+						Umbenennen steht an **jeder** aktiven Zeile, auch an der eigenen.
+
+						Anders als Neuausstellen und Widerrufen ist es kein Zugangsvorgang:
+						ein Name ist kein Zugang, ein Selbst-Umbenennen sperrt niemanden
+						aus, und es gibt genau eine Adminperson, die es sonst für sie täte.
+						Die eigene Zeile bekommt darum dieses eine Formular und weiterhin
+						keinen der beiden anderen Knöpfe.
+
+						Aufgeklappt statt in einem Dialog: bei zwanzig Zeilen ist ein
+						Namensfeld die häufigste und harmloseste Korrektur der Seite, und
+						der eine Dialog dieser Anwendung gehört der einen zerstörenden
+						Aktion. <details> bringt das Auf und Zu ohne JavaScript mit.
+
+						`open` hängt am Fehlschlag und nicht an einem eigenen Zustand: nur
+						so steht das Formular nach einer Abweisung noch offen, mit dem
+						verworfenen Namen im Feld. Wer von Hand aufklappt, kämpft nicht
+						dagegen — Svelte fasst das Attribut nur an, wenn der Ausdruck
+						selbst sich ändert.
+
+						Und weil der Fehlschlag die Zeile **vom Server** nennt, wirkt das
+						alles auch ohne JavaScript: das Dokument, das ein POST dann
+						zurückgibt, kommt mit dem offenen Formular, der verworfenen
+						Eingabe und der Kante am Feld schon fertig aus dem Server.
+					-->
+					<details class="umbenennen" open={fehlerHier}>
+						<summary class="umbenennen__griff">Umbenennen</summary>
+						<form
+							class="umbenennen__formular"
+							method="POST"
+							action="?/umbenennen"
+							use:enhance={versand}
+						>
+							<input type="hidden" name="mitgliedId" value={mitglied.id} />
+							<div>
+								<label class="feld__beschriftung" for="neuer-name-{mitglied.id}">
+									Neuer Name
+								</label>
+								<!--
+									Der bestehende Name steht im Feld: umbenannt wird fast immer,
+									um einen Tippfehler zu beheben, und ein leeres Feld hiesse,
+									ihn ganz neu zu tippen. Nach einer Abweisung steht statt
+									dessen die verworfene Eingabe darin.
+								-->
+								<input
+									class="feld"
+									id="neuer-name-{mitglied.id}"
+									name="neuerName"
+									type="text"
+									autocomplete="off"
+									required
+									maxlength={data.namensgrenze}
+									value={fehlerHier ? neuerNameEingabe : mitglied.name}
+									aria-invalid={fehlerHier ? 'true' : undefined}
+									aria-describedby={fehlerHier ? `neuer-name-fehler-${mitglied.id}` : undefined}
+								/>
+							</div>
+							<button class="button-quiet" type="submit" disabled={imFlug}>
+								Namen speichern
+							</button>
+						</form>
+					</details>
+					<!--
+						Der Satz steht **ausserhalb** des <details> und immer im Markup.
+
+						Ausserhalb, weil ein geschlossenes <details> seinen Inhalt vor dem
+						Screenreader verbirgt: eine Live-Region, die im selben Augenblick
+						sichtbar wird und ihren Text bekommt, wird nicht verlässlich
+						vorgelesen. Immer im Markup, aus demselben Grund wie die zwei
+						Regionen oben und der Satz am Aufnahmefeld — Retro-Posten B2.
+
+						Welche Zeile den Satz trägt, entscheidet die abgeschickte
+						mitgliedId aus dem Rückruf. Ohne JavaScript trägt ihn keine, und er
+						steht dann oben; die Begründung steht bei zeileImVersand.
+					-->
+					<p
+						class="fehler live"
+						id="neuer-name-fehler-{mitglied.id}"
+						role="alert"
+						aria-live="assertive"
+					>
+						{fehlerHier ? fehlerAmNeuenNamen : ''}
+					</p>
+				{/if}
+
+				{#if mitglied.isActive && mitglied.id !== data.ichId}
 					<div class="zeile__knoepfe">
 						<form method="POST" action="?/neuAusstellen" use:enhance={versand}>
 							<input type="hidden" name="mitgliedId" value={mitglied.id} />
@@ -611,6 +751,41 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
+	}
+
+	/*
+		Das aufklappbare Umbenennen. Umrissen wie ein Feld, nicht gefüllt wie die
+		Einmal-Anzeige: es ist eine Nebenaktion der Zeile und keine eigene Fläche.
+	*/
+	.umbenennen {
+		border: var(--border-hairline) solid var(--hairline);
+		border-radius: var(--radius-md);
+	}
+
+	/*
+		Der Griff trägt die action-Rolle und den Trefferboden von 44px.
+
+		Die Voreinstellung display: list-item bleibt stehen: sie ist es, die das
+		Dreieck malt, und das Dreieck ist die einzige Anzeige, dass hier etwas
+		aufgeht. `display: flex` nähme es weg — dann sähe der Griff aus wie ein
+		Satz Text.
+	*/
+	.umbenennen__griff {
+		min-height: var(--touch);
+		padding: var(--space-3);
+		color: var(--accent);
+		font-family: var(--action-font);
+		font-size: var(--action-size);
+		font-weight: var(--action-weight);
+		line-height: var(--action-line);
+		cursor: pointer;
+	}
+
+	.umbenennen__formular {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding: 0 var(--space-3) var(--space-3);
 	}
 
 	/*

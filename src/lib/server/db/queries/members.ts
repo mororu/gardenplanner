@@ -173,6 +173,67 @@ export function mitgliedDeaktivieren(id: number): AngemeldetesMitglied | null {
 }
 
 /**
+ * Die Zeile eines **aktiven** Mitglieds, oder null.
+ *
+ * Der Unterschied zu mitgliedNachId ist die Bedingung `is_active = 1`, und sie
+ * steht **hier** und nicht in der Route — aus demselben Grund wie bei
+ * mitgliedDeaktivieren. Ohne Hash-Spalte, weil das Ergebnis nur zur Auskunft
+ * dient, ob die Zeile ansprechbar ist.
+ *
+ * Gebraucht von der action `umbenennen`, und zwar **vor** der Namensprüfung:
+ * eine Abweisung muss immer an einer Zeile anzubringen sein. Bei einer
+ * unbekannten oder beendeten Id und einem untauglichen Namen zugleich trüge die
+ * Antwort sonst `feld: 'neuerName'` und eine Zeilennummer, die es nicht gibt —
+ * die Oberfläche fände keine Stelle dafür, und die abgewiesene Eingabe
+ * verschwände spurlos. Der Satz über das nicht ansprechbare Mitglied gehört in
+ * diesem Fall nach oben, ohne Feld und ohne Zeile.
+ *
+ * Dass mitgliedUmbenennen danach **noch einmal** auf null prüft, ist keine
+ * Verdopplung, sondern der Schluss des Fensters dazwischen: zwischen Auskunft
+ * und UPDATE kann ein Widerruf laufen. Die Auskunft entscheidet, **welchen Satz**
+ * die Person liest; die Bedingung im UPDATE entscheidet, **ob** geschrieben wird.
+ */
+export function aktivesMitgliedLesen(id: number): AngemeldetesMitglied | null {
+	const zeile = datenbank()
+		.select(ohneHashSpalte)
+		.from(members)
+		.where(and(eq(members.id, id), eq(members.isActive, true)))
+		.get();
+	return zeile ?? null;
+}
+
+/**
+ * Ersetzt den Namen eines **aktiven** Mitglieds und gibt die getroffene Zeile
+ * zurück, oder null, wenn keine getroffen wurde.
+ *
+ * Ein UPDATE derselben Zeile, kein INSERT mit anschliessendem Widerruf: Id,
+ * invite_token_hash, is_admin, is_active und created_at bleiben unberührt.
+ * Umbenennen ist **kein** Zugangsvorgang — der Weg über Beenden und neu
+ * Aufnehmen nähme der Person zugleich alle künftigen Dienstwochen (AD-11), und
+ * genau dafür war ein vertippter Name bis Story 3.0.1 der einzige Weg.
+ *
+ * Die Bedingung `is_active = 1` steht **hier** und nicht in der Route, aus
+ * demselben Grund wie bei mitgliedDeaktivieren: sonst wiederholte sie jede
+ * künftige Aufrufstelle, und eine von ihnen täte es falsch. Ein beendeter
+ * Zugang wird nicht umbenannt — es gibt an ihm nichts mehr zu tun.
+ *
+ * null bedeutet also zweierlei auf einmal: es gibt die Id nicht, oder das
+ * Mitglied ist beendet. Die Route macht daraus **einen** Satz.
+ *
+ * Der Name kommt geprüft und gefaltet herein — namePruefen in
+ * ../../../mitgliedsname.ts ist die eine Stelle, die das entscheidet.
+ */
+export function mitgliedUmbenennen(id: number, name: string): AngemeldetesMitglied | null {
+	const zeile = datenbank()
+		.update(members)
+		.set({ name })
+		.where(and(eq(members.id, id), eq(members.isActive, true)))
+		.returning(ohneHashSpalte)
+		.get();
+	return zeile ?? null;
+}
+
+/**
  * Ersetzt den Token-Hash eines **aktiven** Mitglieds und gibt die getroffene
  * Zeile zurück, oder null.
  *

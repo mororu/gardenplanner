@@ -17,10 +17,14 @@ import type { AngemeldetesMitglied } from './db/schema.ts';
 /**
  * Lässt nur eine Adminperson weiter und gibt sie zurück.
  *
- * Der Rückgabewert ist kein Beiwerk: die drei actions brauchen die eigene Id,
- * um den Selbstwiderruf abzuweisen. Käme sie aus einem zweiten Zugriff auf
+ * Der Rückgabewert ist kein Beiwerk: `neuAusstellen` und `widerrufen` brauchen
+ * die eigene Id, um den Selbstwiderruf abzuweisen, und die `load` gibt sie als
+ * `ichId` an die Liste weiter. Käme sie aus einem zweiten Zugriff auf
  * `locals.mitglied`, liesse sich die Prüfung an einer Stelle weglassen, ohne
  * dass die Schranke selbst etwas davon merkt.
+ *
+ * `umbenennen` liest sie bewusst **nicht**: die eigene Zeile darf umbenannt
+ * werden, ein Name ist kein Zugang.
  *
  * **Weiterleitung, keine 403.** Für jemanden ohne Adminrechte soll die
  * Verwaltung nicht existieren, nicht verboten sein: eine Fehlerseite wäre die

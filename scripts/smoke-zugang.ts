@@ -84,7 +84,11 @@ import { PLAN_HOECHSTZAHL } from '../src/lib/aufgabentext.ts';
 import { datenbank, datenschichtStarten } from '../src/lib/server/db/index.ts';
 import { members, ohneTokenHash, tasks } from '../src/lib/server/db/schema.ts';
 import type { AngemeldetesMitglied, NewTask } from '../src/lib/server/db/schema.ts';
-import { mitgliedAnlegen, mitgliederZaehlen } from '../src/lib/server/db/queries/members.ts';
+import {
+	mitgliedAnlegen,
+	mitgliederZaehlen,
+	mitgliedUmbenennen,
+} from '../src/lib/server/db/queries/members.ts';
 import {
 	aufgabenStapelAnlegen,
 	offeneAufgabenAuflisten,
@@ -115,6 +119,17 @@ import {
  * wirklich diese Funktion rufen.
  */
 import { zeilenErkennen } from '../src/lib/aufgabentext.ts';
+/*
+ * Die Namensregel kommt als **Wert** herein und nicht als abgeschriebener Satz.
+ *
+ * Seit Story 3.0.1 hat sie drei Leser — die actions aufnehmen und umbenennen auf
+ * /verwaltung und scripts/create-admin.ts —, und die Zusage lautet nicht „dieser
+ * Wortlaut", sondern „alle drei werfen dieselbe Regel". Ein NAME_FEHLT als
+ * Literal in diesem Skript wäre die vierte Kopie und bliebe grün, wenn eine der
+ * drei Wurfstellen sich vom Modul löste. Die Grenze steht aus demselben Grund
+ * nicht als 81 im Skript: sie wird aus NAME_HOECHSTLAENGE gerechnet.
+ */
+import { NAME_FEHLT, NAME_HOECHSTLAENGE, NAME_ZU_LANG } from '../src/lib/mitgliedsname.ts';
 import {
 	AUFGABE_NICHT_ANSPRECHBAR,
 	EIGENER_ZUGANG_GESCHUETZT,
@@ -132,7 +147,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 377;
+const ERWARTETE_BEHAUPTUNGEN = 417;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -1315,7 +1330,7 @@ try {
 	});
 	pruefen(
 		'create-admin ohne Namen endet mit 1 und einer Meldung',
-		laufOhneNamen.status === 1 && laufOhneNamen.stderr.includes('Es fehlt der Name'),
+		laufOhneNamen.status === 1 && laufOhneNamen.stderr.includes(NAME_FEHLT),
 		`Status ${laufOhneNamen.status}, stderr ${JSON.stringify(laufOhneNamen.stderr)}`
 	);
 	pruefenGleich(
@@ -1324,6 +1339,38 @@ try {
 		0
 	);
 	rmSync(ohneNamen, { recursive: true, force: true });
+
+	/*
+	 * Die zwei Namen, die das Skript bis Story 3.0.1 **durchliess**.
+	 *
+	 * Es prüfte mit einer eigenen Kette — `.replace(/\s+/g, ' ').trim()` und ein
+	 * Vergleich auf die leere Zeichenkette —, also ohne Nullbreiten-Sieb und ohne
+	 * Längengrenze. Ein Name aus reinen Nullbreiten-Zeichen legte damit das erste,
+	 * einzige und mit Adminrechten ausgestattete Mitglied als leere Lücke an; die
+	 * Oberfläche wies denselben Namen seit Story 1.3 ab. Das ist der ausgeführte
+	 * Beweis dafür, dass die Regel ein geteiltes Modul sein muss.
+	 *
+	 * Behauptet wird zugleich die Reihenfolge: der Abbruch fällt **vor**
+	 * datenschichtStarten, es entsteht also keine Datei. Ohne diese Hälfte bliebe
+	 * eine Prüfung, die erst nach dem Anlegen der Datenbank abwiese, grün.
+	 */
+	for (const [wie, argument, satz] of [
+		['aus Nullbreiten-Zeichen', '\u200B\u200C\u200D\u2060\uFEFF', NAME_FEHLT],
+		['über 80 Zeichen', 'A'.repeat(NAME_HOECHSTLAENGE + 1), NAME_ZU_LANG],
+	] as const) {
+		const verzeichnis = wegwerfVerzeichnis('gartenplaner-smoke-name-');
+		const lauf = starten(['scripts/create-admin.ts', argument], {
+			...process.env,
+			DATABASE_PATH: join(verzeichnis, 'db.sqlite'),
+			ORIGIN: HERKUNFT,
+		});
+		pruefen(
+			`create-admin weist einen Namen ${wie} ab, bevor die Datenschicht startet`,
+			lauf.status === 1 && lauf.stderr.includes(satz) && readdirSync(verzeichnis).length === 0,
+			`Status ${lauf.status}, ${readdirSync(verzeichnis).length} Datei(en), stderr ${JSON.stringify(lauf.stderr.slice(0, 120))}`
+		);
+		rmSync(verzeichnis, { recursive: true, force: true });
+	}
 
 	const ohneHerkunft = wegwerfVerzeichnis('gartenplaner-smoke-ohne-origin-');
 	const umgebungOhneOrigin: Record<string, string | undefined> = {
@@ -1460,7 +1507,7 @@ try {
 	const nicoLocals = ohneTokenHash(nico);
 
 	// -----------------------------------------------------------------------
-	// Die Adminschranke: load und alle drei actions
+	// Die Adminschranke: load und alle vier actions
 	// -----------------------------------------------------------------------
 	const vorSchranke = mitgliederZaehlen();
 	const veraVorSchranke = zeileAbdruck(vera.id);
@@ -1472,7 +1519,7 @@ try {
 		)
 	);
 
-	for (const aktion of ['aufnehmen', 'neuAusstellen', 'widerrufen'] as const) {
+	for (const aktion of ['aufnehmen', 'neuAusstellen', 'widerrufen', 'umbenennen'] as const) {
 		// Die Formulardaten sind vollständig und gültig: was hier abgewiesen
 		// wird, ist allein die fehlende Adminschaft. Ohne adminOderWeg in dieser
 		// action entstünde ein Mitglied beziehungsweise änderte sich eine Zeile.
@@ -1482,6 +1529,7 @@ try {
 				verwaltung.actions[aktion](
 					alsMitglied('/verwaltung', nicoLocals, {
 						name: 'Eve Eindringling',
+						neuerName: 'Eve Eindringling',
 						mitgliedId: String(vera.id),
 					}).alsRequestEvent()
 				)
@@ -1490,7 +1538,7 @@ try {
 	}
 
 	pruefenGleich(
-		'die vier abgewiesenen Aufrufe haben kein Mitglied angelegt',
+		'die fünf abgewiesenen Aufrufe haben kein Mitglied angelegt',
 		mitgliederZaehlen(),
 		vorSchranke
 	);
@@ -1611,8 +1659,9 @@ try {
 	 *
 	 * Nullbreiten-Zeichen haben keine Breite und sind für trim() kein Leerraum:
 	 * ein Name aus ihnen legte eine Zeile ohne lesbaren Namen an, mit einem
-	 * lebenden Einladungslink und ohne jede Aussage, wer das ist. Es gibt keine
-	 * Umbenennen-Aktion, der Fehler wäre endgültig.
+	 * lebenden Einladungslink und ohne jede Aussage, wer das ist. Seit Story 3.0.1
+	 * gibt es dafür ein Umbenennen; endgültig ist der Fehler damit nicht mehr,
+	 * aber er stünde bis zu seiner Entdeckung im Dienstplan vor allen.
 	 *
 	 * Die Überlänge steht daneben, weil beide dieselbe Stelle prüfen und beide
 	 * dieselbe Zusage tragen: kein Mitglied, kein Token.
@@ -1746,6 +1795,287 @@ try {
 	);
 
 	// -----------------------------------------------------------------------
+	// Umbenennen: ein anderer Name, derselbe Zugang — Story 3.0.1
+	// -----------------------------------------------------------------------
+	/*
+	 * Die Zeile wird **gelesen**, bevor und nachdem sie umbenannt wird, und zwar
+	 * vollständig samt Hash. Die Zusage der Story ist nicht „der Name ändert
+	 * sich", sondern „nur der Name ändert sich": ein Umbenennen, das den Zugang
+	 * neu ausstellte oder die Zeile ersetzte, nähme der Person ab Story 3.1 alle
+	 * künftigen Dienstwochen — genau der Umweg, für den es diese action gibt.
+	 */
+	const zita = mitgliedAnlegen({
+		name: 'Zita Achermann',
+		inviteTokenHash: tokenHashen(tokenErzeugen()),
+		isAdmin: false,
+	});
+	const zitaVorher = datenbank().select().from(members).where(eq(members.id, zita.id)).get();
+
+	/**
+	 * Die Namen einer frisch geladenen Liste in ihrer Reihenfolge, und der Platz
+	 * einer **Id** darin.
+	 *
+	 * Über die Id und nicht über den Namen: auf `name` gibt es ausdrücklich keine
+	 * Eindeutigkeitsbedingung, zwei Mitglieder dürfen gleich heissen. Eine Suche
+	 * über den Namen fände dann die falsche Zeile — und ausgerechnet diese
+	 * Behauptung dreht sich um einen Namen, der sich ändert.
+	 */
+	const listeLaden = async (): Promise<{ id: number; name: string; isActive: boolean }[]> => {
+		const geladen = wertVon(
+			await routenausgang(() =>
+				verwaltung.load(alsMitglied('/verwaltung', veraLocals).alsRequestEvent())
+			)
+		);
+		return (geladen.mitglieder ?? []) as { id: number; name: string; isActive: boolean }[];
+	};
+	const platzInDerListe = async (id: number): Promise<number> =>
+		(await listeLaden()).findIndex((reihe) => reihe.id === id);
+
+	const platzVorUmbenennen = await platzInDerListe(zita.id);
+	const umbenannt = await routenausgang(() =>
+		verwaltung.actions.umbenennen(
+			alsMitglied('/verwaltung', veraLocals, {
+				mitgliedId: String(zita.id),
+				neuerName: '  Anna   Meier ',
+			}).alsRequestEvent()
+		)
+	);
+	pruefenGleich(
+		'umbenennen gelingt und gibt den gefalteten Namen zurück',
+		umbenannt.art === 'wert' ? textFeld(wertVon(umbenannt), 'name') : `Ausgang ${umbenannt.art}`,
+		'Anna Meier'
+	);
+
+	const zitaNachher = datenbank().select().from(members).where(eq(members.id, zita.id)).get();
+	pruefenGleich('der neue Name steht in der Zeile', zitaNachher?.name, 'Anna Meier');
+	/*
+	 * Alles ausser dem Namen, als ein Abdruck. Ein Feld einzeln zu behaupten
+	 * liesse jedes künftige Feld still durchrutschen; `ohneNamen` nimmt darum die
+	 * ganze Zeile und schneidet genau die eine Spalte heraus, die sich ändern
+	 * darf.
+	 */
+	const ohneNamensspalte = (zeile: typeof zitaVorher) =>
+		JSON.stringify({ ...(zeile ?? {}), name: '(egal)' });
+	pruefenGleich(
+		'Id, Hash, Adminrecht, Aktivsein und Aufnahmezeitpunkt bleiben unberührt',
+		ohneNamensspalte(zitaNachher),
+		ohneNamensspalte(zitaVorher)
+	);
+
+	/*
+	 * Die Liste sortiert nach Namen (de-CH), also verschiebt ein Umbenennen die
+	 * Zeile.
+	 *
+	 * Behauptet wird **zweierlei zugleich und keine Richtung**: der Platz hat sich
+	 * geändert, und die aktive Gruppe steht danach vollständig in der Ordnung von
+	 * de-CH. Eine festgeschriebene Richtung („der Platz wird kleiner") hinge an
+	 * der Saat: benennte jemand die Zeile in einen Namen um, der sie auf ihrem
+	 * Platz liesse, wäre die Behauptung rot, obwohl das Umbenennen stimmt. Und die
+	 * Bewegung allein wäre zu schwach — eine Liste, die irgendwie umsortiert,
+	 * erfüllte sie auch.
+	 */
+	const listeNachUmbenennen = await listeLaden();
+	const platzNachUmbenennen = listeNachUmbenennen.findIndex((reihe) => reihe.id === zita.id);
+	const aktiveNachUmbenennen = listeNachUmbenennen
+		.filter((reihe) => reihe.isActive)
+		.map((reihe) => reihe.name);
+	pruefen(
+		'die Zeile steht danach an ihrer neuen alphabetischen Stelle',
+		platzVorUmbenennen >= 0 &&
+			platzNachUmbenennen >= 0 &&
+			platzNachUmbenennen !== platzVorUmbenennen &&
+			aktiveNachUmbenennen.join(' | ') ===
+				[...aktiveNachUmbenennen].sort(new Intl.Collator('de-CH').compare).join(' | '),
+		`vorher ${platzVorUmbenennen}, nachher ${platzNachUmbenennen}, Folge ${aktiveNachUmbenennen.join(' | ')}`
+	);
+
+	/*
+	 * Die eigene Zeile. Anders als bei neuAusstellen und widerrufen ist das
+	 * **erlaubt**: ein Name ist kein Zugang, ein Selbst-Umbenennen sperrt
+	 * niemanden aus, und es gibt genau eine Adminperson, die es sonst täte.
+	 *
+	 * Dafür steht hier eine **eigene** Adminperson und nicht Vera. Ein
+	 * Selbstumbenennen von Vera machte veraLocals veraltet — die Attrappe trüge
+	 * weiter den alten Namen, während die Datenbank den neuen führt —, und die
+	 * Behauptung über /mehr weiter unten läse dann ihre eigene Vorbereitung statt
+	 * des echten Zustands. Genau die Reihenfolgefalle, vor der die
+	 * Epic-3-Vorbereitung warnt.
+	 */
+	const selma = mitgliedAnlegen({
+		name: 'Selma Widmer',
+		inviteTokenHash: tokenHashen(tokenErzeugen()),
+		isAdmin: true,
+	});
+	const selbstUmbenannt = await routenausgang(() =>
+		verwaltung.actions.umbenennen(
+			alsMitglied('/verwaltung', ohneTokenHash(selma), {
+				mitgliedId: String(selma.id),
+				neuerName: 'Selma Brunner',
+			}).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'umbenennen auf die eigene Zeile gelingt — kein EIGENER_ZUGANG_GESCHUETZT',
+		selbstUmbenannt.art === 'wert' &&
+			textFeld(wertVon(selbstUmbenannt), 'name') === 'Selma Brunner' &&
+			textFeld(datenVon(selbstUmbenannt), 'meldung') !== EIGENER_ZUGANG_GESCHUETZT,
+		`Ausgang ${selbstUmbenannt.art}: ${JSON.stringify(datenVon(selbstUmbenannt))}`
+	);
+	pruefenGleich(
+		'und die eigene Zeile trägt den neuen Namen',
+		datenbank().select().from(members).where(eq(members.id, selma.id)).get()?.name,
+		'Selma Brunner'
+	);
+
+	// Derselbe Name noch einmal: ein Erfolg und keine Abweisung. Die Person hat
+	// bekommen, was sie wollte; eine Meldung wäre die Aufforderung, etwas zu
+	// ändern, das schon stimmt.
+	const unveraendert = await routenausgang(() =>
+		verwaltung.actions.umbenennen(
+			alsMitglied('/verwaltung', veraLocals, {
+				mitgliedId: String(zita.id),
+				neuerName: 'Anna Meier',
+			}).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'ein unveränderter Name ist ein Erfolg, keine Abweisung',
+		unveraendert.art === 'wert' && textFeld(wertVon(unveraendert), 'name') === 'Anna Meier',
+		`Ausgang ${unveraendert.art}`
+	);
+
+	/*
+	 * Die drei Namen, die keine sind — dieselbe Regel wie bei aufnehmen, weil es
+	 * dieselbe Funktion ist. Behauptet wird jedes Mal die Marke `neuerName` und
+	 * nicht bloss der Satz: `name` gehört dem Aufnahmeformular, und unter einer
+	 * gemeinsamen Marke trüge die Aufnahme die Kante und den verworfenen Namen.
+	 */
+	for (const [wie, eingabe, satz] of [
+		['aus Leerzeichen', '   ', NAME_FEHLT],
+		['aus Nullbreiten-Zeichen', '\u200B\u200C\u200D\u2060\uFEFF', NAME_FEHLT],
+		['über 80 Zeichen', 'A'.repeat(NAME_HOECHSTLAENGE + 1), NAME_ZU_LANG],
+	] as const) {
+		const vorher = zeileAbdruck(zita.id);
+		const ausgang = await routenausgang(() =>
+			verwaltung.actions.umbenennen(
+				alsMitglied('/verwaltung', veraLocals, {
+					mitgliedId: String(zita.id),
+					neuerName: eingabe,
+				}).alsRequestEvent()
+			)
+		);
+		pruefen(
+			`ein neuer Name ${wie} wird mit 400 am Feld neuerName abgewiesen`,
+			ausgang.art === 'fehlschlag' &&
+				ausgang.status === 400 &&
+				ausgang.daten.feld === 'neuerName' &&
+				ausgang.daten.meldung === satz,
+			`Ausgang ${ausgang.art}: ${JSON.stringify(datenVon(ausgang))}`
+		);
+		pruefenGleich(
+			`ein neuer Name ${wie} lässt die Zeile unverändert`,
+			zeileAbdruck(zita.id),
+			vorher
+		);
+		pruefenGleich(
+			`ein neuer Name ${wie} kommt unverändert zum Feld zurück`,
+			textFeld(datenVon(ausgang), 'eingabe'),
+			eingabe
+		);
+		/*
+		 * **Die Zeile kommt vom Server**, nicht aus einem Client-Zustand.
+		 *
+		 * Ohne sie wäre die Zuordnung an JavaScript gebunden: der Rückruf müsste
+		 * die mitgliedId aus dem formData lesen, und ohne JavaScript läuft kein
+		 * Rückruf. Das Feld zeigte dann wieder den alten Namen, das Formular wäre
+		 * zu, aria-invalid fehlte und der Fokus spränge in eine leere Region —
+		 * belegt, und der Grund für das vierte Argument von abweisen.
+		 */
+		pruefenGleich(
+			`ein neuer Name ${wie} nennt die abgewiesene Zeile`,
+			datenVon(ausgang).zeile,
+			zita.id
+		);
+	}
+
+	/*
+	 * **Beides ungültig zugleich** — die Id nicht ansprechbar und der Name leer.
+	 *
+	 * Das ist der Beleg für die Reihenfolge Id-vor-Name in der action, und ohne
+	 * ihn deckt sie keine Behauptung. Umgedreht wäre der Ausgang `feld:
+	 * 'neuerName'` mit einer Zeile, die es nicht gibt: die Oberfläche fände keine,
+	 * an der sie den Satz anbringen könnte, und die abgewiesene Eingabe
+	 * verschwände spurlos. Der Satz über das nicht ansprechbare Mitglied gehört
+	 * nach oben, ohne Feld und ohne Zeile.
+	 */
+	for (const [wie, mitgliedId] of [
+		['nicht numerisch', 'abc'],
+		['unbekannt', '999999'],
+		['schon beendet', String(emmaId)],
+	] as const) {
+		const beidesFalsch = await routenausgang(() =>
+			verwaltung.actions.umbenennen(
+				alsMitglied('/verwaltung', veraLocals, {
+					mitgliedId,
+					neuerName: '   ',
+				}).alsRequestEvent()
+			)
+		);
+		pruefen(
+			`Id ${wie} und Name leer zugleich: die Zeile gewinnt, ohne Feld und ohne Zeile`,
+			beidesFalsch.art === 'fehlschlag' &&
+				beidesFalsch.daten.meldung === MITGLIED_NICHT_ANSPRECHBAR &&
+				beidesFalsch.daten.feld === null &&
+				beidesFalsch.daten.zeile === null,
+			`Ausgang ${beidesFalsch.art}: ${JSON.stringify(datenVon(beidesFalsch))}`
+		);
+	}
+
+	/*
+	 * **Die Bedingung im UPDATE selbst**, an der Repository-Funktion gemessen.
+	 *
+	 * Die Route fragt seit dem Review vorher, ob die Zeile ansprechbar ist, und
+	 * fängt damit jede Abweisung ab, die über eine action liefe: über sie ist die
+	 * Bedingung `is_active = 1` im UPDATE nicht mehr erreichbar. Gemessen — nach
+	 * dem Einbau der Vorprüfung blieb die ganze Kette grün, als die Bedingung aus
+	 * mitgliedUmbenennen entfernt wurde.
+	 *
+	 * Sie steht trotzdem dort, und diese Behauptung ist ihr Nachweis: die
+	 * Vorprüfung entscheidet, **welchen Satz** die Person liest, die Bedingung im
+	 * UPDATE, **ob** geschrieben wird. Zwischen beiden liegt ein Fenster, in dem
+	 * ein Widerruf laufen kann — und dann darf kein Name mehr in eine beendete
+	 * Zeile geschrieben werden. Der eingefrorene Block verlangt die Bedingung
+	 * ausdrücklich in der Query und nicht in der Route.
+	 */
+	const emmaVorSchreibversuch = zeileAbdruck(emmaId);
+	pruefenGleich(
+		'mitgliedUmbenennen trifft eine beendete Zeile nicht — is_active = 1 steht im UPDATE',
+		mitgliedUmbenennen(emmaId, 'Emma Neu'),
+		null
+	);
+	pruefenGleich(
+		'und die beendete Zeile ist danach unverändert',
+		zeileAbdruck(emmaId),
+		emmaVorSchreibversuch
+	);
+
+	// Und die Grenze selbst: genau 80 Zeichen gehen durch, 81 nicht.
+	const genauAchtzigNeu = await routenausgang(() =>
+		verwaltung.actions.umbenennen(
+			alsMitglied('/verwaltung', veraLocals, {
+				mitgliedId: String(zita.id),
+				neuerName: 'E'.repeat(NAME_HOECHSTLAENGE),
+			}).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'genau 80 Zeichen werden auch beim Umbenennen angenommen',
+		genauAchtzigNeu.art === 'wert' &&
+			textFeld(wertVon(genauAchtzigNeu), 'name').length === NAME_HOECHSTLAENGE,
+		`Ausgang ${genauAchtzigNeu.art}`
+	);
+
+	// -----------------------------------------------------------------------
 	// Auf sich selbst: abgewiesen in der action, nicht nur in der Oberfläche
 	// -----------------------------------------------------------------------
 	const selbstSaetze = new Set<string>();
@@ -1785,26 +2115,44 @@ try {
 	// -----------------------------------------------------------------------
 	const tabelleVorher = JSON.stringify(datenbank().select().from(members).all());
 	const saetze = new Set<string>();
+	const felder = new Set<string>();
+	/*
+	 * `neuerName` steht in **jedem** Formular dieser Schleife, auch dort, wo die
+	 * action ihn gar nicht liest. Ohne ihn führe umbenennen bei einer beendeten
+	 * Zeile in den Namensfehler statt in den, den diese Schleife prüft — und die
+	 * Behauptung läse dann ihre eigene Vorbereitung.
+	 */
 	for (const [wie, formular] of [
 		['unbekannt', { mitgliedId: '999999' }],
 		['fehlend', {}],
 		['nicht numerisch', { mitgliedId: 'abc' }],
 		['schon beendet', { mitgliedId: String(emmaId) }],
 	] as const) {
-		for (const aktion of ['widerrufen', 'neuAusstellen'] as const) {
+		for (const aktion of ['widerrufen', 'neuAusstellen', 'umbenennen'] as const) {
 			const ausgang = await routenausgang(() =>
 				verwaltung.actions[aktion](
-					alsMitglied('/verwaltung', veraLocals, { ...formular }).alsRequestEvent()
+					alsMitglied('/verwaltung', veraLocals, {
+						...formular,
+						neuerName: 'Ein tadelloser Name',
+					}).alsRequestEvent()
 				)
 			);
 			abgewiesen(`${aktion}, mitgliedId ${wie}`, ausgang, MITGLIED_NICHT_ANSPRECHBAR);
 			saetze.add(textFeld(datenVon(ausgang), 'meldung'));
+			// Ohne Feld: der Satz gehört in die Live-Region oben und nicht an ein
+			// Namensfeld, das zu einer Zeile gehörte, die es womöglich nicht gibt.
+			felder.add(JSON.stringify(datenVon(ausgang).feld ?? null));
 		}
 	}
 	pruefen(
-		'alle vier Zustände und beide actions tragen denselben Satz',
+		'alle vier Zustände und alle drei actions tragen denselben Satz',
 		saetze.size === 1,
 		`${saetze.size} verschiedene Sätze`
+	);
+	pruefen(
+		'und keiner von ihnen benennt ein Feld',
+		felder.size === 1 && felder.has('null'),
+		`Felder: ${JSON.stringify([...felder])}`
 	);
 	pruefenGleich(
 		'und keiner von ihnen hat die Tabelle angefasst',
@@ -1939,6 +2287,24 @@ try {
 		'die load von /verwaltung gibt keinen einzigen Token-Hash heraus',
 		hashes.length > 0 && !hashes.some((hash) => listeAlsText.includes(hash)),
 		`${hashes.length} Hashes geprüft`
+	);
+
+	/*
+	 * **Die Attrappe muss mit der Datenbank übereinstimmen**, sonst liest die
+	 * Behauptung darunter ihre eigene Vorbereitung.
+	 *
+	 * locals.mitglied ist hier ein Abzug, den der Wächter im echten Betrieb bei
+	 * jedem Aufruf frisch legt — in diesem Skript aber einmal am Anfang. Benennt
+	 * eine Behauptung dazwischen Vera um, führt veraLocals weiter den alten Namen,
+	 * die Datenbank den neuen, und `mehrAlsAdmin.name === 'Vera'` bleibt grün,
+	 * ohne noch etwas über den echten Zustand zu sagen. Genau die Reihenfolgefalle,
+	 * vor der die Epic-3-Vorbereitung warnt; das Selbstumbenennen oben läuft
+	 * deshalb auf einer eigenen Adminperson.
+	 */
+	pruefenGleich(
+		'die Attrappe veraLocals führt denselben Namen wie die Datenbank',
+		veraLocals.name,
+		datenbank().select().from(members).where(eq(members.id, vera.id)).get()?.name
 	);
 
 	const mehrAlsAdmin = wertVon(
@@ -4365,6 +4731,74 @@ try {
 	);
 
 	/*
+	 * **Die Namensregel hat eine Wurfstelle und drei Leser.**
+	 *
+	 * Der Nachweis, dass eine Mutation an der Regel alle drei zugleich rot macht,
+	 * liegt in den ausgeführten Behauptungen: aufnehmen, umbenennen und
+	 * create-admin werfen dieselben zwei Sätze und dieselbe Grenze. Diese Zeile
+	 * hält die Bedingung fest, unter der das so bleibt — dass keiner der drei sich
+	 * eine eigene Kopie zurückholt. Ohne sie liefe die Drift zurück, die
+	 * scripts/create-admin.ts bis Story 3.0.1 vorgeführt hat: eine zweite Kette,
+	 * die einen Namen durchliess, den die Oberfläche abwies.
+	 *
+	 * Gelesen wird kommentarfrei — die drei Dateien erklären an genau diesen
+	 * Stellen wörtlich, was dort früher stand.
+	 */
+	const NAMENSMODUL = /import \{[^}]*namePruefen[^}]*\} from '[^']*\/mitgliedsname\.ts';/;
+	const verwaltungServer = seitenServer[3][1];
+	const adminSkript = quelltext('scripts', 'create-admin.ts');
+	const namensregelTeile = [
+		[
+			'die Regel steht in src/lib/mitgliedsname.ts',
+			/export function namePruefen\(/.test(quelltext('src', 'lib', 'mitgliedsname.ts')),
+		],
+		[
+			/*
+			 * Deklaration in **beiden** Formen. `function namePruefen` allein liesse
+			 * eine Kopie als Pfeilfunktion durch — `const namePruefen = (…) => …` —,
+			 * und genau die schriebe jemand hin, der sich die Regel „schnell nach
+			 * nebenan holt". Gezählt wird auf dem kommentarfreien Baum: die
+			 * Begründungen in mitgliedsname.ts, in der Route und im Admin-Skript
+			 * nennen den alten Zustand wörtlich.
+			 */
+			'genau eine Deklaration im ganzen Baum, als Funktion wie als Pfeil',
+			baum.filter((datei) => /(?:function|const)\s+namePruefen\s*[(=<]/.test(datei.text)).length ===
+				1,
+		],
+		[
+			'/verwaltung zieht sie aus dem Modul und ruft sie in beiden actions',
+			NAMENSMODUL.test(verwaltungServer) &&
+				(verwaltungServer.match(/namePruefen\(/g) ?? []).length === 2,
+		],
+		[
+			'scripts/create-admin.ts zieht sie aus dem Modul, statt selbst zu falten',
+			NAMENSMODUL.test(adminSkript) && !/\.replace\(/.test(adminSkript),
+		],
+		[
+			'und die Grenze steht nur dort — keine zweite Deklaration',
+			baum.filter((datei) => /NAME_HOECHSTLAENGE = \d+/.test(datei.text)).length === 1,
+		],
+		[
+			/*
+			 * **Keine nackte 80 im Markup.** Das maxlength beider Namensfelder auf
+			 * /verwaltung kommt über data.namensgrenze aus derselben Konstante. Ein
+			 * Literal dort wäre dieselbe Driftklasse, gegen die dieses Modul gebaut
+			 * wurde, nur eine Schicht höher: ein Feld, das bei 80 abschneidet,
+			 * während die Regel 100 zuliesse — oder umgekehrt eine Regel, die
+			 * abweist, was das Feld noch zulässt.
+			 */
+			'und kein Namensfeld trägt sie als Literal',
+			!/maxlength="\d+"/.test(seitenKomponenten[3][1]) &&
+				(seitenKomponenten[3][1].match(/maxlength=\{data\.namensgrenze\}/g) ?? []).length === 2,
+		],
+	] as const;
+	pruefen(
+		'die Namensregel hat eine Wurfstelle und drei Leser, nicht drei Kopien',
+		fehlendeTeile(namensregelTeile).length === 0,
+		`verletzt: ${fehlendeTeile(namensregelTeile).join(', ')}`
+	);
+
+	/*
 	 * Die Seitenform steht in bedienelemente.css und **nirgends sonst**. Gesucht
 	 * wird der Regelkopf `.name {`, nicht das Wort: `class="fehler live"` im
 	 * Markup ist keine Kopie, sondern die Benutzung.
@@ -4417,6 +4851,181 @@ try {
 	 * Bauform an beiden Stellen, und beide gemessen.
 	 */
 	const verwaltungCode = seitenKomponenten[3][1];
+
+	/*
+	 * **Die Verdrahtung des Umbenennen-Formulars**, aus demselben Grund wie die
+	 * gleichnamige Behauptung über /aufgabe: die ausgeführten Behauptungen bauen
+	 * ihr FormData selbst und blieben grün, wenn das Feld im Markup anders hiesse
+	 * oder das versteckte mitgliedId fehlte. Im Browser endete dann jedes
+	 * Umbenennen mit „Ohne Namen geht es nicht" beziehungsweise mit dem Satz über
+	 * das nicht ansprechbare Mitglied — und keine Zeile dieser Liste würde rot.
+	 *
+	 * `action` steht als **Literal** und nicht in einer Variablen (AD-9); dass
+	 * der Name auf eine wirklich vorhandene action zeigt, prüft Regel 11 von
+	 * scripts/gate.mjs.
+	 *
+	 * Der geschnittene Bereich ist das Formular selbst und nicht die ganze Datei:
+	 * `name="mitgliedId"` steht auch in den zwei anderen Formularen der Seite,
+	 * und eine Suche über alles bliebe grün, wenn ausgerechnet hier das
+	 * versteckte Feld fehlte.
+	 */
+	/*
+	 * Der geschnittene Bereich beginnt am <form> und nicht am `action`-Attribut:
+	 * `method="POST"` steht davor, und ohne es fiele das Formular ohne JavaScript
+	 * still auf GET zurück — die Umbenennung liefe dann ins Leere, und die
+	 * abgeschickten Werte stünden in der Adresszeile.
+	 */
+	const verwaltungGlatt = verwaltungCode.replace(/\s+/g, ' ');
+	const umbenennenVon = verwaltungCode.lastIndexOf('<form', verwaltungCode.indexOf('?/umbenennen'));
+	const umbenennenBis = verwaltungCode.indexOf('</form>', umbenennenVon);
+	const umbenennenFormular =
+		umbenennenVon < 0 || umbenennenBis < 0
+			? ''
+			: verwaltungCode.slice(umbenennenVon, umbenennenBis).replace(/\s+/g, ' ');
+	const umbenennenTeile = [
+		['das Formular ist da', umbenennenFormular !== ''],
+		['method="POST"', /<form\b[^>]*\bmethod="POST"/.test(umbenennenFormular)],
+		['action="?/umbenennen" als Literal', /action="\?\/umbenennen"/.test(umbenennenFormular)],
+		['use:enhance={versand}', /use:enhance=\{versand\}/.test(umbenennenFormular)],
+		[
+			'das versteckte mitgliedId trägt die Id der Zeile',
+			/<input type="hidden" name="mitgliedId" value=\{mitglied\.id\} \/>/.test(umbenennenFormular),
+		],
+		['das Feld heisst neuerName', /<input\b[^>]*\bname="neuerName"/.test(umbenennenFormular)],
+		[
+			/*
+			 * Die value-Bindung, Vorbild `value={eingabe}` auf /aufgabe. Ohne sie ist
+			 * die verworfene Eingabe nach einem Fehlschlag fort und das Feld zeigt
+			 * wieder den alten Namen — wer sich vertippt hat, tippt alles neu.
+			 */
+			'value hängt am Fehlschlag und fällt sonst auf den Namen der Zeile',
+			/value=\{fehlerHier \? neuerNameEingabe : mitglied\.name\}/.test(umbenennenFormular),
+		],
+		[
+			'aria-invalid hängt am Fehlschlag dieser Zeile',
+			/aria-invalid=\{fehlerHier \? 'true' : undefined\}/.test(umbenennenFormular),
+		],
+		[
+			'und das Feld zeigt im Fehlerfall auf den Satz dieser Zeile',
+			/aria-describedby=\{fehlerHier \? `neuer-name-fehler-\$\{mitglied\.id\}` : undefined\}/.test(
+				umbenennenFormular
+			),
+		],
+		[
+			// Ohne den Knopf gibt es ohne JavaScript keinen Weg abzuschicken, und
+			// ohne disabled greift die seitenweite Doppelsperre hier nicht.
+			'ein Absendeknopf, gesperrt solange ein Versand unterwegs ist',
+			/<button class="button-quiet" type="submit" disabled=\{imFlug\}>/.test(umbenennenFormular),
+		],
+	] as const;
+	pruefen(
+		'das Umbenennen-Formular auf /verwaltung ist vollständig verdrahtet',
+		fehlendeTeile(umbenennenTeile).length === 0,
+		`fehlt: ${fehlendeTeile(umbenennenTeile).join(', ')}`
+	);
+
+	/*
+	 * Der Satz zur Zeile: immer im Markup, nie hinter einem {#if}.
+	 *
+	 * Gelesen wird der **Tag** über ein umbruch- und reihenfolgeunabhängiges
+	 * Muster — `[^>]*` frisst auch Zeilenumbrüche. Eine frühere Fassung endete auf
+	 * `aria-live="assertive" >` und traf nur wegen des Leerzeichens, das Prettiers
+	 * Faltung dort hinterlässt: ein Umformatieren hätte sie rot gemacht, und die
+	 * nächste Person hätte sie abgeschwächt statt gelesen.
+	 *
+	 * Die zweite Hälfte ist die eigentliche Zusage und war die Lücke: der Tag
+	 * allein sagt nichts darüber, ob er **bedingt** gerendert wird. In ein {#if}
+	 * gewickelt kommt das Element erst mit seinem Text in den DOM, und ein
+	 * Screenreader liest es dann in der Regel nicht vor — genau der Rückfall, den
+	 * Retro-Posten B2 aufgelöst hat.
+	 */
+	const zeilenFehlerTag =
+		/<p\b[^>]*\bid="neuer-name-fehler-\{mitglied\.id\}"[^>]*>/.exec(verwaltungCode)?.[0] ?? '';
+	const zeilenSatzTeile = [
+		['der Tag ist da', zeilenFehlerTag !== ''],
+		['class="fehler live"', /class="fehler live"/.test(zeilenFehlerTag)],
+		['role="alert"', /role="alert"/.test(zeilenFehlerTag)],
+		['aria-live="assertive"', /aria-live="assertive"/.test(zeilenFehlerTag)],
+		[
+			'nicht hinter einem {#if}',
+			!/\{#if fehlerHier/.test(verwaltungCode) && !/\{#if fehlerAmNeuenNamen/.test(verwaltungCode),
+		],
+	] as const;
+	pruefen(
+		'der Satz zur Zeile auf /verwaltung ist eine immer vorhandene Live-Region',
+		fehlendeTeile(zeilenSatzTeile).length === 0,
+		`fehlt: ${fehlendeTeile(zeilenSatzTeile).join(', ')} (Tag: ${zeilenFehlerTag || 'keiner'})`
+	);
+
+	/*
+	 * Die drei Zusagen der Komponente, die sonst an genau einer Zeile hängen und
+	 * still zu brechen wären. Alle drei waren einmal grün zu mutieren.
+	 */
+	const verwaltungRueckmeldung = glatterRumpf(
+		verwaltungCode,
+		verwaltungCode.indexOf('const rueckmeldung')
+	);
+	const beendetVon = verwaltungCode.indexOf('{#if !mitglied.isActive}');
+	const beendetBis = verwaltungCode.indexOf('{:else}', beendetVon);
+	const aktivWieder = verwaltungCode.indexOf('{#if mitglied.isActive', beendetBis);
+	const details = verwaltungCode.indexOf('<details class="umbenennen"');
+	const fokusRumpf = glatterRumpf(verwaltungCode, verwaltungCode.indexOf('function fokusNach'));
+	const zusagenTeile = [
+		[
+			/*
+			 * Die Marke `feld === 'name'` an nameEingabe. Ohne sie trägt ein
+			 * abgewiesenes Umbenennen seinen verworfenen Namen ins **Aufnahmefeld**,
+			 * und wer danach aufnimmt, nimmt jemanden unter dem Namen auf, den er
+			 * eben zu ändern versucht hat.
+			 */
+			"nameEingabe liest nur Fehlschläge mit der Marke 'name'",
+			/const nameEingabe = \$derived\( form !== null && form\.art === 'fehler' && form\.feld === 'name' \?/.test(
+				verwaltungGlatt
+			),
+		],
+		[
+			// Ohne diesen Zweig sagt ein geglücktes Umbenennen gar nichts an, während
+			// fokusNach den Fokus trotzdem in die dann leere Meldungsregion schickt.
+			"rueckmeldung kennt den Zweig 'umbenannt'",
+			/form\.art === 'umbenannt'/.test(verwaltungRueckmeldung),
+		],
+		[
+			/*
+			 * **Der Fokus nach einer Abweisung geht an das Feld dieser Zeile.**
+			 *
+			 * Nicht in die obere Region: die ist in diesem Fall leer und über
+			 * `.live:empty` aus dem Fluss genommen — der Fokus landete im Nichts,
+			 * während der Satz, der ihn erklärt, weit weg am Feld steht. Umgekehrt
+			 * als nach einem geglückten Umbenennen, das die Zeile an ihre neue
+			 * alphabetische Stelle verschiebt; dort bliebe der Fokus auf einer
+			 * fremden Zeile stehen. Beides sind benannte Festlegungen der Story und
+			 * hängen an je einer Zeile in fokusNach.
+			 */
+			'fokusNach springt bei einer abgewiesenen Zeile an deren Feld',
+			/document\.getElementById\(`neuer-name-\$\{zeile\}`\)\?\.focus\(\)/.test(fokusRumpf) &&
+				/meldungKasten\?\.focus\(\)/.test(fokusRumpf),
+		],
+		[
+			/*
+			 * Eine beendete Zeile trägt kein Umbenennen-Formular. Serverseitig hält
+			 * das die Bedingung is_active = 1 in der Query; im Markup hängt es allein
+			 * daran, dass das <details> im {:else}-Zweig steht und nicht daneben.
+			 */
+			'eine beendete Zeile trägt kein Umbenennen-Formular',
+			beendetVon >= 0 &&
+				beendetBis > beendetVon &&
+				aktivWieder > beendetBis &&
+				details > beendetBis &&
+				details < aktivWieder &&
+				(verwaltungCode.match(/<details class="umbenennen"/g) ?? []).length === 1,
+		],
+	] as const;
+	pruefen(
+		'die vier Einzelzusagen der Verwaltungskomponente stehen',
+		fehlendeTeile(zusagenTeile).length === 0,
+		`fehlt: ${fehlendeTeile(zusagenTeile).join(', ')}`
+	);
+
 	const nameFehlerTag = /<p\b[^>]*\bid="name-fehler"[^>]*>/.exec(verwaltungCode)?.[0] ?? '';
 	pruefen(
 		'der Satz am Namensfeld auf /verwaltung ist eine immer vorhandene Live-Region',

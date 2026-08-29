@@ -55,7 +55,8 @@ export const UNERWARTETER_FEHLER = 'Etwas ist schiefgelaufen. Versuche es späte
  * gibt es niemanden, der ihr einen neuen ausstellen könnte.
  *
  * Beide Fälle werden in der action geprüft und nicht nur in der Oberfläche: die
- * eigene Zeile trägt keine Knöpfe, aber ein POST braucht keinen.
+ * eigene Zeile trägt von den drei Zeilen-Aktionen allein das Umbenennen — ein
+ * Name ist kein Zugang —, aber ein POST braucht keinen Knopf.
  */
 export const EIGENER_ZUGANG_GESCHUETZT =
 	'Deinen eigenen Zugang kannst du hier nicht ändern — sonst bliebe die Verwaltung womöglich ohne Zugang.';

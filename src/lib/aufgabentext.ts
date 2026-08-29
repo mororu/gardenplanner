@@ -35,10 +35,10 @@
  * Bearbeiten-Aktion, die sie richtigstellen könnte. Abhaken ist dann das
  * Einzige, was bleibt.
  *
- * Wortgleich mit NULLBREITE in ../routes/verwaltung/+page.server.ts, und diese
- * Verdopplung bleibt: dort geht es um einen Mitgliedsnamen, hier um einen
- * Aufgabentext. Ein gemeinsames Modul für beide hiesse, dass eine Änderung an
- * der einen Seite still die andere trifft.
+ * Wortgleich mit NULLBREITE in ./mitgliedsname.ts, und diese Verdopplung
+ * bleibt: dort geht es um einen Mitgliedsnamen, hier um einen Aufgabentext. Ein
+ * gemeinsames Modul für beide hiesse, dass eine Änderung an der einen Seite
+ * still die andere trifft.
  *
  * U+200B ZERO WIDTH SPACE, U+200C ZERO WIDTH NON-JOINER,
  * U+200D ZERO WIDTH JOINER, U+2060 WORD JOINER, U+FEFF ZERO WIDTH NO-BREAK
@@ -103,8 +103,8 @@ export const PLAN_HOECHSTZAHL = 100;
  * Faltet einen Aufgabentext auf die Form, in der er in die Datenbank geht.
  *
  * Dieselbe Kette und dieselbe Reihenfolge wie namePruefen in
- * ../routes/verwaltung/+page.server.ts, mit Absicht: erst die
- * Nullbreiten-Zeichen weg, dann Leerraum zusammenziehen, dann trimmen.
+ * ./mitgliedsname.ts, mit Absicht: erst die Nullbreiten-Zeichen weg, dann
+ * Leerraum zusammenziehen, dann trimmen.
  * Umgekehrt bliebe `\u200B \u200B` nach dem Trimmen ein nichtleerer „Text".
  *
  * Gespeichert wird die **gefaltete** Fassung: `  Beet   25   jäten  ` wird zu

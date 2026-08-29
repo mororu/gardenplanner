@@ -75,7 +75,7 @@ import { KEIN_ZUGANG } from '../src/lib/texte.ts';
  * mit — genau wie in scripts/smoke-zugang.ts. Eine Seite mehr in `seiten` sind
  * sieben Behauptungen mehr, und dieselbe Zahl steht in README.md.
  */
-const ERWARTETE_BEHAUPTUNGEN = 76;
+const ERWARTETE_BEHAUPTUNGEN = 77;
 
 const GUTES_GEHEIMNIS = 'smoke-http-geheimnis-mit-genug-verschiedenen-zeichen-0123456789';
 
@@ -787,6 +787,73 @@ try {
 
 	const verwaltungAlsAdmin = await holen(port, '/verwaltung', { keks: adminKeks });
 	pruefenGleich('dieselbe Anfrage als Adminperson bekommt 200', verwaltungAlsAdmin.status, 200);
+
+	/*
+	 * **Das Umbenennen ohne JavaScript** — die einzige Deckung, die dieser Zusage
+	 * entspricht.
+	 *
+	 * scripts/smoke-zugang.ts ruft die action direkt und baut sein FormData
+	 * selbst; es sieht das ausgelieferte Markup nie. Seine Textprüfungen lesen die
+	 * Svelte-Datei, nicht das, was der Server daraus macht. Erst hier steht, was
+	 * ein Browser ohne JavaScript wirklich bekäme: ein <form> mit method="POST",
+	 * einer literalen action, dem Feld und der versteckten Zeilen-Id. Fehlt eines
+	 * davon, ist die Aktion ohne JavaScript nicht bedienbar — und genau das hat
+	 * die README behauptet, ohne dass es je gemessen war.
+	 *
+	 * Die Reihenfolge der Attribute wird **nicht** festgeschrieben: geprüft wird
+	 * je Vorkommen, nicht ein zusammenhängender Abdruck. Ein Umsortieren durch
+	 * Prettier oder Svelte ist keine gebrochene Zusage.
+	 */
+	/** Die Namen der fehlenden Teile einer Liste aus [Name, gefunden]. */
+	const fehlendeTeile = (teile: readonly (readonly [string, boolean])[]) =>
+		teile.filter(([, gefunden]) => !gefunden).map(([name]) => name);
+
+	const verwaltungHtml = await verwaltungAlsAdmin.text();
+	/*
+	 * Je Formular **eigens** geschnitten, Tag und Rumpf zusammen.
+	 *
+	 * Eine Suche über das ganze Dokument war hier zuerst falsch und blieb es
+	 * unbemerkt: `name="mitgliedId"` steht auch im Formular von `neuAusstellen`,
+	 * und die Behauptung blieb grün, nachdem das versteckte Feld aus dem
+	 * Umbenennen-Formular entfernt war. Gemessen. Genau die Fehlerklasse, gegen
+	 * die dieser Nachweis steht — ein Muster, das seine Zusage anderswo erfüllt
+	 * findet, prüft nichts.
+	 */
+	const umbenennenFormulare = [
+		...verwaltungHtml.matchAll(/<form\b[^>]*action="\?\/umbenennen"[^>]*>([\s\S]*?)<\/form>/g),
+	];
+	const jedes = (pruefung: (ganzes: string, rumpf: string) => boolean) =>
+		umbenennenFormulare.length > 0 &&
+		umbenennenFormulare.every((treffer) => pruefung(treffer[0], treffer[1] ?? ''));
+	const noJsTeile = [
+		// Zwei aktive Mitglieder in der Saat, also zwei Formulare: die Gegenprobe
+		// dagegen, dass die Zusagen darunter an einer leeren Menge hängen.
+		['ein Formular je aktiver Zeile', umbenennenFormulare.length === 2],
+		[
+			'jedes mit method="POST" — sonst fiele es ohne JavaScript auf GET zurück',
+			jedes((ganzes) => /<form\b[^>]*\bmethod="POST"/i.test(ganzes)),
+		],
+		[
+			'jedes mit dem Feld name="neuerName"',
+			jedes((_, rumpf) => /<input\b[^>]*\bname="neuerName"/.test(rumpf)),
+		],
+		[
+			// Mit einer **echten** Zahl darin: ein value="" wäre ein Formular, das
+			// seine Zeile nicht benennt, und jeder Versand endete im Satz über das
+			// nicht ansprechbare Mitglied.
+			'jedes mit dem versteckten mitgliedId und einer echten Id',
+			jedes((_, rumpf) => /<input\b[^>]*\bname="mitgliedId"[^>]*\bvalue="[0-9]+"/.test(rumpf)),
+		],
+		[
+			'und jedes mit einem Absendeknopf',
+			jedes((_, rumpf) => /<button\b[^>]*\btype="submit"/.test(rumpf)),
+		],
+	] as const;
+	pruefen(
+		'/verwaltung liefert das Umbenennen-Formular aus — ohne JavaScript bedienbar',
+		fehlendeTeile(noJsTeile).length === 0,
+		`fehlt: ${fehlendeTeile(noJsTeile).join(', ')} (${umbenennenFormulare.length} Formular(e))`
+	);
 
 	const mehrOhneRechte = await holen(port, '/mehr', { keks: mitgliedKeks });
 	const mehrOhneRechteHtml = await mehrOhneRechte.text();

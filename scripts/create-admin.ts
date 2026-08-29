@@ -15,6 +15,7 @@
  * tsx. Die Importe stehen relativ und mit .ts-Endung, nie über $lib: nacktes
  * Node löst weder den Alias auf noch eine .js-Endung auf eine .ts-Datei.
  */
+import { namePruefen } from '../src/lib/mitgliedsname.ts';
 import { datenschichtStarten } from '../src/lib/server/db/index.ts';
 import { mitgliedAnlegen, mitgliederZaehlen } from '../src/lib/server/db/queries/members.ts';
 import { herkunftLesen } from '../src/lib/server/herkunft.ts';
@@ -31,7 +32,7 @@ function abbrechen(meldung: string): never {
  *
  * Das Modulladen oben ist nebenwirkungsfrei — keiner dieser Importe öffnet eine
  * Datei. Erst datenschichtStarten() legt die Datenbank samt -wal und -shm an,
- * und das darf nicht passieren, um danach "Es fehlt der Name" zu sagen.
+ * und das darf nicht passieren, um danach "Ohne Namen geht es nicht" zu sagen.
  */
 /*
  * Der Name kommt aus **allen** Argumenten, nicht nur aus dem ersten.
@@ -40,10 +41,22 @@ function abbrechen(meldung: string): never {
  * [{"name":"Anna"}]. Der Name ist die einzige menschenlesbare Identität im
  * System; ihn zur Hälfte zu speichern ist schlimmer als eine Rückfrage.
  */
-const name = process.argv.slice(2).join(' ').replace(/\s+/g, ' ').trim();
-if (name === '') {
-	abbrechen('Es fehlt der Name. Aufruf: npm run create-admin -- Anna Meier');
+/*
+ * Geprüft wird mit **derselben** Regel wie unter /verwaltung, und das ist der
+ * Grund, aus dem src/lib/mitgliedsname.ts existiert.
+ *
+ * Bis Story 3.0.1 stand hier eine eigene Kette: `.replace(/\s+/g, ' ').trim()`
+ * und ein Vergleich auf die leere Zeichenkette — ohne Nullbreiten-Sieb und ohne
+ * Längengrenze. Ein Name aus reinen Nullbreiten-Zeichen legte damit das erste,
+ * einzige und mit Adminrechten ausgestattete Mitglied an, das in der Liste als
+ * leere Lücke erscheint; die Oberfläche wies denselben Namen seit Story 1.3 ab.
+ * Retro-Posten 3 aus Epic 1, in Epic 2 als 19 wiederholt.
+ */
+const geprueft = namePruefen(process.argv.slice(2).join(' '));
+if ('fehler' in geprueft) {
+	abbrechen(`${geprueft.fehler}\nAufruf: npm run create-admin -- Anna Meier`);
 }
+const name = geprueft.name;
 
 let herkunft: string;
 try {
@@ -75,7 +88,7 @@ if (vorhandene > 0) {
 	abbrechen(
 		`Es gibt schon ${vorhandene} Mitglied(er). Dieses Skript legt nur das erste an.\n` +
 			'Weitere Mitglieder nimmt eine Adminperson unter /verwaltung auf — dort gibt es\n' +
-			'Aufnehmen, Link neu ausstellen und Einladung widerrufen.\n' +
+			'Aufnehmen, Umbenennen, Link neu ausstellen und Einladung widerrufen.\n' +
 			'Hier gibt es bewusst keinen zweiten Weg, damit nicht unbemerkt ein zweiter\n' +
 			'Admin mit einem zweiten lebenden Link entsteht. Adminrechte vergibt allein\n' +
 			'dieses Skript, und nur für das erste Mitglied.'

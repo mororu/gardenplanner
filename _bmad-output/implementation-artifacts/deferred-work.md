@@ -413,3 +413,40 @@ zu jedem Token unmittelbar am Wert, und sie zu verlagern ist ein Abwägen zwisch
 Bytes und dem Ort des Gestaltungsprotokolls — eine Entscheidung, keine Nacharbeit. Hier nur
 gemessen festgehalten. Die neue Regelhälfte fasst sie nicht, weil sie keine internen Pfade mehr
 nennen.
+
+## Erledigt am 2026-08-29 — Story 3.0.1
+
+- betrifft: Eintrag 11 (Zeile 41, „Kein Umbenennen, kein Reaktivieren, kein Undo-Fenster") und
+    seinen Entscheid vom 2026-08-28, dazu Epic-1-Punkt 3 und Epic-2-Punkt 19
+    (`scripts/create-admin.ts`)
+  fassung: `/verwaltung` hat eine `umbenennen`-action, inline je aktiver Mitgliedszeile und ohne
+    modalen Dialog. Sie ist **kein** Zugangsvorgang: Id, `invite_token_hash`, `is_admin`,
+    `is_active` und `created_at` bleiben unberührt, es ist ein `UPDATE` derselben Zeile. Die
+    **eigene** Zeile darf umbenannt werden, anders als bei Neuausstellen und Widerrufen — ein Name
+    ist kein Zugang. Die Namensregel ist nach `src/lib/mitgliedsname.ts` gezogen, wortgleich und
+    ohne Neufassung, und hat jetzt drei Leser statt einer Kopie: `aufnehmen`, `umbenennen` und
+    `scripts/create-admin.ts`. Damit ist auch die auseinandergelaufene Kopie im Admin-Skript
+    geschlossen, die einen Namen aus reinen Nullbreiten-Zeichen durchliess.
+  bleibt offen und ist Absicht: **kein Reaktivieren** eines beendeten Zugangs, **kein Undo** eines
+    Umbenennens und **keine Historie** der alten Namen. Die Unumkehrbarkeit des Widerrufs ist der
+    Grund, warum „Zugang beenden" etwas bedeutet; die zwei anderen stehen weiterhin unter
+    `Ask First` und sind in `README.md` unter den benannt akzeptierten Risiken beschrieben. Ebenso
+    unverändert: **keine Eindeutigkeitsbedingung** auf `name`, zwei Mitglieder dürfen gleich
+    heissen.
+  belegt: `smoke` (418 Behauptungen) und `smoke:http` (78). Ausgeführt sind Gelingen samt dem
+    Abdruck der ganzen Zeile ausser der Namensspalte, die eigene Zeile, der unveränderte Name als
+    Erfolg, die drei untauglichen Namen je mit Marke, Eingabe und **Zeilennummer** in der Antwort,
+    die vier nicht ansprechbaren Zustände über alle drei Zeilen-actions, die Adminschranke und der
+    Abbruch von `create-admin` **vor** `datenschichtStarten`. Der Pfad ohne JavaScript ist am
+    gebauten Server gemessen: `smoke:http` schneidet jedes ausgelieferte Umbenennen-Formular
+    einzeln aus und prüft `method="POST"`, die literale `action`, das Feld, die versteckte Zeilen-Id
+    und den Absendeknopf. Neunzehn Mutationen sind eingespielt und rot gesehen; sie stehen in der
+    Tabelle in `README.md`.
+  status: erledigt
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-0-1-umbenennen-auf-verwaltung.md`
+  summary: Verlorene Änderung — ein veralteter Tab kann eine neuere Umbenennung unbemerkt zurückdrehen.
+  evidence: Die action schreibt den Namen aus dem abgeschickten Formular, ohne zu prüfen, welchen Stand die Seite gesehen hat. Wer `/verwaltung` in einem zweiten Tab offen hat, dort das Formular aufklappt und nach einer Umbenennung im ersten Tab abschickt, überschreibt den neueren Namen mit dem älteren — ohne Hinweis, weil das `UPDATE` gelingt. Zwei gleichzeitige Adminpersonen gibt es heute nicht (Adminrechte vergibt allein `scripts/create-admin.ts`, und nur für das erste Mitglied), der eigene veraltete Tab sehr wohl. Ein Mittel wäre ein mitgeschicktes `created_at` oder der alte Name als Bedingung im `UPDATE`, mit dem Satz über das nicht ansprechbare Mitglied als Ausgang — dieselbe Bauform, mit der `abhaken` in Story 1.4 das Wettrennen zweier Abhakender in der `where`-Klausel entscheidet. Zurückgestellt, weil der Schaden eines zurückgedrehten Namens klein und die Korrektur seit dieser Story ein Handgriff ist.
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-0-1-umbenennen-auf-verwaltung.md`
+  summary: Screenreader — jede Mitgliedszeile trägt wortgleich „Umbenennen" und „Neuer Name" ohne Bezug zur Zeile.
+  evidence: Der Aufklapp-Griff und die Feldbeschriftung wiederholen sich je aktiver Zeile identisch. Wer die Seite mit einer Elementliste durchgeht, liest zwanzigmal „Umbenennen" und zwanzigmal „Neuer Name", ohne zu erfahren, wessen Name gemeint ist; sichtbar trägt der Zeilenname darüber die Auskunft, für die Liste ist sie fort. Dasselbe gilt schon für `Link neu ausstellen` und `Einladung widerrufen` seit Story 1.3 — mit dem Umbenennen wächst es von den fremden Zeilen auf **jede** aktive. Ein Mittel wäre ein `aria-label` mit dem Namen der Zeile an Griff, Feld und Knopf, oder ein `aria-labelledby`, das auf den Zeilennamen zeigt. Nicht in dieser Story gebaut: es betrifft alle drei Zeilen-Aktionen und gehört in einem Zug gelöst, nicht an einer.

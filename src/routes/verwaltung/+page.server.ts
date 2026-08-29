@@ -2,17 +2,21 @@ import type { Actions, RequestEvent, ServerLoadEvent } from '@sveltejs/kit';
 import { abweisen } from '../../lib/server/abweisen.ts';
 import { adminOderWeg } from '../../lib/server/adminschranke.ts';
 import {
+	aktivesMitgliedLesen,
 	einladungNeuAusstellen,
 	mitgliedAnlegen,
 	mitgliedDeaktivieren,
 	mitgliederAuflisten,
+	mitgliedUmbenennen,
 } from '../../lib/server/db/queries/members.ts';
 import type { AngemeldetesMitglied } from '../../lib/server/db/schema.ts';
+import { NAME_HOECHSTLAENGE, namePruefen } from '../../lib/mitgliedsname.ts';
 import { tokenErzeugen, tokenHashen } from '../../lib/server/token.ts';
 import { EIGENER_ZUGANG_GESCHUETZT, MITGLIED_NICHT_ANSPRECHBAR } from '../../lib/texte.ts';
 
 /*
- * /verwaltung — aufnehmen, Link neu ausstellen, Einladung widerrufen.
+ * /verwaltung — aufnehmen, umbenennen, Link neu ausstellen, Einladung
+ * widerrufen.
  *
  * Die Importe stehen relativ und mit .ts-Endung, und die Typen kommen aus
  * @sveltejs/kit statt aus ./$types. Der Grund ist derselbe wie in
@@ -29,59 +33,22 @@ import { EIGENER_ZUGANG_GESCHUETZT, MITGLIED_NICHT_ANSPRECHBAR } from '../../lib
  * nicht umkehrbar. „Nach dem Verlassen der Seite nirgends mehr abrufbar" ist
  * damit eine Eigenschaft des Aufbaus und keine Zusage der Oberfläche.
  *
- * **Jede** der vier Einstiegsstellen beginnt mit adminOderWeg. Eine action
+ * **Jede** der fünf Einstiegsstellen beginnt mit adminOderWeg. Eine action
  * ohne Schranke wäre der Fehler, den die Oberfläche nicht sichtbar macht: für
  * Nicht-Admins fehlt der Knopf, ein POST braucht aber keinen.
  */
 
-/** Der Text für den einen Fall, den nur diese Seite kennt. Eine Wurfstelle. */
-const NAME_FEHLT = 'Ohne Namen geht es nicht. Trage ein, wie die Gruppe die Person nennt.';
-
-/**
- * Die Längengrenze des Namens, serverseitig durchgesetzt.
+/*
+ * Die Namensregel steht in ../../lib/mitgliedsname.ts und **nicht** hier.
  *
- * 80 Zeichen fassen jeden Doppelnamen mit Bindestrich und jeden Zusatz, den
- * eine Gartengruppe zur Unterscheidung braucht (`Anna Meier (Beet 12)`), und
- * halten die Zeile bei 375px in zwei Zeilen. Das `maxlength` am Feld ist die
- * Bequemlichkeit, diese Konstante die Regel: ein POST braucht kein Feld.
+ * Bis Story 3.0.1 standen NAME_FEHLT, NAME_HOECHSTLAENGE, NAME_ZU_LANG,
+ * NULLBREITE und namePruefen an dieser Stelle, mit der Begründung „eine
+ * Wurfstelle". Seither sind es drei Leser derselben Regel: die zwei actions
+ * dieser Datei und scripts/create-admin.ts — und das Skript **war** die
+ * auseinandergelaufene Kopie, die einen Namen aus reinen Nullbreiten-Zeichen
+ * durchliess. Ausgelagert, nicht neu gefasst: beide Sätze und die 80 sind
+ * wortgleich mitgewandert.
  */
-const NAME_HOECHSTLAENGE = 80;
-
-/** Der Text für die Überlänge. Eine Wurfstelle. */
-const NAME_ZU_LANG = `Der Name ist zu lang. Höchstens ${NAME_HOECHSTLAENGE} Zeichen, gerne die Kurzform.`;
-
-/**
- * Nullbreiten-Zeichen. Sie sind unsichtbar, haben keine Breite und `trim()`
- * hält sie **nicht** für Leerraum.
- *
- * Ohne dieses Aussieben besteht ein Name aus reinen Nullbreiten-Zeichen jede
- * Prüfung und legt eine Zeile an, die in der Liste als leere Lücke erscheint —
- * ohne lesbaren Namen, mit einem lebenden Einladungslink und ohne jede Aussage,
- * wer das ist. Es gibt keine Umbenennen-Aktion in dieser Anwendung, der Fehler
- * ist also endgültig; ein Widerruf ist dann das Einzige, was bleibt.
- *
- * U+200B ZERO WIDTH SPACE, U+200C ZERO WIDTH NON-JOINER,
- * U+200D ZERO WIDTH JOINER, U+2060 WORD JOINER, U+FEFF ZERO WIDTH NO-BREAK
- * SPACE (die Form, in der eine Byte-Order-Mark beim Einfügen aus einer Datei
- * mitkommt).
- */
-const NULLBREITE = /[\u200B-\u200D\u2060\uFEFF]/g;
-
-/**
- * Der Name, wie er in die Datenbank geht — oder null, wenn er nicht taugt.
- *
- * Reihenfolge mit Absicht: erst die Nullbreiten-Zeichen weg, dann Leerraum
- * zusammenziehen, dann trimmen. Umgekehrt bliebe `\u200B \u200B` nach dem
- * Trimmen ein nichtleerer „Name".
- */
-function namePruefen(eingabe: string): { name: string } | { fehler: string } {
-	const name = eingabe.replace(NULLBREITE, '').replace(/\s+/g, ' ').trim();
-	if (name === '') return { fehler: NAME_FEHLT };
-	// Nach Codepoints gezählt, nicht nach UTF-16-Einheiten: ein Emoji im Namen
-	// ist keine zwei Zeichen. [...name] zerlegt in Codepoints.
-	if ([...name].length > NAME_HOECHSTLAENGE) return { fehler: NAME_ZU_LANG };
-	return { name };
-}
 
 /**
  * Die einzige Kopfzeile, die die Zusage „nie gespeichert" überhaupt trägt.
@@ -123,11 +90,18 @@ function linkBauen(url: URL, token: string): string {
 export function load({ locals }: ServerLoadEvent): {
 	ichId: number;
 	mitglieder: AngemeldetesMitglied[];
+	namensgrenze: number;
 } {
 	const ich = adminOderWeg(locals);
 	// mitgliederAuflisten gibt die Zeilen **ohne** invite_token_hash zurück.
 	// Über data landet dieses Ergebnis im ausgelieferten HTML.
-	return { ichId: ich.id, mitglieder: mitgliederAuflisten() };
+	//
+	// namensgrenze reist mit, damit das `maxlength` beider Namensfelder aus
+	// NAME_HOECHSTLAENGE kommt und nicht als zweite 80 im Markup steht. Der
+	// Import läuft über diese Datei und nicht über $lib in der Komponente: die
+	// Regel liegt auf der Serverseite, und eine zweite Einstiegstür zu ihr wäre
+	// eine zweite Stelle, an der sie sich lösen könnte.
+	return { ichId: ich.id, mitglieder: mitgliederAuflisten(), namensgrenze: NAME_HOECHSTLAENGE };
 }
 
 /*
@@ -135,11 +109,24 @@ export function load({ locals }: ServerLoadEvent): {
  * und ist für alle vier Seiten dieselbe.
  *
  * Diese Seite ist die einzige, die beide Zusatzangaben braucht: `feld: 'name'`
- * schickt die Meldung an das Namensfeld der Aufnahme, `feld: null` lässt sie in
- * der Live-Region des Seitenkopfs stehen — dort, wo die Meldungen zu einer Zeile
- * der Mitgliederliste hingehören, die kein eigenes Feld hat. `eingabe` trägt den
+ * schickt die Meldung an das Namensfeld der Aufnahme, `feld: 'neuerName'` an das
+ * Feld der umbenannten Zeile, und `feld: null` lässt sie in der Live-Region des
+ * Seitenkopfs stehen — dort, wo die Meldungen zu einer Zeile der
+ * Mitgliederliste hingehören, die kein eigenes Feld hat. `eingabe` trägt den
  * abgewiesenen Namen zurück, damit er nach einem Fehlschlag nicht neu getippt
  * werden muss.
+ *
+ * **Zwei Marken und nicht eine**, obwohl beide Felder einen Namen tragen: `name`
+ * gehört dem Aufnahmeformular, und zwei Felder unter einer Marke wären die
+ * Zweideutigkeit, gegen die die Marke da ist — ein abgewiesenes Umbenennen
+ * setzte sonst die Kante ans Aufnahmefeld und trüge den verworfenen Namen dort
+ * hinein.
+ *
+ * **Welche Zeile** es war, sagt der Server mit: das vierte Argument von
+ * `abweisen`. Eine frühere Fassung liess den use:enhance-Rückruf die
+ * abgeschickte `mitgliedId` aus dem `formData` lesen — ohne JavaScript läuft
+ * kein Rückruf, und die Seite verlor damit genau das, was der eingefrorene Block
+ * unbedingt verlangt: den Satz am Feld **dieser** Zeile, auch ohne JavaScript.
  */
 export const actions = {
 	/**
@@ -248,5 +235,61 @@ export const actions = {
 		}
 
 		return { art: 'widerrufen' as const, meldung: 'Widerrufen.', name: mitglied.name };
+	},
+
+	/**
+	 * Gibt einem **aktiven** Mitglied einen anderen Namen.
+	 *
+	 * Kein Zugangsvorgang: Id, invite_token_hash, is_admin, is_active und
+	 * created_at bleiben unberührt, es ist ein UPDATE derselben Zeile. Bis Story
+	 * 3.0.1 war ein vertippter Name nur zu beheben, indem man den Zugang beendete
+	 * und die Person neu aufnahm — was ihr zugleich alle künftigen Dienstwochen
+	 * genommen hätte, sobald der Name ab Story 3.1 im Dienstplan vor allen steht.
+	 *
+	 * **Die eigene Zeile darf umbenannt werden**, anders als bei neuAusstellen
+	 * und widerrufen: ein Name ist kein Zugang. Ein Selbst-Umbenennen sperrt
+	 * niemanden aus, und es gibt genau eine Adminperson, die es sonst für sie
+	 * täte. EIGENER_ZUGANG_GESCHUETZT kommt hier darum nicht vor.
+	 *
+	 * Die Zeile wird **vor** dem Namen geprüft, und zwar vollständig: erst die
+	 * Form der Id, dann ob sie eine aktive Zeile trifft. Ohne ansprechbare Zeile
+	 * gibt es kein Feld, an dem ein Satz über den Namen stehen könnte — die
+	 * Antwort trüge `feld: 'neuerName'` und eine Zeilennummer, die es nicht gibt,
+	 * und die Oberfläche fände keine Stelle dafür. Die abgewiesene Eingabe
+	 * verschwände spurlos.
+	 */
+	umbenennen: async ({ locals, request }: RequestEvent) => {
+		adminOderWeg(locals);
+
+		const formular = await request.formData();
+		const id = idLesen(formular.get('mitgliedId'));
+		// Fehlend, nicht numerisch, unbekannt und beendet fallen auf denselben
+		// Satz — ohne Feld und ohne Zeile, damit er in der Live-Region oben steht.
+		if (id === null || aktivesMitgliedLesen(id) === null) {
+			return abweisen(MITGLIED_NICHT_ANSPRECHBAR);
+		}
+
+		const roh = formular.get('neuerName');
+		const eingabe = typeof roh === 'string' ? roh : '';
+		const geprueft = namePruefen(eingabe);
+		if ('fehler' in geprueft) {
+			// Die Zeile geht mit zurück. Ohne sie stünde der Satz zwar am richtigen
+			// **Feldtyp**, aber an keiner bestimmten Zeile — und ohne JavaScript
+			// könnte die Seite ihn nirgends anbringen.
+			return abweisen(geprueft.fehler, 'neuerName', eingabe, id);
+		}
+
+		// is_active = 1 steht in der Query, nicht hier. Die zweite Prüfung auf null
+		// ist keine Verdopplung der ersten, sondern schliesst das Fenster
+		// dazwischen: zwischen Auskunft und UPDATE kann ein Widerruf laufen.
+		const mitglied = mitgliedUmbenennen(id, geprueft.name);
+		if (mitglied === null) {
+			return abweisen(MITGLIED_NICHT_ANSPRECHBAR);
+		}
+
+		// Ein Name, der dem alten gleicht, ist ein Erfolg und keine Abweisung: die
+		// Person hat bekommen, was sie wollte, und eine Meldung darüber wäre eine
+		// Aufforderung, etwas zu ändern, das schon stimmt.
+		return { art: 'umbenannt' as const, meldung: 'Umbenannt.', name: mitglied.name };
 	},
 } satisfies Actions;

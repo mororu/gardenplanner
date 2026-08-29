@@ -935,7 +935,7 @@ Seit Story 1.3 fährt das Skript zusätzlich die Routenmodule von `/verwaltung`
 und `/mehr` direkt, mit gesetztem `locals.mitglied` und mit **echten**
 Formulardaten (`POST` mit `FormData`, damit `await request.formData()` in der
 action wirklich etwas zu parsen hat). Belegt sind dort: ein Nicht-Admin bekommt
-auf die `load` **und** auf jede der drei actions `303` auf `/` und ändert dabei
+auf die `load` **und** auf jede der vier actions `303` auf `/` und ändert dabei
 nichts; `aufnehmen` legt `is_admin = 0`/`is_active = 1` an und gibt den Klartext
 genau einmal heraus, während in der Datenbank dessen Hash steht und der Klartext
 in **keiner** Datenbankdatei vorkommt (die Suche geht über `smoke.sqlite` **und**
@@ -945,9 +945,63 @@ ersetzt den Hash derselben Zeile, der alte Link wird danach mit `403`
 abgewiesen und der neue mit `303` eingelöst; `widerrufen` setzt `is_active = 0`
 und lässt Name und Hash stehen; Selbstwiderruf und Selbst-Neuausstellen ändern
 nichts; und eine fehlende, nicht numerische, unbekannte oder schon beendete
-`mitgliedId` ergibt in beiden actions denselben Satz, ohne die Tabelle
-anzufassen. Zuletzt wird jeder Token-Hash aus `members` im Rückgabewert beider
-`load`-Funktionen gesucht — gefunden wird keiner.
+`mitgliedId` ergibt in allen drei Zeilen-actions denselben Satz und benennt kein
+Feld, ohne die Tabelle anzufassen. Zuletzt wird jeder Token-Hash aus `members` im
+Rückgabewert beider `load`-Funktionen gesucht — gefunden wird keiner.
+
+Seit Story 3.0.1 kommt die action `umbenennen` dazu, und mit ihr die
+Namensregel als **geteiltes Modul** (`src/lib/mitgliedsname.ts`). Belegt sind
+dort: ein gültiger neuer Name kommt gefaltet in der Zeile an, während Id,
+`invite_token_hash`, `is_admin`, `is_active` und `created_at` als **ein Abdruck**
+unverändert bleiben — nicht Feld für Feld behauptet, sonst rutschte jede künftige
+Spalte still durch; die Zeile steht danach an ihrer neuen alphabetischen Stelle,
+gemessen an zwei frischen `load`-Aufrufen; die **eigene** Zeile darf umbenannt
+werden, anders als bei Neuausstellen und Widerrufen, und trägt danach den neuen
+Namen; ein unveränderter Name ist ein Erfolg und keine Abweisung; ein Name aus
+Leerzeichen, aus reinen Nullbreiten-Zeichen und einer über 80 Zeichen ergeben
+`400` mit der Marke `neuerName` — nicht `name`, das gehört dem Aufnahmeformular
+—, lassen die Zeile unverändert und geben die Eingabe zurück; und genau 80
+Zeichen gehen durch. `create-admin` weist dieselben zwei Namen jetzt ebenfalls ab,
+und zwar **vor** `datenschichtStarten`: Exit `1`, benannte Meldung, kein
+Verzeichniseintrag. Das ist der ausgeführte Beweis für das geteilte Modul — bis
+Story 3.0.1 legte genau dieser Aufruf ein Admin-Mitglied ohne lesbaren Namen an.
+
+**Die abgewiesene Zeile kommt vom Server**, und das ist ausgeführt belegt: jede
+der drei Abweisungen nennt neben Satz, Feldmarke und verworfener Eingabe die
+Zeilennummer. Eine erste Fassung liess den `use:enhance`-Rückruf sie aus dem
+abgeschickten Formular lesen — ohne JavaScript läuft kein Rückruf, und damit fiel
+alles weg, was daran hing. Dazu die Reihenfolge in der action: **die Zeile
+gewinnt**. Ist sie nicht ansprechbar, steht der Satz oben, ohne Feld und ohne
+Zeile — auch wenn der Name gleichzeitig untauglich ist. Andernfalls trüge die
+Antwort eine Feldmarke und eine Zeilennummer, die es nicht gibt, und die
+abgewiesene Eingabe verschwände spurlos. Zwei Prüfungen decken das `is_active`
+doppelt: die Auskunft vor der Namensprüfung und die Bedingung im `UPDATE`, jede
+mit eigener Behauptung.
+
+Drei **Textprüfungen** stehen daneben. Die erste hält die Bedingung fest, unter
+der die drei Wurfstellen eine bleiben: `namePruefen` ist im ganzen Baum genau
+einmal deklariert — als Funktion **wie als Pfeil** —, `NAME_HOECHSTLAENGE`
+ebenso, kein Namensfeld trägt die 80 als Literal, `/verwaltung` zieht die
+Funktion aus dem Modul und ruft sie in **beiden** actions, und
+`scripts/create-admin.ts` faltet nicht mehr selbst. Die zweite ist die
+Verdrahtung des Umbenennen-Formulars — `method="POST"`, die literale `action`,
+`use:enhance={versand}`, das versteckte `mitgliedId` mit der Id der Zeile,
+`name="neuerName"`, die `value`-Bindung, `aria-invalid`, `aria-describedby` und
+der gesperrte Absendeknopf. Die dritte fasst vier Zusagen, die sonst an je einer
+Zeile hingen: `nameEingabe` liest nur Fehlschläge mit der Marke `name` — sonst
+trüge ein abgewiesenes Umbenennen seinen verworfenen Namen ins Aufnahmefeld —,
+`rueckmeldung` kennt den Zweig `umbenannt`, `fokusNach` schickt den Fokus nach
+einer Abweisung an das Feld **dieser** Zeile und nach einem Erfolg an die
+Rückmeldung, und das `<details>` steht im `{:else}`-Zweig, damit eine beendete
+Zeile kein Formular trägt. Daneben steht der
+Satz zur Zeile als immer vorhandene Live-Region, umbruch- und
+reihenfolgeunabhängig geprüft und ausdrücklich **nicht** hinter einem `{#if}`.
+
+Alle stehen aus demselben Grund da wie ihr Gegenstück auf `/aufgabe`: die
+ausgeführten Behauptungen bauen ihr `FormData` selbst und blieben grün, wenn das
+Feld im Markup anders hiesse — im Browser endete dann jedes Umbenennen mit
+`Ohne Namen geht es nicht.` Was der Server daraus wirklich ausliefert, misst erst
+`smoke:http`.
 
 Seit Story 1.4 fährt es zusätzlich `src/routes/+page.server.ts` — `load` und
 beide actions. Belegt sind dort: die `load` gibt genau die offenen Aufgaben,
@@ -1283,6 +1337,29 @@ Der Grund für all das ist gemessen. Die Tabelle nennt nur Mutationen, die
 | `gelaufen += 1` aus `pruefen` entfernt                            | Story 3.0 (Review) | `smoke:selftest`                                                                                                                                                                                                           |
 | `gescheitert += 1` aus `unerwarteterWurf` entfernt                | Story 3.0 (Review) | `smoke:selftest`                                                                                                                                                                                                           |
 | `klartexte` im Prüfskript auf einen Wert gesetzt, der dasteht     | Story 3.0 (Review) | `smoke:http`, fünf Klartext-Behauptungen — die Gegenprobe, dass die Suche nicht ins Leere greift                                                                                                                           |
+| `is_active = 1` aus `mitgliedUmbenennen` entfernt                 | Story 3.0.1        | `smoke`, die zwei Behauptungen an der Repository-Funktion selbst — über eine action ist die Bedingung nicht mehr erreichbar, siehe unten                                                                                   |
+| `aktivesMitgliedLesen` aus der action `umbenennen` genommen       | Story 3.0.1        | `smoke`, zwei Zeilen von „Id … und Name leer zugleich"                                                                                                                                                                     |
+| `feld: 'neuerName'` beim Abweisen auf `'name'` geändert           | Story 3.0.1        | `smoke`, drei Marken-Behauptungen des Umbenennens                                                                                                                                                                          |
+| das vierte Argument `zeile` beim Abweisen weggelassen             | Story 3.0.1        | `smoke`, drei Zeilen „nennt die abgewiesene Zeile"                                                                                                                                                                         |
+| die Namensprüfung vor die Zeilenprüfung gezogen                   | Story 3.0.1        | `smoke`, drei Zeilen „Id … und Name leer zugleich"                                                                                                                                                                         |
+| die eigene Zeile im Umbenennen gesperrt                           | Story 3.0.1        | `smoke`, zwei Behauptungen über die eigene Zeile                                                                                                                                                                           |
+| `adminOderWeg` aus `umbenennen` entfernt                          | Story 3.0.1        | `smoke`, die Adminschranke, die unveränderte Zeile und die Attrappen-Klammer                                                                                                                                               |
+| `create-admin` holt sich seine eigene Faltkette zurück            | Story 3.0.1        | `smoke`, drei `create-admin`-Behauptungen und die Wurfstellen-Behauptung                                                                                                                                                   |
+| eine Kopie von `namePruefen` als **Pfeilfunktion** daneben        | Story 3.0.1        | `smoke`, die Wurfstellen-Behauptung — mit dem Muster vor dem Review blieb sie grün                                                                                                                                         |
+| `maxlength` wieder als Literal `80` im Markup                     | Story 3.0.1        | `smoke`, die Wurfstellen-Behauptung, Teil „kein Namensfeld trägt sie als Literal"                                                                                                                                          |
+| `name="neuerName"` im Markup verschrieben                         | Story 3.0.1        | `smoke`, die Verdrahtung des Formulars; `smoke:http`, das ausgelieferte Feld                                                                                                                                               |
+| `method="POST"` am Umbenennen-Formular entfernt                   | Story 3.0.1        | `smoke`, die Verdrahtung des Formulars; `smoke:http`, das ausgelieferte Formular                                                                                                                                           |
+| das versteckte `mitgliedId` aus dem Umbenennen-Formular entfernt  | Story 3.0.1        | `smoke:http`, die ausgelieferte Zeilen-Id — eine Suche über das ganze Dokument blieb hier grün, siehe unten                                                                                                                |
+| die `value`-Bindung des Umbenennen-Feldes entfernt                | Story 3.0.1        | `smoke`, die Verdrahtung des Formulars                                                                                                                                                                                     |
+| `nameEingabe` ohne die Marke `feld === 'name'`                    | Story 3.0.1        | `smoke`, die drei Einzelzusagen der Komponente                                                                                                                                                                             |
+| der Zweig `art === 'umbenannt'` aus `rueckmeldung` entfernt       | Story 3.0.1        | `smoke`, die drei Einzelzusagen der Komponente                                                                                                                                                                             |
+| das `<details>` aus dem `{:else}`-Zweig gezogen                   | Story 3.0.1        | `smoke`, die drei Einzelzusagen der Komponente                                                                                                                                                                             |
+| der Satz zur Zeile hinter ein `{#if}` gestellt                    | Story 3.0.1        | `smoke`, die Live-Region zur Zeile                                                                                                                                                                                         |
+| das Selbstumbenennen wieder auf `vera` gelegt                     | Story 3.0.1        | `smoke`, die Klammer zwischen Attrappe und Datenbank                                                                                                                                                                       |
+| der Fokusgriff auf das Feld der abgewiesenen Zeile entfernt       | Story 3.0.1        | `smoke`, die vier Einzelzusagen der Komponente                                                                                                                                                                             |
+| der Fokus nach dem Erfolg von der Rückmeldung weggenommen         | Story 3.0.1        | `smoke`, die vier Einzelzusagen der Komponente                                                                                                                                                                             |
+| `disabled={imFlug}` vom Umbenennen-Knopf entfernt                 | Story 3.0.1        | `smoke`, die Verdrahtung des Formulars                                                                                                                                                                                     |
+| der Absendeknopf ganz entfernt                                    | Story 3.0.1        | `smoke:http`, das ausgelieferte Formular                                                                                                                                                                                   |
 
 `\|\| !mitglied.isActive` aus dem **Wächter** entfernt steht bewusst **nicht** in
 der Tabelle: diese Mutation war schon vor Iteration 2 rot.
@@ -1305,12 +1382,29 @@ fest, die `src/hooks.server.ts` beschreibt und die hier zum ersten Mal gemessen
 ist. Wer sie eines Tages rot sieht, hat SvelteKit gewechselt, nicht die
 Anwendung.
 
+**Zwei Mutationen aus Story 3.0.1 blieben zuerst grün, und beide waren Löcher.**
+Sie stehen hier, weil das Nachziehen der Prüfung der eigentliche Ertrag war:
+
+- `is_active = 1` aus `mitgliedUmbenennen` entfernt lief grün durch die ganze
+  Kette, sobald die action davor fragt, ob die Zeile überhaupt ansprechbar ist:
+  über eine action ist die Bedingung im `UPDATE` dann gar nicht mehr erreichbar.
+  Sie steht trotzdem dort — die Vorprüfung entscheidet, **welchen Satz** die
+  Person liest, die Bedingung im `UPDATE`, **ob** geschrieben wird, und zwischen
+  beiden liegt ein Fenster, in dem ein Widerruf laufen kann. Gedeckt ist sie
+  jetzt an der Repository-Funktion selbst, direkt gerufen.
+- Die `smoke:http`-Behauptung über das versteckte `mitgliedId` suchte zuerst über
+  das **ganze** Dokument und blieb grün, nachdem das Feld aus dem
+  Umbenennen-Formular entfernt war: `name="mitgliedId"` steht auch im Formular
+  von `Link neu ausstellen`. Sie schneidet jetzt jedes Umbenennen-Formular einzeln
+  aus und prüft in seinem Rumpf. Ein Muster, das seine Zusage anderswo erfüllt
+  findet, prüft nichts.
+
 ### Was `npm run smoke:http` prüft
 
 `scripts/smoke-http.ts` beantwortet die Frage, die `smoke` nicht beantworten
 kann: **was kommt tatsächlich aus der Steckdose?** Es startet `build/index.js`
 als Unterprozess auf einem freien Port gegen eine Wegwerf-Datenbank, sät zwei
-Mitglieder über die echte Datenschicht und legt 76 Behauptungen an echten
+Mitglieder über die echte Datenschicht und legt 78 Behauptungen an echten
 Antworten ab — Status, Kopfzeilen, `set-cookie` und Bytes, nichts davon von
 einer Attrappe entschieden. Kein Browser, keine neue Abhängigkeit, reines Node;
 `pruefen`, `pruefenGleich`, `wegwerfVerzeichnis` und der Abbruchrahmen kommen
@@ -1353,6 +1447,16 @@ Behauptung fest:
    von `resolve` liegt. Der Kommentar ist richtiggestellt, und beide Zustände
    sind einzeln behauptet.
 
+Seit Story 3.0.1 misst das Skript zusätzlich die **einzige** Zusage, die `smoke`
+grundsätzlich nicht messen kann: dass `/verwaltung` das Umbenennen-Formular
+wirklich ausliefert. Es schneidet jedes Formular mit `action="?/umbenennen"`
+einzeln aus dem HTML und prüft in seinem Rumpf `method="POST"`, das Feld
+`neuerName`, die versteckte Zeilen-Id mit einer echten Zahl und den
+Absendeknopf — je aktiver Zeile eines, zwei bei der Saat. `smoke` ruft die
+action direkt und baut sein `FormData` selbst; es sieht nie, was ein Browser
+ohne JavaScript bekäme. Ohne diese Behauptung stünde die No-JS-Zusage der README
+ungedeckt da, und sie stand es.
+
 Zwei Behauptungen gelten dem Prüfgegenstand selbst: `build/index.js` muss da
 **und** nicht älter als die jüngste Datei unter `src/` sein. Die zweite ist die
 wichtigere — ein veralteter Bau lieferte grüne Behauptungen über Bytes, die
@@ -1379,7 +1483,7 @@ und `smoke:http`. Damit war es der einzige ungeprüfte Code darin — und sein
 Ausfall sähe wie ein grüner Lauf aus, nicht wie ein Absturz. Gemessen an einer
 Kopie: nimmt man das `gescheitert += 1` aus `pruefen`, meldet jede gebrochene
 Zusage weiter „FEHLER" auf die Fehlerausgabe, die Schlusszählung bleibt grün,
-und `npm run smoke` endet mit **0** — 373 Behauptungen auf einen Schlag
+und `npm run smoke` endet mit **0** — 418 Behauptungen auf einen Schlag
 entwaffnet, ohne dass irgendetwas im Baum es bemerkt.
 
 `scripts/pruefhelfer-selftest.ts` schliesst diese Lücke, in derselben Bauform wie
@@ -1770,7 +1874,7 @@ jemanden ohne Adminrechte soll die Verwaltung nicht existieren, nicht verboten
 sein. Eine Fehlerseite wäre die Auskunft, dass es dort etwas gibt.
 
 Die Schranke sitzt in **einer** Funktion (`src/lib/server/adminschranke.ts`) und
-greift in der `load` **und** in jeder der drei form actions. Eine action ohne
+greift in der `load` **und** in jeder der vier form actions. Eine action ohne
 Schranke wäre der Fehler, den die Oberfläche nicht sichtbar macht: für
 Nicht-Admins fehlt der Knopf, ein POST braucht aber keinen.
 
@@ -1793,6 +1897,31 @@ Nicht-Admins fehlt der Knopf, ein POST braucht aber keinen.
   `Link kopieren` gedrückt hat, hat ihn in der Zwischenablage des Geräts; siehe
   die benannt akzeptierten Risiken.
 
+- **Umbenennen** gibt einer aktiven Zeile einen anderen Namen — und **nur** den
+  Namen. Id, Hash, Adminrecht, Aktivsein und Aufnahmezeitpunkt bleiben, es ist
+  ein `UPDATE` derselben Zeile. Ohne diese Aktion war ein vertippter Name nur zu
+  beheben, indem man den Zugang beendete und die Person neu aufnahm — was ihr
+  zugleich alle künftigen Dienstwochen genommen hätte. Das Formular klappt in der
+  Zeile auf, es gibt **keinen** Dialog: der eine Dialog dieser Anwendung gehört
+  der einen zerstörenden Aktion, und ein Name ist die harmloseste Korrektur der
+  Seite. Die **eigene** Zeile darf umbenannt werden, anders als bei den zwei
+  Aktionen darunter: ein Name ist kein Zugang, ein Selbst-Umbenennen sperrt
+  niemanden aus, und es gäbe niemanden, der es sonst täte.
+
+  **Ohne JavaScript wirkt es genauso, und zwar vollständig** — auch die
+  Abweisung. Welche Zeile abgewiesen wurde, sagt die Antwort des Servers: neben
+  Satz, Feldmarke und verworfener Eingabe trägt sie die Zeilennummer. Damit kommt
+  das Dokument, das ein POST ohne JavaScript zurückgibt, schon mit dem
+  aufgeklappten Formular, der Eingabe im Feld, der Kante daran und dem Satz
+  darunter aus dem Server. Läge die Zuordnung wie zuerst entworfen im
+  `use:enhance`-Rückruf, fiele ohne JavaScript alles davon lautlos weg.
+
+  Was `smoke:http` davon misst, ist der Bauteil, an dem es hängt: dass die
+  ausgelieferte Seite je aktiver Zeile ein `<form method="POST">` mit
+  `action="?/umbenennen"`, dem Feld `neuerName`, der versteckten Zeilen-Id und
+  einem Absendeknopf trägt. Ohne eines davon ist die Aktion ohne JavaScript nicht
+  bedienbar.
+
 - **Link neu ausstellen** ersetzt den Hash derselben Zeile. Der alte Link ist
   damit sofort ungültig und führt auf `Dieser Link gilt nicht mehr.` Das ist der
   Zweck: für ein zweites Gerät braucht es die Aktion **nicht** — ein Token bleibt
@@ -1808,15 +1937,21 @@ Nicht-Admins fehlt der Knopf, ein POST braucht aber keinen.
 - **Adminrechte vergibt ausschliesslich `npm run create-admin`**, und nur für das
   erste Mitglied. Wer unter `/verwaltung` aufgenommen wird, entsteht immer mit
   `is_admin = 0`; es gibt keine Oberfläche, die Adminrechte vergibt oder
-  entzieht, und keine, die einen beendeten Zugang reaktiviert.
+  entzieht, und keine, die einen beendeten Zugang reaktiviert. Der Name geht
+  dabei durch **dieselbe** Regel wie unter `/verwaltung`: sie steht seit Story
+  3.0.1 in `src/lib/mitgliedsname.ts` und hat drei Leser statt dreier Kopien —
+  das Skript **war** die auseinandergelaufene Kopie und liess einen Namen aus
+  reinen Nullbreiten-Zeichen durch, den die Oberfläche seit Story 1.3 abwies.
 - **Ein Admin kann sich nicht selbst widerrufen** und den eigenen Link nicht neu
-  ausstellen — sonst bliebe die Verwaltung ohne Zugang. Geprüft wird das in der
-  action, nicht nur in der Oberfläche: die eigene Zeile trägt keine Knöpfe, aber
-  ein POST braucht keinen.
+  ausstellen — sonst bliebe die Verwaltung ohne Zugang. **Umbenennen** darf er
+  sich sehr wohl: ein Name ist kein Zugang. Geprüft wird beides in der action und
+  nicht nur in der Oberfläche — die eigene Zeile trägt von den drei
+  Zeilen-Aktionen allein das Umbenennen, aber ein POST braucht keinen Knopf.
 - **Ein Satz für vier Zustände.** Eine fehlende, eine nicht numerische, eine
-  unbekannte und eine schon beendete `mitgliedId` ergeben alle `400` mit
-  demselben Satz. Jede Abweichung im Wortlaut wäre ein Kanal, an dem sich ablesen
-  liesse, welche Zeilen es gibt.
+  unbekannte und eine schon beendete `mitgliedId` ergeben in allen drei
+  Zeilen-actions `400` mit demselben Satz, und keine von ihnen benennt dabei ein
+  Feld. Jede Abweichung im Wortlaut wäre ein Kanal, an dem sich ablesen liesse,
+  welche Zeilen es gibt.
 
 ### Benannt akzeptierte Risiken
 
@@ -1860,12 +1995,15 @@ nodelay`); im Anwendungscode gibt es bewusst keine. Siehe
   mit. Der Bestätigungsdialog nennt darum Namen **und** Aufnahmedatum: auf
   `members.name` gibt es keine Eindeutigkeitsbedingung, zwei Mitglieder dürfen
   gleich heissen.
-- **Ein Tippfehler im Namen bleibt für immer stehen.** Es gibt keine
-  Umbenennen-Aktion. Der Name ist die einzige menschenlesbare Identität im
-  System, und die einzige Korrektur ist Widerrufen plus Neuaufnehmen — was einen
-  neuen Link nötig macht. Serverseitig abgewehrt sind nur die Fälle, in denen gar
-  kein lesbarer Name entstünde: leere Eingabe, Nullbreiten-Zeichen und mehr als
-  80 Zeichen.
+- **Ein Widerruf ist endgültig, und ein alter Name ist fort.** Seit Story 3.0.1
+  lässt sich ein Name korrigieren; was bleibt, ist die Unumkehrbarkeit daneben:
+  es gibt kein Reaktivieren eines beendeten Zugangs, kein Undo eines Umbenennens
+  und keine Historie der alten Namen. Die Zeile führt genau einen Namen, und der
+  vorige ist nach dem Speichern nirgends mehr. Die Unumkehrbarkeit des Widerrufs
+  ist Absicht — sie ist der Grund, warum „Zugang beenden" etwas bedeutet;
+  fehlendes Undo und fehlende Historie sind der bewusst nicht gebaute Rest.
+  Serverseitig abgewehrt sind nur die Fälle, in denen gar kein lesbarer Name
+  entstünde: leere Eingabe, Nullbreiten-Zeichen und mehr als 80 Zeichen.
 - **Niemand protokolliert, wer wen widerrufen hat.** Es gibt kein Audit-Log,
   keine Spalte für den Handelnden und keine Zeitmarke des Widerrufs — nur
   `is_active = 0`. Bei einer Gemeinschaft mit genau einer Adminperson ist die
