@@ -4870,13 +4870,15 @@ try {
 	 * versteckte Feld fehlte.
 	 */
 	/*
-	 * Der geschnittene Bereich beginnt am <form> und nicht am `action`-Attribut:
-	 * `method="POST"` steht davor, und ohne es fiele das Formular ohne JavaScript
-	 * still auf GET zurück — die Umbenennung liefe dann ins Leere, und die
-	 * abgeschickten Werte stünden in der Adresszeile.
+	 * Der geschnittene Bereich beginnt am **<details>** und nicht am `<form>` oder
+	 * gar am `action`-Attribut. Zwei Zusagen stehen vor dem Attribut, und beide
+	 * gehören zur Bedienbarkeit ohne JavaScript: `method="POST"` — ohne es fiele
+	 * das Formular still auf GET zurück, die Umbenennung liefe ins Leere und die
+	 * abgeschickten Werte stünden in der Adresszeile — und das `open` am
+	 * <details>, das die abgewiesene Zeile aufgeklappt lässt.
 	 */
 	const verwaltungGlatt = verwaltungCode.replace(/\s+/g, ' ');
-	const umbenennenVon = verwaltungCode.lastIndexOf('<form', verwaltungCode.indexOf('?/umbenennen'));
+	const umbenennenVon = verwaltungCode.indexOf('<details class="umbenennen"');
 	const umbenennenBis = verwaltungCode.indexOf('</form>', umbenennenVon);
 	const umbenennenFormular =
 		umbenennenVon < 0 || umbenennenBis < 0
@@ -4884,6 +4886,19 @@ try {
 			: verwaltungCode.slice(umbenennenVon, umbenennenBis).replace(/\s+/g, ' ');
 	const umbenennenTeile = [
 		['das Formular ist da', umbenennenFormular !== ''],
+		[
+			/*
+			 * **Das <details> klappt am Fehlschlag dieser Zeile auf.** Ohne `open`
+			 * liefert der Server nach einer Abweisung ein zugeklapptes Formular: die
+			 * verworfene Eingabe, die Kante am Feld und das Ziel des Fokusgriffs sind
+			 * im Dokument, aber verborgen — und ohne JavaScript gibt es nichts, was
+			 * es nachträglich aufklappte. Gemessen: diese Mutation lief zuerst grün
+			 * durch die ganze Kette, weil der Schnitt am <form> begann. Am
+			 * **ausgelieferten** HTML misst sie scripts/smoke-http.ts.
+			 */
+			'open={fehlerHier} — die abgewiesene Zeile bleibt offen',
+			/<details class="umbenennen" open=\{fehlerHier\}>/.test(umbenennenFormular),
+		],
 		['method="POST"', /<form\b[^>]*\bmethod="POST"/.test(umbenennenFormular)],
 		['action="?/umbenennen" als Literal', /action="\?\/umbenennen"/.test(umbenennenFormular)],
 		['use:enhance={versand}', /use:enhance=\{versand\}/.test(umbenennenFormular)],
@@ -4949,6 +4964,24 @@ try {
 		[
 			'nicht hinter einem {#if}',
 			!/\{#if fehlerHier/.test(verwaltungCode) && !/\{#if fehlerAmNeuenNamen/.test(verwaltungCode),
+		],
+		[
+			/*
+			 * Und der **Rumpf** gilt nur der abgewiesenen Zeile. `{fehlerAmNeuenNamen}`
+			 * allein stünde in jeder aktiven Zeile: zwanzig assertive Regionen, die im
+			 * selben Augenblick denselben Satz ansagen, und keine von ihnen sagt, um
+			 * wessen Namen es geht — der Zeilenbezug, für den `abweisen` sein viertes
+			 * Argument bekommen hat, wäre damit im Markup wieder verspielt. Gemessen:
+			 * die Mutation lief grün, weil hier nur der Tag gelesen wurde.
+			 *
+			 * Gelesen auf dem geglätteten Text und mit `\s*` hinter dem `>`: ob
+			 * Prettier den Tag faltet oder auf eine Zeile zieht, ist keine gebrochene
+			 * Zusage.
+			 */
+			'und der Satz gilt nur der abgewiesenen Zeile',
+			/id="neuer-name-fehler-\{mitglied\.id\}"[^>]*>\s*\{fehlerHier \? fehlerAmNeuenNamen : ''\}/.test(
+				verwaltungGlatt
+			),
 		],
 	] as const;
 	pruefen(

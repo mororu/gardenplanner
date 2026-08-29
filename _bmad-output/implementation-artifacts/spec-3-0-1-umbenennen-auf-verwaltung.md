@@ -2,8 +2,8 @@
 title: 'Story 3.0.1: Einen Mitgliedsnamen korrigieren'
 type: 'feature'
 created: '2026-08-29'
-status: 'done' # draft | ready-for-dev | in-progress | in-review | done
-review_loop_iteration: 1
+status: 'in-review' # draft | ready-for-dev | in-progress | in-review | done
+review_loop_iteration: 2
 baseline_commit: '237ba1873ef36e133a26544c9a0c0abbd60daf03'
 context: ['{project-root}/_bmad-output/implementation-artifacts/epic-3-context.md']
 ---
@@ -95,6 +95,12 @@ Vermiedener Zustand: eine Oberfläche, die ohne JavaScript die Eingabe verwirft 
 
 **KEEP:** Was die erste Ableitung gut gemacht hat und überleben muss — die wortgleiche Auslagerung nach `mitgliedsname.ts` ohne Neufassung; `mitgliedUmbenennen` mit `is_active = 1` in der Query; der Abdruck der ganzen Zeile ausser der Namensspalte als Beleg für „nichts sonst geändert"; die Behauptung, dass ein unveränderter Name ein Erfolg ist; die vier getrennten Behauptungen zur nicht ansprechbaren Zeile; und die Angleichung von `create-admin.ts` samt Nachweis, dass sie **vor** dem Start der Datenschicht greift.
 
+**2026-08-29 — Review-Durchgang 2.** Auslöser: eine Review nach der Umsetzung hat zwei Mutationen eingespielt, die grün durch `check`, `smoke` **und** `smoke:http` liefen. `open={fehlerHier}` vom `<details>` entfernt — die Textprüfung schnitt erst am `<form>`, das Attribut steht davor — und der Satz zur Zeile auf `{fehlerAmNeuenNamen}` ohne Zeilenbezug, weil die Live-Region-Behauptung den Tag las und nicht den Rumpf. Damit hing ausgerechnet die Zusage aus Durchgang 1 an nichts: ohne `open` liefert der Server nach einer Abweisung ein zugeklapptes Formular, und ohne JavaScript klappt es nichts mehr auf.
+
+Geändert: kein Verhalten, nur die Deckung. Der Schnitt der Formular-Behauptung beginnt jetzt am `<details>`; die Live-Region-Behauptung liest zusätzlich ihren Rumpf; und `smoke:http` schickt einen echten POST mit untauglichem Namen ab und misst das zurückkommende Dokument — die **einzige** POST-Behauptung des Skripts, mit Begründung an seinem Kopf. Dazu drei Textkorrekturen: der Kommentar über der Live-Region beschrieb noch die verworfene erste Fassung und nannte ein `zeileImVersand`, das es nicht gibt; das `mitgliedId`-Muster in `smoke:http` schrieb die Attributreihenfolge fest, die zwei Absätze darüber ausdrücklich freigegeben ist; und die zwei zurückgestellten Posten dieser Story standen unter der Überschrift „Erledigt".
+
+Vermiedener Zustand: eine No-JS-Zusage in `README.md`, die eine einzige gelöschte Zeile im Markup lautlos zur Unwahrheit macht.
+
 ## Design Notes
 
 **Warum ein Modul und keine dritte Kopie.** Der Beweis liegt schon vor: `create-admin.ts` **ist** die auseinandergelaufene Kopie und lässt einen Namen aus Nullbreiten-Zeichen durch, den die Oberfläche seit Story 1.3 abweist.
@@ -117,6 +123,7 @@ Vermiedener Zustand: eine Oberfläche, die ohne JavaScript die Eingabe verwirft 
 **Jede dieser Mutationen muss rot werden** — jede war einmal grün und ist damit belegt, dass sie fehlte:
 
 - der Satz zur Zeile hinter ein `{#if}` gestellt; die `value`-Bindung des Feldes entfernt; `nameEingabe` ohne die Marke `feld === 'name'`; der Zweig `art === 'umbenannt'` in `rueckmeldung` entfernt; `method="POST"` am Formular entfernt; in der action Namensprüfung vor Id-Prüfung gezogen.
+- **Aus Durchgang 2 nachgezogen**, beide zuerst grün durch die ganze Kette: `open={fehlerHier}` vom `<details>` entfernt, und der Satz zur Zeile auf `{fehlerAmNeuenNamen}` ohne Zeilenbezug.
 
 **Der Pfad ohne JavaScript wird gemessen, nicht behauptet:** `smoke:http` prüft am ausgelieferten `/verwaltung`-HTML, dass das Formular samt `action="?/umbenennen"`, `name="neuerName"` und verstecktem `mitgliedId` darin steht. Ohne eine Behauptung in der Kette darf die README keinen Nachweis behaupten.
 

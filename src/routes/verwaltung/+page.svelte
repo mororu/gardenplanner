@@ -550,9 +550,11 @@
 						vorgelesen. Immer im Markup, aus demselben Grund wie die zwei
 						Regionen oben und der Satz am Aufnahmefeld — Retro-Posten B2.
 
-						Welche Zeile den Satz trägt, entscheidet die abgeschickte
-						mitgliedId aus dem Rückruf. Ohne JavaScript trägt ihn keine, und er
-						steht dann oben; die Begründung steht bei zeileImVersand.
+						Welche Zeile ihn trägt, sagt die **Antwort des Servers** — `zeile`
+						aus `form`, gelesen über fehlerZeile. Nicht die abgeschickte
+						mitgliedId aus einem use:enhance-Rückruf: den gibt es ohne
+						JavaScript nicht, und der Satz stünde dann an keiner Zeile. Die
+						Begründung in ganzer Länge steht bei fehlerZeile.
 					-->
 					<p
 						class="fehler live"

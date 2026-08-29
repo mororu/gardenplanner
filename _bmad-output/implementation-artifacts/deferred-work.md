@@ -433,16 +433,23 @@ nennen.
     `Ask First` und sind in `README.md` unter den benannt akzeptierten Risiken beschrieben. Ebenso
     unverändert: **keine Eindeutigkeitsbedingung** auf `name`, zwei Mitglieder dürfen gleich
     heissen.
-  belegt: `smoke` (418 Behauptungen) und `smoke:http` (78). Ausgeführt sind Gelingen samt dem
+  belegt: `smoke` (418 Behauptungen) und `smoke:http` (79). Ausgeführt sind Gelingen samt dem
     Abdruck der ganzen Zeile ausser der Namensspalte, die eigene Zeile, der unveränderte Name als
     Erfolg, die drei untauglichen Namen je mit Marke, Eingabe und **Zeilennummer** in der Antwort,
     die vier nicht ansprechbaren Zustände über alle drei Zeilen-actions, die Adminschranke und der
     Abbruch von `create-admin` **vor** `datenschichtStarten`. Der Pfad ohne JavaScript ist am
-    gebauten Server gemessen: `smoke:http` schneidet jedes ausgelieferte Umbenennen-Formular
-    einzeln aus und prüft `method="POST"`, die literale `action`, das Feld, die versteckte Zeilen-Id
-    und den Absendeknopf. Neunzehn Mutationen sind eingespielt und rot gesehen; sie stehen in der
-    Tabelle in `README.md`.
+    gebauten Server gemessen, in beide Richtungen: `smoke:http` schneidet jedes ausgelieferte
+    Umbenennen-Formular einzeln aus und prüft `method="POST"`, die literale `action`, das Feld, die
+    versteckte Zeilen-Id und den Absendeknopf — und schickt einen echten POST mit untauglichem Namen
+    ab, dessen Antwort mit `400`, genau **einem** aufgeklappten `<details>`, der verworfenen
+    Eingabe, `aria-invalid` und dem Satz in der Live-Region **dieser** Zeile gemessen wird.
+    Einundzwanzig Mutationen sind eingespielt und rot gesehen; sie stehen in der Tabelle in
+    `README.md`. Die zwei letzten stammen aus der Review nach der Umsetzung — `open={fehlerHier}`
+    entfernt und der Zeilenbezug am Satz entfernt liefen beide grün durch die ganze Kette, und
+    ausgerechnet die stärkste Zusage der Story hing damit an nichts.
   status: erledigt
+
+## Zurückgestellt aus Story 3.0.1
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-0-1-umbenennen-auf-verwaltung.md`
   summary: Verlorene Änderung — ein veralteter Tab kann eine neuere Umbenennung unbemerkt zurückdrehen.

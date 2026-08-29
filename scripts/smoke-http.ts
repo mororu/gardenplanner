@@ -18,13 +18,19 @@
  * **Was hier bewusst nicht steht.** Kein Browser und kein Testframework — das
  * Verhalten im Browser (Fokusfang eines dialog, Live-Regionen, Wischgesten)
  * bleibt ungedeckt und ist als Stufe C in deferred-work.md an eine eigene
- * Auslösebedingung gebunden. Und keine POST-Behauptung: die form actions sind in
- * scripts/smoke-zugang.ts mit echten Formulardaten belegt, und die
- * Akzeptanzkriterien dieser Story fragen keine. Der Vollständigkeit halber, weil
- * eine frühere Fassung dieses Kommentars das Gegenteil behauptete: technisch
- * stünde dem nichts im Weg — ORIGIN wird unten auf **genau** den Port gesetzt,
- * auf dem der Server lauscht, und ein Origin-Kopf an der Anfrage passierte
- * SvelteKits CSRF-Schranke. Gemessen.
+ * Auslösebedingung gebunden.
+ *
+ * **Genau eine POST-Behauptung**, und der Grund für die Ausnahme ist zugleich
+ * ihre Rechtfertigung. Die form actions selbst sind in scripts/smoke-zugang.ts
+ * mit echten Formulardaten belegt; was dort niemand sehen kann, ist das
+ * **Dokument**, das ein Browser ohne JavaScript auf einen abgewiesenen POST
+ * zurückbekommt. Genau daran hängt seit Story 3.0.1 eine ausdrückliche Zusage der
+ * README — aufgeklapptes Formular, verworfene Eingabe im Feld, Kante daran, Satz
+ * darunter —, und sie stand hier zuerst ungedeckt: das `open` am <details>
+ * entfernt lief grün durch die ganze Kette. Deshalb eine, und nur für diesen
+ * Weg. Dass es technisch geht, war schon vorher gemessen: ORIGIN wird unten auf
+ * **genau** den Port gesetzt, auf dem der Server lauscht, und ein Origin-Kopf an
+ * der Anfrage passiert SvelteKits CSRF-Schranke.
  *
  * **Zwei Dinge, die erst der echte Server gezeigt hat**, beide beim Bau dieses
  * Skripts gemessen und darum hier als Behauptung festgehalten:
@@ -67,6 +73,7 @@ import {
 import { datenschichtStarten } from '../src/lib/server/db/index.ts';
 import { mitgliedAnlegen } from '../src/lib/server/db/queries/members.ts';
 import { tokenErzeugen, tokenHashen } from '../src/lib/server/token.ts';
+import { NAME_HOECHSTLAENGE, NAME_ZU_LANG } from '../src/lib/mitgliedsname.ts';
 import { KEIN_ZUGANG } from '../src/lib/texte.ts';
 
 /**
@@ -75,7 +82,7 @@ import { KEIN_ZUGANG } from '../src/lib/texte.ts';
  * mit — genau wie in scripts/smoke-zugang.ts. Eine Seite mehr in `seiten` sind
  * sieben Behauptungen mehr, und dieselbe Zahl steht in README.md.
  */
-const ERWARTETE_BEHAUPTUNGEN = 77;
+const ERWARTETE_BEHAUPTUNGEN = 78;
 
 const GUTES_GEHEIMNIS = 'smoke-http-geheimnis-mit-genug-verschiedenen-zeichen-0123456789';
 
@@ -452,6 +459,38 @@ function holen(port: number, pfad: string, wie: Anfrage = {}): Promise<Response>
 	// antwortet, hinge sonst die lint-Kette auf, ohne eine Zeile zu melden.
 	return fetch(`http://127.0.0.1:${port}${pfad}`, {
 		headers: kopfzeilen,
+		redirect: 'manual',
+		signal: AbortSignal.timeout(ANFRAGE_SCHRANKE_MS),
+	});
+}
+
+/**
+ * Ein POST an eine form action, so wie ihn ein Browser **ohne** JavaScript
+ * schickt: `application/x-www-form-urlencoded`, kein `x-sveltekit-action`.
+ *
+ * Der `origin`-Kopf ist Pflicht und kein Beiwerk: SvelteKit weist jeden POST ab,
+ * dessen Herkunft nicht auf ORIGIN passt. Er trägt darum denselben Wert, der dem
+ * Unterprozess oben in die Umgebung gesetzt wird — dieselbe Zeichenkette, nicht
+ * eine zweite, die ihr gleicht.
+ *
+ * `redirect: 'manual'` aus demselben Grund wie in holen: eine 303, der jemand
+ * folgt, ist keine gemessene 303.
+ */
+function abschicken(
+	port: number,
+	pfad: string,
+	keks: string,
+	felder: Record<string, string>
+): Promise<Response> {
+	return fetch(`http://127.0.0.1:${port}${pfad}`, {
+		method: 'POST',
+		headers: {
+			accept: BROWSER_ACCEPT,
+			cookie: keks,
+			origin: `http://127.0.0.1:${port}`,
+			'content-type': 'application/x-www-form-urlencoded',
+		},
+		body: new URLSearchParams(felder).toString(),
 		redirect: 'manual',
 		signal: AbortSignal.timeout(ANFRAGE_SCHRANKE_MS),
 	});
@@ -841,8 +880,14 @@ try {
 			// Mit einer **echten** Zahl darin: ein value="" wäre ein Formular, das
 			// seine Zeile nicht benennt, und jeder Versand endete im Satz über das
 			// nicht ansprechbare Mitglied.
+			//
+			// Erst den Tag schneiden, dann in ihm nach `value` suchen — ein Muster
+			// `name="mitgliedId"[^>]*value=` schriebe die Reihenfolge der Attribute
+			// fest, gegen die Zusage zwei Absätze weiter oben.
 			'jedes mit dem versteckten mitgliedId und einer echten Id',
-			jedes((_, rumpf) => /<input\b[^>]*\bname="mitgliedId"[^>]*\bvalue="[0-9]+"/.test(rumpf)),
+			jedes((_, rumpf) =>
+				/\bvalue="[0-9]+"/.test(/<input\b[^>]*\bname="mitgliedId"[^>]*>/.exec(rumpf)?.[0] ?? '')
+			),
 		],
 		[
 			'und jedes mit einem Absendeknopf',
@@ -853,6 +898,97 @@ try {
 		'/verwaltung liefert das Umbenennen-Formular aus — ohne JavaScript bedienbar',
 		fehlendeTeile(noJsTeile).length === 0,
 		`fehlt: ${fehlendeTeile(noJsTeile).join(', ')} (${umbenennenFormulare.length} Formular(e))`
+	);
+
+	/*
+	 * **Und die Abweisung ohne JavaScript** — die andere Hälfte, und die, an der
+	 * die stärkste Zusage dieser Anwendung hängt.
+	 *
+	 * Die Behauptung darüber misst, dass ein Browser das Formular überhaupt
+	 * abschicken **kann**. Diese hier misst, was er nach einer Abweisung
+	 * zurückbekommt, und dafür gibt es keinen anderen Ort: `smoke` ruft die action
+	 * direkt und sieht kein Dokument, und die Zusage lautet nicht „die action
+	 * weist ab", sondern „das Dokument kommt mit dem aufgeklappten Formular, der
+	 * verworfenen Eingabe, der Kante am Feld und dem Satz darunter fertig aus dem
+	 * Server". Ohne JavaScript gibt es nichts, was davon etwas nachholte.
+	 *
+	 * Ein POST mit einem zu langen Namen, weil ein Name aus 81 Zeichen im Dokument
+	 * unverwechselbar wiederzufinden ist — anders als ein Name aus Leerzeichen.
+	 * Abgewiesen wird er **vor** dem UPDATE, die Saat bleibt also unberührt und
+	 * die Behauptungen danach lesen denselben Zustand wie die davor.
+	 */
+	const abgewieseneZeile =
+		/<input\b[^>]*\bname="mitgliedId"[^>]*>/
+			.exec(umbenennenFormulare[0]?.[1] ?? '')?.[0]
+			?.match(/\bvalue="([0-9]+)"/)?.[1] ?? '';
+	const zuLangerName = 'Z'.repeat(NAME_HOECHSTLAENGE + 1);
+	const abweisung = await abschicken(port, '/verwaltung?/umbenennen', adminKeks, {
+		mitgliedId: abgewieseneZeile,
+		neuerName: zuLangerName,
+	});
+	const abweisungHtml = await abweisung.text();
+	/*
+	 * Das `class` wird mit `[ "]` abgeschlossen und nicht mit `"` allein: Svelte
+	 * hängt jeder Komponentenklasse seinen Bereichs-Hash an
+	 * (`class="umbenennen svelte-…"`). Ein Muster auf `class="umbenennen"` wäre
+	 * grün, solange es die Datei liest, und rot am ausgelieferten HTML — die
+	 * Fehlerklasse, gegen die dieses ganze Skript steht, nur andersherum.
+	 */
+	const aufgeklappte = [
+		...abweisungHtml.matchAll(
+			/<details\b[^>]*\bclass="umbenennen[ "][^>]*\bopen\b[^>]*>([\s\S]*?)<\/details>/g
+		),
+	];
+	const offenerRumpf = aufgeklappte[0]?.[1] ?? '';
+	/*
+	 * Alle Live-Regionen der Liste, je Zeile eine — gezählt wird, wie viele den
+	 * Satz tragen.
+	 *
+	 * Über die Regionen und **nicht** über das ganze Dokument: SvelteKit legt das
+	 * Ergebnis der action zusätzlich als Nutzlast für die Hydratation ab, der Satz
+	 * steht dort ein zweites Mal, und eine Zählung über alles wäre nie 1. Gemessen
+	 * — die erste Fassung dieser Behauptung fiel genau darüber.
+	 */
+	const satzRegionen = [
+		...abweisungHtml.matchAll(/<p\b[^>]*\bid="neuer-name-fehler-([0-9]+)"[^>]*>([\s\S]*?)<\/p>/g),
+	];
+	const satzRegion = satzRegionen.find((treffer) => treffer[1] === abgewieseneZeile)?.[2] ?? '';
+	const abweisungsTeile = [
+		['die Zeilen-Id war überhaupt zu finden', abgewieseneZeile !== ''],
+		['die Antwort ist ein 400', abweisung.status === 400],
+		[
+			// Kein JSON: ohne JavaScript ist die Antwort auf einen POST ein
+			// vollständiges Dokument, sonst stünde die Person vor einer Nutzlast.
+			'und ein HTML-Dokument',
+			(abweisung.headers.get('content-type') ?? '').startsWith('text/html'),
+		],
+		[
+			// Genau eines: die abgewiesene Zeile steht offen, jede andere zu.
+			'genau ein aufgeklapptes <details> im ganzen Dokument',
+			aufgeklappte.length === 1,
+		],
+		[
+			'darin die verworfene Eingabe und nicht der alte Name',
+			offenerRumpf.includes(`value="${zuLangerName}"`),
+		],
+		['das Feld trägt aria-invalid="true"', /aria-invalid="true"/.test(offenerRumpf)],
+		[
+			'und zeigt auf den Satz dieser Zeile',
+			offenerRumpf.includes(`aria-describedby="neuer-name-fehler-${abgewieseneZeile}"`),
+		],
+		['der Satz steht in der Live-Region dieser Zeile', satzRegion.includes(NAME_ZU_LANG)],
+		[
+			// Und **nur** dort. Hinge der Rumpf der Region nicht an der Zeile, trüge
+			// ihn jede aktive Zeile — hier wären das zwei von zwei.
+			'und in keiner der anderen Zeilen',
+			satzRegionen.length === 2 &&
+				satzRegionen.filter((treffer) => (treffer[2] ?? '').includes(NAME_ZU_LANG)).length === 1,
+		],
+	] as const;
+	pruefen(
+		'ein abgewiesenes Umbenennen kommt ohne JavaScript fertig aus dem Server',
+		fehlendeTeile(abweisungsTeile).length === 0,
+		`fehlt: ${fehlendeTeile(abweisungsTeile).join(', ')} (Status ${abweisung.status}, ${aufgeklappte.length} offen)`
 	);
 
 	const mehrOhneRechte = await holen(port, '/mehr', { keks: mitgliedKeks });
