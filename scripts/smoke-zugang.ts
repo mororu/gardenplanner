@@ -199,7 +199,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 591;
+const ERWARTETE_BEHAUPTUNGEN = 592;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -3382,11 +3382,48 @@ try {
 	 * bliebe grün, und `Abgelegt.` würde nie angesagt. Es gehört darum mit
 	 * bind:this in **eine** Behauptung — die zwei sind zusammen der Fokusgriff.
 	 */
-	const meldungsTag = /<p\b[^>]*class="meldung live"[^>]*>/.exec(startseitenCode)?.[0] ?? '';
+	/*
+	 * **Jede Meldungsregion des Baums, nicht nur die auf `/`.**
+	 *
+	 * `tabindex="-1"` sieht an einem `<p>` wie ein Versehen aus. Ohne es ist
+	 * `meldungKasten.focus()` ein stiller Leerlauf: die Prüfung des $effect
+	 * darunter bliebe grün, und `Abgelegt.` würde nie angesagt. Es gehört darum
+	 * mit `bind:this` in **eine** Behauptung — die zwei sind zusammen der
+	 * Fokusgriff.
+	 *
+	 * Die Retrospektive Epic 3 hat gemessen, dass es die Region dreimal gibt und
+	 * dass sie dreimal verhaltensgleich ist. Diese Zeile las bis dahin nur die
+	 * Startseite; eine vierte Seite, die sich die Region ohne `tabindex`
+	 * danebenschreibt, wäre nirgends aufgefallen. Gesucht wird jetzt über alle
+	 * Seitenkomponenten, und die Zahl wird mitgeprüft: fällt eine Region weg,
+	 * ohne dass jemand die Zahl anfasst, wird die Zeile rot.
+	 */
+	const meldungsSeiten = ['+page.svelte', 'dienstplan', 'verwaltung'].map((wo) => {
+		const pfad =
+			wo === '+page.svelte'
+				? join(wurzel, 'src', 'routes', '+page.svelte')
+				: join(wurzel, 'src', 'routes', wo, '+page.svelte');
+		return [wo, readFileSync(pfad, 'utf8')] as const;
+	});
+	const meldungsTags = meldungsSeiten.flatMap(([name, text]) =>
+		[...text.matchAll(/<p\b[^>]*class="meldung live"[^>]*>/g)].map(
+			(treffer) => [name, treffer[0]] as const
+		)
+	);
+	const meldungsTeile = [
+		['es gibt genau drei Meldungsregionen im Baum', meldungsTags.length === 3] as const,
+		...meldungsTags.map(
+			([name, tag]) =>
+				[
+					`${name} trägt tabindex="-1" und bind:this={meldungKasten}`,
+					/tabindex="-1"/.test(tag) && /bind:this=\{meldungKasten\}/.test(tag),
+				] as const
+		),
+	];
 	pruefen(
-		'die Meldungsregion auf / trägt tabindex="-1" und bind:this={meldungKasten}',
-		/tabindex="-1"/.test(meldungsTag) && /bind:this=\{meldungKasten\}/.test(meldungsTag),
-		meldungsTag === '' ? 'kein <p class="meldung live"> gefunden' : meldungsTag
+		'jede Meldungsregion trägt den Fokusgriff — tabindex und bind:this zusammen',
+		fehlendeTeile(meldungsTeile).length === 0,
+		`verletzt: ${fehlendeTeile(meldungsTeile).join(', ')}`
 	);
 
 	const rueckmeldungRumpf = glatterRumpf(
@@ -5978,6 +6015,10 @@ try {
 		['.liste--getrennt', /^[ \t]*\.liste--getrennt\s*\{/m],
 		['.knoepfe', /^[ \t]*\.knoepfe\s*\{/m],
 		['.nur-vorgelesen', /^[ \t]*\.nur-vorgelesen\s*\{/m],
+		['.meldung', /^[ \t]*\.meldung\s*\{/m],
+		['.zeilenform', /^[ \t]*\.zeilenform\s*\{/m],
+		['.zeilenform__griff', /^[ \t]*\.zeilenform__griff\s*\{/m],
+		['.zeilenform__formular', /^[ \t]*\.zeilenform__formular\s*\{/m],
 	] as const;
 	const STILBLATT = join('src', 'lib', 'styles', 'bedienelemente.css');
 	const unterSrc = baum.filter((datei) => datei.pfad.startsWith(join('src', '')));
@@ -5992,6 +6033,61 @@ try {
 		'die Seitenform liegt an einer Stelle — keine Kopie je Seite',
 		fehlendeTeile(formTeile).length === 0,
 		`verletzt: ${fehlendeTeile(formTeile).join(' | ')}`
+	);
+
+	/*
+	 * **Die zwei Zeilenformulare sind dieselbe Form — behauptet, nicht gehofft.**
+	 *
+	 * Story 3.0.1 baute das Umbenennen je Mitgliedszeile, Story 3.1 das Besetzen
+	 * je Wochenzeile, nach derselben Vorlage. Die Retrospektive Epic 3 fand die
+	 * Kopie an dieser Nahtstelle: drei byte-gleiche Regelpaare und dieselbe
+	 * Logik, ohne dass irgendetwas die zwei zusammenhielt.
+	 *
+	 * Die Hülle ist seither geteilt (`.zeilenform`, im geteilten Stilblatt und
+	 * dort bewacht). Das `<form>` **darin** kann es nicht sein: es trägt ein
+	 * literales `action="?/name"`, und Gate-Regel 11 leitet die Route aus dem
+	 * Verzeichnis der Datei ab — eine Komponente hätte keins. Was die zwei
+	 * darum zusammenhält, ist diese Zeile: beide tragen dieselben fünf
+	 * Eigenschaften, und eine dritte Zeilenart, die eine davon vergisst, wird rot.
+	 */
+	const zeilenformSeiten = [
+		['/verwaltung', quelltext('src', 'routes', 'verwaltung', '+page.svelte')],
+		['/dienstplan', quelltext('src', 'routes', 'dienstplan', '+page.svelte')],
+	] as const;
+	const zeilenformTeile = zeilenformSeiten.flatMap(([name, text]) => {
+		const rumpf = /<details class="zeilenform"[\s\S]*?<\/details>/.exec(text)?.[0] ?? '';
+		return [
+			[`${name}: die Hülle ist geschnitten`, rumpf !== ''],
+			[
+				`${name}: sie klappt bei einem Fehler dieser Zeile auf`,
+				/<details class="zeilenform" open=\{fehlerHier\}>/.test(rumpf),
+			],
+			[
+				`${name}: der Griff nennt sich selbst und dann die Zeile`,
+				/<summary[\s\S]*?aria-labelledby="[a-z-]+-griff-\{[a-zA-Z.]+\} [a-z-]+-\{[a-zA-Z.]+\}"/.test(
+					rumpf
+				),
+			],
+			[
+				`${name}: das Formular ist ein POST mit literalem action`,
+				/method="POST"/.test(rumpf) && /action="\?\/[a-zA-Z]+"/.test(rumpf),
+			],
+			[`${name}: und es fährt über use:enhance`, /use:enhance=\{versand\}/.test(rumpf)],
+			/*
+			 * **Und beide benutzen die geteilten Klassen wirklich.** Ohne diese zwei
+			 * Zeilen liesse sich eine Seite still wieder eigene Namen zulegen: die
+			 * Wache über das Stilblatt zählt nur, dass `.zeilenform__griff` dort
+			 * genau einmal steht — nicht, dass jemand sie anfasst. Gemessen: eine
+			 * zurückgedrehte Klasse in `/dienstplan` kam grün durch.
+			 */
+			[`${name}: der Griff trägt die geteilte Klasse`, /class="zeilenform__griff"/.test(rumpf)],
+			[`${name}: der Rumpf trägt die geteilte Klasse`, /class="zeilenform__formular"/.test(rumpf)],
+		] as const;
+	});
+	pruefen(
+		'die zwei aufklappbaren Zeilenformulare tragen dieselbe Form',
+		fehlendeTeile(zeilenformTeile).length === 0,
+		`verletzt: ${fehlendeTeile(zeilenformTeile).join(', ')}`
 	);
 
 	/*
@@ -6233,7 +6329,7 @@ try {
 	 * <details>, das die abgewiesene Zeile aufgeklappt lässt.
 	 */
 	const verwaltungGlatt = verwaltungCode.replace(/\s+/g, ' ');
-	const umbenennenVon = verwaltungCode.indexOf('<details class="umbenennen"');
+	const umbenennenVon = verwaltungCode.indexOf('<details class="zeilenform"');
 	const umbenennenBis = verwaltungCode.indexOf('</form>', umbenennenVon);
 	const umbenennenFormular =
 		umbenennenVon < 0 || umbenennenBis < 0
@@ -6252,7 +6348,7 @@ try {
 			 * **ausgelieferten** HTML misst sie scripts/smoke-http.ts.
 			 */
 			'open={fehlerHier} — die abgewiesene Zeile bleibt offen',
-			/<details class="umbenennen" open=\{fehlerHier\}>/.test(umbenennenFormular),
+			/<details class="zeilenform" open=\{fehlerHier\}>/.test(umbenennenFormular),
 		],
 		['method="POST"', /<form\b[^>]*\bmethod="POST"/.test(umbenennenFormular)],
 		['action="?/umbenennen" als Literal', /action="\?\/umbenennen"/.test(umbenennenFormular)],
@@ -6360,7 +6456,7 @@ try {
 	const beendetVon = verwaltungCode.indexOf('{#if !mitglied.isActive}');
 	const beendetBis = verwaltungCode.indexOf('{:else}', beendetVon);
 	const aktivWieder = verwaltungCode.indexOf('{#if mitglied.isActive', beendetBis);
-	const details = verwaltungCode.indexOf('<details class="umbenennen"');
+	const details = verwaltungCode.indexOf('<details class="zeilenform"');
 	const fokusRumpf = glatterRumpf(verwaltungCode, verwaltungCode.indexOf('function fokusNach'));
 	const zusagenTeile = [
 		[
@@ -6409,7 +6505,7 @@ try {
 				aktivWieder > beendetBis &&
 				details > beendetBis &&
 				details < aktivWieder &&
-				(verwaltungCode.match(/<details class="umbenennen"/g) ?? []).length === 1,
+				(verwaltungCode.match(/<details class="zeilenform"/g) ?? []).length === 1,
 		],
 	] as const;
 	pruefen(
@@ -6442,7 +6538,7 @@ try {
 	const dienstplanCode = seitenKomponenten[4][1];
 	const startseiteCodeDienst = seitenKomponenten[0][1];
 
-	const besetzenVon = dienstplanCode.indexOf('<details class="besetzen"');
+	const besetzenVon = dienstplanCode.indexOf('<details class="zeilenform"');
 	const besetzenBis = dienstplanCode.indexOf('</form>', besetzenVon);
 	const besetzenFormular =
 		besetzenVon < 0 || besetzenBis < 0
@@ -6501,7 +6597,7 @@ try {
 		 */
 		[
 			'<details open={fehlerHier}> — ohne JavaScript aufgeklappt',
-			/<details class="besetzen" open=\{fehlerHier\}>/.test(besetzenFormular),
+			/<details class="zeilenform" open=\{fehlerHier\}>/.test(besetzenFormular),
 		],
 	] as const;
 	pruefen(
@@ -6525,7 +6621,7 @@ try {
 	);
 	pruefen(
 		'/dienstplan erklärt genau ein Besetzen-Formular — je Zeile eines aus einem Block',
-		(dienstplanCode.match(/<details class="besetzen"/g) ?? []).length === 1
+		(dienstplanCode.match(/<details class="zeilenform"/g) ?? []).length === 1
 	);
 
 	const planTeile = [

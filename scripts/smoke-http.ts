@@ -1137,13 +1137,13 @@ try {
 	/*
 	 * Das `class` wird mit `[ "]` abgeschlossen und nicht mit `"` allein: Svelte
 	 * hängt jeder Komponentenklasse seinen Bereichs-Hash an
-	 * (`class="umbenennen svelte-…"`). Ein Muster auf `class="umbenennen"` wäre
+	 * (`class="zeilenform svelte-…"`). Ein Muster auf `class="zeilenform"` wäre
 	 * grün, solange es die Datei liest, und rot am ausgelieferten HTML — die
 	 * Fehlerklasse, gegen die dieses ganze Skript steht, nur andersherum.
 	 */
 	const aufgeklappte = [
 		...abweisungHtml.matchAll(
-			/<details\b[^>]*\bclass="umbenennen[ "][^>]*\bopen\b[^>]*>([\s\S]*?)<\/details>/g
+			/<details\b[^>]*\bclass="zeilenform[ "][^>]*\bopen\b[^>]*>([\s\S]*?)<\/details>/g
 		),
 	];
 	const offenerRumpf = aufgeklappte[0]?.[1] ?? '';
@@ -1719,7 +1719,7 @@ try {
 	const besetzenAbweisungHtml = await besetzenAbweisung.text();
 	const offeneBesetzen = [
 		...besetzenAbweisungHtml.matchAll(
-			/<details\b[^>]*\bclass="besetzen[ "][^>]*\bopen\b[^>]*>([\s\S]*?)<\/details>/g
+			/<details\b[^>]*\bclass="zeilenform[ "][^>]*\bopen\b[^>]*>([\s\S]*?)<\/details>/g
 		),
 	];
 	const besetzenRegionen = [

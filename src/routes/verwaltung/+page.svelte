@@ -519,16 +519,16 @@
 						zurückgibt, kommt mit dem offenen Formular, der verworfenen
 						Eingabe und der Kante am Feld schon fertig aus dem Server.
 					-->
-					<details class="umbenennen" open={fehlerHier}>
+					<details class="zeilenform" open={fehlerHier}>
 						<summary
-							class="umbenennen__griff"
+							class="zeilenform__griff"
 							id="umbenennen-griff-{mitglied.id}"
 							aria-labelledby="umbenennen-griff-{mitglied.id} mitglied-name-{mitglied.id}"
 						>
 							Umbenennen
 						</summary>
 						<form
-							class="umbenennen__formular"
+							class="zeilenform__formular"
 							method="POST"
 							action="?/umbenennen"
 							use:enhance={versand}
@@ -716,15 +716,6 @@
 	}
 
 	.einmal__stand,
-	.meldung {
-		margin: 0;
-		color: var(--accent);
-		font-family: var(--body-font);
-		font-size: var(--body-size);
-		font-weight: var(--body-weight);
-		line-height: var(--body-line);
-	}
-
 	.aufnahme {
 		display: flex;
 		flex-direction: column;
@@ -756,40 +747,5 @@
 
 	.zeile__marke {
 		color: var(--ink-secondary);
-	}
-
-	/*
-		Das aufklappbare Umbenennen. Umrissen wie ein Feld, nicht gefüllt wie die
-		Einmal-Anzeige: es ist eine Nebenaktion der Zeile und keine eigene Fläche.
-	*/
-	.umbenennen {
-		border: var(--border-hairline) solid var(--hairline);
-		border-radius: var(--radius-md);
-	}
-
-	/*
-		Der Griff trägt die action-Rolle und den Trefferboden von 44px.
-
-		Die Voreinstellung display: list-item bleibt stehen: sie ist es, die das
-		Dreieck malt, und das Dreieck ist die einzige Anzeige, dass hier etwas
-		aufgeht. `display: flex` nähme es weg — dann sähe der Griff aus wie ein
-		Satz Text.
-	*/
-	.umbenennen__griff {
-		min-height: var(--touch);
-		padding: var(--space-3);
-		color: var(--accent);
-		font-family: var(--action-font);
-		font-size: var(--action-size);
-		font-weight: var(--action-weight);
-		line-height: var(--action-line);
-		cursor: pointer;
-	}
-
-	.umbenennen__formular {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
-		padding: 0 var(--space-3) var(--space-3);
 	}
 </style>

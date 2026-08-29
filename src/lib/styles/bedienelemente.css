@@ -543,3 +543,90 @@ select.feld {
 	position: absolute;
 	clip-path: inset(50%);
 }
+
+/*
+ * Die Rückmeldung eines geglückten Vorgangs — der Satz in Akzentfarbe über der
+ * Seite, den die höfliche Live-Region ansagt.
+ *
+ * Lag dreimal gleichlautend in `/`, `/dienstplan` und `/verwaltung`. Die
+ * Retrospektive Epic 3 hat gemessen, dass die drei nicht nur gleich **aussehen**,
+ * sondern verhaltensgleich sind: dieselben fünf Attribute, nur in anderer
+ * Reihenfolge geschrieben.
+ *
+ * **Warum das hier eine Regel und keine Komponente wurde.** Die naheliegende
+ * Antwort auf drei gleiche Elemente ist ein geteiltes Element. Sie trägt hier
+ * nicht: der Baum hat dreizehn Live-Regionen, und die zehn Fehlerregionen haben
+ * vier verschiedene Formen — mit und ohne `id`, mit und ohne Fokusgriff, zwei
+ * davon mit einer Kennung je Datensatz. Eine Komponente für alle bräuchte fünf
+ * Eigenschaften, um fünf Attribute zu ersetzen, und sie nähme dem Prüfskript
+ * das Markup, an dem es die Attribute heute liest.
+ *
+ * Statt dessen prüft `smoke` **jede** Region des Baums gegen ihre Attribute.
+ * Das ist die schärfere Zusage: eine Komponente hindert niemanden daran, sich
+ * die Region von Hand danebenzuschreiben — die Behauptung schon.
+ */
+.meldung {
+	margin: 0;
+	color: var(--accent);
+	font-family: var(--body-font);
+	font-size: var(--body-size);
+	font-weight: var(--body-weight);
+	line-height: var(--body-line);
+}
+
+/*
+ * Das aufklappbare Zeilenformular. Ein `<details>` je Zeile einer Liste, dessen
+ * `<summary>` das Verb trägt und dessen Rumpf ein Feld und einen Knopf hält.
+ *
+ * `<details>` bringt das Auf und Zu **ohne JavaScript** mit; das ist der Grund,
+ * warum die Bauform so aussieht und nicht als Dialog. `open={fehlerHier}` lässt
+ * den Server entscheiden, welche Zeile nach einer Abweisung aufgeklappt
+ * zurückkommt — ohne JavaScript gibt es nichts, was es nachträglich aufklappte.
+ *
+ * **Zwei Wurfstellen, und die zweite war eine Kopie.** Story 3.0.1 baute die
+ * Form für das Umbenennen einer Mitgliedszeile, Story 3.1 das Besetzen einer
+ * Dienstwoche — nach derselben Vorlage, mit drei byte-gleichen Regelpaaren
+ * daneben. Die Retrospektive Epic 3 hat das an der Nahtstelle zwischen den zwei
+ * Stories gefunden: die Sitzung von 3.1 hatte 3.0.1 vor sich und ist ihr
+ * richtigerweise gefolgt — nur hat niemand gefragt, ob aus der Vorlage ein
+ * geteiltes Stück werden sollte.
+ *
+ * **Warum nur die Hülle geteilt ist und keine Komponente daraus wurde.** Das
+ * `<form>` darin trägt ein **literales** `action="?/name"`, und Gate-Regel 11
+ * leitet die Route aus dem **Verzeichnis der Datei** ab, um den Namen gegen die
+ * actions der Nachbardatei zu halten. Eine Komponente unter `src/lib/components/`
+ * hat kein Routenverzeichnis; die Regel würde blind, und ein verschriebener
+ * Aktionsname wäre wieder ein Knopf, der nichts tut. Das Formular bleibt darum
+ * in seiner Route. Was sich teilen lässt, ist die Form — und dass die zwei
+ * dieselbe bleiben, behauptet `smoke`, statt es zu hoffen.
+ */
+.zeilenform {
+	border: var(--border-hairline) solid var(--hairline);
+	border-radius: var(--radius-md);
+}
+
+/*
+ * Der Griff. Trefferfeld über die volle Breite und 44px hoch, Text in der
+ * Akzentfarbe: er sieht aus wie eine Aktion, weil er eine ist.
+ */
+.zeilenform__griff {
+	min-height: var(--touch);
+	padding: var(--space-3);
+	color: var(--accent);
+	font-family: var(--action-font);
+	font-size: var(--action-size);
+	font-weight: var(--action-weight);
+	line-height: var(--action-line);
+	cursor: pointer;
+}
+
+/*
+ * Der Rumpf. Kein Innenabstand oben — der Griff darüber bringt seinen eigenen
+ * mit, und zwei Abstände übereinander rissen die Zeile auseinander.
+ */
+.zeilenform__formular {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	padding: 0 var(--space-3) var(--space-3);
+}

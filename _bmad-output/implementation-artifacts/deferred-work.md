@@ -728,3 +728,61 @@ belegt; die Proben stehen einzeln in der Tabelle in `README.md`.
     hier, damit die nächste Story ihn nicht neu treffen muss.
   status: getragen
 
+## Durchgang durch die Duplikate (2026-08-29, nach der Retrospektive Epic 3)
+
+Aktionspunkte 3, 4 und 5 der Retrospektive, abgearbeitet. Die Messung fiel von
+**vierzehn** doppelten Regelkörpern auf **zwei** — und die zwei sind die, die
+bleiben sollen.
+
+- betrifft: Aktionspunkt 3 — die übrigen doppelten Regelkörper
+  fassung: sechs Rollen ins geteilte Stilblatt gezogen — `.fliesstext`
+    (+ `--gedaempft`), `.liste` (+ `--getrennt`), `.knoepfe`, `.nur-vorgelesen`,
+    dazu drei nicht migrierte Zwillinge von `.hinweis`. Die Wache in `smoke`
+    trägt jetzt zwanzig Klassen statt sieben.
+  belegt: eine Kopie von `.liste` in `/mehr` macht die Prüfliste rot.
+  status: erledigt
+
+- betrifft: Aktionspunkt 4 — die Live-Region als geteilte Komponente
+  fassung: **abgewichen, und zwar begründet.** Die Retrospektive sprach von drei
+    Regionen; gemessen sind es dreizehn, und die zehn Fehlerregionen haben vier
+    Formen — mit und ohne `id`, mit und ohne Fokusgriff, zwei mit einer Kennung
+    je Datensatz. Eine Komponente bräuchte fünf Eigenschaften für fünf Attribute
+    und nähme dem Prüfskript das Markup, an dem es die Attribute liest. Geteilt
+    ist statt dessen `.meldung` (dritte Kopie), und `smoke` prüft **jede**
+    Meldungsregion des Baums gegen `tabindex` und `bind:this` samt ihrer Zahl.
+  warum das schärfer ist: eine Komponente hindert niemanden daran, sich die
+    Region von Hand danebenzuschreiben — die Behauptung schon. Sie deckt jetzt
+    `/dienstplan` und `/verwaltung` mit, die vorher keine Zeile hatten.
+  belegt: `tabindex` aus der Dienstplan-Meldung und `bind:this` aus der
+    Verwaltungs-Meldung entfernt — beide Male rot.
+  status: erledigt, mit Abweichung
+
+- betrifft: Aktionspunkt 5 — das aufklappbare Zeilenformular zusammenlegen
+  fassung: die **Hülle** ist geteilt (`.zeilenform`, `__griff`, `__formular`);
+    das `<form>` bleibt in seiner Route. Grund: es trägt ein literales
+    `action="?/name"`, und Gate-Regel 11 leitet die Route aus dem Verzeichnis der
+    Datei ab, um den Namen gegen die actions der Nachbardatei zu halten. Eine
+    Komponente unter `src/lib/components/` hat kein Routenverzeichnis — die Regel
+    würde blind, und ein verschriebener Aktionsname wäre wieder ein Knopf, der
+    nichts tut. Was die zwei statt dessen zusammenhält, ist eine Behauptung über
+    beide zugleich: dieselbe Hülle, dieselben geteilten Klassen, `open={fehlerHier}`,
+    der Griff nennt sich selbst und dann die Zeile, POST mit literalem action,
+    `use:enhance`.
+  belegt: drei Mutationen rot — eigene Griff-Klasse zurück in den Dienstplan,
+    eigene Formular-Klasse zurück in die Verwaltung, `open={fehlerHier}` weg.
+    Die erste Fassung der Behauptung liess die ersten zwei **grün** durch; sie
+    prüfte die Hülle, aber nicht, dass die Seiten die geteilten Klassen benutzen.
+  status: erledigt, mit Abweichung
+
+**Was mit Absicht doppelt bleibt** — und was das über die Messung sagt:
+
+- `.erfassen` / `.pruefen` / `.aufnahme`, vier gleichlautende Formularblöcke in
+  vier Routen. Byte-gleich und trotzdem nicht dasselbe.
+- `.zeile__marke` und `.leer` teilen eine einzige Deklaration (`color`). Zwei
+  Regeln, die sich in einer Eigenschaft treffen, sind kein Duplikat.
+
+Beides ist **zufällige** Gleichheit. Der Durchgang hat gezeigt, dass die Messung
+sie nicht von der essenziellen unterscheiden kann — sie zählt Zeichen, nicht
+Bedeutung. Wer die Zahl das nächste Mal liest, liest sie darum als Liste von
+Kandidaten und nicht als Liste von Fehlern.
+

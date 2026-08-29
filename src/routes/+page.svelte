@@ -896,15 +896,6 @@
 		font-variant-numeric: tabular-nums;
 	}
 
-	.meldung {
-		margin: 0;
-		color: var(--accent);
-		font-family: var(--body-font);
-		font-size: var(--body-size);
-		font-weight: var(--body-weight);
-		line-height: var(--body-line);
-	}
-
 	/*
 		Kästchen links, Text rechts. Trennung zur nächsten Zeile durch Haarlinie
 		oben; die erste hat keine.

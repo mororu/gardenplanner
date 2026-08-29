@@ -250,16 +250,16 @@
 						Die action prüft es trotzdem noch einmal: ein POST braucht keinen
 						Knopf.
 					-->
-					<details class="besetzen" open={fehlerHier}>
+					<details class="zeilenform" open={fehlerHier}>
 						<summary
-							class="besetzen__griff"
+							class="zeilenform__griff"
 							id="besetzen-griff-{dieseWoche}"
 							aria-labelledby="besetzen-griff-{dieseWoche} woche-{dieseWoche}"
 						>
 							{eintrag.name === null ? 'Besetzen' : 'Neu besetzen'}
 						</summary>
 						<form
-							class="besetzen__formular"
+							class="zeilenform__formular"
 							method="POST"
 							action="?/besetzen"
 							use:enhance={versand}
@@ -332,16 +332,6 @@
 </div>
 
 <style>
-	/* Die Rückmeldung eines geglückten Besetzens, in der Akzentfarbe. */
-	.meldung {
-		margin: 0;
-		color: var(--accent);
-		font-family: var(--body-font);
-		font-size: var(--body-size);
-		font-weight: var(--body-weight);
-		line-height: var(--body-line);
-	}
-
 	/*
 		Die laufende Woche trägt dieselbe 3px-Kante wie der Diensthinweis auf / —
 		derselbe Gedanke an zwei Orten: hier bist du gerade.
@@ -423,33 +413,5 @@
 	/* Das Wort trägt die Aussage, die Farbe kommt dazu — nie die Farbe allein. */
 	.woche__name--unbesetzt {
 		color: var(--warn);
-	}
-
-	.besetzen {
-		border: var(--border-hairline) solid var(--hairline);
-		border-radius: var(--radius-md);
-	}
-
-	/*
-		Der Griff trägt die action-Rolle und den Trefferboden von 44px. Die
-		Voreinstellung display: list-item bleibt stehen — sie malt das Dreieck, und
-		das Dreieck ist die einzige Anzeige, dass hier etwas aufgeht.
-	*/
-	.besetzen__griff {
-		min-height: var(--touch);
-		padding: var(--space-3);
-		color: var(--accent);
-		font-family: var(--action-font);
-		font-size: var(--action-size);
-		font-weight: var(--action-weight);
-		line-height: var(--action-line);
-		cursor: pointer;
-	}
-
-	.besetzen__formular {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
-		padding: 0 var(--space-3) var(--space-3);
 	}
 </style>

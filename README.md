@@ -1749,52 +1749,60 @@ Woche gemeint ist.
 ## Die geteilte Seitenform
 
 `src/lib/styles/bedienelemente.css` gilt auf jeder Seite — `+layout.svelte`
-bindet es neben `fonts.css` ein. **Dreizehn** Klassen stehen dort und **nirgends
+bindet es neben `fonts.css` ein. **Zwanzig** Klassen stehen dort und **nirgends
 sonst**; `smoke` behauptet je Klasse „genau einmal, im geteilten Stilblatt" und
 nennt im roten Fall die Fundstellen:
 
-| Klasse                                             | Rolle                                | geteilt seit |
-| -------------------------------------------------- | ------------------------------------ | ------------ |
-| `.seite`, `.seitentitel`, `.fehler`, `.live:empty` | die Seitenform                       | 2026-08-29   |
-| `.hinweis` (+ `--am-feld`, `--ziffern`)            | Nebentext                            | 2026-08-29   |
-| `.abschnittstitel`                                 | Titel eines Abschnitts               | Story 3.2    |
-| `.bestaetigung` (+ `__text`, `__knoepfe`)          | der modale Dialog                    | Story 3.2    |
-| `.leer`                                            | der leere Zustand                    | Story 3.2    |
-| `.karte` (+ `--eng`)                               | eine Zeile, die einen Namen trägt    | Story 3.2    |
-| `.marke`                                           | die Abschnittsmarke über einer Liste | Story 3.2    |
+| Klasse                                             | Rolle                                     | geteilt seit |
+| -------------------------------------------------- | ----------------------------------------- | ------------ |
+| `.seite`, `.seitentitel`, `.fehler`, `.live:empty` | die Seitenform                            | 2026-08-29   |
+| `.hinweis` (+ `--am-feld`, `--ziffern`)            | Nebentext                                 | 2026-08-29   |
+| `.abschnittstitel`                                 | Titel eines Abschnitts                    | Story 3.2    |
+| `.bestaetigung` (+ `__text`)                       | der modale Dialog                         | Story 3.2    |
+| `.leer`                                            | der leere Zustand                         | Story 3.2    |
+| `.karte` (+ `--eng`)                               | eine Zeile, die einen Namen trägt         | Story 3.2    |
+| `.marke`                                           | die Abschnittsmarke über einer Liste      | Story 3.2    |
+| `.fliesstext` (+ `--gedaempft`)                    | der gewöhnliche Satz                      | Retro Epic 3 |
+| `.liste` (+ `--getrennt`)                          | der Listen-Reset                          | Retro Epic 3 |
+| `.knoepfe`                                         | die Knopfspalte                           | Retro Epic 3 |
+| `.nur-vorgelesen`                                  | die verborgene Beschriftung               | Retro Epic 3 |
+| `.meldung`                                         | die Rückmeldung eines geglückten Vorgangs | Retro Epic 3 |
+| `.zeilenform` (+ `__griff`, `__formular`)          | das aufklappbare Zeilenformular           | Retro Epic 3 |
 
-Der Dialog kam auf demselben Weg dazu wie `.hinweis`, nur früher gesehen: er lag
-in `/verwaltung` und war dort allein, solange es **eine** Bestätigung gab. Mit
-der zweiten auf `/` wäre die Kopie entstanden, gegen die dieser Block steht —
-zwei Dialoge, die sich um einen Radius oder eine Hintergrunddeckkraft
-unterscheiden, sind zwei Dialoge. Er ist gezogen worden, nicht kopiert.
+Die ersten sieben kamen während Epic 3 dazu, die letzten sechs im Durchgang
+**nach** der Retrospektive. Der Unterschied ist lehrreich: die frühen wurden
+gefunden, weil eine Story die Datei ohnehin öffnete. Die späten fand erst eine
+Messung über den ganzen Baum — vierzehn byte-gleiche Regelkörper über sieben
+Komponenten, von denen keine einzelne Sitzung mehr als zwei sehen konnte.
 
-**Die anderen vier fand erst der Review zu Story 3.2**, und sie zeigen, wie der
-Posten wirklich nachwächst: nicht dadurch, dass jemand kopiert, sondern dadurch,
-dass eine neue Seite dasselbe noch einmal braucht. Die Story legte zwei Seiten an
-und machte dabei aus je einer bestehenden Regel drei Kopien — `.leer` stand
-danach in `/`, `/monatsplan` und `/einzelaufgaben`, die Karte in `/dienstplan`,
-`/` und `/einzelaufgaben`. Beide sind gezogen und stehen jetzt mit in der Wache.
+**Der Posten wächst nicht durch Kopieren nach, sondern durch Bedarf.** Niemand
+hat `.liste` sieben Mal abgeschrieben; sieben Seiten brauchten eine Liste, und
+jede schrieb sie sich selbst. Genau darum ist die Wache über das Stilblatt die
+Antwort und nicht die Disziplin beim Schreiben.
 
-**Nicht** geteilt ist `.erfassen`, das Formularlayout von `/aufgabe` und
-`/einzelaufgabe` — vier Zeilen Flex ohne Aussage. Die dreizehn hier tragen je
-eine **Rolle**; eine generische Layoutklasse daneben wäre der Anfang einer
-Utility-Sammlung, die dieses Projekt nicht hat. Der Entscheid steht in
-`deferred-work.md`, damit die nächste Story ihn nicht neu treffen muss.
+### Was nicht geteilt ist, und warum
 
-`.hinweis` kam als letzte dazu, und ihr Weg dorthin ist der Grund für die Wache:
-sie stand in `/dienstplan` und `/monatsplan` mit denselben fünf
-meta-Eigenschaften, unterschieden allein im `margin`. Der Review zu Story 3.1
-fand die Kopie und hielt fest, dass hier nichts wacht. Der Unterschied ist jetzt
-benannt statt verdoppelt — `.hinweis--am-feld` setzt den einen Schritt Abstand,
-den ein Nebentext unmittelbar unter einem Feld braucht, weil es dort keinen
-`gap`-Container gibt.
-
-Der Zähler auf `/monatsplan` hat dabei seine eigene Klasse verloren; seine
-Kennung `plan-zaehler` bleibt, denn daran hängt das `aria-describedby` des
-Textfeldes. Die Behauptung darüber schneidet seither über die **Kennung** statt
-über die Klasse — der bessere Anker, weil er die Identität misst und nicht die
-Gestaltung.
+- **`.erfassen`, `.pruefen`, `.aufnahme`** — vier gleichlautende Formularblöcke
+  in vier Routen. Sie sind byte-gleich und trotzdem nicht dasselbe: drei
+  verschiedene Formulare, deren Layout heute zufällig übereinstimmt. Eine
+  geteilte Klasse koppelte sie, und die nächste Änderung an einem zöge die
+  anderen mit. Steht als getragener Posten in `deferred-work.md`.
+- **`.fehler` gegen den Fliesstext** — der Fehlersatz ist Fliesstext in
+  Vordergrundfarbe, wie ein Aufgabentitel. Auch das ist Zufall und keine
+  Verwandtschaft: `.fehler` benennt eine Region mit `role="alert"`, nicht eine
+  Schriftgrösse.
+- **Eine Komponente für die Live-Regionen** — der Baum hat dreizehn, und die
+  zehn Fehlerregionen haben vier Formen: mit und ohne `id`, mit und ohne
+  Fokusgriff, zwei mit einer Kennung je Datensatz. Eine Komponente bräuchte fünf
+  Eigenschaften für fünf Attribute und nähme dem Prüfskript das Markup. Statt
+  dessen prüft `smoke` **jede** Region gegen ihre Attribute — die schärfere
+  Zusage, weil eine Komponente niemanden hindert, sich die Region danebenzuschreiben.
+- **Eine Komponente für das Zeilenformular** — das `<form>` darin trägt ein
+  literales `action="?/name"`, und Gate-Regel 11 leitet die Route aus dem
+  **Verzeichnis der Datei** ab. Eine Komponente unter `src/lib/components/` hat
+  keins; die Regel würde blind, und ein verschriebener Aktionsname wäre wieder
+  ein Knopf, der nichts tut. Geteilt ist darum die Hülle, und dass die zwei
+  Formulare dieselbe Form behalten, behauptet `smoke` über beide zugleich.
 
 ## Die Navigationsleiste
 
