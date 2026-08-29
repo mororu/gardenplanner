@@ -14,6 +14,7 @@ colors:
   accent: '#2F6B3F'
   accent-ink: '#FFFFFF'
   overdue: '#9A5A12'
+  warn: '#A05300'
   surface-base-dark: '#12160F'
   surface-raised-dark: '#1A2018'
   ink-primary-dark: '#E9EDE4'
@@ -22,6 +23,7 @@ colors:
   accent-dark: '#7FBB8C'
   accent-ink-dark: '#0E1410'
   overdue-dark: '#D99B4E'
+  warn-dark: '#FFA857'
 typography:
   display:
     fontFamily: "'Figtree', system-ui, sans-serif"
@@ -153,13 +155,14 @@ Die gewählte Richtung im Vergleich mit den vier verworfenen: [`mockups/farbvari
 
 ## Colors
 
-Ein einziger chromatischer Ton für alles Handlungsfähige, ein einziger für Überfälligkeit. Sonst Neutrale mit leichter Grünneigung — kein reines Grau, damit der Grund gewählt und nicht geerbt wirkt.
+Ein einziger chromatischer Ton für alles Handlungsfähige, einer für Überfälligkeit, einer für eine Lücke, die jemand schliessen muss. Sonst Neutrale mit leichter Grünneigung — kein reines Grau, damit der Grund gewählt und nicht geerbt wirkt.
 
 - **Beetgrün (`#2F6B3F` hell / `#7FBB8C` dunkel)** ist der einzige Akzent. Titelleiste, Umriss des Kästchens, Hauptaktion, aktives Navigationsziel, linke Kante des Diensthinweises. Er signalisiert *hier kann gehandelt werden* — nie Dekoration, nie ein Zustandsabzeichen.
 - **Off-White (`#F5F4EF`)** ist der Grund im Hellen, minim warm und grünlich abgetönt. Weisse Flächen (`#FFFFFF`) liegen darauf als Karten und Listen, sodass Struktur ohne Schatten entsteht.
 - **Waldschwarz (`#1C221B`)** ist Fliesstext und Überschrift. Kein reines Schwarz — der Grünstich hält es mit dem Akzent zusammen.
 - **Gedämpftes Blattgrau (`#66705F`)** trägt Nebeninformation: Termine, `(optional)`, inaktive Navigationsziele, erledigte Zeilen. Bei 4.71:1 auf dem Grund, also noch über dem Textboden.
 - **Lehmbraun (`#9A5A12` hell / `#D99B4E` dunkel)** ist ausschliesslich Überfälligkeit. Es ist absichtlich **kein Rot**: eine Aufgabe, die vier Wochen liegt, ist kein Fehler und keine Gefahr. Rot bleibt für Zerstörendes reserviert — im MVP nur das Widerrufen einer Einladung.
+- **Ringelblume (`#A05300` hell / `#FFA857` dunkel)** ist ausschliesslich die unbesetzte Dienstwoche — eine Lücke, die jemand schliessen muss, nicht ein Fehler und nicht eine Gefahr. Voll gesättigtes Orange, wo Lehmbraun gedämpft ist; das ist der ganze Unterschied zwischen den beiden, und er trägt nur, weil sie **nie auf derselben Seite vorkommen**: Überfälligkeit lebt auf der Aufgabenliste, Unbesetztheit im Dienstplan. Im Hellen sind die zwei nahezu ununterscheidbar (1.07:1 zueinander) — jedes Orange, das auf Weiss 4.5:1 erreicht, ist dunkel, und dunkles Orange **ist** Lehmbraun. Getragen wird die Aussage darum wie überall vom Wort `— unbesetzt —`, nie von der Farbe.
 - **Haarlinie (`#DCDCD2` hell / `#2C3529` dunkel)** trennt Listenzeilen auf der niedrigsten brauchbaren Stufe.
 
 **Der dunkle Modus ist gleichrangig gestaltet, keine Invertierung.** Der Akzent wird aufgehellt (`#7FBB8C`), damit er auf dunklem Grund trägt, und die Titelleistenschrift wird zu einem sehr dunklen Grün statt Weiss.
@@ -173,6 +176,8 @@ Ein einziger chromatischer Ton für alles Handlungsfähige, ein einziger für Ü
 | Akzent als Text auf Weiss | 6.37:1 | 7.43:1 | 4.5 |
 | Titelleistenschrift auf Akzent | 6.37:1 | 8.34:1 | 4.5 |
 | Überfällig auf Karte | 5.46:1 | 6.92:1 | 4.5 |
+| Unbesetzt auf Karte | 5.63:1 | 8.70:1 | 4.5 |
+| Unbesetzt auf Grund | 5.11:1 | 9.58:1 | 4.5 |
 | Kästchen-Umriss auf Karte | 6.37:1 | 7.43:1 | 3.0 |
 
 Die Haarlinie liegt bei 1.38:1 (hell) bzw. 1.30:1 (dunkel) und erfüllt 3:1 **nicht** — bewusst. Trennlinien sind dekorativ und identifizieren kein Bedienelement; die Zeile bleibt ohne sie eindeutig lesbar. Jeder Umriss, der zu einem Bedienelement gehört, nutzt `{colors.accent}` und liegt weit über der Schwelle. Wird die Haarlinie je zum einzigen Träger einer Bedeutung, muss sie auf 3:1 angehoben werden.

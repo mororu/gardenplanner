@@ -9,8 +9,15 @@
  * Fehlerseite. Jede nachgestellte Grenze kann Behauptungen erzeugen, die sich
  * selbst bestätigen — das ist die Fehlerklasse, die drei Prüfrunden hier
  * gefunden haben. Der User hat entschieden, die Bauform zu behalten und die
- * Lücken einzeln zu flicken; die Empfehlung, stattdessen gegen einen echten
- * Server zu fahren, steht für eine spätere Story in der Spezifikation.
+ * Lücken einzeln zu flicken.
+ *
+ * Seit Story 3.0 steht die Empfehlung nicht mehr nur da: scripts/smoke-http.ts
+ * fährt den **gebauten** Baum auf einem freien Port und misst dieselben Grenzen
+ * an echten Antworten. Die zwei Skripte ersetzen einander nicht — dieses hier
+ * kommt an Innenwerte, an die über HTTP niemand herankommt (der Inhalt eines
+ * Optionsobjekts bei cookies.set, der Wurf einer action, die Reihenfolge in
+ * einer load), und jenes an alles, was erst zwischen resolve und Steckdose
+ * entsteht. Wo beide dieselbe Zusage berühren, gilt die Messung am Server.
  *
  * Damit eine Behauptung nicht bloss ihre eigene Vorbereitung liest, gilt hier:
  *
@@ -34,27 +41,36 @@
  *     das Skript sonst mit einem TypeError abgebrochen, statt geprüft zu werden.
  *   - Ein **unerwarteter Wurf ist ein Befund**, kein Absturz: der Rahmen unten
  *     benennt ihn, räumt die Wegwerfverzeichnisse weg und endet mit 1 — dasselbe
- *     Versprechen, das scripts/gate.mjs schon gibt.
+ *     Versprechen, das scripts/gate.mjs schon gibt. Das Benennen, das Zählen und
+ *     das Wegräumen liegen seit Story 3.0 in scripts/pruefhelfer.ts, damit die
+ *     zwei Prüfskripte gleich melden.
  *   - Die POST-Behauptungen fahren **echte** Formulardaten: das Ereignis baut
  *     `new Request(url, { method: 'POST', body: FormData })`, damit
  *     `await request.formData()` in der action wirklich etwas zu parsen hat.
  *     Ohne Rumpf bekäme jede action eine leere Menge und die Prüfung läse nur
  *     ihre eigene Vorbereitung.
  *
- * Nicht abgedeckt bleibt respond.js — die Schicht, die den Wurf in die Vorlage
- * überführt, Kopfzeilen anhängt und Cookies ausliefert. Ihr Verhalten ist am
- * laufenden Server gemessen und in der Spezifikation festgehalten; hier steht
- * ausdrücklich keine Behauptung darüber.
+ * Nicht abgedeckt bleibt hier respond.js — die Schicht, die den Wurf in die
+ * Vorlage überführt, Kopfzeilen anhängt und Cookies ausliefert. Hier steht
+ * ausdrücklich keine Behauptung darüber; sie stehen seit Story 3.0 in
+ * scripts/smoke-http.ts, ausgeführt statt festgehalten.
  *
  * Am Ende zählt das Skript, wie viele Behauptungen tatsächlich gelaufen sind,
  * und vergleicht mit einer festen Zahl. Eine Behauptung, die in einem `if`
  * stillschweigend ausfällt, fällt damit auf.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import {
+	aufraeumen,
+	pruefen,
+	pruefenGleich,
+	unerwarteterWurf,
+	wegwerfVerzeichnis,
+	zaehlerstand,
+} from './pruefhelfer.ts';
 import Database from 'better-sqlite3';
 import { eq } from 'drizzle-orm';
 import { isActionFailure, isHttpError, isRedirect, text } from '@sveltejs/kit';
@@ -127,53 +143,10 @@ const wurzel = fileURLToPath(new URL('..', import.meta.url));
 // aufgerufen werden.
 process.chdir(wurzel);
 
-/**
- * Jedes Wegwerfverzeichnis wird hier vermerkt, damit der Rahmen unten es auch
- * dann wegräumt, wenn mitten in der Prüfliste etwas Unerwartetes wirft. Die
- * Aufräumzeilen an den einzelnen Stellen bleiben trotzdem stehen: `force: true`
- * macht ein zweites Entfernen zum Nichts, und je früher ein Verzeichnis weg
- * ist, desto weniger kann es einen späteren Lauf verwirren.
- */
-const wegwerfverzeichnisse: string[] = [];
-
-function wegwerfVerzeichnis(vorsilbe: string): string {
-	const pfad = mkdtempSync(join(tmpdir(), vorsilbe));
-	wegwerfverzeichnisse.push(pfad);
-	return pfad;
-}
-
-function aufraeumen(): void {
-	for (const pfad of wegwerfverzeichnisse) {
-		try {
-			rmSync(pfad, { recursive: true, force: true });
-		} catch {
-			// Ein Verzeichnis, das sich nicht entfernen lässt, ist kein Befund über
-			// die Zugangsschicht. Der Ablagebereich des Systems räumt selbst auf.
-		}
-	}
-}
-
 const arbeit = wegwerfVerzeichnis('gartenplaner-smoke-');
 process.env.DATABASE_PATH = join(arbeit, 'smoke.sqlite');
 process.env.SESSION_SECRET = GUTES_GEHEIMNIS;
 process.env.ORIGIN = HERKUNFT;
-
-let gescheitert = 0;
-let gelaufen = 0;
-
-function pruefen(name: string, bedingung: boolean, hinweis?: string): void {
-	gelaufen += 1;
-	if (bedingung) {
-		console.log(`ok      ${name}`);
-		return;
-	}
-	gescheitert += 1;
-	console.error(`FEHLER  ${name}${hinweis === undefined ? '' : ` — ${hinweis}`}`);
-}
-
-function pruefenGleich(name: string, ist: unknown, soll: unknown): void {
-	pruefen(name, ist === soll, `war ${JSON.stringify(ist)}, erwartet ${JSON.stringify(soll)}`);
-}
 
 /** Ein Unterprozess mit Zeitschranke und Prüfung auf einen Startfehler. */
 function starten(argumente: string[], umgebung: Record<string, string | undefined>) {
@@ -735,10 +708,32 @@ function nenntErledigt(daten: unknown): boolean {
 	return /completed/i.test(JSON.stringify(daten));
 }
 
-/** Die Ids der offenen Aufgaben in der Reihenfolge, in der die load sie liefert. */
-function offeneReihenfolge(ausgang: Routenausgang): string {
+/**
+ * Die Ids der offenen Aufgaben in der Reihenfolge, in der die load sie liefert.
+ *
+ * `nurIds` schneidet die Antwort auf die Zeilen zu, die der fragende Block
+ * **selbst gesät** hat. Ohne diesen Filter sagt jede Reihenfolgebehauptung
+ * etwas über den ganzen Tabelleninhalt zu, und das ist mehr, als sie meint:
+ * ein späterer Block, der Aufgaben mit älterem created_at anlegt, stellt sie
+ * vor alles Frühere und macht die festen Id-Ketten rot, ohne dass an der
+ * Sortierung etwas falsch wäre. Genau das tut der Story-2.2-Block mit seinen
+ * bis zu 60 Tage alten Zeitstempeln; er filtert aus demselben Grund über
+ * `gesaeteIds`, und seit dieser Fassung tun es die älteren Ketten auch.
+ *
+ * Zugesagt ist damit die **relative** Reihenfolge der eigenen Zeilen. Dass eine
+ * fremde dazwischensteht, ist keine gebrochene Zusage — dass eine eigene fehlt
+ * oder an falscher Stelle steht, weiterhin schon.
+ */
+function offeneReihenfolge(
+	ausgang: Routenausgang,
+	nurIds?: readonly (number | undefined)[]
+): string {
 	const zeilen = (wertVon(ausgang).aufgaben ?? []) as { id: number }[];
-	return zeilen.map((zeile) => zeile.id).join(' | ');
+	const eigene = nurIds === undefined ? null : new Set(nurIds);
+	return zeilen
+		.map((zeile) => zeile.id)
+		.filter((id) => eigene === null || eigene.has(id))
+		.join(' | ');
 }
 
 /** Der Rückgabewert einer geglückten load oder action, oder ein leeres Objekt. */
@@ -2001,11 +1996,18 @@ try {
 	const spaet = aufgabeSaen('Randen ernten, Beet 12', jetzt - 100);
 	const frueh = aufgabeSaen('Beet 25 Nüsslisalat jäten', jetzt - 300);
 	const mittel = aufgabeSaen('Tomaten ausgeizen, Beete 3 bis 7', jetzt - 200);
+	/*
+	 * Jede Reihenfolgebehauptung dieses Blocks fragt nur nach **diesen** Ids.
+	 * Der Grund steht bei offeneReihenfolge: ein späterer Block mit älteren
+	 * Zeitstempeln stellt sich sonst vor sie und macht sie rot, obwohl die
+	 * Sortierung stimmt.
+	 */
+	const dreiGesaete = [frueh, mittel, spaet] as const;
 
 	const erstesLaden = await startseiteLadenAn('/');
 	pruefenGleich(
 		'die load von / gibt die offenen Aufgaben, älteste zuerst',
-		offeneReihenfolge(erstesLaden),
+		offeneReihenfolge(erstesLaden, dreiGesaete),
 		`${frueh} | ${mittel} | ${spaet}`
 	);
 	/*
@@ -2082,7 +2084,7 @@ try {
 	const nachAbhaken = await startseiteLadenAn('/');
 	pruefenGleich(
 		'die abgehakte Zeile fehlt in einer frischen load — auch für alle anderen',
-		offeneReihenfolge(nachAbhaken),
+		offeneReihenfolge(nachAbhaken, dreiGesaete),
 		`${frueh} | ${spaet}`
 	);
 	/*
@@ -2142,7 +2144,7 @@ try {
 	);
 	pruefenGleich(
 		'die Zeile steht danach wieder an ihrem Platz nach created_at',
-		offeneReihenfolge(await startseiteLadenAn('/')),
+		offeneReihenfolge(await startseiteLadenAn('/'), dreiGesaete),
 		`${frueh} | ${mittel} | ${spaet}`
 	);
 
@@ -2227,14 +2229,15 @@ try {
 	const geteilterZeitpunkt = jetzt - 500;
 	const zwillingEins = aufgabeSaen('Kompost wenden', geteilterZeitpunkt);
 	const zwillingZwei = aufgabeSaen('Laub rechen', geteilterZeitpunkt);
+	const fuenfGesaete = [zwillingEins, zwillingZwei, ...dreiGesaete] as const;
 	pruefenGleich(
 		'zwei Aufgaben mit demselben created_at stehen nach aufsteigender Id',
-		offeneReihenfolge(await startseiteLadenAn('/')),
+		offeneReihenfolge(await startseiteLadenAn('/'), fuenfGesaete),
 		`${zwillingEins} | ${zwillingZwei} | ${frueh} | ${mittel} | ${spaet}`
 	);
 	pruefenGleich(
 		'und die Reihenfolge bleibt über einen zweiten Ladevorgang stabil',
-		offeneReihenfolge(await startseiteLadenAn('/')),
+		offeneReihenfolge(await startseiteLadenAn('/'), fuenfGesaete),
 		`${zwillingEins} | ${zwillingZwei} | ${frueh} | ${mittel} | ${spaet}`
 	);
 
@@ -2368,7 +2371,7 @@ try {
 	const nachAblage = await startseiteLadenAn('/?abgelegt');
 	pruefenGleich(
 		'die neue Aufgabe steht in der load von / — jüngste zuletzt',
-		offeneReihenfolge(nachAblage),
+		offeneReihenfolge(nachAblage, [...fuenfGesaete, neueAufgabe?.id]),
 		`${zwillingEins} | ${zwillingZwei} | ${frueh} | ${mittel} | ${spaet} | ${neueAufgabe?.id}`
 	);
 	pruefen(
@@ -3774,12 +3777,15 @@ try {
 	// =======================================================================
 	// / — Story 2.2: überfällige Aufgaben erkennen.
 	//
-	// Jede Zeile der I/O-Matrix ausgeführt. Der Block steht ganz **am Ende** der
-	// Prüfliste, und das ist keine Bequemlichkeit: er sät Aufgaben mit
-	// Zeitstempeln von bis zu 60 Tagen, und die stehen nach created_at **vor**
-	// allen bisher gesäten. Weiter oben eingefügt machte er die vier
-	// Sortierbehauptungen mit ihren festen Id-Ketten rot, ohne dass an der
-	// Sortierung etwas falsch wäre.
+	// Jede Zeile der I/O-Matrix ausgeführt. Der Block sät Aufgaben mit
+	// Zeitstempeln von bis zu 60 Tagen; die stehen nach created_at **vor** allen
+	// bisher gesäten. Bis zur Triage vom 2026-08-28 hing daran seine Position:
+	// weiter oben eingefügt machte er die Sortierbehauptungen der Stories 1.4
+	// und 1.5 rot, ohne dass an der Sortierung etwas falsch wäre. Seither
+	// fragen jene Ketten über `dreiGesaete`/`fuenfGesaete` nur noch nach ihren
+	// eigenen Zeilen — dieselbe Vorkehrung, die dieser Block mit `gesaeteIds`
+	// schon traf. **Der Block darf jetzt überall stehen, und der nächste, der
+	// alte Zeitstempel sät, ebenfalls.**
 	//
 	// Gemessen wird zweimal, und die zwei Messungen haben verschiedene Aufgaben:
 	//
@@ -4295,48 +4301,28 @@ try {
 		`verletzt: ${fehlendeTeile(timerTeile).join(', ')}`
 	);
 } catch (fehler) {
-	/*
-	 * Ein unerwarteter Wurf ist ein Befund wie jeder andere und wird benannt.
-	 *
-	 * Ausgegeben werden Art und Meldung und — auf einer eigenen, beschrifteten
-	 * Zeile — die innerste Quellstelle aus dem Stapel. Ein vollständiger
-	 * Stacktrace bleibt aussen vor, wie überall in diesem Projekt; eine einzelne
-	 * Fundstelle ist keine Ablage, sondern der Unterschied zwischen einer
-	 * Meldung, mit der man arbeiten kann, und einer, die nur "ist keine Funktion"
-	 * sagt.
-	 */
-	gescheitert += 1;
-	const art = fehler instanceof Error ? fehler.name : typeof fehler;
-	const meldung = fehler instanceof Error ? fehler.message : String(fehler);
-	console.error(`VERSTOSS smoke  unerwarteter Wurf (${art}): ${meldung}`);
-
-	const stelle =
-		fehler instanceof Error && typeof fehler.stack === 'string'
-			? (fehler.stack.split('\n').find((zeile) => zeile.trim().startsWith('at ')) ?? '')
-			: '';
-	if (stelle.trim() !== '') {
-		console.error(`         Fundstelle: ${stelle.trim()}`);
-	}
-	console.error(
-		'         Die Prüfliste ist damit abgebrochen — die Schlusszählung darunter\n' +
-			'         sagt, wie viele Behauptungen noch gelaufen sind.'
-	);
+	unerwarteterWurf('smoke', fehler);
 } finally {
 	aufraeumen();
 }
 
 // Eine Behauptung, die in einem if stillschweigend ausfällt, fällt hier auf.
-const abgelegt = gelaufen;
+// Der Stand wird **vor** der Schlussbehauptung gelesen: sie zählt sich selbst
+// nicht mit, sonst wäre die Zahl immer um eins daneben.
+const abgelegt = zaehlerstand().gelaufen;
 pruefen(
 	`alle ${ERWARTETE_BEHAUPTUNGEN} Behauptungen sind gelaufen`,
 	abgelegt === ERWARTETE_BEHAUPTUNGEN,
 	`es liefen ${abgelegt}`
 );
 
-if (gescheitert > 0) {
-	console.error(`\nsmoke: ${gescheitert} von ${gelaufen} Behauptung(en) nicht erfüllt.`);
+const stand = zaehlerstand();
+if (stand.gescheitert > 0) {
+	console.error(
+		`\nsmoke: ${stand.gescheitert} von ${stand.gelaufen} Behauptung(en) nicht erfüllt.`
+	);
 	process.exit(1);
 }
 console.log(
-	`\nsmoke: ${gelaufen} Behauptungen der Zugangs- und Aufgabenschicht ausgeführt belegt.`
+	`\nsmoke: ${stand.gelaufen} Behauptungen der Zugangs- und Aufgabenschicht ausgeführt belegt.`
 );

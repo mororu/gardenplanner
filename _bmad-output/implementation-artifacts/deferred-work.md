@@ -251,3 +251,90 @@ und tragen jetzt `{colors.overdue}` — es war dort nie eine Frage, `DESIGN.md:2
 je richtig. **Offen bleibt allein `:102`** („Dienstwoche unbesetzt" in `{colors.warn}`): ob
 „unbesetzt" dasselbe Token trägt wie „überfällig" oder Epic 3 ein eigenes `--warn` bekommt, ist
 eine Gestaltungsfrage und muss vor Story 3.1 beantwortet werden.
+
+## Entschieden am 2026-08-28 (Nachtrag): das Token für „Dienstwoche unbesetzt"
+
+- entscheid: **Fassung B — ein eigenes Token `--warn` in einem Orangeton.** Name: **Ringelblume**,
+    `#A05300` hell / `#FFA857` dunkel. Damit ist Eintrag 35 vollständig geschlossen.
+  betrifft: Eintrag 35 (Zeile 122), letzter offener Teil `EXPERIENCE.md:102`
+  begruendung: Zwei Quellen widersprachen sich über eine Farbe für einen Zustand — die
+    Akzeptanzkriterien schrieben Lehmbraun, die Erlebnisbeschreibung ein `{colors.warn}`, das es
+    nirgends gab. Entschieden ist damit, dass „unbesetzt" **nicht** dieselbe Farbe trägt wie
+    „überfällig": es sind zwei verschiedene Aussagen. Überfällig heisst, dass etwas liegt;
+    unbesetzt heisst, dass eine Lücke da ist, die jemand schliessen muss. Rot bleibt dem
+    Zerstörenden vorbehalten, also kein `--danger`.
+  gemessen: Die Trennschärfe ist **im Hellen schwach, und das ist nachgerechnet und hingenommen.**
+    `#A05300` und `#9A5A12` liegen bei 1.07:1 zueinander — nahezu ununterscheidbar. Das ist keine
+    schlechte Wahl, sondern Physik: jedes Orange, das auf Weiss 4.5:1 erreicht, muss dunkel sein,
+    und dunkles Orange **ist** Lehmbraun. Der ganze Unterschied ist die Sättigung (100% gegen 79%).
+    Im Dunkeln trennen sie sich besser: 1.26:1, spürbar heller und satter.
+    Es trägt trotzdem, aus zwei Gründen, die beide im Baum stehen: die zwei Zustände kommen **nie
+    auf derselben Seite** vor — Überfälligkeit auf `/`, Unbesetztheit auf `/dienstplan` —, und wie
+    überall in diesem Produkt trägt das **Wort** die Aussage: `— unbesetzt —` steht auch ohne jede
+    Farbe da.
+    Kontrast: hell 5.63:1 auf `--surface-raised` und 5.11:1 auf `--surface-base`; dunkel 8.70:1
+    und 9.58:1. Beide Modi über 4.5:1, beide mit Reserve.
+  umsetzung: Vollständig nachgezogen. `DESIGN.md` trägt `warn`/`warn-dark` im Token-Block, den
+    Ringelblume-Absatz in der Farbprosa und zwei neue Zeilen in der Kontrasttabelle;
+    `epics.md` sagt in der Story-3.1-Akzeptanz jetzt Ringelblume statt Lehmbraun;
+    `EXPERIENCE.md:102` war schon richtig und stimmt ab jetzt auch. `src/app.html` deklariert
+    `--warn` in **beiden** Blöcken mit den gemessenen Werten im Kommentar — nach demselben Muster,
+    nach dem `--overdue` seit Story 1.1 dort stand, bevor Story 2.2 es benutzte.
+  folge: `npm run gate` gibt jetzt **2 Hinweise statt 1** (`--warn` und `--border-marker` sind
+    deklariert und unbenutzt). Das ist genau der Zweck von Regel 8 — „für eine spätere Story
+    reserviert" — und fällt mit Story 3.1 wieder auf 1. Das Akzeptanzkriterium aus Story 2.2, das
+    den Fall von 2 auf 1 verlangte, ist davon unberührt; es galt für seinen eigenen Stand.
+  status: entschieden und umgesetzt
+
+## Erledigt am 2026-08-28 (Nachtrag): B1 — die Reihenfolgefalle in `smoke-zugang.ts`
+
+- betrifft: Eintrag 40 (Zeile 141), Bucket B1 der Triage
+  fassung: Die **zweite** der beiden im Eintrag genannten Auswege — die älteren
+    Reihenfolgebehauptungen vergleichen nur noch ihre eigenen Ids, so wie der 2.2-Block es über
+    `gesaeteIds` schon tat. Nicht der erste (gesäte Zeilen am Blockende löschen): der hätte die
+    Zusicherung an ein Aufräumen gehängt, das jeder neue Block wieder vergessen kann.
+  umsetzung: `offeneReihenfolge` nimmt einen zweiten, optionalen Parameter `nurIds` und schneidet
+    die Antwort darauf zu. Die Ids stehen als `dreiGesaete` (Story 1.4) und `fuenfGesaete`
+    (dieselben plus die zwei Zwillinge) je direkt bei ihrem Säen; die Kette aus Story 1.5 hängt
+    die neu abgelegte Aufgabe an. Sechs Behauptungen umgestellt, keine hinzugefügt und keine
+    entfernt — `ERWARTETE_BEHAUPTUNGEN` bleibt bei 373.
+  belegt: Nicht behauptet, sondern zweimal ausgeführt. Eine Probezeile mit `created_at` 60 Tage in
+    der Vergangenheit, mitten in den 1.4-Block gesät: **vor** der Umstellung fünf rote
+    Behauptungen (`war "4 | 2 | 3 | 1", erwartet "2 | 3 | 1"` und vier weitere derselben Art),
+    **nach** der Umstellung alle grün. Die Probezeile ist danach wieder entfernt; sie war das
+    Beweismittel, nicht der Zustand.
+  folge: Die Endposition des 2.2-Blocks trägt nichts mehr. Sein Kopfkommentar sagt das jetzt
+    ausdrücklich, statt eine Bedingung zu behaupten, die es nicht mehr gibt: **wer in Epic 3 einen
+    Block anhängt oder dazwischenschiebt, tappt nicht mehr hinein.** Was die Ketten weiterhin rot
+    macht, ist eine eigene Zeile an falscher Stelle oder eine fehlende — also genau das, was sie
+    zusagen. Dass eine fremde Zeile dazwischensteht, ist keine gebrochene Zusage mehr.
+  status: erledigt
+
+## Aufgesetzt am 2026-08-28: Stufe A ist jetzt Story 3.0
+
+- betrifft: Eintrag 15 (Zeile 53, Stufe A), und über sie Eintrag 5 sowie die Klasse A aus den
+    Einträgen 9 und 17
+  fassung: Der Vorschlag stand seit Story 1.3 als Prosa in diesem Protokoll und war „als eigene
+    Story vor Epic 2" empfohlen — Epic 2 ist durch, die Empfehlung war verstrichen. Er steht jetzt
+    als **Story 3.0** in `epics.md` mit sieben Given/When/Then-Blöcken: freier Port, Wegwerf-
+    Datenbank, Aufräumen auch im roten Fall, keine neue Abhängigkeit, geteilte Prüfhelfer, der 303
+    und das `Set-Cookie` an der echten Antwort, die 403 byte-gleich mit `src/error.html` samt
+    `Referrer-Policy`, das ausgelieferte HTML von drei Seiten ohne aufgebrochenen Kommentar,
+    unersetzten Platzhalter oder Token-Hash, die Adminweiche über HTTP, jede Behauptung durch
+    Mutation belegt und ein Platz in der `lint`-Kette hinter `smoke`.
+  abgrenzung: Stufe B und Stufe C sind ausdrücklich **nicht** enthalten. Stufe C bleibt an ihre
+    eigene Auslösebedingung gebunden (zweite Bestätigung mit Sicherheitszusage, Story 3.2) und ist
+    eine Stack-Entscheidung, die dem User gehört.
+  status: aufgesetzt, Umsetzung offen
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-0-das-ausgelieferte-html-gegen-einen-echten-server-pruefen.md`
+  summary: `LAUFZEIT_SEKUNDEN` aus `src/lib/server/auth.ts` exportieren, damit die zwei Prüfskripte die Jahreslaufzeit nicht abschreiben müssen.
+  evidence: `scripts/smoke-zugang.ts` führt ein eigenes `EIN_JAHR`, `scripts/smoke-http.ts` ein eigenes `LAUFZEIT_SEKUNDEN` — beide mit dem Wert `60 * 60 * 24 * 365`, beide als Kommentar an `auth.ts` gebunden und von nichts geprüft. Dasselbe Argument, mit dem `KEIN_ZUGANG` bewusst importiert statt abgeschrieben wird, gilt hier gegen den eigenen Code: wer die Laufzeit in `auth.ts` ändert, bekommt zwei rote Behauptungen, die nichts über die Anwendung sagen. Die Konstante ist dort modulprivat; sie zu exportieren ist eine Zeile, gehört aber an **beide** Prüfskripte zugleich. Aufgefallen in der Blind-Hunter-Schicht der Review zu Story 3.0.
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-0-das-ausgelieferte-html-gegen-einen-echten-server-pruefen.md`
+  summary: Die Skripttabelle in `README.md` sagt „neun Regeln" für `gate` und `gate:selftest`, das Tor führt inzwischen dreizehn.
+  evidence: `npm run gate:selftest` meldet selbst „27 Fehlerproben gegen die dreizehn Regeln"; die Regeln 10, 11 und 12 sind in Story 1.3 und 1.4 dazugekommen, die Tabellenzeilen wurden nie nachgezogen. Vorbestehend und nicht von Story 3.0 verursacht — dort aufgefallen, weil dieselbe Tabelle um `smoke:http` und `smoke:selftest` ergänzt wurde. Zwei Wörter, aber die Zahl gehört gegen die tatsächliche Regelliste geprüft und nicht geraten.
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-0-das-ausgelieferte-html-gegen-einen-echten-server-pruefen.md`
+  summary: Vier Fehlerklassen der Zugangsschicht sind über HTTP weiterhin ungemessen — verfälschtes Cookie, widerrufenes Mitglied, zweites Einlösen desselben Tokens, `/verwaltung` ganz ohne Cookie.
+  evidence: `smoke:http` misst den gültigen Weg und die zwei 403-Wurfstellen. Nicht gemessen sind: ein manipuliertes oder abgelaufenes Sitzungscookie (die JWT-Signaturprüfung wird über HTTP nie berührt), ein Mitglied, das nach dem Einlösen deaktiviert wird (der Wächter schlägt bei jedem Aufruf frisch nach — die Zusage „ein Widerruf wirkt sofort" ist nur an der Attrappe belegt), das zweite Einlösen desselben Tokens auf einem weiteren Gerät, und die Reihenfolge von Wächter und Adminweiche auf `/verwaltung` ohne Cookie. Alle vier sind in `scripts/smoke-zugang.ts` direkt an den Modulen belegt und darum nicht ungedeckt, aber nicht am ausgelieferten Server. Je eine Anfrage; die Akzeptanzkriterien von Story 3.0 fragen sie nicht. Aufgefallen in der Blind-Hunter-Schicht.
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-0-das-ausgelieferte-html-gegen-einen-echten-server-pruefen.md`
+  summary: `GUTES_GEHEIMNIS` steht in `smoke-zugang.ts` und `smoke-http.ts` getrennt, obwohl `pruefhelfer.ts` gerade gegen solche Doppel angelegt wurde.
+  evidence: Zwei verschiedene Zeichenketten mit demselben Zweck — ein Wert, der `sitzungsgeheimnisPruefen()` besteht. Die Verdopplung ist harmlos (die Werte müssen sich nicht decken, und ein Prüfgeheimnis ist kein Gestaltungswert), fällt aber auf, seit die anderen geteilten Stücke an einem Ort liegen. Wenn es angefasst wird, dann zusammen mit der Frage, ob `pruefhelfer.ts` überhaupt Projektwissen tragen darf — heute ist es ausdrücklich frei von Projektimporten, und genau das macht es von nacktem Node ladbar.

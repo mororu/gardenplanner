@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-26-2026 13:20
-last_updated: 08-28-2026 11:15
+last_updated: 08-28-2026 17:20
 project: Gemeinschaftsgarten
 project_key: NOKEY
 tracking_system: file-system
@@ -49,7 +49,8 @@ development_status:
   2-2-überfällige-aufgaben-erkennen: done
   epic-2-retrospective: done
 
-  epic-3: backlog
+  epic-3: in-progress
+  3-0-das-ausgelieferte-html-gegen-einen-echten-server-prüfen: review
   3-1-dienstplan-mit-namen-und-laufender-woche: backlog
   3-2-einzelaufgabe-ausschreiben-und-übernehmen: backlog
   epic-3-retrospective: optional
@@ -188,7 +189,7 @@ action_items:
     action: "Reihenfolgefalle in smoke-zugang.ts entschaerfen, bevor Epic 3 Behauptungen
       anhaengt (G2)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-21-entscheid-plausibilitaetsschranke-an-fae"
     epic: 2
@@ -223,7 +224,7 @@ action_items:
     action: "EXPERIENCE.md:79,101 von {colors.warn} auf {colors.overdue} korrigieren,
       :102 fuer Epic 3 mitentscheiden (S3)"
     owner: "Manuel"
-    status: in-progress
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-26-offene-plan-ist-abweichungen-aus-epic-1"
     epic: 2
