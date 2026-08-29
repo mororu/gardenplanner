@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-26-2026 13:20
-last_updated: "2026-08-29"
+last_updated: "08-29-2026 22:32"
 project: Gemeinschaftsgarten
 project_key: NOKEY
 tracking_system: file-system
@@ -54,7 +54,7 @@ development_status:
   3-0-1-umbenennen-auf-verwaltung: done
   3-1-dienstplan-mit-namen-und-laufender-woche: done
   3-2-einzelaufgabe-ausschreiben-und-übernehmen: review
-  epic-3-retrospective: optional
+  epic-3-retrospective: done
 
   epic-4: backlog
   4-1-referenz-sheets-lesen-und-schreiben: backlog
@@ -129,7 +129,7 @@ action_items:
     epic: 1
     action: "Die 30 Eintraege in deferred-work.md triagieren, bevor Epic 2 beginnt"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
   - id: "epic-1-retro-item-12-story-abschluss-um-einen-spec-abgleich-e"
     epic: 1
@@ -297,3 +297,74 @@ action_items:
     owner: "Manuel"
     status: done
     ref: "_bmad-output/implementation-artifacts/deferred-work-triage-2026-08-28.md"
+  - id: "epic-3-retro-item-36-entscheid-pruefwerkzeug-in-die-architekt"
+    epic: 3
+    action: "Entscheid: Pruefwerkzeug in die Architektur aufnehmen oder zurueckbauen
+      - 12140 Zeilen, 1,25:1 gegen den Produktcode, dritte Vorlage desselben Punktes
+      (A3)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
+  - id: "epic-3-retro-item-37-den-quellbaum-der-architecture-spine-in"
+    epic: 3
+    action: "Den Quellbaum der ARCHITECTURE-SPINE in einem Zug nachziehen: 17 fehlende
+      Module, dutyWeeks.ts, db/migrations/, CAP-6 auf zwei Routen, /mehr (A1, A2)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
+  - id: "epic-3-retro-item-38-die-neun-uebrigen-doppelten-css-regelkoe"
+    epic: 3
+    action: "Die neun uebrigen doppelten CSS-Regelkoerper ins geteilte Stilblatt ziehen,
+      zuerst die Zwillinge von .fehler, .hinweis und .leer (B1)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
+  - id: "epic-3-retro-item-39-die-live-region-als-geteilte-komponente"
+    epic: 3
+    action: "Die Live-Region als geteilte Komponente statt als dritte Kopie in /,
+      /dienstplan und /verwaltung (B2)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
+  - id: "epic-3-retro-item-40-das-aufklappbare-zeilenformular-von-verw"
+    epic: 3
+    action: "Das aufklappbare Zeilenformular von /verwaltung und /dienstplan zusammenlegen
+      - Nahtstelle 3.0.1 auf 3.1, drei byte-gleiche Regelpaare (B3)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
+  - id: "epic-3-retro-item-41-epics-md-fuer-story-3-2-abgleichen-ac-3"
+    epic: 3
+    action: "epics.md fuer Story 3.2 abgleichen: AC 3 auf /einzelaufgaben beziehen
+      (Widerspruch zu AC 4), zweiten /mehr-Eintrag nachtragen (E2, E3)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
+  - id: "epic-3-retro-item-42-die-sprache-der-domaenenspalten-entschei"
+    epic: 3
+    action: "Die Sprache der Domaenenspalten entscheiden, bevor Epic 4 sheets anlegt
+      - englisch bis Epic 2, deutsch ab Epic 3, gemischt in signup_tasks (D1)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
+  - id: "epic-3-retro-item-43-den-spec-change-log-zur-regel-erheben-st"
+    epic: 3
+    action: "Den Spec Change Log zur Regel erheben, statt auf Sitzungsprotokolle zu
+      warten - er traegt die Wendungen schon (F1, loest P4 aus Epic 2)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
+  - id: "epic-3-retro-item-44-eine-regel-fuer-die-abnahme-der-handprue"
+    epic: 3
+    action: "Eine Regel fuer die Abnahme der Handpruefungen: durchgefuehrt und datiert,
+      oder ausdruecklich als ungeprueft abgenommen (F2)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
+  - id: "epic-3-retro-item-45-die-zwei-zaehler-aus-bucket-d-nachfuehre"
+    epic: 3
+    action: "Die zwei Zaehler aus Bucket D nachfuehren: request.formData() 7 auf 11,
+      harte Redirect-Pfade 6 auf 7 (D3)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
