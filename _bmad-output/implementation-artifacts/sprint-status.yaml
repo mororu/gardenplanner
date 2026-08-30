@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-26-2026 13:20
-last_updated: "08-30-2026 18:05"
+last_updated: "08-30-2026 19:20"
 project: Gemeinschaftsgarten
 project_key: NOKEY
 tracking_system: file-system
@@ -338,7 +338,9 @@ action_items:
     action: "epics.md fuer Story 3.2 abgleichen: AC 3 auf /einzelaufgaben beziehen
       (Widerspruch zu AC 4), zweiten /mehr-Eintrag nachtragen (E2, E3)"
     owner: "Manuel"
-    status: open
+    status: done
+    abgeschlossen: "2026-08-30"
+    vermerk: "AC 3 auf /einzelaufgaben bezogen, zweiter /mehr-Eintrag nachgetragen, Beschriftung in spec-3-2:102 von 'Uebernommene' auf 'Alle Einzelaufgaben' gezogen. ABWEICHUNG: UX-DR16 (epics.md:91) nennt acht Oberflaechen und die Route /einzelaufgaben/neu, die es nicht gibt -- gebaut sind zehn Seiten. Nicht mitkorrigiert, weil das eine Design-Anforderung neu fasst statt Buchfuehrung nachzuziehen; als Eintrag in deferred-work.md, Entscheid beim Menschen."
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
   - id: "epic-3-retro-item-42-die-sprache-der-domaenenspalten-entschei"
     epic: 3
@@ -366,7 +368,9 @@ action_items:
     action: "Die zwei Zaehler aus Bucket D nachfuehren: request.formData() 7 auf 11,
       harte Redirect-Pfade 6 auf 7 (D3)"
     owner: "Manuel"
-    status: open
+    status: done
+    abgeschlossen: "2026-08-30"
+    vermerk: "Nachgemessen statt abgeschrieben: 13 statt der im Aktionspunkt genannten 11, und 9 statt 7. ABWEICHUNG von der Zielzahl des Punkts: Story 4.1 landete nach der Retrospektive und fuegte je zwei hinzu. Die Zahl traegt jetzt ihren Messweg im Dokument, damit sie nicht ein drittes Mal veraltet."
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
   - id: "epic-3-retro-item-46-regelkoerper-von-einmal__stand-wiederher"
     epic: 3
@@ -380,21 +384,27 @@ action_items:
     action: "Meldungsregion-Wache ueber seitenKomponenten fuehren statt drei fest
       verdrahtete Pfade, doppelten Kommentarblock aufloesen (R2)"
     owner: "Manuel"
-    status: open
+    status: done
+    abgeschlossen: "2026-08-30"
+    vermerk: "Die Seiten kommen aus dem Verzeichnisbaum statt aus drei Pfaden; zehn statt drei, vier Regionen statt drei. Die Luecke war real: /wissen/[id] trug seit Story 4.1 eine vierte Region, die niemand las. Doppelter Kommentarblock verschmolzen. DARUEBER HINAUS: alle zwanzig live-Elemente werden jetzt gegen das Attributpaar ihrer Art gehalten -- damit stimmt auch die Begruendung in bedienelemente.css, die Befund F1 als falsch gemessen hatte (drei von dreizehn)."
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
   - id: "epic-3-retro-item-48-zeile__text-gegen-fliesstext-aufloesen-d"
     epic: 3
     action: "zeile__text gegen fliesstext aufloesen - dieselbe Zeile hat auf / und
       /einzelaufgaben zwei Zeilenhoehen (R3)"
     owner: "Manuel"
-    status: open
+    status: done
+    abgeschlossen: "2026-08-30"
+    vermerk: "Ueber den Namen aufgeloest, nicht ueber die Spezifitaet: .zeile__aufgabe ist die Rampe, .zeile__text bleibt der geteilte Umbruch. Zwei Behauptungen dazu, beide mutationsgeprueft."
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
   - id: "epic-3-retro-item-49-literal-behauptung-zu-uebernahme_folge-a"
     epic: 3
     action: "Literal-Behauptung zu UEBERNAHME_FOLGE auf nichtleere Trefferliste bestehen
       lassen, Satz in smoke-http am Dokument suchen (S2)"
     owner: "Manuel"
-    status: open
+    status: done
+    abgeschlossen: "2026-08-30"
+    vermerk: "Trefferzahl statt filter().every(); der Wert wird zusaetzlich aus der Quelle gelesen. smoke-http sucht den Satz jetzt am ausgelieferten Dokument. Die vom Retro benannte Mutation (UEBERNAHME_FOLGE = '') ist rot."
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
   - id: "epic-3-retro-item-50-namensregel-architecture-spine-md-148-au"
     epic: 3
@@ -408,21 +418,27 @@ action_items:
     action: "fehler-Zwilling ins geteilte fliesstext ziehen - bedienelemente.css:233
       gegen :396, byte-gleich in derselben Datei (B1)"
     owner: "Manuel"
-    status: open
+    status: done
+    abgeschlossen: "2026-08-30"
+    vermerk: ".fehler der geteilten Rampe beigetreten. DARUEBER HINAUS: .meldung fiel beim Nachmessen als derselbe Fall auf und ist mitgezogen. Gemessen: 1 exakter Zwilling vorher, 0 nachher. Eine Obermengen-Regel waere zu vier Fuenfteln Fehlalarm und ist darum bewusst nicht gebaut; der Grund steht im Stilblatt."
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
   - id: "epic-3-retro-item-52-list-item-warnung-in-den-geteilten-zeile"
     epic: 3
     action: "list-item-Warnung in den geteilten zeilenform__griff zurueckholen - beim
       Zusammenlegen verloren (R7)"
     owner: "Manuel"
-    status: open
+    status: done
+    abgeschlossen: "2026-08-30"
+    vermerk: "Warnung zurueck im Kommentar, mit der Verschaerfung aus der Retro. DARUEBER HINAUS bewacht: Gate-Regel 15 laesst an der Klasse eines <summary> kein display ausser list-item zu, abgeleitet aus dem Markup statt aus einer Liste. Drei Fehlerproben, zwei rot gesehen. Ein Kommentar allein hat die Warnung schon einmal nicht getragen."
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
   - id: "epic-3-retro-item-53-leeren-style-block-toten-woche-token-und"
     epic: 3
     action: "Leeren style-Block, toten .woche-Token und zwei Kommentar-Ungenauigkeiten
       entfernen (R8)"
     owner: "Manuel"
-    status: open
+    status: done
+    abgeschlossen: "2026-08-30"
+    vermerk: "Alle vier: leerer style-Block fort, toter .woche-Token fort, .liste-Zahl von 'sieben Namen' auf fuenf korrigiert (an a25bda5 nachgemessen), Kommentarbloecke vor .woche__jahr verschmolzen und 'eine Eigenschaft Unterschied' auf zwei richtiggestellt."
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
   - id: "epic-3-retro-item-54-aktionspunkt-nachlaeufe-bekommen-einen-r"
     epic: 3

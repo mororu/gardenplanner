@@ -616,9 +616,29 @@ belegt; die Proben stehen einzeln in der Tabelle in `README.md`.
 - **Eintrag 4** (Zeile 19) — die Installation zum Home-Bildschirm ist auf keinem
   echten Gerät geprüft. Braucht ein Telefon, sonst nichts. Unverändert offen.
 - **Bucket D der Triage**, fünfzehn bewusst getragene Einträge. Zwei ihrer
-  Zähler haben sich mit diesem Durchgang **nicht** bewegt: `request.formData()`
-  ohne try/catch steht weiterhin an sieben Stellen (Eintrag 21/25), harte
-  Redirect-Pfade an sechs (Eintrag 26).
+  Zähler standen hier auf sieben und sechs und waren damit **falsch**; die
+  zweite Retrospektive zu Epic 3 hat sie als Befund D3 gemeldet, nachdem der
+  erste Lauf die Bewegung schon einmal angezeigt hatte.
+
+  **Nachgemessen am 2026-08-30 am HEAD**, kommentarfrei über `src/`:
+  `request.formData()` ohne try/catch steht an **dreizehn** Stellen
+  (Eintrag 21/25), harte Redirect-Pfade an **neun** (Eintrag 26). Die
+  Retrospektive mass 11 und 7; die Differenz ist Story 4.1, die danach landete
+  und je zwei hinzufügte — `/wissen` und `/wissen/[id]` haben beide ein
+  Formular und beide eine Weiterleitung auf das Blatt.
+
+  **Die Zahl trägt ab jetzt ihren Messweg**, weil sie sonst wieder veraltet,
+  ohne dass es auffällt — das ist der Fehler, den D3 zweimal gemeldet hat:
+
+  ```
+  grep -rn "request.formData()" src/ | wc -l          # 13
+  grep -rEn "redirect\(3[0-9]{2}, *['\`]" src/ | wc -l  # 10 roh, davon 1 im Kommentar -> 9
+  ```
+
+  Beide Klassen bleiben **bewusst getragen** und sind hier nur Buchführung: ein
+  fehlerhafter Body ergäbe 500 statt 400, und ein hart geschriebener Pfad bricht
+  still, wenn eine Route umzieht. Keine der zwei ist heute erreichbar, ohne dass
+  jemand von Hand einen kaputten Rumpf schickt oder eine Route verschiebt.
 - **Die Dienstart ist unmessbar** (Review 3.1) — ausdrücklich der Story
   vorbehalten, die die zweite Art einführt: dort ist die Behauptung eine Zusage,
   hier wäre sie eine Vorwegnahme.
@@ -871,3 +891,10 @@ Durchgang wirklich wog, steht als Patch in der Story und nicht hier.
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-1-referenz-sheets-lesen-und-schreiben.md`
   summary: `smoke-http.ts` schickt mehrzeilige Feldwerte als `application/x-www-form-urlencoded` mit `\n`, während ein Browser aus einem Textfeld CRLF sendet.
   evidence: Schritt 2 von `blatttextFalten` (Zeilenenden vereinheitlichen) ist damit auf dem HTTP-Weg nie ausgeführt. Gedeckt ist er in `smoke-zugang.ts` über die multipart-Attrappe, die einen echten `FormData`-Rumpf baut und parst — dort trägt `langerTextImFormular` genau diese Zeichenform. Der Posten ist, dass der Weg von Anfang bis Ende eine Umbruchform misst, die kein Browser schickt.
+
+## Beim Nachlauf der Aktionspunkte gefunden (2026-08-30)
+
+- source_spec: `_bmad-output/planning-artifacts/epics.md`
+  summary: UX-DR16 zählt „acht Oberflächen" und nennt darunter `/einzelaufgaben/neu` — eine Route, die es nicht gibt. Gebaut sind zehn Seiten.
+  evidence: Beim Abgleich von Story 3.2 (Aktionspunkt 41, Befunde E2/E3) gesehen. `epics.md:91` führt `/`, `/aufgabe`, `/dienstplan`, `/wissen`, `/mehr`, `/monatsplan`, `/einzelaufgaben/neu` und `/verwaltung`. Gemessen am HEAD gibt es zehn `+page.svelte` unter `src/routes/`: die sieben richtig genannten plus `/einzelaufgabe` (das Formular), `/einzelaufgaben` (die Liste) und `/wissen/[id]`. `/einzelaufgaben/neu` existiert nicht und hat nie existiert — der Name stammt aus der Planung vor Story 3.2, die sich für `/einzelaufgabe` entschied. **Nicht mitkorrigiert**, weil UX-DR16 eine Design-Anforderung ist und keine Buchführung: die Zahl von acht auf zehn zu heben hiesse, die Anforderung neu zu fassen, und das gehört dem Menschen, dem sie gehört. Der Aktionspunkt 41 nannte diese Stelle nicht. Zwei Wege: die Zahl auf zehn ziehen und die zwei Routennamen richtigstellen, oder UX-DR16 ausdrücklich als Stand der Planung markieren und den Ist-Stand danebenstellen.
+

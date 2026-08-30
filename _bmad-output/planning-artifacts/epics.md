@@ -532,18 +532,28 @@ So that Verantwortung nicht in einer Gruppennachricht verdunstet und die Umfrage
 
 **Given** eine freie Einzelaufgabe
 **When** ich `Übernehmen` tippe
-**Then** erscheint eine Bestätigung mit `Du übernimmst: <Titel>, <Termin>.` — die einzige Bestätigung im Aufgabenbereich
-**And** nach dem Bestätigen steht mein Name daneben und der Knopf ist weg
+**Then** erscheint eine Bestätigung mit `Du übernimmst: <Titel>, <Termin>.` samt der Folge `Dein Name steht danach für alle daneben.` — die einzige Bestätigung im Aufgabenbereich
+**And** nach dem Bestätigen verlässt sie `/`, und mein Name steht auf `/einzelaufgaben` daneben
 
 **Given** eine übernommene Einzelaufgabe
 **When** ich `/` öffne
-**Then** erscheint sie dort **nicht** mehr; sie steht auf `/einzelaufgaben`
+**Then** erscheint sie dort **nicht** mehr; sie steht auf `/einzelaufgaben`, erreichbar über `/mehr` → `Alle Einzelaufgaben`
 
 **Given** die Datenbank
 **When** ich das Schema prüfe
 **Then** hat `signup_tasks` genau eine nullbare Mitgliedsspalte, und `tasks` hat weiterhin keine Zuständigkeitsspalte
 
 *Erfüllt:* FR9, FR10, AD-4, AD-9, AD-14. Legt `signup_tasks` an.
+
+*Abgleich, nachgezogen am 2026-08-30 (Retro Epic 3, Befunde E2 und E3):* AC 3
+sagte „nach dem Bestätigen steht mein Name daneben" und liess offen, wo — auf
+`/` widersprach das AC 4, das die übernommene Aufgabe dort ausdrücklich
+verschwinden lässt. Gebaut ist AC 4: `load` auf `/` ruft
+`freieEinzelaufgabenLesen()`, der Name steht auf `/einzelaufgaben`. AC 3 sagt
+das jetzt. **`/mehr` trägt zwei Einträge zur Einzelaufgabe**, nicht einen:
+`Einzelaufgabe ausschreiben` (die Handlung) und `Alle Einzelaufgaben` (der Ort).
+Der zweite hiess bis zum Review vom 2026-08-30 `Übernommene Einzelaufgaben` und
+wurde umbenannt, weil die Seite **beide** Zustände zeigt.
 
 ## Epic 4: Wissen liegt im System, nicht im Kopf
 
