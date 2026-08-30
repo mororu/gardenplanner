@@ -1909,6 +1909,10 @@ try {
 	 * daneben ist die eigentliche Zusage: das Wort `noch niemand` steht danach
 	 * immer noch da.
 	 */
+	const uebernahmeFolge =
+		/export const UEBERNAHME_FOLGE = '([^']*)';/.exec(
+			readFileSync(join(wurzel, 'src', 'lib', 'texte.ts'), 'utf8')
+		)?.[1] ?? '';
 	const einzelId =
 		/<input\b[^>]*\bname="einzelaufgabeId"[^>]*\bvalue="([0-9]+)"/.exec(
 			startseiteHtmlEinzel
@@ -1935,6 +1939,24 @@ try {
 		[
 			'genau eine Frage im ganzen Dokument',
 			(gefragtHtml.match(/Du übernimmst:/g) ?? []).length === 1,
+		],
+		/*
+		 * **Und die Folge steht im ausgelieferten Dokument, nicht nur im Markup.**
+		 *
+		 * `smoke-zugang.ts` prüft, dass beide Bestätigungswege `{UEBERNAHME_FOLGE}`
+		 * im Quelltext lesen — den **Wert** sieht es dort nicht. Diese Zeile sucht
+		 * den Satz am Dokument, das über HTTP herauskommt, und schliesst damit die
+		 * Hälfte, die Posten S2 der zweiten Retrospektive zu Epic 3 offen nannte:
+		 * die Entscheidung, dass die Folge Substanz ist und keine Aufwertung, war
+		 * von keiner **ausgeführten** Behauptung gedeckt.
+		 *
+		 * Der Wortlaut kommt aus texte.ts und steht hier nicht als zweites
+		 * Literal — sonst wäre die Behauptung genau die Verdopplung, gegen die die
+		 * Konstante steht.
+		 */
+		[
+			'und die Folge der Zusage steht darin, aus der einen Konstante',
+			uebernahmeFolge !== '' && gefragtHtml.includes(uebernahmeFolge),
 		],
 		[
 			// Die Gegenprobe: gefragt ist nicht zugesagt. Ohne sie bliebe die Zeile

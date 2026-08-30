@@ -7804,11 +7804,43 @@ try {
 			'das Dokument ohne JavaScript nennt sie auch',
 			/id="einzel-frage-\{aufgabe\.id\}"[\s\S]{0,200}?\{UEBERNAHME_FOLGE\}/.test(einzelBlock),
 		],
+		/*
+		 * **Auf einer nichtleeren Trefferliste bestehen.** Diese Zeile stand bis
+		 * zum 2026-08-30 als `filter(…).every(…)` da und war damit über einer
+		 * leeren Liste vakuant wahr: wer `UEBERNAHME_FOLGE` auf `''` setzte, bekam
+		 * null Treffer, `.every()` über `[]` ist `true`, und die zwei
+		 * Geschwisterteile darüber lesen `{UEBERNAHME_FOLGE}` im Markup und nicht
+		 * seinen Wert. Die Zusage „die zwei Bestätigungswege sagen dasselbe" hätte
+		 * dann gehalten, indem beide **nichts** sagen. Posten S2 der zweiten
+		 * Retrospektive zu Epic 3, ein eigener Fund des Laufs.
+		 *
+		 * Geprüft wird darum die Trefferzahl und nicht nur die Herkunft: genau
+		 * eine Datei trägt den Wortlaut, und es ist `texte.ts`. Gelesen wird
+		 * kommentarfrei — eine Erwähnung in einem Kommentar ist kein Literal.
+		 */
 		[
-			'und der Wortlaut steht nirgends als Literal',
-			unterSrc
-				.filter((datei) => datei.text.includes('steht danach für alle daneben'))
-				.every((datei) => datei.pfad === join('src', 'lib', 'texte.ts')),
+			'der Wortlaut steht genau einmal im Baum, und zwar in texte.ts',
+			(() => {
+				const treffer = unterSrc.filter((datei) =>
+					datei.text.includes('steht danach für alle daneben')
+				);
+				return treffer.length === 1 && treffer[0].pfad === join('src', 'lib', 'texte.ts');
+			})(),
+		],
+		/*
+		 * Und der Wert selbst, aus der Quelle gelesen statt importiert: dieses
+		 * Skript lädt die Routenmodule mit nacktem Node, ein `$lib/texte` löste
+		 * sich hier nicht auf. Ohne diese Zeile bliebe die Lücke halb offen — die
+		 * Trefferzahl oben fiele bei `''` zwar, aber erst, weil die Zeichenkette
+		 * dann nirgends mehr steht. Diese sagt es direkt: der Satz ist ein Satz.
+		 */
+		[
+			'und die Konstante trägt wirklich einen Satz, keinen leeren String',
+			(
+				/export const UEBERNAHME_FOLGE = '([^']*)';/.exec(
+					quelltext('src', 'lib', 'texte.ts')
+				)?.[1] ?? ''
+			).trim().length > 10,
 		],
 	] as const;
 	pruefen(
