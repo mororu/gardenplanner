@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-26-2026 13:20
-last_updated: "08-30-2026 10:15"
+last_updated: "08-30-2026 11:40"
 project: Gemeinschaftsgarten
 project_key: NOKEY
 tracking_system: file-system
@@ -368,3 +368,73 @@ action_items:
     owner: "Manuel"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
+  - id: "epic-3-retro-item-46-regelkoerper-von-einmal__stand-wiederher"
+    epic: 3
+    action: "Regelkoerper von .einmal__stand wiederherstellen - ausgelieferte Regression
+      auf /verwaltung (R1, blockierend)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
+  - id: "epic-3-retro-item-47-meldungsregion-wache-ueber-seitenkompone"
+    epic: 3
+    action: "Meldungsregion-Wache ueber seitenKomponenten fuehren statt drei fest
+      verdrahtete Pfade, doppelten Kommentarblock aufloesen (R2)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
+  - id: "epic-3-retro-item-48-zeile__text-gegen-fliesstext-aufloesen-d"
+    epic: 3
+    action: "zeile__text gegen fliesstext aufloesen - dieselbe Zeile hat auf / und
+      /einzelaufgaben zwei Zeilenhoehen (R3)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
+  - id: "epic-3-retro-item-49-literal-behauptung-zu-uebernahme_folge-a"
+    epic: 3
+    action: "Literal-Behauptung zu UEBERNAHME_FOLGE auf nichtleere Trefferliste bestehen
+      lassen, Satz in smoke-http am Dokument suchen (S2)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
+  - id: "epic-3-retro-item-50-namensregel-architecture-spine-md-148-au"
+    epic: 3
+    action: "Namensregel ARCHITECTURE-SPINE.md:148 auf kebab-case ziehen - widerspricht
+      dem Abweichungsblock und nennt sheets.ts (A1, blockiert Epic 4)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
+  - id: "epic-3-retro-item-51-fehler-zwilling-ins-geteilte-fliesstext"
+    epic: 3
+    action: "fehler-Zwilling ins geteilte fliesstext ziehen - bedienelemente.css:233
+      gegen :396, byte-gleich in derselben Datei (B1)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
+  - id: "epic-3-retro-item-52-list-item-warnung-in-den-geteilten-zeile"
+    epic: 3
+    action: "list-item-Warnung in den geteilten zeilenform__griff zurueckholen - beim
+      Zusammenlegen verloren (R7)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
+  - id: "epic-3-retro-item-53-leeren-style-block-toten-woche-token-und"
+    epic: 3
+    action: "Leeren style-Block, toten .woche-Token und zwei Kommentar-Ungenauigkeiten
+      entfernen (R8)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
+  - id: "epic-3-retro-item-54-aktionspunkt-nachlaeufe-bekommen-einen-r"
+    epic: 3
+    action: "Aktionspunkt-Nachlaeufe bekommen einen Review wie Stories - drei Befunde
+      dieses Laufs stammen aus fuenf ungereviewten Commits (F2)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
+  - id: "epic-3-retro-item-55-begruendung-einer-abweichend-geschlossen"
+    epic: 3
+    action: "Begruendung einer abweichend geschlossenen Aktion gehoert ins Register,
+      nicht nur in die Commit-Nachricht (F1)"
+    owner: "Manuel"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
