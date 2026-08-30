@@ -1,0 +1,19 @@
+/*
+ * Derselbe Verstoss, versteckt in einem Medienblock. Der Zerleger ueberspringt
+ * die @-Regel als solche, findet die Regel **darin** aber sehr wohl -- gemessen
+ * und nicht angenommen, nachdem ein erster Kommentar das Gegenteil behauptet
+ * hatte.
+ *
+ * Erwartet ist genau ein Treffer zu Regel 15.
+ */
+.griff {
+	min-height: var(--gutter);
+	color: var(--accent);
+}
+
+@media (min-width: 30rem) {
+	.griff {
+		display: flex;
+		align-items: center;
+	}
+}

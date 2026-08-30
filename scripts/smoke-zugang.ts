@@ -3504,9 +3504,17 @@ try {
 		].map((treffer) => [relative(join(wurzel, 'src', 'routes'), pfad), treffer[0]] as const)
 	);
 	const meldungsTeile = [
+		/*
+		 * **Eine exakte Zahl und keine Untergrenze.** Ein `>=` wäre hier dieselbe
+		 * halbe Wache, die `deferred-work.md` an `rueckrufe.length >= 7` notiert:
+		 * die Prosa sagt „alle", der Code lässt jede Zahl darüber durch, und eine
+		 * gelöschte Seite fiele nicht auf. Die Reibung beim Anlegen einer neuen
+		 * Seite ist Absicht — sie kostet eine Zeile und fängt dafür den stillen
+		 * Verlust.
+		 */
 		[
-			`alle Seitenkomponenten sind eingesammelt (${seitenPfade.length} statt der drei verdrahteten)`,
-			seitenPfade.length >= 10,
+			`alle zehn Seitenkomponenten sind eingesammelt (gefunden: ${seitenPfade.length})`,
+			seitenPfade.length === 10,
 		] as const,
 		['es gibt genau vier Meldungsregionen im Baum', meldungsTags.length === 4] as const,
 		...meldungsTags.map(

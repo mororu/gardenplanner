@@ -1590,11 +1590,26 @@ const torPrüfen = (ziel) => {
 	 * `display: list-item` selbst ist erlaubt — wer die Voreinstellung
 	 * ausschreibt, nimmt nichts weg.
 	 *
-	 * **Was sie nicht kann:** ein `display` erwischen, das ohne Klassennamen
-	 * kommt (`summary { … }`, `details > summary`) oder von einem Vorfahren
-	 * geerbt wird. Beides steht heute nicht im Baum. Die Regel sagt, was sie
-	 * prüft, statt mehr zu behaupten — der Fehler, den die Retrospektive an drei
-	 * anderen Kommentaren gefunden hat.
+	 * **Was sie nicht kann**, ausgeschrieben statt verschwiegen — der Fehler, den
+	 * die Retrospektive an drei anderen Kommentaren gefunden hat:
+	 *
+	 *   - ein `display` erwischen, das **ohne Klassennamen** kommt
+	 *     (`summary { … }`, `details > summary`) oder von einem Vorfahren geerbt
+	 *     wird. Beides steht heute nicht im Baum.
+	 *   - ein `<summary>` lesen, bei dem ein `>` in einem Attributausdruck
+	 *     **vor** dem `class` steht. Das Muster `<summary\b[^>]*>` bricht am
+	 *     ersten `>` ab. Gemessen, nicht vermutet: bei
+	 *     `<summary class="griff" title={a > b ? …}>` greift die Regel weiter,
+	 *     weil `class` vor dem Abbruch liegt — bei
+	 *     `<summary title={a > b ? …} class="griff">` fällt sie still aus. Im
+	 *     Baum steht `class` an jedem der vier Griffe zuerst, und kein Attribut
+	 *     trägt einen Vergleich.
+	 * **Was sie kann, obwohl es nicht danach aussieht:** ein `display` in einem
+	 * `@media`-Block finden. Der Zerleger überspringt die `@`-Regel als solche,
+	 * liest die Regeln **darin** aber mit. Ein erster Entwurf dieses Kommentars
+	 * behauptete das Gegenteil; die Fehlerprobe `regel-15c-griff-im-medienblock`
+	 * hat es widerlegt, und sie hält es fest. Genau die Sorte Satz, die in diesem
+	 * Projekt schon dreimal falsch im Code stand.
 	 */
 	/** @type {Set<string>} Klassen, die im Markup an einem <summary> hängen */
 	const griffKlassen = new Set();
@@ -2081,7 +2096,18 @@ const proben = [
 	},
 	{
 		regel: 15,
-		verzeichnis: 'regel-15c-sauber',
+		verzeichnis: 'regel-15c-griff-im-medienblock',
+		erwartet: 1,
+		begruendung:
+			'1 display am Griff, versteckt in einem @media-Block. Belegt eine Fähigkeit, die ' +
+			'ein erster Kommentar zu dieser Regel ausdrücklich bestritten hatte — gemessen, ' +
+			'nicht angenommen',
+		art: 'Verstoss',
+		beschreibung: 'derselbe Verstoss eine Verschachtelung tiefer',
+	},
+	{
+		regel: 15,
+		verzeichnis: 'regel-15d-sauber',
 		erwartet: 0,
 		begruendung:
 			'Gegenprobe: ausgeschriebenes display: list-item am Griff (nimmt nichts weg) und ' +
