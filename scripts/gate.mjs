@@ -67,6 +67,11 @@
  *      nannte die Marke wörtlich, und die halbe Erklärung stand danach als
  *      sichtbarer Text über der Titelleiste. Gefunden hat das kein Werkzeug,
  *      sondern das Auge des Users.
+ *  14. Geteilte Gestaltungsrollen liegen an einer Stelle und werden benutzt:
+ *      kein Regelkörper aus src/lib/styles/ steht noch einmal in einer
+ *      Komponente, keiner zweimal im Blatt selbst, und jede Klasse des Blatts
+ *      hat mindestens einen Leser im Markup. Abgeleitet, nicht von Hand
+ *      geführt — eine neue Rolle ist vom ersten Tag an bewacht.
  *  13. Jeder location-Block auf /i/ in nginx/templates/app.conf.template trägt
  *      `access_log off;` — beide, der auf Port 443 und der auf Port 80. Das
  *      Klartext-Token steht im Pfad des Einladungslinks; ohne die Zeile läge
@@ -1380,6 +1385,135 @@ const torPrüfen = (ziel) => {
 		});
 	}
 
+	// -------------------------------------------------------------------
+	// Regel 14: geteilte Gestaltungsrollen — eine Stelle, und benutzt
+	// -------------------------------------------------------------------
+	/*
+	 * Der Retro-Posten D1 zieht sich durch drei Epics: dieselbe Regel wächst
+	 * unter verschiedenen Namen in verschiedenen Komponenten nach. Die
+	 * Retrospektive Epic 3 hat vierzehn byte-gleiche Regelkörper über sieben
+	 * Komponenten gemessen; der Durchgang danach hat sie ins geteilte Stilblatt
+	 * gezogen.
+	 *
+	 * Bewacht wurde das bis zum 2026-08-30 von einer **von Hand geführten Liste**
+	 * in scripts/smoke-zugang.ts. Die Liste war das Problem: sie musste kuratiert
+	 * werden, und `.hinweis--ziffern` fehlte darin von seiner Entstehung bis zu
+	 * dem Review, der es fand. Diese Regel führt keine Liste — sie **leitet** aus
+	 * dem Stilblatt selbst ab, und eine neue geteilte Rolle ist damit vom ersten
+	 * Tag an bewacht.
+	 *
+	 * Drei Formen, alle drei aus derselben Quelle:
+	 *
+	 *   a) Keine Komponentenregel hat denselben Regelkörper wie eine Regel im
+	 *      geteilten Blatt. Das ist die Rückkehr unter neuem Namen — genau der
+	 *      Weg, den die alte Wache nicht sah: sie prüfte Namen, nicht Regeln.
+	 *   b) Im geteilten Blatt selbst steht kein Regelkörper zweimal. Ein Zwilling
+	 *      dort ist unsichtbar für jede Wache, die Dateien zählt.
+	 *   c) Jede Klasse des Stilblatts wird unter src/ auch benutzt. Eine Rolle
+	 *      ohne Leser ist das Zeichen, dass eine Seite auf ihre eigene Klasse
+	 *      zurückgedreht wurde.
+	 *
+	 * Gezählt werden nur Regeln mit **mindestens zwei** Deklarationen: zwei
+	 * Regeln, die sich in einer einzigen Eigenschaft treffen, sind zufällig
+	 * gleich und kein Duplikat. Diese Schwelle ist gemessen und nicht geraten —
+	 * ohne sie meldet die Regel `.zeile__marke` gegen `.leer`, die beide nur
+	 * `color` setzen.
+	 *
+	 * **Was sie nicht kann:** den Regelkörper einer Rolle gegen ihre Absicht
+	 * prüfen. Befund R1 der zweiten Retrospektive zu Epic 3 — ein Selektor, dem
+	 * beim Löschen seines Partners der Rumpf abhandenkam — bleibt ausserhalb.
+	 * Dafür bräuchte es gerendertes Ergebnis, und das ist Stufe C.
+	 */
+	const stilRegeln = (text) => {
+		const ohne = text.replace(/\/\*[\s\S]*?\*\//g, '');
+		/** @type {{ selektor: string, koerper: string, anzahl: number }[]} */
+		const raus = [];
+		for (const treffer of ohne.matchAll(/([^{}@]+)\{([^{}]*)\}/g)) {
+			const selektor = treffer[1].split(/\s+/).join(' ').trim();
+			if (selektor === '' || selektor.startsWith('@')) continue;
+			const teile = treffer[2]
+				.split(';')
+				.map((d) => d.trim())
+				.filter((d) => d !== '')
+				.sort();
+			if (teile.length < 2) continue;
+			raus.push({ selektor, koerper: teile.join('; '), anzahl: teile.length });
+		}
+		return raus;
+	};
+
+	const stilblattDateien = dateien.filter(
+		(datei) => datei.startsWith(stilWurzel) && datei.endsWith('.css')
+	);
+
+	/** @type {Map<string, string>} Regelkörper → Selektor im geteilten Blatt */
+	const geteilteKoerper = new Map();
+	/** @type {Set<string>} Klassennamen im geteilten Blatt */
+	const geteilteKlassen = new Set();
+
+	for (const blatt of stilblattDateien) {
+		const roh = lesen(blatt, 14);
+		if (roh === null) continue;
+		for (const { selektor, koerper } of stilRegeln(roh)) {
+			// b) derselbe Rumpf zweimal im Blatt
+			const schon = geteilteKoerper.get(koerper);
+			if (schon !== undefined && schon !== selektor) {
+				melden(
+					14,
+					blatt,
+					zeileVon(roh, roh.indexOf(selektor)),
+					`\`${selektor}\` trägt denselben Regelkörper wie \`${schon}\` im selben Stilblatt — ` +
+						'zwei Namen für eine Rolle, und keine Wache, die Dateien zählt, sieht das'
+				);
+			} else if (schon === undefined) {
+				geteilteKoerper.set(koerper, selektor);
+			}
+			for (const name of selektor.matchAll(/\.([A-Za-z_][\w-]*)/g)) geteilteKlassen.add(name[1]);
+		}
+	}
+
+	/** @type {Set<string>} Klassen, die irgendwo unter src/ im Markup stehen */
+	const benutzteKlassen = new Set();
+
+	for (const datei of dateien) {
+		if (!datei.endsWith('.svelte')) continue;
+		const roh = lesen(datei, 14);
+		if (roh === null) continue;
+
+		// Benutzung: class="a b" und die Svelte-Direktive class:name={…}
+		for (const treffer of roh.matchAll(/class="([^"]*)"/g)) {
+			for (const wort of treffer[1].split(/\s+/)) if (wort !== '') benutzteKlassen.add(wort);
+		}
+		for (const treffer of roh.matchAll(/class:([\w-]+)/g)) benutzteKlassen.add(treffer[1]);
+
+		// a) Komponentenregel mit demselben Rumpf wie eine geteilte Regel
+		const block = /<style>([\s\S]*?)<\/style>/.exec(roh);
+		if (block === null) continue;
+		for (const { selektor, koerper } of stilRegeln(block[1])) {
+			const geteilt = geteilteKoerper.get(koerper);
+			if (geteilt === undefined) continue;
+			melden(
+				14,
+				datei,
+				zeileVon(roh, roh.indexOf(block[1]) + block[1].indexOf(selektor)),
+				`\`${selektor}\` hat denselben Regelkörper wie \`${geteilt}\` im geteilten Stilblatt — ` +
+					'dieselbe Rolle unter neuem Namen, der Weg, auf dem der Retro-Posten D1 nachwächst'
+			);
+		}
+	}
+
+	// c) eine geteilte Rolle ohne Leser
+	for (const klasse of geteilteKlassen) {
+		if (benutzteKlassen.has(klasse)) continue;
+		melden(
+			14,
+			stilblattDateien[0] ?? quelle,
+			1,
+			`\`.${klasse}\` steht im geteilten Stilblatt, wird aber unter src/ von keinem Markup ` +
+				'benutzt — entweder ist eine Seite auf ihre eigene Klasse zurückgedreht, oder die Rolle ist tot'
+		);
+	}
+
 	return { verstösse, hinweise, dateien: dateien.length, tokens: hellTokens.size };
 };
 
@@ -1407,7 +1541,7 @@ const berichten = (ergebnis, ziel) => {
 	}
 	console.log(
 		`gate (${wo}): ${ergebnis.dateien} Dateien und ${ergebnis.tokens} Tokens geprüft, ` +
-			`${ergebnis.hinweise.length} Hinweis(e), dreizehn Regeln erfüllt.`
+			`${ergebnis.hinweise.length} Hinweis(e), vierzehn Regeln erfüllt.`
 	);
 	return 0;
 };
@@ -1718,12 +1852,60 @@ const proben = [
 		beschreibung:
 			'vollständige Vorlage; Kommentare und Blöcke ohne /i/ dürfen die Regel nicht wecken',
 	},
+	{
+		regel: 14,
+		verzeichnis: 'regel-14a-rolle-kopiert',
+		erwartet: 1,
+		begruendung:
+			'1 Komponentenregel mit demselben Regelkörper wie eine Regel im geteilten Blatt, ' +
+			'unter anderem Namen. Die geteilte Rolle bleibt im Markup benutzt, damit Form c ' +
+			'nicht mitzählt',
+		art: 'Verstoss',
+		beschreibung:
+			'dieselbe Rolle unter neuem Namen zurück in die Komponente — der Weg, auf dem der ' +
+			'Retro-Posten D1 nachwächst und den eine Wache über Namen nicht sieht',
+	},
+	{
+		regel: 14,
+		verzeichnis: 'regel-14b-zwilling-im-blatt',
+		erwartet: 1,
+		begruendung:
+			'1 Paar gleicher Regelkörper unter zwei Namen im geteilten Blatt selbst; beide ' +
+			'werden benutzt, damit allein Form b fällt',
+		art: 'Verstoss',
+		beschreibung:
+			'zwei Namen für eine Rolle im Stilblatt — unsichtbar für jede Wache, die Dateien zählt',
+	},
+	{
+		regel: 14,
+		verzeichnis: 'regel-14c-rolle-ohne-leser',
+		erwartet: 1,
+		begruendung:
+			'1 geteilte Rolle, die kein Markup benutzt — die Seite ist auf ihre eigene Klasse ' +
+			'zurückgedreht. Die lokale Regel trägt einen anderen Regelkörper, damit Form a ' +
+			'nicht mitzählt',
+		art: 'Verstoss',
+		beschreibung: 'geteilte Rolle ohne Leser, der schwächere Backstop zu Form a',
+	},
+	{
+		regel: 14,
+		verzeichnis: 'regel-14d-sauber',
+		erwartet: 0,
+		begruendung:
+			'Gegenprobe: geteilte Rolle benutzt, lokale Regel mit anderem Körper, kein Zwilling ' +
+			'im Blatt. Dazu zwei Fallen, die nicht fallen dürfen — eine lokale Regel mit nur ' +
+			'einer Deklaration (unter der Zählschwelle) und eine Klasse, die über die ' +
+			'Svelte-Direktive class: benutzt wird statt über ein Attribut',
+		art: 'Verstoss',
+		beschreibung:
+			'vollständige Vorlage; Einzeldeklaration und class:-Direktive dürfen die Regel nicht wecken',
+	},
 ];
 
 const selbsttest = () => {
 	let fehlt = 0;
 	console.log(
-		`gate --selftest: ${proben.length} Fehlerproben gegen die dreizehn Regeln ` +
+		`gate --selftest: ${proben.length} Fehlerproben gegen die vierzehn Regeln ` +
 			`(erwartet: ${erwarteteSvelteRegeln} svelte/*- und ${erwarteteTsRegeln} @typescript-eslint/*-Regeln je Komponente)\n`
 	);
 
@@ -1771,7 +1953,7 @@ const selbsttest = () => {
 	}
 	console.log(
 		`\ngate --selftest: alle ${proben.length} Fehlerproben in erwarteter Zahl gefunden, ` +
-			'jede der dreizehn Regeln beisst nachweislich.'
+			'jede der vierzehn Regeln beisst nachweislich.'
 	);
 	return 0;
 };

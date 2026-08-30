@@ -199,7 +199,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 598;
+const ERWARTETE_BEHAUPTUNGEN = 597;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -5978,85 +5978,26 @@ try {
 	);
 
 	/*
-	 * Die Seitenform steht in bedienelemente.css und **nirgends sonst**. Gesucht
-	 * wird der Regelkopf `.name {`, nicht das Wort: `class="fehler live"` im
-	 * Markup ist keine Kopie, sondern die Benutzung.
+	 * **Die Wache über die geteilten Gestaltungsrollen ist am 2026-08-30 nach
+	 * `gate.mjs` gezogen — Regel 14.**
 	 *
-	 * `.hinweis` ist am 2026-08-29 dazugekommen. Der Review zu Story 3.1 hatte die
-	 * zweite Kopie derselben Nebentext-Regel gefunden und ausdrücklich vermerkt,
-	 * dass „das Wachstum der Seitenstile an dieser Stelle von nichts bewacht" sei —
-	 * diese Zeile ist die Wache.
+	 * Hier stand bis dahin eine von Hand geführte Liste von zwanzig Rollennamen,
+	 * jede mit ihrem Regex. Die Liste war das Problem: sie musste kuratiert
+	 * werden, und `.hinweis--ziffern` fehlte darin von seiner Entstehung bis zu
+	 * dem Review, der es fand. Sie prüfte ausserdem **Namen** und nicht
+	 * **Regeln** — eine Seite, die dieselbe Rolle unter neuem Namen zurück in
+	 * ihren Style-Block schreibt, kam grün durch (Retro-Befund R4).
+	 *
+	 * Regel 14 führt keine Liste. Sie leitet aus dem Stilblatt selbst ab, prüft
+	 * Regelkörper statt Namen und deckt zusätzlich den Zwilling **innerhalb** des
+	 * Blatts, den eine Wache, die Dateien zählt, prinzipiell nicht sehen kann.
+	 * Vier Fehlerproben belegen, dass sie beisst.
+	 *
+	 * Der Entscheid dahinter steht in ARCHITECTURE-SPINE.md unter *Prüfwerkzeug*:
+	 * Regeln über den Quelltext sind Lint und gehören ins Tor; was hier bleibt,
+	 * prüft Verhalten.
 	 */
-	const SEITENFORM = [
-		['.seite', /^[ \t]*\.seite\s*\{/m],
-		['.seitentitel', /^[ \t]*\.seitentitel\s*\{/m],
-		['.fehler', /^[ \t]*\.fehler\s*\{/m],
-		['.live:empty', /^[ \t]*\.live:empty\s*\{/m],
-		['.hinweis', /^[ \t]*\.hinweis\s*\{/m],
-		/*
-		 * Seit Story 3.2 gehören die Bestätigung und der Abschnittstitel dazu. Der
-		 * Dialog lag bis dahin in /verwaltung und war dort allein; mit der zweiten
-		 * Bestätigung auf `/` wäre die Kopie entstanden, gegen die dieser ganze
-		 * Block steht — zwei Dialoge, die sich um einen Radius unterscheiden, sind
-		 * zwei Dialoge.
-		 */
-		['.abschnittstitel', /^[ \t]*\.abschnittstitel\s*\{/m],
-		['.bestaetigung', /^[ \t]*\.bestaetigung\s*\{/m],
-		['.bestaetigung__text', /^[ \t]*\.bestaetigung__text\s*\{/m],
-		/*
-		 * Und die vier, die der Review zu Story 3.2 gefunden hat: die Story legte
-		 * zwei Seiten an und hätte dabei aus je einer bestehenden Regel drei
-		 * Kopien gemacht. Der Posten D1 wächst genau so nach — nicht dadurch, dass
-		 * jemand kopiert, sondern dadurch, dass eine neue Seite dasselbe noch
-		 * einmal braucht.
-		 */
-		['.leer', /^[ \t]*\.leer\s*\{/m],
-		['.karte', /^[ \t]*\.karte\s*\{/m],
-		['.karte--eng', /^[ \t]*\.karte--eng\s*\{/m],
-		['.marke', /^[ \t]*\.marke\s*\{/m],
-		/*
-		 * Und die sechs aus dem Durchgang nach der Retrospektive Epic 3. Sie sind
-		 * nicht gefunden worden, weil jemand kopiert hätte, sondern weil sieben
-		 * Seiten dasselbe brauchten und jede es sich selbst schrieb — die
-		 * Retrospektive hat vierzehn byte-gleiche Regelkörper über sieben
-		 * Komponenten gemessen. Was hier steht, kann nicht mehr nachwachsen.
-		 */
-		['.fliesstext', /^[ \t]*\.fliesstext[,\s]/m],
-		['.fliesstext--gedaempft', /^[ \t]*\.fliesstext--gedaempft[,\s]/m],
-		['.liste', /^[ \t]*\.liste\s*\{/m],
-		['.liste--getrennt', /^[ \t]*\.liste--getrennt\s*\{/m],
-		['.knoepfe', /^[ \t]*\.knoepfe\s*\{/m],
-		['.nur-vorgelesen', /^[ \t]*\.nur-vorgelesen\s*\{/m],
-		['.meldung', /^[ \t]*\.meldung\s*\{/m],
-		['.zeilenform', /^[ \t]*\.zeilenform\s*\{/m],
-		['.zeilenform__griff', /^[ \t]*\.zeilenform__griff\s*\{/m],
-		['.zeilenform__formular', /^[ \t]*\.zeilenform__formular\s*\{/m],
-		/*
-		 * `.hinweis--ziffern` war beim Review vom 2026-08-30 die **einzige** neue
-		 * geteilte Regel ohne Eintrag hier, und der Eintrag `.hinweis` darüber deckt
-		 * sie nicht: auf `.hinweis` folgt in `.hinweis--ziffern {` ein `-` und kein
-		 * `\s*\{`. Daneben schrieben `.dienst__datum` und `.woche__datum` dieselbe
-		 * Regel byte-gleich weiter; beide benutzen jetzt die geteilte Rolle.
-		 *
-		 * `.woche__jahr` **nicht** — er trägt kein `line-height`, und als Span in der
-		 * Zeile der Wochennummer ist das der Unterschied und keine Nachlässigkeit.
-		 */
-		['.hinweis--ziffern', /^[ \t]*\.hinweis--ziffern\s*\{/m],
-	] as const;
-	const STILBLATT = join('src', 'lib', 'styles', 'bedienelemente.css');
 	const unterSrc = baum.filter((datei) => datei.pfad.startsWith(join('src', '')));
-	const formTeile = SEITENFORM.map(([name, muster]) => {
-		const treffer = unterSrc.filter((datei) => muster.test(datei.text)).map((d) => d.pfad);
-		return [
-			`${name} steht genau einmal, im geteilten Stilblatt (gefunden: ${treffer.join(', ') || 'nirgends'})`,
-			treffer.length === 1 && treffer[0].endsWith(STILBLATT),
-		] as const;
-	});
-	pruefen(
-		'die Seitenform liegt an einer Stelle — keine Kopie je Seite',
-		fehlendeTeile(formTeile).length === 0,
-		`verletzt: ${fehlendeTeile(formTeile).join(' | ')}`
-	);
 
 	/*
 	 * **Die zwei Zeilenformulare sind dieselbe Form — behauptet, nicht gehofft.**
@@ -6565,13 +6506,13 @@ try {
 	 * Ausgeliefert war das in dem einen Kasten, in dem der Klartext-Link genau
 	 * einmal steht.
 	 *
-	 * **Keine der 755 Behauptungen sah es.** Die SEITENFORM-Wache liest
-	 * Regelköpfe und kennt `.einmal__stand` nicht; `svelte-check` schweigt, weil
-	 * der Selektor benutzt wurde; `gate` hat keine Regel über Selektor-zu-Rumpf.
-	 * Diese Zeile ist die Wache, die gefehlt hat.
+	 * **Keine der 755 Behauptungen sah es.** Die damalige Wache über die
+	 * Gestaltungsrollen las Regelköpfe und kannte `.einmal__stand` nicht;
+	 * `svelte-check` schwieg, weil der Selektor benutzt wurde; `gate` hatte keine
+	 * Regel über Selektor-zu-Rumpf. Diese Zeile ist die Wache, die gefehlt hat.
 	 *
-	 * Gemessen wird die **Rolle** und nicht der Regelkörper: `.hinweis` steht in
-	 * SEITENFORM und damit an genau einer Stelle, und dort wird sie gepflegt. Wer
+	 * Gemessen wird die **Rolle** und nicht der Regelkörper: `.hinweis` steht im
+	 * geteilten Stilblatt und wird dort von Gate-Regel 14 gehalten. Wer
 	 * die Klasse hier zurück auf eine lokale nimmt, wird rot — und das ist die
 	 * Bewegung, die die Regression überhaupt erzeugt hat.
 	 *
@@ -6730,7 +6671,7 @@ try {
 		 * Das Wochendatum trägt sie seit dem Review vom 2026-08-30 über die
 		 * **geteilte** Rolle: `.woche__datum` war byte-gleich mit
 		 * `.hinweis hinweis--ziffern`, und die Regel dafür liegt jetzt an einer
-		 * Stelle (die SEITENFORM-Wache hält sie dort). Gemessen wird darum das
+		 * Stelle (Gate-Regel 14 hält sie dort). Gemessen wird darum das
 		 * Markup und nicht mehr ein lokaler Regelkörper, den es nicht mehr gibt.
 		 */
 		[

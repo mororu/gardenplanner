@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-26-2026 13:20
-last_updated: "08-30-2026 10:16"
+last_updated: "08-30-2026 10:32"
 project: Gemeinschaftsgarten
 project_key: NOKEY
 tracking_system: file-system
@@ -105,7 +105,7 @@ action_items:
     action: "Entscheiden: Pruefwerkzeug in die Architektur aufnehmen oder zurueckbauen
       (B8)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
   - id: "epic-1-retro-item-8-restliche-plan-ist-abweichungen-in-einem"
     epic: 1
@@ -211,7 +211,7 @@ action_items:
     action: "Entscheid: Pruefwerkzeug in die Architektur aufnehmen oder zurueckbauen,
       6512 Zeilen (G1)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-24-src-lib-zeit-ts-und-src-lib-aufgabentext"
     epic: 2
@@ -303,7 +303,7 @@ action_items:
       - 12140 Zeilen, 1,25:1 gegen den Produktcode, dritte Vorlage desselben Punktes
       (A3)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
   - id: "epic-3-retro-item-37-den-quellbaum-der-architecture-spine-in"
     epic: 3
@@ -438,3 +438,17 @@ action_items:
     owner: "Manuel"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
+  - id: "epic-3-retro-item-56-stufe-c-entscheiden-kopfloser-browser-ge"
+    epic: 3
+    action: "Stufe C entscheiden: kopfloser Browser gegen NFR13 - die Ausloesebedingung
+      ist mit Befund R1 eingetreten, der Preis ist eine fremde Abhaengigkeit"
+    owner: "Manuel"
+    status: open
+    ref: ""
+  - id: "epic-3-retro-item-57-die-uebrigen-quelltext-regeln-aus-smoke"
+    epic: 3
+    action: "Die uebrigen Quelltext-Regeln aus smoke-zugang.ts nach gate.mjs ziehen,
+      Regel fuer Regel mit Fehlerprobe - Regel 14 ist die erste"
+    owner: "Manuel"
+    status: open
+    ref: ""

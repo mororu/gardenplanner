@@ -1,0 +1,15 @@
+/*
+ * Fehlerprobe zu Regel 14, Form b: zwei Namen fuer eine Rolle im selben Blatt.
+ *
+ * Beide werden im Markup benutzt, damit allein Form b faellt und nicht Form c
+ * mitzaehlt. Erwartet ist genau ein Treffer.
+ */
+.zeile {
+	padding: var(--gutter);
+	color: var(--accent);
+}
+
+.reihe {
+	padding: var(--gutter);
+	color: var(--accent);
+}

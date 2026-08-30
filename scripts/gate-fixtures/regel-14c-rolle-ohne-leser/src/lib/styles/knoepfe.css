@@ -1,0 +1,7 @@
+/*
+ * Die geteilte Rolle. Zwei Deklarationen — genug, damit Regel 14 sie zaehlt.
+ */
+.zeile {
+	padding: var(--gutter);
+	color: var(--accent);
+}

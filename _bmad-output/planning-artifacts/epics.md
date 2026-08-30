@@ -50,7 +50,9 @@ NFR9: Kontrast mindestens 4.5:1 für Text und 3:1 für Bedienelement-Umrisse, in
 NFR10: Oberfläche durchgehend Deutsch in Schweizer Rechtschreibung ohne Eszett, `<html lang="de">`.
 NFR11: Pflicht-Umgebungsvariablen (`DATABASE_PATH`, `SESSION_SECRET`, `ORIGIN`) werfen beim **Start des Servers**, wenn nicht gesetzt oder untauglich. Kein Fallback-Standardwert.
 NFR12: Einladungstokens liegen ausschliesslich als SHA-256-Hash in der Datenbank; der Klartext-Link ist nach dem einmaligen Anzeigen nicht rekonstruierbar.
-NFR13: `npm run build` und `npm run lint` laufen sauber, bevor eine Story fertig ist. Es gibt kein Testframework (bewusst, siehe Architektur-Spine unter Deferred).
+NFR13: `npm run build` und `npm run lint` laufen sauber, bevor eine Story fertig ist. **Keine fremde Abhängigkeit für Prüfung** — kein Vitest, kein Playwright, keine Testbibliothek in `package.json`. Die Prüfkette ist selbst gebaut und hängt an `npm run lint`.
+
+> **Präzisiert am 2026-08-30** (Retro Epic 3, Befund A3). Der Satz lautete „Es gibt kein Testframework" und wurde über drei Retrospektiven hinweg als Beleg dafür gelesen, dass dieses Projekt nicht prüfe — über einem Baum, der sich in drei Epics 12 572 Zeilen Prüfwerkzeug gebaut hatte. Beides war wörtlich wahr und zusammen irreführend. Gemeint war immer die **Abhängigkeit**, nicht die Prüfung. Der Entscheid über das Werkzeug selbst steht in `ARCHITECTURE-SPINE.md` unter *Prüfwerkzeug*.
 
 ### Additional Requirements
 

@@ -200,7 +200,7 @@ graph TD
 
 TypeScript ist bewusst auf 6.0.3 gepinnt, obwohl 7.0.2 verfügbar ist: SvelteKit, `svelte-check` und `typescript-eslint` deklarieren alle drei Obergrenzen unter 7.
 
-**Kein Testframework in dieser Tabelle**, und das ist keine Auslassung — siehe *Prüfwerkzeug* im Structural Seed. Die Prüfkette ist selbst gebaut und bringt keine Abhängigkeit mit.
+**Kein Testframework in dieser Tabelle**, und das ist keine Auslassung — siehe *Prüfwerkzeug* im Structural Seed. Die Prüfkette ist selbst gebaut und bringt **keine Abhängigkeit** mit. Genau das meint NFR13, und seit dem 2026-08-30 sagt der Satz das auch: *keine fremde Abhängigkeit für Prüfung*, nicht *keine Prüfung*.
 
 > **Nachgezogen am 2026-08-30** (Retro Epic 1, Befunde B6 und B9). Entfernt: `vite-plugin-pwa` und `workbox-window`, beide nie installiert (siehe AD-12). Ergänzt: die zwei Schriftpakete, die vier fehlenden Werkzeug-Abhängigkeiten und `@types/better-sqlite3` — in Story 1.1 ausdrücklich weggelassen, heute wieder da, ohne dass eine Notiz sagt, wann und warum. Die zwei Image-Namen tragen jetzt ihre Pins statt `alpine` und `latest`: ein wanderndes `latest` auf dem Dienst, der die Zertifikate hält, ist die unangenehmste Sorte Überraschung.
 
@@ -351,29 +351,61 @@ static/
 
 ### Prüfwerkzeug
 
-`scripts/` trägt heute **12 140 Zeilen** gegen 9 738 Zeilen `src/` — ein Verhältnis
-von 1,25 : 1. Das ist keine Nachlässigkeit, sondern die grösste unausgesprochene
-Entscheidung dieses Projekts: getroffen in kleinen Schritten, nie als solche
-beschlossen. Sie steht seit der Retrospektive Epic 1 als offener Punkt, wurde in
-Epic 2 mit der damaligen Zahl 6 512 wiederholt und ist seither um 87 % gewachsen.
+**Entschieden am 2026-08-30.** Der Punkt stand seit der Retrospektive Epic 1 offen, wurde in Epic 2 und Epic 3 wiederholt und dreimal als „aufnehmen oder zurückbauen" vorgelegt. Beide Antworten waren falsch, und darum blieb er liegen: Zurückbauen wirft belegten Wert weg — das Werkzeug hat allein in Epic 3 zwölf Mutationen rot gemacht und drei Verhaltensfehler gefunden. Aufnehmen ändert nichts, weil dieser Abschnitt es ohnehin beschreibt.
 
-**Beschrieben, nicht entschieden.** Dieser Abschnitt sagt, was da ist — er nimmt
-die Entscheidung nicht vorweg. Sie steht unter *Deferred* und gehört Manuel.
+Der Grund für die Blockade war, dass „das Prüfwerkzeug" **kein Ding ist**. Es sind drei mit sehr verschiedener Wertdichte, und die Entscheidung fällt je Schicht.
 
-Was das Werkzeug leistet, in einer Zeile je Stück:
+#### Die Zahl, ehrlich gerechnet
 
-| Skript | Was es misst | Wo es hängt |
+Die drei Vorlagen argumentierten mit **1,25 : 1** (12 695 zu 10 024 Zeilen). Das sind Gesamtzeilen, und dieses Projekt kommentiert sehr ungleich:
+
+| | gesamt | Code | Kommentar |
+| --- | ---: | ---: | ---: |
+| `scripts/` | 12 695 | 8 001 (63 %) | 4 087 (32 %) |
+| `src/` | 10 024 | 4 328 (43 %) | 5 007 (**49 %**) |
+
+Der Produktcode ist zur Hälfte Prosa, das Werkzeug zu einem Drittel. **Auf Code allein steht das Verhältnis bei 1,85 : 1.** Das Werkzeug ist fast doppelt so gross wie die Anwendung, nicht ein Viertel grösser — die Zahl, auf der der Entscheid dreimal lag, war zu freundlich.
+
+Wachstum über die letzten drei Messpunkte, in Gesamtzeilen: 1,10 → 1,21 → 1,25. Stetig, kein Ausreisser.
+
+#### Die drei Schichten und was mit ihnen geschieht
+
+| Schicht | Zeilen | Entscheid |
+| --- | ---: | --- |
+| **Verhalten am gebauten Server** — `smoke-http.ts` | 2 132 | **Architekturbestandteil.** Startet den gebauten Server auf einem freien Port und misst echte Antworten samt POST. Höchster Wert pro Zeile, durch nichts anderes zu ersetzen. Wächst mit dem Produkt. |
+| **Verhalten an den Modulen** — der aufrufende Teil von `smoke-zugang.ts` | ~ die Hälfte von 7 689 | **Architekturbestandteil.** Ruft `load`- und action-Funktionen direkt gegen eine echte Wegwerf-Datenbank. Das ist die Abnahme dieses Projekts. |
+| **Regeln über den Quelltext** — `gate.mjs`, `db-check.ts`, und der lesende Teil von `smoke-zugang.ts` | 2 569 + Rest | **Das ist Lint, kein Test, und gehört nach `gate.mjs`.** Siehe unten. |
+| **Der Prüfkern selbst** — `pruefhelfer.ts`, `pruefhelfer-selftest.ts` | 325 | **Architekturbestandteil.** Das einzige sonst ungeprüfte Stück der Kette. |
+
+#### Warum die Quelltext-Regeln nach `gate.mjs` gehören
+
+`smoke-zugang.ts` trägt 7 689 Zeilen — **61 % des ganzen Werkzeugs**, grösser als jede Produktdatei. Ungefähr die Hälfte davon prüft Verhalten; die andere Hälfte sind Regex-Behauptungen über Dateitext. Genau diese Hälfte ist die, die
+
+- am schnellsten wächst,
+- brüchig ist — der Review vom 2026-08-30 fand allein drei Muster, die an einer Klammer im Parameterkopf brechen, drei fest verdrahtete Pfade hinter einem Kommentar, der „über alle Seitenkomponenten" behauptet, und ein `.every()`, das über einer leeren Liste vakuant wahr ist,
+- und die **strukturell nicht fangen kann**, was in diesem Epic tatsächlich ausgeliefert wurde: Befund R1 war ein verlorener **Regelkörper**, und diese Schicht liest Regel*köpfe* und Markup.
+
+`gate.mjs` ist für genau diese Sorte Prüfung gebaut und hat das Modell fertig: nummerierte Regeln über den Quelltext, und ein Selbsttest mit Fehlerproben, der **jede einzelne Regel nachweislich beissen lässt**. Eine Regel dort ist belegt bissig; ein Einzelregex in `smoke-zugang.ts` ist es nicht.
+
+**Umgezogen am 2026-08-30: die Wache über die geteilten Gestaltungsrollen**, als **Regel 14**, mit vier Fehlerproben. Sie ist dabei nicht nur umgezogen, sondern hat die Form gewechselt:
+
+| | vorher, in `smoke-zugang.ts` | jetzt, als Gate-Regel 14 |
 | --- | --- | --- |
-| `gate.mjs` | dreizehn Regeln des Gestaltungsrahmens am Quelltext; jede durch eine Fehlerprobe belegt | `npm run lint` |
-| `smoke-zugang.ts` | die Routenmodule direkt gerufen, gegen eine echte Wegwerf-Datenbank | `npm run lint` |
-| `smoke-http.ts` | den **gebauten** Server auf einem freien Port, echte Antworten samt POST | `npm run lint` |
-| `db-check.ts` | das Schema gegen die Migrationskette, Drift und Fail-Fast | `npm run lint` |
-| `pruefhelfer-selftest.ts` | den Prüfhelfer selbst — das einzige sonst ungeprüfte Stück der Kette | `npm run lint` |
+| Umfang | eine **von Hand geführte** Liste von zwanzig Rollennamen | **abgeleitet** aus dem Stilblatt — keine Liste |
+| Gegenstand | Regel**köpfe**, also Namen | Regel**körper**, also Regeln |
+| Zwilling im Blatt selbst | prinzipiell unsichtbar (die Wache zählte Dateien) | Form b fängt ihn |
+| Rolle ohne Leser | ungeprüft (Retro-Befund R4) | Form c fängt sie |
+| Belegt bissig | nein | ja, vier Fehlerproben |
 
-**Warum es kein Testframework ist**, streng gelesen: niemand hat Vitest oder
-Playwright installiert, und NFR13 („es gibt kein Testframework") ist damit nicht
-verletzt. Faktisch steht dort ein selbst gebautes Prüfsystem, das grösser ist als
-die Anwendung. Beides ist wahr, und genau diese Spannung ist der offene Punkt.
+Die Liste war das eigentliche Problem: `.hinweis--ziffern` fehlte darin von seiner Entstehung bis zu dem Review, der es fand. Eine neue geteilte Rolle ist jetzt vom ersten Tag an bewacht, ohne dass jemand daran denken muss.
+
+**Was Form c leistet und was nicht, gemessen:** von dreissig geteilten Klassen haben heute drei genau einen Leser — nur dort macht eine zurückgedrehte Seite die Rolle tot und damit rot. Der eigentliche Schutz gegen das Zurückdrehen ist **Form a**: wer die Klasse tauscht, muss die alte Regel wieder hinschreiben, und dann fällt der gleiche Regelkörper auf. Das ist an einer ausgeführten Mutation belegt.
+
+**Der Rest zieht schrittweise nach**, Regel für Regel mit ihrer Fehlerprobe. Unbeschrieben weiterwachsen ist der Weg, den dieser Entscheid ausschliesst.
+
+#### Was dieser Entscheid nicht löst
+
+Nichts im Werkzeug liest heute **Regelkörper oder gerendertes Ergebnis**. Befund R1 — eine sichtbare Regression auf `/verwaltung`, durch 755 Behauptungen gelaufen, ohne rot zu werden — ist in dieser Klasse, und keine der drei Schichten oben hätte sie gefunden. Der einzige Weg dorthin ist *Stufe C*, ein kopfloser Browser. Das ist eine **eigene** Entscheidung mit einem eigenen Preis (eine fremde Abhängigkeit, und NFR13 fällt dann dem Sinn nach) und wird nicht hier mitentschieden.
 
 ## Capability → Architecture Map
 
@@ -412,8 +444,8 @@ zurückgeflossen (Retro Epic 1, Befund B9). Hier nachgetragen am 2026-08-30:
 
 ## Deferred
 
-- **Das Prüfwerkzeug: aufnehmen oder zurückbauen.** Offen seit der Retrospektive Epic 1, dreimal vorgelegt, nie entschieden. Der Stand ist im Structural Seed beschrieben: 12 140 Zeilen `scripts/` gegen 9 738 Zeilen `src/`. Zwei Wege sind vertretbar — das Werkzeug als Architekturbestandteil führen, mit dem Satz, warum es kein Testframework ist und was es statt dessen leistet; oder es als zu teuer erkennen und zurückbauen. **Unbeschrieben weiterwachsen ist der dritte Weg, und der ist es nicht.** Dieser Abschnitt hat bis zum 2026-08-30 „Die Referenz hat keins" behauptet, über einem Projekt, das sich in drei Epics eines gebaut hatte.
-- **Ein zusätzliches Testframework** (Vitest, Playwright) bleibt davon unberührt und ist weiterhin entscheidbar, sobald eine Story tatsächlich unter Regressionen leidet. Ein kopfloser Browser ist als *Stufe C* in `deferred-work.md` an eine eigene Auslösebedingung gebunden.
+- ~~**Das Prüfwerkzeug: aufnehmen oder zurückbauen.**~~ **Entschieden am 2026-08-30** — siehe *Prüfwerkzeug* im Structural Seed. Nicht aufnehmen oder zurückbauen, sondern trennen: Verhalten wird Architekturbestandteil, Quelltext-Regeln sind Lint und ziehen nach `gate.mjs`. Der offene Punkt aus drei Retrospektiven (`epic-1-retro-item-7`, `epic-2-retro-item-23`, `epic-3-retro-item-36`) ist damit geschlossen.
+- **Stufe C: ein kopfloser Browser** — offen, und die Auslösebedingung ist am 2026-08-30 **eingetreten**. Sie lautete „sobald eine Story tatsächlich unter Regressionen leidet"; Befund R1 der zweiten Retrospektive zu Epic 3 ist eine sichtbare Regression auf `/verwaltung`, die ausgeliefert wurde und durch 755 Behauptungen lief, ohne rot zu werden. Keine der drei Prüfschichten kann diese Klasse fangen: sie lesen Regelköpfe, Markup und Antworten, nie Regelkörper oder gerendertes Ergebnis. Der Preis ist eine fremde Abhängigkeit (Playwright), und NFR13 fällt dann nicht nur dem Wortlaut, sondern dem Sinn nach. **Entscheidbar, nicht entschieden** — sie gehört Manuel und wird getrennt vom Entscheid über die drei Schichten getroffen.
 - **Genaue Ratenbegrenzung auf `/i/`.** Dass sie dort greift, ist entschieden (AD-3, AD-10); der konkrete Wert gehört in die nginx-Konfiguration der Deploy-Story.
 - **Wo das Image gebaut wird.** Zunächst auf dem VPS wie in der Referenz. Falls die nativen Kompilate von `better-sqlite3` den VPS light überfordern, ist der Ausweg ein lokal gebautes Image über eine Registry — eine Betriebsentscheidung, kein Architekturbruch.
 - **Sichtbarkeit der Namensliste innerhalb der Gemeinschaft.** Dass Aussenstehende sie nicht sehen, ist durch AD-3 entschieden. Ob jedes Mitglied alle Namen sieht, ist eine Produktfrage und keine Invariante.
