@@ -113,17 +113,25 @@ graph TD
 - **Prevents:** Jede Story, die einen Namen oder eine Einladung braucht, baut ihre eigene kleine Verwaltung — es gäbe mehrere Orte, an denen Mitglieder entstehen.
 - **Rule:** Alles unter `/verwaltung` erfordert ein Mitglied mit `members.is_admin = 1`. Einladungen erzeugen, widerrufen und Mitglieder deaktivieren geschieht ausschliesslich dort. Keine andere Route legt ein Mitglied an; einzige Ausnahme ist das CLI-Skript `scripts/create-admin.ts` für das allererste Admin-Mitglied. Ein deaktiviertes Mitglied wird nie gelöscht: `tasks.completed_by` bleibt erhalten, und seine künftigen `duty_weeks` bleiben als Datensatz stehen, werden aber überall als **unbesetzt** dargestellt, bis die Verwaltung sie neu besetzt.
 
-### AD-12 — Der Service Worker cacht keine Daten
+### AD-12 — Es gibt keinen Service Worker, und darum cacht keiner Daten
 
 - **Binds:** CAP-1, alle Listenansichten
 - **Prevents:** Eine Story aktiviert Runtime-Caching für die Aufgabenliste, um sie „schneller" zu machen — Gärtner\*innen sehen dann erledigte Aufgaben als offen, was der Kernnutzen der Anwendung ist.
-- **Rule:** `vite-plugin-pwa` liefert ausschliesslich Manifest und Icons. Kein `navigateFallback`, keine `runtimeCaching`-Regel auf `/` oder auf serverseitig gerenderte Routen. Nur unveränderliche Build-Assets dürfen im Precache liegen.
+- **Rule:** Kein Service Worker. `static/manifest.webmanifest` und `static/icons/` genügen für die Installation zum Home-Bildschirm; sie werden statisch ausgeliefert und von nichts erzeugt. Wer je einen einführt, darf keine `runtimeCaching`-Regel auf `/` oder auf eine serverseitig gerenderte Route legen und keinen `navigateFallback` setzen — nur unveränderliche Build-Assets dürfen in einen Precache.
+
+> **Nachgezogen am 2026-08-30** (Retro Epic 1, Befund B6). Die Regel nannte bis dahin `vite-plugin-pwa` als ihren Träger. Das Paket ist nie installiert worden, `workbox-window` ebenso wenig; beide standen trotzdem in der Stack-Tabelle. Das **Ergebnis** war die ganze Zeit besser als geplant — ohne Service Worker kann nichts cachen —, aber eine bindende Regel zeigte auf ein Nichts. Der Grund stand nur in `spec-1-1` und in `README.md`, nicht hier.
 
 ### AD-13 — Pflicht-Umgebungsvariablen brechen beim Start, nicht im Betrieb `[ADOPTED]`
 
 - **Binds:** Betrieb, alle Module mit Konfiguration
 - **Prevents:** Ein fehlendes Geheimnis fällt erst beim ersten Login auf, nachdem der Container als „gesund" gemeldet wurde.
-- **Rule:** `DATABASE_PATH` und `SESSION_SECRET` werfen beim Modulladen, wenn nicht gesetzt. Kein Fallback-Standardwert, nie. Jede neue Pflichtvariable folgt demselben Muster.
+- **Rule:** `DATABASE_PATH`, `SESSION_SECRET` und `ORIGIN` werfen **beim Start des Servers**, wenn sie fehlen oder nicht taugen — geprüft in `startPruefen()`, aufgerufen aus dem `init`-Hook in `src/hooks.server.ts`. Kein Fallback-Standardwert, nie. Jede neue Pflichtvariable folgt demselben Muster.
+
+> **Nachgezogen am 2026-08-30** (Retro Epic 1, Befund B7). Zwei Korrekturen an einer Regel, deren **Absicht** immer erfüllt war: kein Fallback, lauter Abbruch vor der ersten Antwort.
+>
+> **Der Ort.** „Beim Modulladen" war nicht bloss ungenau, sondern unbaubar: die Prüfungen dort machten `npm run build` ohne `.env` unmöglich — gemessen, nicht vermutet, und mit der Begründung an Ort und Stelle in `hooks.server.ts`. Der `init`-Hook läuft vor der ersten Anfrage und nach dem Bauen; das ist der Ort, den die Absicht meint.
+>
+> **Die dritte Variable.** `ORIGIN` (`src/lib/server/herkunft.ts`) ist seit Story 1.6 Pflicht — SvelteKit weist ohne sie jeden POST als Herkunftsverstoss ab —, und der Plan nannte sie nirgends.
 
 ### AD-14 — Die Startseite ist die einzige Antwort auf „was ist zu tun"
 
@@ -165,17 +173,29 @@ graph TD
 | drizzle-kit | 0.31.10 |
 | better-sqlite3 | 13.0.3 |
 | jose | 6.2.10 |
-| vite-plugin-pwa | 1.3.0 |
-| workbox-window | 7.4.1 |
+| @fontsource-variable/inter | 5.3.0 |
+| @fontsource-variable/figtree | 5.3.0 |
 | @types/better-sqlite3 | 9.6.0 |
+| @types/node | 24.13.3 |
 | ESLint | 10.9.1 |
+| @eslint/js | 10.0.1 |
 | eslint-plugin-svelte | 3.23.0 |
 | typescript-eslint | 8.68.0 |
+| svelte-check | 4.7.6 |
+| svelte-eslint-parser | 1.8.1 |
+| globals | 17.11.0 |
 | Prettier | 3.9.6 |
-| nginx | alpine |
-| certbot | certbot/certbot latest |
+| prettier-plugin-svelte | 4.1.1 |
+| nginx | `nginx:1.29-alpine` |
+| certbot | `certbot/certbot:v5.7.0` |
 
 TypeScript ist bewusst auf 6.0.3 gepinnt, obwohl 7.0.2 verfügbar ist: SvelteKit, `svelte-check` und `typescript-eslint` deklarieren alle drei Obergrenzen unter 7.
+
+**Kein Testframework in dieser Tabelle**, und das ist keine Auslassung — siehe *Prüfwerkzeug* im Structural Seed. Die Prüfkette ist selbst gebaut und bringt keine Abhängigkeit mit.
+
+> **Nachgezogen am 2026-08-30** (Retro Epic 1, Befunde B6 und B9). Entfernt: `vite-plugin-pwa` und `workbox-window`, beide nie installiert (siehe AD-12). Ergänzt: die zwei Schriftpakete, die vier fehlenden Werkzeug-Abhängigkeiten und `@types/better-sqlite3` — in Story 1.1 ausdrücklich weggelassen, heute wieder da, ohne dass eine Notiz sagt, wann und warum. Die zwei Image-Namen tragen jetzt ihre Pins statt `alpine` und `latest`: ein wanderndes `latest` auf dem Dienst, der die Zertifikate hält, ist die unangenehmste Sorte Überraschung.
+
+**Die Schriften kommen als npm-Pakete**, nicht als `woff2` aus `static/fonts/`, wie `epics.md` und UX-DR3 es beschreiben. Gebündelt landen sie unter `_app/immutable/assets/`. Die eigentliche Zusage hält unverändert und ist am Produktionsstapel geprüft: **kein fremder Host**, keine Anfrage an Google Fonts.
 
 ## Structural Seed
 
@@ -233,7 +253,7 @@ graph LR
     subgraph VPS["Infomaniak VPS light — Docker Compose"]
         N["nginx:alpine — TLS, Ratenbegrenzung"]
         APP["app — node:24-alpine, adapter-node, Port 3000, nicht exponiert"]
-        CB["certbot — einmalige Ausstellung, Erneuerung per Host-Cron"]
+        CB["certbot — Ausstellung von Hand, Erneuerung als Containerschleife alle 12h"]
         V[("Named Volume /data — db.sqlite")]
         N -->|proxy_pass app:3000| APP
         APP --> V
@@ -242,42 +262,109 @@ graph LR
     BK["backup.sh — Host-Cron 02:00, sqlite .backup, 30 Tage"] --> V
 ```
 
-Zwei Umgebungen: **lokal** (`npm run dev`, SQLite-Datei aus `.env.local`, kein Service Worker) und **Produktion** (`docker compose up -d` auf dem VPS). Kein Staging — bei dieser Grösse ist es Aufwand ohne Gegenwert.
+Zwei Umgebungen: **lokal** (`npm run dev`, SQLite-Datei aus `.env`) und **Produktion** (`docker compose up -d` auf dem VPS). Kein Staging — bei dieser Grösse ist es Aufwand ohne Gegenwert. Einen Service Worker gibt es in keiner der beiden (AD-12).
+
+> **Nachgezogen am 2026-08-30** (Retro Epic 1, Befund B9). Die Erneuerung läuft als **Containerschleife** (`certbot renew` alle 12 Stunden, `trap exit TERM`, damit `docker compose down` nicht bis zum Ende des Schlafs wartet) und nicht per Host-Cron. Der Grund steht im Compose: certbot bringt seinen eigenen Zustand mit, und der liegt ohnehin im Volume. Das **erste** Zertifikat holt die Schleife nicht — das tut ein Mensch einmal je Maschine, siehe Runbook.
 
 Der `app`-Service veröffentlicht keinen Port; nginx erreicht ihn nur über das interne Bridge-Netz. Die Body-Grösse bleibt auf dem SvelteKit-Standard und `client_max_body_size 1M` in nginx — es gibt keine Uploads. Die Ratenbegrenzung aus der Referenz wandert von `/login` auf `/i/` (Einladungspfad), um das Erraten von Tokens zu bremsen.
 
 ### Quellbaum
 
+Stand 2026-08-30, nach Epic 3. Was hier steht, steht im Baum; was im Baum steht,
+steht hier. `wissen/` und `queries/sheets.ts` sind die einzige Ausnahme und als
+solche markiert — sie kommen mit Epic 4.
+
 ```text
 src/
+  hooks.server.ts          # Wächter (Zugang erzwingen), Sicherheitskopfzeilen,
+                           #   handleError, init -> startPruefen — AD-3, AD-13
+  app.html                 # Token-Block: Farben, Rampe, Abstände — UX-DR1
+  error.html               # Hülle der Fehlerseite, ohne SvelteKit
   routes/
-    +layout.server.ts      # Session lesen, Zugang erzwingen, öffentliche Pfade ausnehmen
-    +page.svelte           # Aufgabenliste — CAP-1, CAP-2
+    +layout.svelte         # Titelleiste, Navigationsleiste, Stilblätter
+    +error.svelte          # Fehlerseite innerhalb der Hülle
+    +page.svelte|.server.ts    # Startseite: drei Blöcke — CAP-1, CAP-2, AD-14
     aufgabe/               # Ad-hoc erfassen — CAP-4
     monatsplan/            # Massen-Eingabe — CAP-3
-    dienstplan/            # CAP-5
-    einzelaufgaben/        # CAP-6
-    wissen/                # Referenz-Sheets — CAP-7
+    dienstplan/            # Dienstplan und Besetzen — CAP-5
+    einzelaufgabe/         # eine Einzelaufgabe ausschreiben — CAP-6
+    einzelaufgaben/        # alle Einzelaufgaben, lesend — CAP-6
+    mehr/                  # Einstieg zu den seltenen Handlungen
+    wissen/                # Referenz-Sheets — CAP-7 (Epic 4, noch nicht gebaut)
     i/[token]/+server.ts   # Einladung einlösen, Cookie setzen — AD-3
-    verwaltung/            # Mitglieder und Einladungen — AD-11
+    verwaltung/            # Mitglieder, Einladungen, Umbenennen — AD-11
   lib/
     server/
       db/
         index.ts           # Verbindung, WAL, foreign_keys, migrate() beim Start
-        schema.ts
-        migrations/
+        schema.ts          # members, tasks, duty_weeks, signup_tasks — AD-4
         queries/           # Repository — AD-1
-      auth.ts              # Cookie ausstellen und lesen, Token hashen — AD-10
-    client/
-      utils/date.ts        # AD-6
-    components/
-scripts/
+          members.ts  tasks.ts  duty-weeks.ts  signup-tasks.ts
+      auth.ts              # Cookie ausstellen und lesen — AD-10
+      token.ts             # Token erzeugen und hashen — AD-10
+      herkunft.ts          # ORIGIN prüfen und auslegen — AD-13
+      adminschranke.ts     # adminOderWeg, eine Funktion für vier Aufrufstellen
+      abweisen.ts          # die eine Form, in der eine action abweist
+    zeit.ts                # Zone, Tagesende, Überfälligkeit, ISO-Wochen — AD-6, AD-8
+    aufgabentext.ts        # Falten, Längengrenze, Zeilen erkennen
+    mitgliedsname.ts       # die Namensregel, drei Leser
+    unsichtbar.ts          # die Klasse unsichtbarer Zeichen, zwei Leser
+    texte.ts               # die Sätze mit mehr als einer Wurfstelle
+    styles/
+      bedienelemente.css   # die zwanzig geteilten Klassen
+      fonts.css            # @font-face, selbst gehostet — UX-DR3
+    client/utils/date.ts   # Datum ausgeschrieben — AD-6
+    components/            # NavBar.svelte, TitleBar.svelte
+drizzle/                   # Migrationskette, von drizzle-kit erzeugt
+scripts/                   # siehe Prüfwerkzeug darunter
   create-admin.ts          # erstes Admin-Mitglied anlegen
   backup.sh
+  gate.mjs                 # Gestaltungsrahmen, dreizehn Regeln
+  smoke-zugang.ts          # Zugangs- und Aufgabenschicht, gegen echtes SQLite
+  smoke-http.ts            # der gebaute Server auf einem freien Port
+  db-check.ts              # Schema gegen Migrationskette
+  pruefhelfer.ts           # pruefen/pruefenGleich, von smoke und smoke:http geteilt
+  pruefhelfer-selftest.ts  # prüft den Prüfhelfer
 nginx/
   nginx.conf
   conf.d/app.conf
+static/
+  manifest.webmanifest  icons/  favicon.ico   # AD-12, kein Service Worker
 ```
+
+> **Nachgezogen am 2026-08-30** (Retro Epic 3, Befunde A1 und A2; Retro Epic 1, Befund B9). Der Baum nannte **siebzehn** gebaute Module nicht — das ganze Prüfwerkzeug und elf Module unter `src/lib`. Drei Namen trafen die Wirklichkeit nicht:
+>
+> - `+layout.server.ts` gibt es nicht. Der Wächter liegt in `hooks.server.ts` und schützt damit **jeden** Pfad statt nur die Routen unter einem Layout — die schärfere Fassung derselben Absicht.
+> - `db/migrations/` heisst `drizzle/`, weil drizzle-kit dorthin schreibt.
+> - `queries/dutyWeeks.ts` heisst `duty-weeks.ts`, kebab-case wie alle Nachbarn.
+>
+> Und `mehr/` fehlte seit Story 1.3.
+
+### Prüfwerkzeug
+
+`scripts/` trägt heute **12 140 Zeilen** gegen 9 738 Zeilen `src/` — ein Verhältnis
+von 1,25 : 1. Das ist keine Nachlässigkeit, sondern die grösste unausgesprochene
+Entscheidung dieses Projekts: getroffen in kleinen Schritten, nie als solche
+beschlossen. Sie steht seit der Retrospektive Epic 1 als offener Punkt, wurde in
+Epic 2 mit der damaligen Zahl 6 512 wiederholt und ist seither um 87 % gewachsen.
+
+**Beschrieben, nicht entschieden.** Dieser Abschnitt sagt, was da ist — er nimmt
+die Entscheidung nicht vorweg. Sie steht unter *Deferred* und gehört Manuel.
+
+Was das Werkzeug leistet, in einer Zeile je Stück:
+
+| Skript | Was es misst | Wo es hängt |
+| --- | --- | --- |
+| `gate.mjs` | dreizehn Regeln des Gestaltungsrahmens am Quelltext; jede durch eine Fehlerprobe belegt | `npm run lint` |
+| `smoke-zugang.ts` | die Routenmodule direkt gerufen, gegen eine echte Wegwerf-Datenbank | `npm run lint` |
+| `smoke-http.ts` | den **gebauten** Server auf einem freien Port, echte Antworten samt POST | `npm run lint` |
+| `db-check.ts` | das Schema gegen die Migrationskette, Drift und Fail-Fast | `npm run lint` |
+| `pruefhelfer-selftest.ts` | den Prüfhelfer selbst — das einzige sonst ungeprüfte Stück der Kette | `npm run lint` |
+
+**Warum es kein Testframework ist**, streng gelesen: niemand hat Vitest oder
+Playwright installiert, und NFR13 („es gibt kein Testframework") ist damit nicht
+verletzt. Faktisch steht dort ein selbst gebautes Prüfsystem, das grösser ist als
+die Anwendung. Beides ist wahr, und genau diese Spannung ist der offene Punkt.
 
 ## Capability → Architecture Map
 
@@ -287,17 +374,37 @@ nginx/
 | CAP-2 Abhaken | form action in `routes/+page.server.ts` | AD-5, AD-9, AD-7 |
 | CAP-3 Monatsplan ablegen | `routes/monatsplan/` | AD-1, AD-8, AD-9 |
 | CAP-4 Ad-hoc erfassen | `routes/aufgabe/` | AD-1, AD-4, AD-9 |
-| CAP-5 Dienstplan | `routes/dienstplan/`, `queries/dutyWeeks.ts` | AD-3, AD-4, AD-11, AD-14 |
-| CAP-6 Einzelaufgabe mit Anmeldung | `routes/einzelaufgaben/` | AD-3, AD-4, AD-9, AD-14 |
+| CAP-5 Dienstplan | `routes/dienstplan/`, `queries/duty-weeks.ts` | AD-3, AD-4, AD-11, AD-14 |
+| CAP-6 Einzelaufgabe mit Anmeldung | `routes/einzelaufgabe/` (ausschreiben), `routes/einzelaufgaben/` (lesen), Block 2 auf `/` (übernehmen), `queries/signup-tasks.ts` | AD-3, AD-4, AD-9, AD-14 |
 | CAP-7 Referenz-Sheets | `routes/wissen/`, `queries/sheets.ts` | AD-1, AD-9 |
 | Überfälligkeit (Story 3) | Anzeigelogik der Liste | AD-8 |
 | Zugang und Identität | `routes/i/[token]/`, `lib/server/auth.ts` | AD-3, AD-10, AD-13 |
 | CAP-8 Mitglieder aufnehmen und Zugang beenden | `routes/verwaltung/`, `routes/i/[token]/`, `queries/members.ts` | AD-11, AD-10, AD-3 |
 | Betrieb | `docker-compose.yml`, `nginx/`, `scripts/backup.sh` | AD-13 |
+| Prüfkette | `scripts/gate.mjs`, `smoke-zugang.ts`, `smoke-http.ts`, `db-check.ts`, `pruefhelfer*.ts` | siehe *Prüfwerkzeug* |
+
+### Zwei Handlungen, die kein Akzeptanzkriterium nennt
+
+Beide sind gebaut, begründet und sinnvoll; sie sind nur nie in den Plan
+zurückgeflossen (Retro Epic 1, Befund B9). Hier nachgetragen am 2026-08-30:
+
+- **`wiederOeffnen`** (`routes/+page.server.ts`) — der Gegenzug zum Fehlgriff mit
+  dem Handschuh. Eine erledigte Aufgabe wird wieder offen, **ohne** Zeitschranke
+  und **ohne** Bindung an die abhakende Person: wer die Zeile sieht, darf sie
+  öffnen. Das ist die Fortsetzung von AD-5 und nicht ihre Ausnahme — eine Prüfung
+  „darf ich das" bräuchte genau die Zuordnung, die AD-2 und AD-5 nicht wollen.
+  Der Preis steht unter den benannt akzeptierten Risiken in `README.md`.
+- **`neuAusstellen`** (`routes/verwaltung/+page.server.ts`) — ein zweiter
+  Einladungslink für dieselbe Person, wenn der erste verloren ist. Fällt unter
+  AD-11 (nur die Verwaltung) und AD-10 (der alte Hash wird ersetzt, der Klartext
+  erscheint genau einmal). Der Selbstschutz gilt hier wie beim Widerruf: die
+  eigene Zeile ist ausgenommen, sonst bliebe die Verwaltung womöglich ohne
+  Zugang.
 
 ## Deferred
 
-- **Testframework.** Die Referenz hat keins; die Qualitätstore sind `npm run build` und `npm run lint` plus manuelles Testen am 375px-Viewport. Entscheidbar, sobald eine Story tatsächlich unter Regressionen leidet.
+- **Das Prüfwerkzeug: aufnehmen oder zurückbauen.** Offen seit der Retrospektive Epic 1, dreimal vorgelegt, nie entschieden. Der Stand ist im Structural Seed beschrieben: 12 140 Zeilen `scripts/` gegen 9 738 Zeilen `src/`. Zwei Wege sind vertretbar — das Werkzeug als Architekturbestandteil führen, mit dem Satz, warum es kein Testframework ist und was es statt dessen leistet; oder es als zu teuer erkennen und zurückbauen. **Unbeschrieben weiterwachsen ist der dritte Weg, und der ist es nicht.** Dieser Abschnitt hat bis zum 2026-08-30 „Die Referenz hat keins" behauptet, über einem Projekt, das sich in drei Epics eines gebaut hatte.
+- **Ein zusätzliches Testframework** (Vitest, Playwright) bleibt davon unberührt und ist weiterhin entscheidbar, sobald eine Story tatsächlich unter Regressionen leidet. Ein kopfloser Browser ist als *Stufe C* in `deferred-work.md` an eine eigene Auslösebedingung gebunden.
 - **Genaue Ratenbegrenzung auf `/i/`.** Dass sie dort greift, ist entschieden (AD-3, AD-10); der konkrete Wert gehört in die nginx-Konfiguration der Deploy-Story.
 - **Wo das Image gebaut wird.** Zunächst auf dem VPS wie in der Referenz. Falls die nativen Kompilate von `better-sqlite3` den VPS light überfordern, ist der Ausweg ein lokal gebautes Image über eine Registry — eine Betriebsentscheidung, kein Architekturbruch.
 - **Sichtbarkeit der Namensliste innerhalb der Gemeinschaft.** Dass Aussenstehende sie nicht sehen, ist durch AD-3 entschieden. Ob jedes Mitglied alle Namen sieht, ist eine Produktfrage und keine Invariante.

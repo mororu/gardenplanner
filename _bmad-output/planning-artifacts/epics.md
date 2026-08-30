@@ -48,7 +48,7 @@ NFR7: Abhaken ist sofort für alle sichtbar. Es gibt kein privates Erledigen.
 NFR8: Wer abgehakt hat, wird gespeichert, erscheint aber in keiner Ansicht und in keinem Text — auch nicht als Tooltip.
 NFR9: Kontrast mindestens 4.5:1 für Text und 3:1 für Bedienelement-Umrisse, in Hell **und** Dunkel.
 NFR10: Oberfläche durchgehend Deutsch in Schweizer Rechtschreibung ohne Eszett, `<html lang="de">`.
-NFR11: Pflicht-Umgebungsvariablen (`DATABASE_PATH`, `SESSION_SECRET`) werfen beim Modulladen, wenn nicht gesetzt. Kein Fallback-Standardwert.
+NFR11: Pflicht-Umgebungsvariablen (`DATABASE_PATH`, `SESSION_SECRET`, `ORIGIN`) werfen beim **Start des Servers**, wenn nicht gesetzt oder untauglich. Kein Fallback-Standardwert.
 NFR12: Einladungstokens liegen ausschliesslich als SHA-256-Hash in der Datenbank; der Klartext-Link ist nach dem einmaligen Anzeigen nicht rekonstruierbar.
 NFR13: `npm run build` und `npm run lint` laufen sauber, bevor eine Story fertig ist. Es gibt kein Testframework (bewusst, siehe Architektur-Spine unter Deferred).
 
@@ -56,7 +56,7 @@ NFR13: `npm run build` und `npm run lint` laufen sauber, bevor eine Story fertig
 
 **🚨 Kein Starter-Template — aber ein Referenzprojekt.** Die Architektur-Spine schreibt keinen Greenfield-Starter vor, sondern übernimmt die erprobte Struktur von `beehiveJournal`. Es existiert **kein Projektskelett**: keine `package.json`, kein SvelteKit-Gerüst, keine Datenbankverbindung, keine Migrationen, keine Schrift-Dateien, keine Token-Definitionen. **Epic 1 Story 1 muss das Skelett sein**, sonst hat Story „Zugang und Mitgliederverwaltung" keinen Boden.
 
-- Stack ist gepinnt und live gegen die npm-Registry geprüft: SvelteKit 2.70.3, Svelte 5.56.10, adapter-node 5.5.7, vite-plugin-svelte 7.3.0, TypeScript **6.0.3** (nicht 7.0.2 — ausserhalb der Peer-Ranges von SvelteKit, svelte-check und typescript-eslint), Vite 8.2.2, drizzle-orm 0.45.2, drizzle-kit 0.31.10, better-sqlite3 13.0.3, jose 6.2.10, vite-plugin-pwa 1.3.0, workbox-window 7.4.1, @types/better-sqlite3 9.6.0, ESLint 10.9.1, eslint-plugin-svelte 3.23.0, typescript-eslint 8.68.0, Prettier 3.9.6.
+- Stack ist gepinnt und live gegen die npm-Registry geprüft: SvelteKit 2.70.3, Svelte 5.56.10, adapter-node 5.5.7, vite-plugin-svelte 7.3.0, TypeScript **6.0.3** (nicht 7.0.2 — ausserhalb der Peer-Ranges von SvelteKit, svelte-check und typescript-eslint), Vite 8.2.2, drizzle-orm 0.45.2, drizzle-kit 0.31.10, better-sqlite3 13.0.3, jose 6.2.10, @types/better-sqlite3 9.6.0, ESLint 10.9.1, eslint-plugin-svelte 3.23.0, typescript-eslint 8.68.0, Prettier 3.9.6.
 - Basis-Image `node:24-alpine`. Node 20 der Referenz genügt nicht: better-sqlite3 13 verlangt `engines: node >=22`. Node 24 „Krypton" ist der aktuelle LTS.
 - `argon2` entfällt vollständig — mit Einladungslinks gibt es keine Passwörter. `jose` bleibt für das signierte Sitzungs-Cookie.
 - Datenzugriff ausschliesslich über `$lib/server/db/queries/*.ts`; kein Drizzle-Aufruf in einer Routendatei (AD-1).
@@ -73,7 +73,7 @@ NFR13: `npm run build` und `npm run lint` laufen sauber, bevor eine Story fertig
 
 UX-DR1: Design-Tokens als CSS Custom Properties anlegen — 8 Farben für Hell und 8 für Dunkel, 7 Typografie-Rollen, 3 Radien, die 4px-Abstandsskala plus `gutter`, `measure` und `touch`. Werte aus `DESIGN.md` Frontmatter, keine Hex-Werte in Komponenten-`<style>`.
 UX-DR2: Dunkler Modus gleichrangig umsetzen, nicht invertiert: eigene Token-Werte, aufgehellter Akzent `#7FBB8C`, Titelleistenschrift `#0E1410`. Beide Modi in derselben Story prüfen.
-UX-DR3: Schriften Figtree und Inter als woff2 selbst hosten unter `static/fonts/`. Kein Laden von Googles CDN — die Anwendung verspricht der Gemeinschaft keine Datenweitergabe an Dritte.
+UX-DR3: Schriften Figtree und Inter selbst hosten, gebündelt aus den npm-Paketen `@fontsource-variable/*`. Kein Laden von Googles CDN — die Anwendung verspricht der Gemeinschaft keine Datenweitergabe an Dritte.
 UX-DR4: Komponente `title-bar` — volle Breite, Akzent gefüllt, Produktname in `section`-Typografie, ohne Knöpfe und ohne Navigation.
 UX-DR5: Komponente `nav-bar` — fest am unteren Rand, vier Ziele (Aufgaben · Dienstplan · Wissen · Mehr), Beschriftung als Wort ohne Symbol, aktives Ziel in Akzentfarbe **und** mit 2px-Kante, `padding-bottom: env(safe-area-inset-bottom)`. Ab 600px Fensterbreite wandert die Leiste nach oben.
 UX-DR6: Komponente `task-row` mit `task-box` — nur das Kästchen ist antippbar (sichtbar 22px, Trefferfeld 44px), der Text nicht. Das Kästchen ist ein echtes Formular-Bedienelement mit Beschriftung aus dem Aufgabentext.
@@ -108,6 +108,8 @@ FR13: Epic 1 — Einladungslink einlösen und Sitzung herstellen
 FR14: Epic 1 — Zugang beenden, Historie erhalten
 
 Alle 14 funktionalen Anforderungen sind einem Epic zugeordnet. Keine Waise.
+
+> **Nachgezogen am 2026-08-30**, Plan-Ist-Abgleich aus den Retrospektiven Epic 1 (B6, B7, B9) und Epic 3 (A1, A2). Vier Stellen in diesem Dokument beschrieben etwas anderes, als gebaut wurde: die zwei PWA-Pakete waren nie installiert (siehe AD-12), die Pflichtvariablen werfen beim **Start** und nicht beim Modulladen und es sind **drei** statt zwei, und die Schriften kommen als npm-Bündel statt als `woff2` aus `static/fonts/`. Die Zusage von UX-DR3 — kein fremder Host — hält unverändert und ist am Produktionsstapel geprüft. Der vollständige Abgleich steht in `ARCHITECTURE-SPINE.md`.
 
 ## Epic List
 
@@ -196,12 +198,12 @@ So that ich sie überhaupt benutzen kann, ohne jemanden zu fragen.
 
 **Given** die ausgelieferte Anwendung
 **When** ich die Netzwerkanfragen beim Laden beobachte
-**Then** geht keine Anfrage an einen fremden Host; Figtree und Inter werden als woff2 aus `static/fonts/` geladen
+**Then** geht keine Anfrage an einen fremden Host; Figtree und Inter kommen aus dem eigenen Bündel unter `_app/immutable/assets/`
 
 **Given** die Datenbankschicht
 **When** die Anwendung startet
 **Then** wird die SQLite-Datei aus `DATABASE_PATH` geöffnet, `WAL` und `foreign_keys` sind gesetzt, die Migrationskette läuft an
-**And** fehlt `DATABASE_PATH` oder `SESSION_SECRET`, wirft die Anwendung beim Modulladen mit klarer Meldung, ohne Fallback-Wert
+**And** fehlt `DATABASE_PATH`, `SESSION_SECRET` oder `ORIGIN`, wirft die Anwendung beim Start mit klarer Meldung, ohne Fallback-Wert
 
 *Erfüllt:* NFR5, NFR9, NFR10, NFR11, NFR13, UX-DR1, UX-DR2, UX-DR3, UX-DR4, UX-DR5, UX-DR12, UX-DR13, UX-DR14, UX-DR15, UX-DR16. Legt keine Domänentabellen an.
 

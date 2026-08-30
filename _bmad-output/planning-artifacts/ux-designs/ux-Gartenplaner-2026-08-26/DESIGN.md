@@ -15,6 +15,7 @@ colors:
   accent-ink: '#FFFFFF'
   overdue: '#9A5A12'
   warn: '#A05300'
+  danger: '#A32E22'
   surface-base-dark: '#12160F'
   surface-raised-dark: '#1A2018'
   ink-primary-dark: '#E9EDE4'
@@ -24,6 +25,7 @@ colors:
   accent-ink-dark: '#0E1410'
   overdue-dark: '#D99B4E'
   warn-dark: '#FFA857'
+  danger-dark: '#E8877B'
 typography:
   display:
     fontFamily: "'Figtree', system-ui, sans-serif"
