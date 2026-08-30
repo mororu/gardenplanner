@@ -1,0 +1,23 @@
+/*
+ * Gegenprobe zu Regel 15. Zwei Fallen, die **nicht** fallen duerfen:
+ *
+ *   - `.griff` schreibt `display: list-item` aus. Wer die Voreinstellung
+ *     hinschreibt, nimmt nichts weg; die Regel muss das durchlassen.
+ *   - `.karte` setzt `display: flex`, haengt aber an keinem <summary>. Eine
+ *     Regel, die jedes display im Blatt meldete, waere unbrauchbar.
+ *
+ * Dazu eine dritte, stillere: das Wort display steht oben in diesem Kommentar
+ * mehrfach. Kommentare werden vor der Auswertung ausgeblendet.
+ *
+ * Erwartet sind null Treffer.
+ */
+.griff {
+	display: list-item;
+	min-height: var(--gutter);
+	color: var(--accent);
+}
+
+.karte {
+	display: flex;
+	padding: var(--gutter);
+}

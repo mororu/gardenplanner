@@ -14,7 +14,7 @@
  *   node scripts/gate.mjs [zielverzeichnis]   prüft ein Projekt (Vorgabe: dieses)
  *   node scripts/gate.mjs --selftest          prüft das Tor gegen die Fehlerproben
  *
- * Die vierzehn Regeln:
+ * Die fünfzehn Regeln:
  *   1. In .svelte und .css unter src/ kein Farbliteral (Hex, rgb(), rgba(),
  *      hsl(), hsla(), oklch(), color() …, CSS-Farbname), kein rohes
  *      px/rem-Literal ausser 0 und **kein rohes ms/s-Literal ausser 0** im Wert
@@ -81,6 +81,16 @@
  *      als aus der Datenbank, in der nur der SHA-256-Hash steht. Belegt: die
  *      Zeile aus einem Block löschen lässt `npm run lint` grün und `nginx -t`
  *      "syntax is ok" melden, während die Zusage gebrochen ist.
+ *  15. Keine CSS-Regel setzt an der Klasse eines `<summary>` ein `display`,
+ *      ausser der Voreinstellung `list-item` selbst. Das Dreieck kommt aus
+ *      dieser Voreinstellung und ist die einzige Anzeige, dass sich etwas
+ *      aufklappt; `display: flex` — der naheliegende Griff, weil `min-height`
+ *      an einem `list-item` nicht senkrecht zentriert — nimmt es weg. Wie
+ *      Regel 14 abgeleitet: welche Klassen ein Griff trägt, sagt das Markup.
+ *      Die Warnung stand bis zum Zusammenlegen der zwei Zeilenformulare als
+ *      Kommentar in beiden lokalen Fassungen und ist dabei verschwunden
+ *      (Retro Epic 3, Posten R7) — ein Kommentar hat sie schon einmal nicht
+ *      getragen. Seit 2026-08-30.
  *
  * **Regel 13 ist die erste, die über src/ hinausliest.** Bis dahin galt: das
  * Tor sieht src/ und static/manifest.webmanifest. Die Zusage, die Regel 13
@@ -1550,6 +1560,115 @@ const torPrüfen = (ziel) => {
 		);
 	}
 
+	// Regel 15: der Griff eines Zeilenformulars behält sein Dreieck
+	// -------------------------------------------------------------------
+	/*
+	 * Ein `<summary>` malt sein Aufklapp-Dreieck aus der Voreinstellung
+	 * `display: list-item`. Jede Regel, die für dieselbe Klasse ein anderes
+	 * `display` setzt, nimmt es weg — und das Dreieck ist die einzige Anzeige,
+	 * dass hier etwas aufgeht. Ohne es sieht der Griff aus wie ein Satz Text.
+	 *
+	 * Diese Warnung stand als Kommentar in **beiden** lokalen Fassungen des
+	 * Griffs und ist beim Zusammenlegen ins geteilte Stilblatt aus dem Kommentar
+	 * gefallen — Posten R7 der zweiten Retrospektive zu Epic 3, der sie
+	 * zurückverlangt hat. Sie wiegt seither schwerer als vorher: das
+	 * `min-height: var(--touch)` am Griff zentriert an einem `list-item` nicht
+	 * senkrecht, der naheliegende nächste Handgriff ist darum
+	 * `display: flex; align-items: center` — und der nähme das Dreieck jetzt an
+	 * allen Aufklappstellen zugleich weg statt an einer. Ein Kommentar allein
+	 * hat sie schon einmal nicht getragen.
+	 *
+	 * **Abgeleitet, nicht von Hand geführt.** Welche Klassen ein Griff trägt,
+	 * sagt das Markup: die Regel liest die `class`-Attribute an jedem `<summary>`
+	 * unter src/ und hält jede CSS-Regel dagegen, die einen dieser Namen im
+	 * Selektor führt — im geteilten Blatt wie im `<style>` einer Komponente. Eine
+	 * fünfte Aufklappstelle unter neuem Klassennamen ist damit vom ersten Tag an
+	 * bewacht, ohne dass jemand eine Liste pflegt. Dieselbe Bauform wie Regel 14,
+	 * und aus demselben Grund: eine kuratierte Liste vergisst genau den Fall, für
+	 * den sie da wäre.
+	 *
+	 * `display: list-item` selbst ist erlaubt — wer die Voreinstellung
+	 * ausschreibt, nimmt nichts weg.
+	 *
+	 * **Was sie nicht kann:** ein `display` erwischen, das ohne Klassennamen
+	 * kommt (`summary { … }`, `details > summary`) oder von einem Vorfahren
+	 * geerbt wird. Beides steht heute nicht im Baum. Die Regel sagt, was sie
+	 * prüft, statt mehr zu behaupten — der Fehler, den die Retrospektive an drei
+	 * anderen Kommentaren gefunden hat.
+	 */
+	/** @type {Set<string>} Klassen, die im Markup an einem <summary> hängen */
+	const griffKlassen = new Set();
+
+	for (const datei of dateien) {
+		if (!datei.endsWith('.svelte')) continue;
+		const roh = lesen(datei, 15);
+		if (roh === null) continue;
+		for (const treffer of roh.matchAll(/<summary\b[^>]*>/g)) {
+			const klassen = /class="([^"]*)"/.exec(treffer[0]);
+			if (klassen === null) continue;
+			for (const wort of klassen[1].split(/\s+/)) if (wort !== '') griffKlassen.add(wort);
+		}
+	}
+
+	if (griffKlassen.size > 0) {
+		/*
+		 * Eigener Durchlauf statt stilRegeln(): jene Funktion wirft Regeln mit
+		 * weniger als zwei Deklarationen weg, weil zwei Regeln, die sich in einer
+		 * Eigenschaft treffen, für Regel 14 zufällig gleich sind. Hier ist die
+		 * eine Deklaration genau der Fall — `.griff { display: flex }` ist der
+		 * Verstoss, den diese Regel sucht.
+		 */
+		/**
+		 * @param {string} quelltext der auszuwertende CSS-Text
+		 * @param {string} datei Pfad für die Meldung
+		 * @param {string} ganzeDatei Text, gegen den die Zeile gezählt wird
+		 * @param {number} versatz Beginn von quelltext innerhalb von ganzeDatei
+		 */
+		const griffeLesen = (quelltext, datei, ganzeDatei, versatz) => {
+			const ohne = quelltext.replace(/\/\*[\s\S]*?\*\//g, (treffer) => ' '.repeat(treffer.length));
+			for (const regel of ohne.matchAll(/([^{}@]+)\{([^{}]*)\}/g)) {
+				const selektor = regel[1].split(/\s+/).join(' ').trim();
+				if (selektor === '' || selektor.startsWith('@')) continue;
+				// Der Treffer beginnt hinter der schliessenden Klammer der Vorgängerregel
+				// — bei der ersten Regel einer Datei also am Dateianfang, hinter dem
+				// ausgeblendeten Kopfkommentar. Gemeldet wird darum das erste Zeichen
+				// des Selektors und nicht der Beginn des Treffers.
+				const beginn = (regel.index ?? 0) + (regel[1].length - regel[1].trimStart().length);
+				const namen = [...selektor.matchAll(/\.([A-Za-z_][\w-]*)/g)].map((t) => t[1]);
+				if (!namen.some((name) => griffKlassen.has(name))) continue;
+				for (const deklaration of regel[2].split(';')) {
+					const paar = /^\s*display\s*:\s*(.+)$/.exec(deklaration);
+					if (paar === null) continue;
+					const wert = paar[1].trim();
+					if (wert === 'list-item') continue;
+					melden(
+						15,
+						datei,
+						zeileVon(ganzeDatei, versatz + beginn),
+						`\`${selektor}\` setzt \`display: ${wert}\` an einem Griff, der ein ` +
+							'`<summary>` ist — das nimmt das Aufklapp-Dreieck weg, und es ist die ' +
+							'einzige Anzeige, dass sich hier etwas öffnet'
+					);
+				}
+			}
+		};
+
+		for (const blatt of stilblattDateien) {
+			const roh = lesen(blatt, 15);
+			if (roh === null) continue;
+			griffeLesen(roh, blatt, roh, 0);
+		}
+
+		for (const datei of dateien) {
+			if (!datei.endsWith('.svelte')) continue;
+			const roh = lesen(datei, 15);
+			if (roh === null) continue;
+			const block = /<style>([\s\S]*?)<\/style>/.exec(roh);
+			if (block === null) continue;
+			griffeLesen(block[1], datei, roh, (block.index ?? 0) + block[0].indexOf(block[1]));
+		}
+	}
+
 	return { verstösse, hinweise, dateien: dateien.length, tokens: hellTokens.size };
 };
 
@@ -1577,7 +1696,7 @@ const berichten = (ergebnis, ziel) => {
 	}
 	console.log(
 		`gate (${wo}): ${ergebnis.dateien} Dateien und ${ergebnis.tokens} Tokens geprüft, ` +
-			`${ergebnis.hinweise.length} Hinweis(e), vierzehn Regeln erfüllt.`
+			`${ergebnis.hinweise.length} Hinweis(e), fünfzehn Regeln erfüllt.`
 	);
 	return 0;
 };
@@ -1938,6 +2057,42 @@ const proben = [
 		beschreibung: 'geteilte Rolle ohne Leser, der schwächere Backstop zu Form a',
 	},
 	{
+		regel: 15,
+		verzeichnis: 'regel-15a-griff-ohne-dreieck',
+		erwartet: 1,
+		begruendung:
+			'1 Regel im geteilten Blatt, die an der Klasse eines <summary> ein display setzt — ' +
+			'der Weg, auf dem die Warnung aus Posten R7 in der Praxis gebrochen wird',
+		art: 'Verstoss',
+		beschreibung:
+			'display: flex am Griff nimmt das Aufklapp-Dreieck weg, die einzige Anzeige, ' +
+			'dass sich hier etwas öffnet',
+	},
+	{
+		regel: 15,
+		verzeichnis: 'regel-15b-griff-lokal-ueberschrieben',
+		erwartet: 1,
+		begruendung:
+			'1 Komponentenregel, die dem Griff sein display nachträglich nimmt, während das ' +
+			'geteilte Blatt sauber ist — der zweite Weg, und der Grund, warum die Regel auch ' +
+			'die <style>-Blöcke liest',
+		art: 'Verstoss',
+		beschreibung: 'derselbe Verstoss, lokal statt geteilt',
+	},
+	{
+		regel: 15,
+		verzeichnis: 'regel-15c-sauber',
+		erwartet: 0,
+		begruendung:
+			'Gegenprobe: ausgeschriebenes display: list-item am Griff (nimmt nichts weg) und ' +
+			'ein display: flex an einer Klasse, die an keinem <summary> hängt. Dazu das Wort ' +
+			'display mehrfach im Kommentar. Nichts davon darf auslösen, also null Treffer',
+		art: 'Verstoss',
+		beschreibung:
+			'vollständige Vorlage; Voreinstellung, fremde Klasse und Kommentar dürfen die Regel ' +
+			'nicht wecken',
+	},
+	{
 		regel: 14,
 		verzeichnis: 'regel-14d-sauber',
 		erwartet: 0,
@@ -1955,7 +2110,7 @@ const proben = [
 const selbsttest = () => {
 	let fehlt = 0;
 	console.log(
-		`gate --selftest: ${proben.length} Fehlerproben gegen die vierzehn Regeln ` +
+		`gate --selftest: ${proben.length} Fehlerproben gegen die fünfzehn Regeln ` +
 			`(erwartet: ${erwarteteSvelteRegeln} svelte/*- und ${erwarteteTsRegeln} @typescript-eslint/*-Regeln je Komponente)\n`
 	);
 
@@ -2003,7 +2158,7 @@ const selbsttest = () => {
 	}
 	console.log(
 		`\ngate --selftest: alle ${proben.length} Fehlerproben in erwarteter Zahl gefunden, ` +
-			'jede der vierzehn Regeln beisst nachweislich.'
+			'jede der fünfzehn Regeln beisst nachweislich.'
 	);
 	return 0;
 };

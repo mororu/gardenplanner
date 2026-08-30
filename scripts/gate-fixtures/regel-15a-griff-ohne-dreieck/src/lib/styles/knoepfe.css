@@ -1,0 +1,13 @@
+/*
+ * Der Griff eines Aufklappformulars — und die naheliegende Falle: `min-height`
+ * zentriert an einem `list-item` nicht senkrecht, also greift jemand zu
+ * `display: flex`. Damit ist das Dreieck weg, und der Griff sieht aus wie ein
+ * Satz Text.
+ *
+ * Erwartet ist genau ein Treffer zu Regel 15.
+ */
+.griff {
+	display: flex;
+	min-height: var(--gutter);
+	color: var(--accent);
+}

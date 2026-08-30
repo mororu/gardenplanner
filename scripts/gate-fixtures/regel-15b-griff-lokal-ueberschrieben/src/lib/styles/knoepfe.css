@@ -1,0 +1,11 @@
+/*
+ * Hier ist das geteilte Blatt sauber: der Griff behaelt seine Voreinstellung.
+ * Der Verstoss steht in der Komponente — der zweite Weg, auf dem das Dreieck
+ * verschwindet, und der Grund, warum Regel 15 auch die <style>-Bloecke liest.
+ *
+ * Erwartet ist genau ein Treffer zu Regel 15, und er faellt in +page.svelte.
+ */
+.griff {
+	min-height: var(--gutter);
+	color: var(--accent);
+}

@@ -219,7 +219,7 @@ select.feld {
 }
 
 /*
- * Die Seitenform: .seite, .seitentitel, .fehler und die Live-Region.
+ * Die Seitenform: .seite, .seitentitel und die Live-Region.
  *
  * Diese vier Blöcke standen bis Epic 2 pro Komponente, mit der ausdrücklichen
  * Begründung, sie seien Seitenform und kein Bedienelement. Am Ende von Epic 2
@@ -252,20 +252,6 @@ select.feld {
 	font-weight: var(--display-weight);
 	line-height: var(--display-line);
 	letter-spacing: var(--display-tracking);
-}
-
-/*
- * Der Fehlersatz ist keine Farbaussage: er steht als Satz da und trägt darum die
- * gewöhnliche Textfarbe. Rot ist in dieser Anwendung dem zerstörenden Knopf
- * vorbehalten und sagt „das hier zerstört etwas", nicht „das hier ging schief".
- */
-.fehler {
-	margin: 0;
-	color: var(--ink-primary);
-	font-family: var(--body-font);
-	font-size: var(--body-size);
-	font-weight: var(--body-weight);
-	line-height: var(--body-line);
 }
 
 /*
@@ -415,15 +401,47 @@ select.feld {
  * Modifikator steht **hinter** der Grundfarbe, damit er bei gleicher
  * Spezifität gewinnt — dieselbe Bauform wie `.hinweis--am-feld`.
  *
- * `.leer` teilt die Rampe und trägt trotzdem seinen eigenen Namen: „der leere
- * Zustand" ist eine Aussage über die Liste darüber, nicht über die Schrift.
- * Wer die Klasse liest, soll sehen, warum der Satz dasteht, und nicht nur, wie
- * er aussieht. Dass die zwei heute gleich aussehen, ist eine Entscheidung des
- * Rahmens und keine Kopplung: eine spätere Fassung darf den leeren Zustand
- * anders setzen, ohne den Fliesstext mitzunehmen.
+ * `.leer`, `.fehler` und `.meldung` teilen die Rampe und tragen trotzdem ihre
+ * eigenen Namen: „der leere Zustand" ist eine Aussage über die Liste darüber,
+ * „der Fehlersatz" eine über den Versuch davor und „die Rückmeldung" eine über
+ * den geglückten Vorgang — keine über die Schrift. Wer die Klasse liest, soll
+ * sehen, warum der Satz dasteht, und nicht nur, wie er aussieht. Dass die vier
+ * heute dieselbe Rampe tragen, ist eine Entscheidung des Rahmens und keine
+ * Kopplung: eine spätere Fassung darf den leeren Zustand anders setzen, ohne
+ * den Fliesstext mitzunehmen.
+ *
+ * **Die Farbe ist das, was sie unterscheidet, und sie steht je einzeln
+ * darunter** — `--ink-primary` für den Satz und den Fehler, `--ink-secondary`
+ * für das Gedämpfte und den leeren Zustand, `--accent` für die Rückmeldung.
+ * Vier Namen, eine Rampe, drei Farben.
+ *
+ * **`.fehler` und `.meldung` standen bis zum 2026-08-30 als eigene
+ * Regelkörper**, jeder byte-gleich mit dieser Rampe plus seiner Farbe.
+ * Gate-Regel 14b sah die zwei Zwillinge nicht, weil sie ihre `color` **im
+ * selben** Rumpf trugen, während sie hier in einer zweiten Regel steht —
+ * sortiert waren die Deklarationslisten damit verschieden, und eine Regel, die
+ * Rümpfe vergleicht, vergleicht Rümpfe und keine Absichten. Retro-Posten B1 aus
+ * dem zweiten Lauf zu Epic 3 hat `.fehler` von Hand gefunden; `.meldung` fiel
+ * beim Nachmessen desselben Befunds auf und ist derselbe Fall. Aufgelöst, indem
+ * beide der Rampe beitreten, statt sie ein drittes und viertes Mal
+ * hinzuschreiben.
+ *
+ * **Was die Regel weiterhin nicht sieht:** eine Obermenge. Gemessen am
+ * 2026-08-30 blieben nach diesen zwei Zügen fünf Regelpaare übrig, bei denen
+ * der eine Rumpf den anderen vollständig enthält (`.feld` ⊇ `.zeilenform`,
+ * `.karte` ⊇ `.knoepfe`, …), und die sind alle zufällig — eine Regel darüber
+ * wäre zu vier Fünfteln Fehlalarm. Darum ist sie nicht gebaut, und darum
+ * mussten diese zwei hier von Hand gefunden werden.
+ *
+ * Der Fehlersatz ist dabei **keine Farbaussage**: er steht als Satz da und
+ * trägt darum die gewöhnliche Textfarbe. Rot ist in dieser Anwendung dem
+ * zerstörenden Knopf vorbehalten und sagt „das hier zerstört etwas", nicht
+ * „das hier ging schief".
  */
+.fehler,
 .fliesstext,
-.leer {
+.leer,
+.meldung {
 	margin: 0;
 	font-family: var(--body-font);
 	font-size: var(--body-size);
@@ -431,6 +449,7 @@ select.feld {
 	line-height: var(--body-line);
 }
 
+.fehler,
 .fliesstext {
 	color: var(--ink-primary);
 }
@@ -577,6 +596,11 @@ select.feld {
  * Die Rückmeldung eines geglückten Vorgangs — der Satz in Akzentfarbe über der
  * Seite, den die höfliche Live-Region ansagt.
  *
+ * **Hier steht nur noch die Farbe.** Die Rampe kommt seit dem 2026-08-30 aus
+ * der geteilten Fliesstext-Regel weiter oben, in der `.meldung` mitsteht; was
+ * die Rückmeldung von Fehlersatz und leerem Zustand unterscheidet, ist der
+ * Akzent und sonst nichts.
+ *
  * Lag dreimal gleichlautend in `/`, `/dienstplan` und `/verwaltung`. Die
  * Retrospektive Epic 3 hat gemessen, dass die drei nicht nur gleich **aussehen**,
  * sondern verhaltensgleich sind: dieselben fünf Attribute, nur in anderer
@@ -595,12 +619,7 @@ select.feld {
  * die Region von Hand danebenzuschreiben — die Behauptung schon.
  */
 .meldung {
-	margin: 0;
 	color: var(--accent);
-	font-family: var(--body-font);
-	font-size: var(--body-size);
-	font-weight: var(--body-weight);
-	line-height: var(--body-line);
 }
 
 /*
@@ -637,6 +656,24 @@ select.feld {
 /*
  * Der Griff. Trefferfeld über die volle Breite und 44px hoch, Text in der
  * Akzentfarbe: er sieht aus wie eine Aktion, weil er eine ist.
+ *
+ * **Die Voreinstellung `display: list-item` bleibt stehen: sie ist es, die das
+ * Dreieck malt, und das Dreieck ist die einzige Anzeige, dass hier etwas
+ * aufgeht.** `display: flex` nähme es weg — dann sähe der Griff aus wie ein
+ * Satz Text.
+ *
+ * Diese Warnung stand in **beiden** lokalen Fassungen des Griffs und ist beim
+ * Zusammenlegen aus dem Kommentar gefallen; die Retrospektive Epic 3 hat sie
+ * als Posten R7 zurückverlangt. Sie wiegt hier schwerer als vorher: das
+ * `min-height: var(--touch)` darüber zentriert an einem `list-item` nicht
+ * senkrecht, der naheliegende nächste Griff ist darum `display: flex;
+ * align-items: center` — und der nähme das Dreieck jetzt auf **allen** Seiten
+ * zugleich weg statt auf einer. Das ist der eigentliche Preis einer
+ * Zusammenlegung: nicht die Zeilen, die verschwinden, sondern das Wissen, das
+ * mit der zweiten Kopie verschwindet.
+ *
+ * Bewacht wird sie von Gate-Regel 15, damit sie nicht ein zweites Mal
+ * unbemerkt verschwinden kann.
  */
 .zeilenform__griff {
 	min-height: var(--touch);
