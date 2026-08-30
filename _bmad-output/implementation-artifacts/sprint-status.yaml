@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-26-2026 13:20
-last_updated: "08-29-2026 22:53"
+last_updated: "08-30-2026 08:22"
 project: Gemeinschaftsgarten
 project_key: NOKEY
 tracking_system: file-system
@@ -91,14 +91,14 @@ action_items:
     epic: 1
     action: "AD-12 und Stack-Tabelle auf die gebaute Wirklichkeit umschreiben (B6)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
   - id: "epic-1-retro-item-6-ad-13-von-beim-modulladen-auf-beim-start"
     epic: 1
     action: "AD-13 von beim Modulladen auf beim Start korrigieren, ORIGIN aufnehmen
       (B7)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
   - id: "epic-1-retro-item-7-entscheiden-pruefwerkzeug-in-die-archite"
     epic: 1
@@ -111,7 +111,7 @@ action_items:
     epic: 1
     action: "Restliche Plan-Ist-Abweichungen in einem Durchgang nachziehen (B9)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
   - id: "epic-1-retro-item-9-geteilte-stile-nach-bedienelemente-css-z"
     epic: 1
@@ -218,7 +218,7 @@ action_items:
     action: "src/lib/zeit.ts und src/lib/aufgabentext.ts in den Quellbaum der ARCHITECTURE-SPINE.md
       aufnehmen (A1)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-25-experience-md-79-101-von-colors-warn-auf"
     epic: 2
@@ -232,7 +232,7 @@ action_items:
     action: "Offene Plan-Ist-Abweichungen aus Epic 1 in einem Durchgang nachziehen
       (Epic-1-Punkte 5, 6, 8)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-27-abgleich-schritt-zwischen-die-epics-setz"
     epic: 2
@@ -310,7 +310,7 @@ action_items:
     action: "Den Quellbaum der ARCHITECTURE-SPINE in einem Zug nachziehen: 17 fehlende
       Module, dutyWeeks.ts, db/migrations/, CAP-6 auf zwei Routen, /mehr (A1, A2)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
   - id: "epic-3-retro-item-38-die-neun-uebrigen-doppelten-css-regelkoe"
     epic: 3
