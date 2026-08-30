@@ -106,19 +106,27 @@ export const AUFGABE_NICHT_ANSPRECHBAR =
 	'Diese Aufgabe lässt sich nicht ansprechen. Lade die Liste neu.';
 
 /**
- * Ein Wurf in einer action. **Sieben** Wurfstellen, und gezählt werden
+ * Ein Wurf in einer action. **Acht** Wurfstellen, und gezählt werden
  * **Rückrufe**, nicht Seiten: je einer auf `/aufgabe`, `/monatsplan`,
- * `/verwaltung`, `/dienstplan` und `/einzelaufgabe`, und **zwei** auf `/` — das
- * Abhaken im Pool und das Bestätigen der Übernahme. Die Zahl stand bis Story 3.2
+ * `/verwaltung`, `/dienstplan` und `/einzelaufgabe`, und **drei** auf `/` — das
+ * Abhaken im Pool, das Bestätigen der Übernahme und der Ausfallweg des Knopfs
+ * in der Zeile. Die Zahl stand bis Story 3.2
  * auf vier und stimmte seit Story 3.1 nicht mehr; sie zählte ausserdem Seiten,
  * und genau diese Zählweise verdeckte, dass eine Seite mehr als einen Rückruf
  * tragen kann. scripts/smoke-zugang.ts schneidet seit dieser Story die einzelnen
  * Rückrufrümpfe und ist die Quelle, dieser Satz die Beschreibung.
  *
- * /einzelaufgaben trägt keinen — die Seite hat kein Formular. Der dritte
- * `use:enhance` auf `/` (der Knopf in der Zeile) trägt ebenfalls keinen: sein
- * Rückruf bricht den Versand ab und gibt gar keine Fortsetzung zurück, es gibt
- * also kein `result`, das ein Wurf erreichen könnte.
+ * /einzelaufgaben trägt keinen — die Seite hat kein Formular.
+ *
+ * Der dritte `use:enhance` auf `/` (der Knopf in der Zeile) ist der achte, und
+ * er ist seit dem Review vom 2026-08-30 mitgezählt. Sein Regelweg bricht den
+ * Versand ab und gibt keine Fortsetzung zurück — dort gibt es kein `result`,
+ * das ein Wurf erreichen könnte. Sein **Ausfallweg** aber, wenn `dialog` nicht
+ * gebunden ist, lässt den gewöhnlichen POST laufen, und dann gibt es eines. Bis
+ * zu diesem Review gab er dort gar nichts zurück, use:enhance fuhr sein
+ * Vorgabeverhalten, und der Wurf lief über applyAction an dieser Regel vorbei
+ * in die Fehlergrenze. Ein Ausfallweg ist keine Ausnahme von der Regel: er ist
+ * der Weg, auf dem am ehesten etwas schiefgeht.
  *
  * Der Satz vertritt einen Fall, den bis dahin niemand vertrat. Ohne ihn reicht
  * das gereichte update() ein `result.type === 'error'` an applyAction weiter,
@@ -221,6 +229,23 @@ export const FRIST_AUSSERHALB =
 	'Diese Frist liegt mehr als ein Jahr von heute entfernt. Prüfe die Jahreszahl.';
 
 /**
+ * Die Folge einer Zusage. **Zwei Stellen**, beide in src/routes/+page.svelte:
+ * der Dialog und der Frageblock ohne JavaScript.
+ *
+ * Er steht hier und nicht als Literal im Markup, weil er auf **beiden** Wegen
+ * derselbe sein muss. Bis zum Review vom 2026-08-30 trug ihn allein der Dialog;
+ * wer ohne JavaScript zusagte, las nur, **was** er übernimmt, und nicht, **warum**
+ * gerade diese Handlung gefragt wird. Die Bestätigung ist eine Eigenschaft des
+ * Servers und der Dialog die Aufwertung — dann darf die Aufwertung nicht die
+ * Begründung tragen.
+ *
+ * Der Satz nennt die Folge und nicht die Handlung: dass der Name danach für alle
+ * sichtbar danebensteht, ist genau das, was die Zusage verbindlich macht und was
+ * eine Poolaufgabe nicht kennt.
+ */
+export const UEBERNAHME_FOLGE = 'Dein Name steht danach für alle daneben.';
+
+/**
  * Die nicht ansprechbare Einzelaufgabe. **Vier** Wurfstellen, alle in der action
  * `uebernehmen` in src/routes/+page.server.ts — zwei vor der Verzweigung, je
  * eine im Bestätigungs- und im Übernahmeschritt —, und alle werfen **denselben**
@@ -243,6 +268,13 @@ export const FRIST_AUSSERHALB =
  *
  * Der Satz sagt, was zu tun ist, statt zu erklären, was schiefging: alle sechs
  * Fälle entstehen praktisch nur, wenn die angezeigte Liste veraltet ist.
+ *
+ * **Eine fünfte Lesestelle, und ausdrücklich keine sechste Wurfstelle:**
+ * src/routes/+page.svelte setzt denselben Satz in `fehlerOben`, wenn die
+ * zurückgegebene Frage zwischen der Antwort der action und dem Rendern ihre
+ * Zeile verliert. Dort wird nichts abgewiesen — die HTTP-Antwort ist die
+ * erfolgreiche `fragen`-Antwort —, sondern angezeigt. Es ist derselbe Zustand
+ * wie Fall 6 aus der Sicht der lesenden Person, und darum derselbe Satz.
  */
 export const EINZELAUFGABE_NICHT_ANSPRECHBAR =
 	'Diese Einzelaufgabe lässt sich nicht ansprechen. Lade die Liste neu.';

@@ -86,9 +86,14 @@ import { WOCHE_SEKUNDEN } from '../src/lib/zeit.ts';
  * So viele Behauptungen muss ein vollständiger Lauf ablegen, die Schlusszählung
  * selbst nicht mitgerechnet. Wer eine hinzufügt oder entfernt, zieht die Zahl
  * mit — genau wie in scripts/smoke-zugang.ts. Eine Seite mehr in `seiten` sind
- * sieben Behauptungen mehr, und dieselbe Zahl steht in README.md.
+ * sieben Behauptungen mehr.
+ *
+ * **Diese Zahl steht nur hier.** Der Docblock behauptete bis zum Review vom
+ * 2026-08-30, dieselbe stehe in README.md; sie stand dort nie. Eine Zahl an zwei
+ * Stellen, von denen eine niemand rot macht, ist schlechter als eine Zahl an
+ * einer — die Schlussmeldung des Laufs nennt sie ohnehin bei jedem Durchgang.
  */
-const ERWARTETE_BEHAUPTUNGEN = 140;
+const ERWARTETE_BEHAUPTUNGEN = 141;
 
 const GUTES_GEHEIMNIS = 'smoke-http-geheimnis-mit-genug-verschiedenen-zeichen-0123456789';
 
@@ -1592,8 +1597,14 @@ try {
 		],
 		[
 			// Mit dem Wochendatum daneben, sonst sagt der Satz nicht, welche Woche.
+			// Seit dem Review vom 2026-08-30 trägt es die **geteilte** Rolle
+			// `hinweis hinweis--ziffern` statt einer eigenen Klasse: der Regelkörper
+			// war byte-gleich mit ihr, und die SEITENFORM-Wache in smoke-zugang.ts
+			// hält ihn jetzt an einer Stelle.
 			'mit dem Wochendatum',
-			/<span\b[^>]*\bclass="dienst__datum[ "][^>]*>[^<]*[0-9]{1,2}\./.test(startseiteMitDienstHtml),
+			/<span\b[^>]*\bclass="hinweis hinweis--ziffern"[^>]*>[^<]*[0-9]{1,2}\./.test(
+				startseiteMitDienstHtml
+			),
 		],
 		[
 			// Und **ganz** fort bei der anderen Person: kein leerer Rahmen, kein
@@ -1974,6 +1985,65 @@ try {
 		'der zweite POST sagt zu — und die Einzelaufgabe wechselt die Seite',
 		fehlendeTeile(zusageTeile).length === 0,
 		`fehlt: ${fehlendeTeile(zusageTeile).join(', ')} (Status ${zugesagt.status})`
+	);
+
+	/*
+	 * **Beide Zustände nebeneinander, an einem ausgelieferten /einzelaufgaben.**
+	 *
+	 * Bis zum Review vom 2026-08-30 wurde diese Seite in diesem Lauf zweimal
+	 * geholt — im `seiten`-Durchlauf mit **leerer** Tabelle und hier oben erst
+	 * **nach** der Zusage, als die einzige Einzelaufgabe schon einen Namen trug.
+	 * Es gab keinen Moment mit einer freien Zeile, und darum war der `{#if}`, der
+	 * die einzige Auskunft dieser Seite trägt, von keiner Behauptung berührt: der
+	 * Zweig liess sich kollabieren, und `smoke` **und** `smoke:http` blieben beide
+	 * grün. Gemessen als ausgeführte Mutation, nicht vermutet.
+	 *
+	 * **Ausgeschrieben wird als Nicht-Adminperson**, und das schliesst zugleich
+	 * die zweite Lücke: der ganze `seiten`-Durchlauf und der erste
+	 * Ausschreiben-POST fahren mit `adminKeks`, während die zentrale Zusage der
+	 * Route lautet, sie habe keine eigene Zugangsschranke und ausschreiben dürfe
+	 * jedes aktive Mitglied. Diese Zusage war nur auf Unit-Ebene gedeckt.
+	 */
+	const zweiterTitel = 'Kompost umsetzen am Samstag';
+	const alsMitgliedGeholt = await holen(port, '/einzelaufgabe', { keks: mitgliedKeks });
+	const zweitAusgeschrieben = await abschicken(port, '/einzelaufgabe?/ausschreiben', mitgliedKeks, {
+		titel: zweiterTitel,
+		termin: terminMitte,
+	});
+	const beideHtml = await (await holen(port, '/einzelaufgaben', { keks: mitgliedKeks })).text();
+	// Der Seitenbereich ohne die geteilte Hülle — dieselbe Schnittform wie oben.
+	const beideSeite = (() => {
+		const von = beideHtml.indexOf('<h1 class="seitentitel');
+		const bis = beideHtml.indexOf('</main>');
+		return von >= 0 && bis > von ? beideHtml.slice(von, bis) : '';
+	})();
+	const beideTeile = [
+		[
+			'eine Nicht-Adminperson bekommt /einzelaufgabe ausgeliefert',
+			alsMitgliedGeholt.status === 200,
+		],
+		[
+			'und darf ausschreiben — dieselbe Weiterleitung wie die Adminperson',
+			zweitAusgeschrieben.status === 303 &&
+				(zweitAusgeschrieben.headers.get('location') ?? '') === '/?ausgeschrieben',
+		],
+		['der Seitenbereich ist überhaupt geschnitten', beideSeite !== ''],
+		['die übernommene Zeile steht da', beideSeite.includes(einzelTitel)],
+		['die freie ebenso', beideSeite.includes(zweiterTitel)],
+		['die übernommene trägt den Namen der zusagenden Person', beideSeite.includes('Manu Mitglied')],
+		[
+			'die freie trägt `noch niemand` — und zwar genau einmal',
+			beideSeite.split('noch niemand').length - 1 === 1,
+		],
+		[
+			'die freie steht **vor** der übernommenen — geordnet wird nach Termin, dann Id',
+			beideSeite.indexOf(einzelTitel) < beideSeite.indexOf(zweiterTitel),
+		],
+	] as const;
+	pruefen(
+		'/einzelaufgaben zeigt beide Zustände nebeneinander — und ausschreiben darf jedes Mitglied',
+		fehlendeTeile(beideTeile).length === 0,
+		`fehlt: ${fehlendeTeile(beideTeile).join(', ')} (Status ${alsMitgliedGeholt.status}/${zweitAusgeschrieben.status})`
 	);
 
 	/*

@@ -21,8 +21,14 @@
 	Lesen erklärt werden müsste.
 
 	**Zwei Einträge und nicht einer**, obwohl beide dieselbe Sache betreffen:
-	`Einzelaufgabe ausschreiben` ist eine Handlung, `Übernommene Einzelaufgaben`
-	ist eine Auskunft. Der zweite ist zugleich der Weg, der **immer** besteht —
+	`Einzelaufgabe ausschreiben` ist eine Handlung, `Alle Einzelaufgaben` ist eine
+	Auskunft.
+
+	Der zweite hiess bis zum Review vom 2026-08-30 `Übernommene Einzelaufgaben`
+	und versprach damit weniger, als die Seite hält: dort stehen **alle**, freie
+	wie übernommene, und genau das ist die Auskunft, die dort gesucht wird. Der
+	Eintrag trägt jetzt denselben Namen wie die Seite selbst und wie der Fusslink
+	aus Block 2 — ein Ziel, ein Name. Der zweite ist zugleich der Weg, der **immer** besteht —
 	Block 2 auf der Startseite führt auch dorthin, fehlt aber ganz, sobald nichts
 	frei ist. Ohne ihn wäre die Seite an manchen Tagen unerreichbar.
 -->
@@ -41,7 +47,7 @@
 		</li>
 		<li>
 			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-			<a class="eintrag" href={resolve('/einzelaufgaben')}>Übernommene Einzelaufgaben</a>
+			<a class="eintrag" href={resolve('/einzelaufgaben')}>Alle Einzelaufgaben</a>
 		</li>
 		{#if data.istAdmin}
 			<li>

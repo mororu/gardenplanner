@@ -199,7 +199,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 592;
+const ERWARTETE_BEHAUPTUNGEN = 597;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -2643,6 +2643,18 @@ try {
 		'zwei Personen bekommen von / dieselbe Aufgabenliste — der Pool bleibt namenlos',
 		JSON.stringify(alsNico.aufgaben) === JSON.stringify(alsVera.aufgaben),
 		`${JSON.stringify(alsNico.aufgaben).slice(0, 120)} gegen ${JSON.stringify(alsVera.aufgaben).slice(0, 120)}`
+	);
+	/*
+	 * Und dieselbe Zusage für Block 2. Sie stand seit Story 3.2 als Prosa in der
+	 * load („die freien Einzelaufgaben sind für alle dieselben"), gemessen wurde
+	 * bis zum Review vom 2026-08-30 allein der Pool — die Zeile darüber. Ein
+	 * `.filter(…)` über `locals.mitglied` in freieEinzelaufgabenLesen wäre grün
+	 * durchgekommen, und genau diese Versuchung benennt der Docblock der load.
+	 */
+	pruefen(
+		'zwei Personen bekommen von / dieselben freien Einzelaufgaben — Block 2 ist für alle gleich',
+		JSON.stringify(alsNico.einzelaufgaben) === JSON.stringify(alsVera.einzelaufgaben),
+		`${JSON.stringify(alsNico.einzelaufgaben).slice(0, 120)} gegen ${JSON.stringify(alsVera.einzelaufgaben).slice(0, 120)}`
 	);
 	pruefen(
 		'die Seitendaten tragen weder completed_by noch completed_at',
@@ -6019,6 +6031,17 @@ try {
 		['.zeilenform', /^[ \t]*\.zeilenform\s*\{/m],
 		['.zeilenform__griff', /^[ \t]*\.zeilenform__griff\s*\{/m],
 		['.zeilenform__formular', /^[ \t]*\.zeilenform__formular\s*\{/m],
+		/*
+		 * `.hinweis--ziffern` war beim Review vom 2026-08-30 die **einzige** neue
+		 * geteilte Regel ohne Eintrag hier, und der Eintrag `.hinweis` darüber deckt
+		 * sie nicht: auf `.hinweis` folgt in `.hinweis--ziffern {` ein `-` und kein
+		 * `\s*\{`. Daneben schrieben `.dienst__datum` und `.woche__datum` dieselbe
+		 * Regel byte-gleich weiter; beide benutzen jetzt die geteilte Rolle.
+		 *
+		 * `.woche__jahr` **nicht** — er trägt kein `line-height`, und als Span in der
+		 * Zeile der Wochennummer ist das der Unterschied und keine Nachlässigkeit.
+		 */
+		['.hinweis--ziffern', /^[ \t]*\.hinweis--ziffern\s*\{/m],
 	] as const;
 	const STILBLATT = join('src', 'lib', 'styles', 'bedienelemente.css');
 	const unterSrc = baum.filter((datei) => datei.pfad.startsWith(join('src', '')));
@@ -6251,10 +6274,16 @@ try {
 	 * auf einer Seite, die schon einen hat, wäre ungedeckt eingezogen.
 	 *
 	 * Geschnitten wird an `return async (…) => {`: so beginnt in diesem Baum jede
-	 * Fortsetzung einer SubmitFunction, und genau die kann ein `result` sehen. Der
-	 * dritte `use:enhance` auf `/` (der Knopf in der Zeile) hat keine — sein
-	 * Rückruf bricht den Versand ab und gibt nichts zurück. Er wird darum nicht
-	 * gezählt und muss auch nichts abfangen.
+	 * Fortsetzung einer SubmitFunction, und genau die kann ein `result` sehen.
+	 *
+	 * Der dritte `use:enhance` auf `/` (der Knopf in der Zeile) ist der **achte**
+	 * und seit dem Review vom 2026-08-30 mitgezählt. Sein Regelweg bricht den
+	 * Versand ab und gibt nichts zurück; sein Ausfallweg — `dialog` nicht
+	 * gebunden — lässt den gewöhnlichen POST laufen und gibt darum sehr wohl eine
+	 * Fortsetzung zurück. Bis zu jenem Review gab er dort **gar nichts** zurück,
+	 * use:enhance fuhr sein Vorgabeverhalten, und ein Wurf lief über applyAction
+	 * an dieser Behauptung vorbei in die Fehlergrenze. Ein Ausfallweg ist keine
+	 * Ausnahme von der Regel.
 	 *
 	 * Der Schnitt beginnt am **Pfeil** und nicht am Fund: `return async ({` trägt
 	 * seine eigene geschweifte Klammer für die Destrukturierung, und glatterRumpf
@@ -6269,7 +6298,7 @@ try {
 		})
 	);
 	const wurfTeile = [
-		['es gibt überhaupt Rückrufe zu prüfen', rueckrufe.length >= 7] as const,
+		['es gibt überhaupt Rückrufe zu prüfen', rueckrufe.length >= 8] as const,
 		...rueckrufe.map(
 			([name, rumpf]) =>
 				[
@@ -6648,9 +6677,16 @@ try {
 			'die Wochennummer steht in Tabellenstellung',
 			/\.woche__nummer \{[^}]*font-variant-numeric: tabular-nums/.test(dienstplanCode),
 		],
+		/*
+		 * Das Wochendatum trägt sie seit dem Review vom 2026-08-30 über die
+		 * **geteilte** Rolle: `.woche__datum` war byte-gleich mit
+		 * `.hinweis hinweis--ziffern`, und die Regel dafür liegt jetzt an einer
+		 * Stelle (die SEITENFORM-Wache hält sie dort). Gemessen wird darum das
+		 * Markup und nicht mehr ein lokaler Regelkörper, den es nicht mehr gibt.
+		 */
 		[
-			'das Wochendatum ebenso',
-			/\.woche__datum \{[^}]*font-variant-numeric: tabular-nums/.test(dienstplanCode),
+			'das Wochendatum ebenso, über die geteilte Rolle',
+			/<p class="hinweis hinweis--ziffern">\{wochendatum\(eintrag\)\}<\/p>/.test(dienstplanCode),
 		],
 		/*
 		 * Die Wochenrechnung wird **importiert** und nicht nachgebaut. Ein
@@ -7407,6 +7443,163 @@ try {
 		'Abbrechen verwirft — auf beiden Wegen, und keiner davon schickt ab',
 		fehlendeTeile(abbrechenTeile).length === 0,
 		`fehlt: ${fehlendeTeile(abbrechenTeile).join(', ')}`
+	);
+
+	/*
+	 * **Der Weg mit JavaScript, ausgeführt statt behauptet.**
+	 *
+	 * Bis zum Review vom 2026-08-30 war der ganze abgesicherte Bereich dieser
+	 * Story der Ausfallweg: `smoke:http` kennt kein JavaScript, und die
+	 * Rückruf-Schleife weiter oben schneidet nur `return async (…) => {` — den
+	 * synchronen Pfeil von `versandFragen` sah sie nie. Die Probe darauf war eine
+	 * ausgeführte Mutation: `cancel()` gestrichen, und der ganze Lauf blieb grün,
+	 * während die Person den Dialog **und** den ins Dokument gerenderten
+	 * Frageblock nebeneinander gesehen hätte. Genau der Zustand, gegen den
+	 * `zweiKnoepfeTeile` gebaut wurde.
+	 *
+	 * Gemessen wird der geschnittene Rumpf und nicht die Datei: `cancel()` kommt
+	 * auf dieser Seite dreimal vor, und eine Suche über das Ganze bliebe grün,
+	 * wenn ausgerechnet dieser eine Aufruf verschwände.
+	 */
+	/*
+	 * Geschnitten wird am **Körper** und nicht am Fund. `function versandFragen(
+	 * aufgabe: { id: number; … })` trägt seine eigene geschweifte Klammer für den
+	 * Typ, und glatterRumpf nähme die — es käme `id: number; titel: string; …`
+	 * heraus statt des Rumpfs. Dieselbe Falle wie beim Pfeil in der Rückruf-
+	 * Schleife weiter oben, und sie ist hier zweimal gemessen: die erste Fassung
+	 * schnitt drei Typannotationen und machte drei Zeilen rot.
+	 *
+	 * `koerperRumpf` sucht darum die erste `{` auf **Klammertiefe null** — also
+	 * die, die nach der schliessenden Parameterklammer kommt.
+	 */
+	const koerperRumpf = (quelle: string, name: string): string => {
+		const start = quelle.indexOf(name);
+		if (start < 0) return '';
+		let tiefe = 0;
+		for (let i = start; i < quelle.length; i += 1) {
+			const z = quelle[i];
+			if (z === '(') tiefe += 1;
+			else if (z === ')') tiefe -= 1;
+			else if (z === '{' && tiefe === 0) return glatterRumpf(quelle, i);
+		}
+		return '';
+	};
+
+	const fragenRumpf = koerperRumpf(startseiteCodeEinzel, 'function versandFragen');
+	const fragenTeile = [
+		['der Rumpf ist überhaupt geschnitten', fragenRumpf !== ''],
+		['er bricht den Versand ab', /cancel\(\);/.test(fragenRumpf)],
+		[
+			'der Ausstieg ohne Dialog steht **vor** dem Abbruch',
+			fragenRumpf.indexOf('dialog === null') >= 0 &&
+				fragenRumpf.indexOf('dialog === null') < fragenRumpf.indexOf('cancel();'),
+		],
+		[
+			'und dieser Ausstieg fängt den Wurf ab, statt gar nichts zurückzugeben',
+			/dialog === null[\s\S]*?result\.type === 'error'[\s\S]*?VERSAND_FEHLGESCHLAGEN[\s\S]*?cancel\(\);/.test(
+				fragenRumpf
+			),
+		],
+		['ein laufender Versand öffnet nichts', /if \(imFlug\) return;/.test(fragenRumpf)],
+		['und sonst wird gefragt', /uebernahmeFragen\(aufgabe\)/.test(fragenRumpf)],
+	] as const;
+	pruefen(
+		'der Knopf in der Zeile schickt nie ab — und sein Ausfallweg fängt den Wurf trotzdem',
+		fehlendeTeile(fragenTeile).length === 0,
+		`fehlt: ${fehlendeTeile(fragenTeile).join(', ')}`
+	);
+
+	/*
+	 * **Das Öffnen des Dialogs, in der Reihenfolge, auf die es ankommt.**
+	 *
+	 * `tick()` vor dem Zugriff auf den Abbrechen-Knopf: der Inhalt des Dialogs
+	 * hängt an `zuUebernehmen`, und Svelte baut den DOM erst nach der Zuweisung.
+	 * Und `focus()` **nach** `showModal()`: ohne den Griff fokussierte der Dialog
+	 * sein erstes fokussierbares Element — den Übernehmen-Knopf —, und ein Enter
+	 * direkt nach dem Öffnen wäre eine Zusage, die niemand gelesen hat. Beide
+	 * Zeilen liessen sich vor diesem Review streichen, ohne dass ein Lauf rot wurde.
+	 */
+	const oeffnenRumpf = koerperRumpf(startseiteCodeEinzel, 'async function uebernahmeFragen');
+	const oeffnenTeile = [
+		['der Rumpf ist überhaupt geschnitten', oeffnenRumpf !== ''],
+		[
+			'ohne gebundenen Dialog geschieht nichts',
+			/if \(dialog === null\) return;/.test(oeffnenRumpf),
+		],
+		[
+			'der Inhalt entsteht vor dem Warten',
+			/zuUebernehmen = aufgabe;[\s\S]*?await tick\(\);/.test(oeffnenRumpf),
+		],
+		[
+			'ohne Abbrechen-Knopf wird nicht geöffnet, sondern ein Satz gesagt',
+			/abbrechenKnopf === null[\s\S]*?VERSAND_FEHLGESCHLAGEN[\s\S]*?return;/.test(oeffnenRumpf),
+		],
+		[
+			'und der Fokus geht **nach** dem Öffnen auf Abbrechen',
+			oeffnenRumpf.indexOf('dialog.showModal();') >= 0 &&
+				oeffnenRumpf.indexOf('dialog.showModal();') <
+					oeffnenRumpf.indexOf('abbrechenKnopf.focus();'),
+		],
+	] as const;
+	pruefen(
+		'der Dialog geht erst auf, wenn sein Inhalt steht — und der Daumen landet auf Abbrechen',
+		fehlendeTeile(oeffnenTeile).length === 0,
+		`fehlt: ${fehlendeTeile(oeffnenTeile).join(', ')}`
+	);
+
+	/*
+	 * **Der zweite Schritt: schliessen, bevor irgendetwas anderes geschieht.**
+	 * `close()` gibt den Fokus an das Element zurück, das ihn vor `showModal()`
+	 * hatte; eine danach gesetzte Position überschriebe es wieder. Das Gegenstück
+	 * auf /verwaltung trägt diese Behauptung seit Story 1.3, das hiesige fehlte.
+	 */
+	const bestaetigenRumpf = koerperRumpf(startseiteCodeEinzel, 'const versandBestaetigen');
+	const bestaetigenTeile = [
+		['der Rumpf ist überhaupt geschnitten', bestaetigenRumpf !== ''],
+		[
+			'der Dialog schliesst **vor** dem Aktualisieren',
+			bestaetigenRumpf.indexOf('dialog?.close();') >= 0 &&
+				bestaetigenRumpf.indexOf('dialog?.close();') < bestaetigenRumpf.indexOf('await update()'),
+		],
+		[
+			'und nach einer geglückten Übernahme holt die Meldung den Fokus',
+			/artVon\(result\) === 'uebernommen'[\s\S]*?meldungKasten\?\.focus\(\)/.test(bestaetigenRumpf),
+		],
+	] as const;
+	pruefen(
+		'der Dialog gibt den Fokus zurück, bevor die Meldung ihn holt',
+		fehlendeTeile(bestaetigenTeile).length === 0,
+		`fehlt: ${fehlendeTeile(bestaetigenTeile).join(', ')}`
+	);
+
+	/*
+	 * **Beide Bestätigungswege tragen denselben Text.** Der Satz aus
+	 * `uebernahmeSatz` stand schon auf beiden; die **Folge** — der Grund, warum
+	 * diese eine Handlung überhaupt bestätigt wird — trug bis zum Review vom
+	 * 2026-08-30 allein der Dialog. Entschieden: sie ist Substanz und keine
+	 * Aufwertung, und darum steht sie jetzt auf beiden Wegen und als Konstante an
+	 * einer Stelle.
+	 */
+	const folgeTeile = [
+		[
+			'der Dialog nennt die Folge',
+			/id="uebernahme-text"[\s\S]{0,200}?\{UEBERNAHME_FOLGE\}/.test(startseiteCodeEinzel),
+		],
+		[
+			'das Dokument ohne JavaScript nennt sie auch',
+			/id="einzel-frage-\{aufgabe\.id\}"[\s\S]{0,200}?\{UEBERNAHME_FOLGE\}/.test(einzelBlock),
+		],
+		[
+			'und der Wortlaut steht nirgends als Literal',
+			unterSrc
+				.filter((datei) => datei.text.includes('steht danach für alle daneben'))
+				.every((datei) => datei.pfad === join('src', 'lib', 'texte.ts')),
+		],
+	] as const;
+	pruefen(
+		'die zwei Bestätigungswege sagen dasselbe — auch die Folge, nicht nur die Sache',
+		fehlendeTeile(folgeTeile).length === 0,
+		`fehlt: ${fehlendeTeile(folgeTeile).join(', ')}`
 	);
 
 	/*

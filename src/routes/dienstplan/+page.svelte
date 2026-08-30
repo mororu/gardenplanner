@@ -227,7 +227,7 @@
 							<span class="woche__jahr">{eintrag.jahr}</span>
 							{#if istLaufend}<span class="woche__marke">diese Woche</span>{/if}
 						</p>
-						<p class="woche__datum">{wochendatum(eintrag)}</p>
+						<p class="hinweis hinweis--ziffern">{wochendatum(eintrag)}</p>
 					</div>
 					<!--
 						Unbesetzt trägt **das Wort**, die Farbe kommt dazu. Kein Zustand
@@ -370,6 +370,14 @@
 		Frage, die sich nur an vier Zeilen im Jahr stellt, und soll die
 		Wochennummer nicht zerteilen.
 	*/
+	/*
+		**Bleibt lokal, und das ist gemessen und nicht vergessen.** Er ist
+		`.hinweis hinweis--ziffern` **ohne** `line-height` — als Span in der Zeile
+		von `.woche__nummer` würde ein eigenes `line-height` die Zeilenbox der
+		Wochennummer zerteilen. Eine Eigenschaft Unterschied bei einem inline
+		gesetzten Element ist kein Duplikat, sondern eine andere Regel; vermerkt in
+		deferred-work.md zum Review vom 2026-08-30.
+	*/
 	.woche__jahr {
 		color: var(--ink-secondary);
 		font-family: var(--meta-font);
@@ -383,16 +391,6 @@
 		font-family: var(--meta-font);
 		font-size: var(--meta-size);
 		font-weight: var(--meta-weight);
-	}
-
-	.woche__datum {
-		margin: 0;
-		color: var(--ink-secondary);
-		font-family: var(--meta-font);
-		font-size: var(--meta-size);
-		font-weight: var(--meta-weight);
-		line-height: var(--meta-line);
-		font-variant-numeric: tabular-nums;
 	}
 
 	/*

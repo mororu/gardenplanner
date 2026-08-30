@@ -7,7 +7,11 @@
 	import { tick } from 'svelte';
 	import type { PageProps } from './$types';
 	import { datumLang } from '$lib/client/utils/date';
-	import { EINZELAUFGABE_NICHT_ANSPRECHBAR, VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
+	import {
+		EINZELAUFGABE_NICHT_ANSPRECHBAR,
+		UEBERNAHME_FOLGE,
+		VERSAND_FEHLGESCHLAGEN,
+	} from '$lib/texte';
 
 	const { data, form }: PageProps = $props();
 
@@ -349,8 +353,23 @@
 		if (dialog === null) return;
 		zuUebernehmen = aufgabe;
 		await tick();
+		/*
+			Fehlt der Abbrechen-Knopf, wird **nicht** geöffnet — und die Person
+			bekommt trotzdem einen Satz. Der Versand ist zu diesem Zeitpunkt schon
+			abgebrochen: der Knopf entsteht erst mit dem Inhalt des Dialogs, also
+			erst nach der Zuweisung an `zuUebernehmen` und dem tick() darüber, und
+			bis dahin ist `cancel()` in versandFragen gelaufen. Es gibt von hier
+			keinen Weg zurück auf den gewöhnlichen POST.
+
+			Darum die Fehlerregion statt der Stille: sonst wäre genau das der
+			schlechteste Ausgang, gegen den der Kommentar in versandFragen steht —
+			nichts geschieht, und der Knopf sieht tot aus. Ein Satz, der zum
+			Neuladen rät, ist die ehrliche Antwort auf einen Dialog, der nicht
+			aufgeht.
+		*/
 		if (abbrechenKnopf === null) {
 			zuUebernehmen = null;
+			versandFehler = VERSAND_FEHLGESCHLAGEN;
 			return;
 		}
 		dialog.showModal();
@@ -384,7 +403,27 @@
 				Ausbleiben der zerstörenden Handlung der sichere Ausgang, hier ist es
 				das Ausbleiben der Kernhandlung.
 			*/
-			if (dialog === null) return;
+			if (dialog === null) {
+				/*
+					**Auch dieser Zweig fängt den Wurf ab.** Gäbe er nichts zurück,
+					führe use:enhance sein Vorgabeverhalten — und ein
+					`result.type === 'error'` erreichte über applyAction die
+					Fehlergrenze statt der Live-Region. Die Regel gilt für **jeden**
+					Rückruf dieser Anwendung, und ein Ausfallweg ist keine Ausnahme
+					davon: er ist der Weg, auf dem am ehesten etwas schiefgeht.
+
+					`update()` mit den Vorgaben, also mit invalidateAll — der Server
+					antwortet hier mit der Frage als Dokument, und die Seite muss sie
+					rendern.
+				*/
+				return async ({ update, result }) => {
+					if (result.type === 'error') {
+						versandFehler = VERSAND_FEHLGESCHLAGEN;
+						return;
+					}
+					await update();
+				};
+			}
 			cancel();
 			if (imFlug) return;
 			void uebernahmeFragen(aufgabe);
@@ -508,7 +547,7 @@
 		<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
 		<a class="dienst" href={resolve('/dienstplan')}>
 			<span class="dienst__satz">Diese Woche bist du am Tränken</span>
-			<span class="dienst__datum">{data.dienst.datum}</span>
+			<span class="hinweis hinweis--ziffern">{data.dienst.datum}</span>
 		</a>
 	{/if}
 
@@ -596,8 +635,11 @@
 
 					<!--
 						Die Bestätigung **ohne JavaScript**, an der Zeile, um die es geht.
-						Mit JavaScript entsteht sie nie — der Rückruf oben bricht den ersten
-						Versand ab, und `form` wird nie auf `fragen` gesetzt.
+						Mit JavaScript entsteht sie im Regelfall nie — der Rückruf oben bricht
+						den ersten Versand ab, und `form` wird dann nicht auf `fragen` gesetzt.
+						Die Ausnahme ist sein Ausfallweg: ist `dialog` nicht gebunden, läuft
+						der gewöhnliche POST, und dann steht diese Frage im Dokument. Genau so
+						soll es sein — sie ist dort die einzige Bestätigung, die es gibt.
 
 						Ohne use:enhance, denn sie ist der Weg für den Fall, in dem es kein
 						enhance gibt. `Abbrechen` ist ein Link auf `/` und kein Knopf: er
@@ -610,8 +652,22 @@
 					-->
 					{#if frageHier && frage !== null}
 						<div class="einzel__frage">
+							<!--
+								**Derselbe Satz und dieselbe Folge wie im Dialog.** `uebernahmeSatz`
+								nennt, was übernommen wird; `UEBERNAHME_FOLGE` sagt, warum das
+								verbindlich ist. Der zweite Teil ist Substanz und keine Zierde —
+								er ist der Grund, warum diese eine Handlung im ganzen
+								Aufgabenbereich eine Bestätigung bekommt —, und darum steht er
+								auf **beiden** Wegen. Entschieden im Review vom 2026-08-30; die
+								Behauptung darüber hält fest, dass die zwei Wege denselben Text
+								tragen.
+
+								Die Überschrift bleibt dem Dialog: sie benennt ein Fenster, nicht
+								den Vorgang. Hier trägt die Zeile selbst den Zusammenhang.
+							-->
 							<p class="fliesstext" id="einzel-frage-{aufgabe.id}">
 								{uebernahmeSatz(frage)}
+								{UEBERNAHME_FOLGE}
 							</p>
 							<form class="knoepfe" method="POST" action="?/uebernehmen">
 								<input type="hidden" name="einzelaufgabeId" value={frage.id} />
@@ -827,7 +883,8 @@
 	{#if zuUebernehmen !== null}
 		<h2 class="abschnittstitel" id="uebernahme-titel">Einzelaufgabe übernehmen?</h2>
 		<p class="bestaetigung__text" id="uebernahme-text">
-			{uebernahmeSatz(zuUebernehmen)} Dein Name steht danach für alle daneben.
+			{uebernahmeSatz(zuUebernehmen)}
+			{UEBERNAHME_FOLGE}
 		</p>
 		<form method="POST" action="?/uebernehmen" use:enhance={versandBestaetigen}>
 			<input type="hidden" name="einzelaufgabeId" value={zuUebernehmen.id} />
@@ -884,16 +941,6 @@
 		font-size: var(--body-size);
 		font-weight: var(--body-weight);
 		line-height: var(--body-line);
-	}
-
-	/* Das Wochendatum trägt die Nebentext-Rolle, Ziffern in Tabellenstellung */
-	.dienst__datum {
-		color: var(--ink-secondary);
-		font-family: var(--meta-font);
-		font-size: var(--meta-size);
-		font-weight: var(--meta-weight);
-		line-height: var(--meta-line);
-		font-variant-numeric: tabular-nums;
 	}
 
 	/*
