@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-26-2026 13:20
-last_updated: "08-30-2026 19:20"
+last_updated: "08-30-2026 19:55"
 project: Gemeinschaftsgarten
 project_key: NOKEY
 tracking_system: file-system
@@ -135,20 +135,23 @@ action_items:
     epic: 1
     action: "Story-Abschluss um einen Spec-Abgleich ergaenzen"
     owner: "Manuel"
-    status: open
+    status: in-progress
+    vermerk: "Als R1 in _bmad-output/implementation-artifacts/arbeitsregeln.md formuliert (Entwurf vom 2026-08-30). Bleibt offen bis zu zwei Entscheidungen durch Manuel: die Regel abnehmen, und ihr einen Ort geben, an dem sie gelesen wird (AGENTS.md im Wurzelbaum oder eine Skill-Anpassung ueber bmad-customize). Eine Regel in einer Datei, die kein Ablauf oeffnet, ist genau der Zustand, den diese Punkte seit drei Retrospektiven beschreiben."
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
   - id: "epic-1-retro-item-13-entdeckte-gefahr-einer-story-loest-pruef"
     epic: 1
     action: "Entdeckte Gefahr einer Story loest Pruefung der frueheren Fundstellen
       aus"
     owner: "Manuel"
-    status: open
+    status: in-progress
+    vermerk: "Als R2 in _bmad-output/implementation-artifacts/arbeitsregeln.md formuliert (Entwurf vom 2026-08-30). Bleibt offen bis zu zwei Entscheidungen durch Manuel: die Regel abnehmen, und ihr einen Ort geben, an dem sie gelesen wird (AGENTS.md im Wurzelbaum oder eine Skill-Anpassung ueber bmad-customize). Eine Regel in einer Datei, die kein Ablauf oeffnet, ist genau der Zustand, den diese Punkte seit drei Retrospektiven beschreiben."
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
   - id: "epic-1-retro-item-14-stories-ueber-der-token-empfehlung-vor-d"
     epic: 1
     action: "Stories ueber der Token-Empfehlung vor dem Bau teilen oder Annahme abnehmen"
     owner: "Manuel"
-    status: open
+    status: in-progress
+    vermerk: "Als R3 in _bmad-output/implementation-artifacts/arbeitsregeln.md formuliert (Entwurf vom 2026-08-30). Bleibt offen bis zu zwei Entscheidungen durch Manuel: die Regel abnehmen, und ihr einen Ort geben, an dem sie gelesen wird (AGENTS.md im Wurzelbaum oder eine Skill-Anpassung ueber bmad-customize). Eine Regel in einer Datei, die kein Ablauf oeffnet, ist genau der Zustand, den diese Punkte seit drei Retrospektiven beschreiben."
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
   - id: "epic-2-retro-item-15-fehlersatz-in-verwaltung-page-svelte-345"
     epic: 2
@@ -239,7 +242,8 @@ action_items:
     action: "Abgleich-Schritt zwischen die Epics setzen, damit der Spec-Abgleich ueberhaupt
       ausfuehrbar wird (P1)"
     owner: "Manuel"
-    status: open
+    status: in-progress
+    vermerk: "Als R1 (zweiter Absatz) in _bmad-output/implementation-artifacts/arbeitsregeln.md formuliert (Entwurf vom 2026-08-30). Bleibt offen bis zu zwei Entscheidungen durch Manuel: die Regel abnehmen, und ihr einen Ort geben, an dem sie gelesen wird (AGENTS.md im Wurzelbaum oder eine Skill-Anpassung ueber bmad-customize). Eine Regel in einer Datei, die kein Ablauf oeffnet, ist genau der Zustand, den diese Punkte seit drei Retrospektiven beschreiben."
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-28-deferred-work-md-vor-epic-3-triagieren-u"
     epic: 2
@@ -253,13 +257,15 @@ action_items:
     action: "Barrierefreiheit der Abnahme sichtbar machen: Pruefstufe oder einzeln
       als ungeprueft abnehmen (P3)"
     owner: "Manuel"
-    status: open
+    status: in-progress
+    vermerk: "Als R5 (dritter Absatz) in _bmad-output/implementation-artifacts/arbeitsregeln.md formuliert (Entwurf vom 2026-08-30). Bleibt offen bis zu zwei Entscheidungen durch Manuel: die Regel abnehmen, und ihr einen Ort geben, an dem sie gelesen wird (AGENTS.md im Wurzelbaum oder eine Skill-Anpassung ueber bmad-customize). Eine Regel in einer Datei, die kein Ablauf oeffnet, ist genau der Zustand, den diese Punkte seit drei Retrospektiven beschreiben."
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-30-sitzungsprotokolle-festhalten-wenigstens"
     epic: 2
     action: "Sitzungsprotokolle festhalten, wenigstens die Wendungen (P4)"
     owner: "Manuel"
-    status: open
+    status: in-progress
+    vermerk: "Als R4 -- abgeloest, nicht ausgefuehrt: der Spec Change Log traegt die Wendungen ohnehin in _bmad-output/implementation-artifacts/arbeitsregeln.md formuliert (Entwurf vom 2026-08-30). Bleibt offen bis zu zwei Entscheidungen durch Manuel: die Regel abnehmen, und ihr einen Ort geben, an dem sie gelesen wird (AGENTS.md im Wurzelbaum oder eine Skill-Anpassung ueber bmad-customize). Eine Regel in einer Datei, die kein Ablauf oeffnet, ist genau der Zustand, den diese Punkte seit drei Retrospektiven beschreiben."
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-31-fenster-von-einem-jahr-in-jede-richtung"
     epic: 2
@@ -354,14 +360,16 @@ action_items:
     action: "Den Spec Change Log zur Regel erheben, statt auf Sitzungsprotokolle zu
       warten - er traegt die Wendungen schon (F1, loest P4 aus Epic 2)"
     owner: "Manuel"
-    status: open
+    status: in-progress
+    vermerk: "Als R4 in _bmad-output/implementation-artifacts/arbeitsregeln.md formuliert (Entwurf vom 2026-08-30). Bleibt offen bis zu zwei Entscheidungen durch Manuel: die Regel abnehmen, und ihr einen Ort geben, an dem sie gelesen wird (AGENTS.md im Wurzelbaum oder eine Skill-Anpassung ueber bmad-customize). Eine Regel in einer Datei, die kein Ablauf oeffnet, ist genau der Zustand, den diese Punkte seit drei Retrospektiven beschreiben."
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
   - id: "epic-3-retro-item-44-eine-regel-fuer-die-abnahme-der-handprue"
     epic: 3
     action: "Eine Regel fuer die Abnahme der Handpruefungen: durchgefuehrt und datiert,
       oder ausdruecklich als ungeprueft abgenommen (F2)"
     owner: "Manuel"
-    status: open
+    status: in-progress
+    vermerk: "Als R5 in _bmad-output/implementation-artifacts/arbeitsregeln.md formuliert (Entwurf vom 2026-08-30). Bleibt offen bis zu zwei Entscheidungen durch Manuel: die Regel abnehmen, und ihr einen Ort geben, an dem sie gelesen wird (AGENTS.md im Wurzelbaum oder eine Skill-Anpassung ueber bmad-customize). Eine Regel in einer Datei, die kein Ablauf oeffnet, ist genau der Zustand, den diese Punkte seit drei Retrospektiven beschreiben."
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
   - id: "epic-3-retro-item-45-die-zwei-zaehler-aus-bucket-d-nachfuehre"
     epic: 3
@@ -445,14 +453,18 @@ action_items:
     action: "Aktionspunkt-Nachlaeufe bekommen einen Review wie Stories - drei Befunde
       dieses Laufs stammen aus fuenf ungereviewten Commits (F2)"
     owner: "Manuel"
-    status: open
+    status: done
+    abgeschlossen: "2026-08-30"
+    vermerk: "Der Nachlauf vom 2026-08-30 hat sich selbst gereviewt und drei eigene Befunde gefunden: eine weiche Untergrenze, wo die Prosa 'alle' sagte, und zwei Kommentaraussagen ueber die frisch gebaute Gate-Regel 15, von denen eine falsch war (sie sieht sehr wohl in @media-Bloecke). Als Regel R6 in arbeitsregeln.md festgehalten -- die Regel selbst wartet auf Abnahme, die Praxis ist einmal belegt."
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
   - id: "epic-3-retro-item-55-begruendung-einer-abweichend-geschlossen"
     epic: 3
     action: "Begruendung einer abweichend geschlossenen Aktion gehoert ins Register,
       nicht nur in die Commit-Nachricht (F1)"
     owner: "Manuel"
-    status: open
+    status: done
+    abgeschlossen: "2026-08-30"
+    vermerk: "Umgesetzt ueber die Felder abgeschlossen und vermerk am Aktionspunkt, erstmals angewandt auf die acht Punkte dieses Laufs. Als Regel R7 in arbeitsregeln.md festgehalten."
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
   - id: "epic-3-retro-item-56-stufe-c-entscheiden-kopfloser-browser-ge"
     epic: 3
