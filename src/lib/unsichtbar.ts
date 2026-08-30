@@ -1,12 +1,14 @@
 /*
  * Die unsichtbaren Zeichen — **die eine Stelle**, an der steht, welche das sind.
  *
- * Zwei Leser, und beide brauchen dieselbe Antwort: ./aufgabentext.ts faltet
- * einen Aufgabentext, ./mitgliedsname.ts einen Mitgliedsnamen. Bis zum
- * 2026-08-29 trug jedes der beiden Module eine eigene, wortgleiche Konstante
- * NULLBREITE, und die Verdopplung war dort ausdrücklich begründet: es geht
- * einmal um einen Aufgabentext und einmal um einen Namen, und eine Änderung an
- * der einen Regel soll die andere nicht still treffen.
+ * Drei Leser, und alle drei brauchen dieselbe Antwort: ./aufgabentext.ts faltet
+ * einen Aufgabentext, ./mitgliedsname.ts einen Mitgliedsnamen, ./blatttext.ts
+ * seit Story 4.1 den Freitext eines Wissensblatts.
+ *
+ * Bis zum 2026-08-29 trug jedes der damals zwei Module eine eigene, wortgleiche
+ * Konstante NULLBREITE, und die Verdopplung war dort ausdrücklich begründet: es
+ * geht einmal um einen Aufgabentext und einmal um einen Namen, und eine
+ * Änderung an der einen Regel soll die andere nicht still treffen.
  *
  * **Für diese Zeichenklasse trägt diese Begründung nicht**, und genau das haben
  * die Einträge 23 und 24 der zurückgestellten Arbeit über zwei Stories hinweg
@@ -29,7 +31,8 @@
  * Ohne dieses Aussieben besteht ein Text aus lauter solchen Zeichen jede
  * Prüfung: die Aufgabe erscheint im Pool als leere Zeile mit einem Kästchen
  * daneben, das Mitglied als leere Lücke in der Liste mit einem lebenden
- * Einladungslink. Für die Aufgabe gibt es dagegen bis heute kein Mittel — keine
+ * Einladungslink, das Wissensblatt als Titel ohne Wort in einer Liste, die nur
+ * Titel zeigt. Für die Aufgabe gibt es dagegen bis heute kein Mittel — keine
  * Bearbeiten- und keine Löschen-Aktion, Abhaken ist das Einzige, was bleibt.
  *
  * **Die Liste, Zeichen für Zeichen:**
@@ -80,9 +83,11 @@ const UNSICHTBAR =
 /**
  * Nimmt alle unsichtbaren Zeichen aus einem Text — und **nur** die.
  *
- * Leerraum bleibt unangetastet: das Zusammenziehen von `\s+` und das Trimmen
- * gehören zur Faltung der zwei aufrufenden Module und stehen dort, in der
- * Reihenfolge, die sie begründen.
+ * Leerraum bleibt unangetastet: das Zusammenziehen von `\s+`, das Normalisieren
+ * der Zeilenenden und das Trimmen gehören zur Faltung der drei aufrufenden
+ * Module und stehen dort, in der Reihenfolge, die sie begründen. Sie sind je
+ * verschieden — ./blatttext.ts zieht `\s+` ausdrücklich **nicht** zusammen —,
+ * und genau darum steht hier nur die Zeichenklasse.
  */
 export function unsichtbarEntfernen(eingabe: string): string {
 	return eingabe.replace(UNSICHTBAR, '');

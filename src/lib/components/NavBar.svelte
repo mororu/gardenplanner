@@ -2,14 +2,20 @@
 	import { page } from '$app/state';
 
 	/*
-	 * Vier Ziele mit Wort statt Symbol. Unbebaut ist noch /wissen; bis dahin
-	 * führt es auf die Fehlerseite mit `Diese Seite gibt es nicht.` /mehr steht
-	 * seit Story 1.3, /dienstplan seit Story 3.1.
+	 * Vier Ziele mit Wort statt Symbol. Alle vier sind seit Story 4.1 bebaut:
+	 * /mehr steht seit Story 1.3, /dienstplan seit Story 3.1, /wissen seit
+	 * Story 4.1 — bis dahin führte es auf die Fehlerseite mit
+	 * `Diese Seite gibt es nicht.`
 	 *
-	 * Die Zahl der **Ziele** bleibt bei vier: Story 3.2 legt zwei Routen an, aber
-	 * keine davon ist ein Ort, den man mehrmals in der Woche aufsucht. Eine
-	 * fünfte Beschriftung in einer Leiste, die bei 375px vier trägt, wäre der
-	 * teurere Handel.
+	 * Die Zahl der **Ziele** bleibt bei vier: Story 3.2 legt zwei Routen an und
+	 * Story 4.1 eine weitere unter einem bestehenden Ziel, aber keine davon ist
+	 * ein Ort, den man mehrmals in der Woche aufsucht. Eine fünfte Beschriftung
+	 * in einer Leiste, die bei 375px vier trägt, wäre der teurere Handel.
+	 *
+	 * Die Einzelansicht eines Blatts braucht **keinen** Eintrag in `gehoertDazu`:
+	 * sie liegt unter dem Pfad ihres Ziels, und `trifft` unten vergleicht an der
+	 * Segmentgrenze. Die Liste nennt nur Routen, die zu einem Ziel gehören, ohne
+	 * unter dessen Pfad zu liegen.
 	 *
 	 * **`gehoertDazu` nennt die Routen, die zu einem Ziel gehören, ohne unter
 	 * dessen Pfad zu liegen.** Das ist keine Bequemlichkeit, sondern die Antwort

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="de">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="manifest" href="/manifest.webmanifest" />
+		<meta name="theme-color" content="#2f6b3f" />
+		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#2f6b3f" />
+		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#7fbb8c" />
+		<style>
+			:root {
+				--surface-base: #f5f4ef;
+				--surface-raised: #ffffff;
+				--accent: #2f6b3f;
+				--gutter: 1rem;
+				--surface-white: #ffffff;
+				--surface_white: #fafafa;
+				--flaeche-Canvas: #eeeeee;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--surface-base: #12160f;
+					--surface-raised: #1a2018;
+					--accent: #7fbb8c;
+					--surface-white: #1a2018;
+					--surface_white: #151a13;
+					--flaeche-Canvas: #222222;
+				}
+			}
+			body {
+				background-color: var(--surface-base);
+				border-color: var(--surface-raised);
+			}
+		</style>
+		%sveltekit.head%
+	</head>
+	<body>
+		%sveltekit.body%
+	</body>
+</html>

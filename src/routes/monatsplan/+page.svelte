@@ -620,22 +620,6 @@
 	}
 
 	/*
-		Das Textfeld der Massen-Eingabe. .feld aus bedienelemente.css deckt Fläche,
-		Kante, Radius und die task-Rolle (16px, unter denen iOS beim Fokus
-		hineinzoomt) schon vollständig ab — hier bleiben genau zwei Dinge:
-
-		  - die Mindesthöhe aus dem Token, damit man beim Schreiben einer
-		    Monatsliste nicht in einem Schlitz tippt (DESIGN.md, textarea-bulk);
-		  - resize: vertical, weil ein waagerechtes Ziehen die einspaltige Seite
-		    sprengte, ein senkrechtes aber genau das ist, was jemand mit vierzig
-		    Zeilen will.
-	*/
-	.textfeld {
-		min-height: var(--textarea-bulk-min-height);
-		resize: vertical;
-	}
-
-	/*
 		Der Satz für den Fall ohne JavaScript. Als Karte und nicht als blosser
 		Absatz: er ist die einzige Auskunft auf einer Seite, deren Bedienelemente
 		dann alle wirkungslos sind, und muss sich von ihnen absetzen. Dieselbe

@@ -87,6 +87,7 @@ import {
 	dutyWeeks,
 	members,
 	ohneTokenHash,
+	sheets,
 	signupTasks,
 	tasks,
 } from '../src/lib/server/db/schema.ts';
@@ -163,6 +164,25 @@ import {
  */
 import { aufgabentextFalten, zeilenErkennen } from '../src/lib/aufgabentext.ts';
 /*
+ * Die Blattregel aus Story 4.1, ebenfalls als **Wert**. Die Zusage der Story
+ * lautet „Absätze und Zeilenumbrüche bleiben erhalten", und sie steht und fällt
+ * mit `blatttextFalten`; ein abgeschriebener Erwartungswert im Skript prüfte
+ * eine Behauptung über eine Behauptung. Die vier Sätze kommen aus demselben
+ * Grund von hier und nicht als Literal — dieselbe Begründung wie bei NAME_FEHLT
+ * darunter: die Zusage ist nicht der Wortlaut, sondern dass **beide** Routen
+ * dieselbe Regel werfen.
+ */
+import {
+	BLATT_HOECHSTLAENGE,
+	BLATT_TEXT_FEHLT,
+	BLATT_TEXT_ZU_LANG,
+	BLATT_TITEL_FEHLT,
+	BLATT_TITEL_ZU_LANG,
+	blattTextPruefen,
+	blattTitelPruefen,
+	blatttextFalten,
+} from '../src/lib/blatttext.ts';
+/*
  * Die Namensregel kommt als **Wert** herein und nicht als abgeschriebener Satz.
  *
  * Seit Story 3.0.1 hat sie drei Leser — die actions aufnehmen und umbenennen auf
@@ -199,7 +219,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 597;
+const ERWARTETE_BEHAUPTUNGEN = 631;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -382,7 +402,24 @@ class Ereignis {
 			for (const [feld, wert] of Object.entries(formular)) daten.set(feld, wert);
 			this.request = new Request(this.url, { method: 'POST', body: daten });
 		}
-		this.params = { token: pfad.replace(/^\/i\//, '').replace(/\/+$/, '') };
+		/*
+		 * Die Pfadparameter. `token` seit Story 1.2 für /i/[token], `id` seit
+		 * Story 4.1 für /wissen/[id].
+		 *
+		 * Beide werden aus dem Pfad **gerechnet** und nicht als Argument
+		 * mitgegeben: das Ereignis soll die Adresse abbilden, und ein Parameter,
+		 * den der Aufrufer frei setzt, könnte einen anderen sagen als der Pfad.
+		 * Genau die Verwechslung wäre in der action `aendern` ein geändertes
+		 * Blatt, das nicht das angezeigte ist.
+		 *
+		 * Ein Pfad ohne das jeweilige Muster ergibt eine leere Zeichenkette, und
+		 * die deutet `idLesen` in der Route als „keine Id" — dieselbe Antwort wie
+		 * auf `/wissen/abc`.
+		 */
+		this.params = {
+			token: pfad.replace(/^\/i\//, '').replace(/\/+$/, ''),
+			id: (/^\/wissen\/([^/?]*)/.exec(pfad) ?? ['', ''])[1] ?? '',
+		};
 		this.cookies = this.kekse.alsCookies();
 		if (keks !== undefined) this.kekse.saat('sitzung', keks);
 	}
@@ -663,6 +700,44 @@ async function einzelaufgabenLaden(): Promise<EinzelaufgabenModul> {
 	einzelaufgabenModul ??=
 		(await import('../src/routes/einzelaufgaben/+page.server.ts')) as unknown as EinzelaufgabenModul;
 	return einzelaufgabenModul;
+}
+
+/*
+ * Die zwei Wissen-Seiten aus Story 4.1.
+ *
+ * Die Liste bringt eine load **ohne** Ereignis mit — alle sehen dieselbe Liste,
+ * es gibt keine persönliche Sicht auf Wissen —, und der Typ hier sagt das mit:
+ * `load: () => unknown`. Der Aufruf weiter unten fährt ohne Argument; fordert
+ * die load je eines, greift sie auf undefined zu und wirft, und der Rahmen macht
+ * daraus eine benannte Verletzung. Dieselbe Bauform wie bei MonatsplanModul.
+ */
+type WissenModul = {
+	load: () => unknown;
+	actions: Record<string, Aktion>;
+};
+let wissenModul: WissenModul | null = null;
+
+async function wissenLaden(): Promise<WissenModul> {
+	wissenModul ??= (await import('../src/routes/wissen/+page.server.ts')) as unknown as WissenModul;
+	return wissenModul;
+}
+
+/*
+ * Das einzelne Blatt. Anders als die Liste **braucht** seine load ein Ereignis:
+ * sie liest die Kennung aus `params` und die zwei Meldungsparameter aus `url`.
+ * Sie liest weiterhin weder locals noch cookies — lesen darf jedes aktive
+ * Mitglied, und der Wächter hat den Rest schon abgewiesen.
+ */
+type BlattseitenModul = {
+	load: (ereignis: ServerLoadEvent) => unknown;
+	actions: Record<string, Aktion>;
+};
+let blattseitenModul: BlattseitenModul | null = null;
+
+async function blattseiteLaden(): Promise<BlattseitenModul> {
+	blattseitenModul ??=
+		(await import('../src/routes/wissen/[id]/+page.server.ts')) as unknown as BlattseitenModul;
+	return blattseitenModul;
 }
 
 /*
@@ -5869,6 +5944,8 @@ try {
 		['/verwaltung', quelltext('src', 'routes', 'verwaltung', '+page.server.ts')],
 		['/dienstplan', quelltext('src', 'routes', 'dienstplan', '+page.server.ts')],
 		['/einzelaufgabe', quelltext('src', 'routes', 'einzelaufgabe', '+page.server.ts')],
+		['/wissen', quelltext('src', 'routes', 'wissen', '+page.server.ts')],
+		['/wissen/[id]', quelltext('src', 'routes', 'wissen', '[id]', '+page.server.ts')],
 	] as const;
 	/*
 	 * **Die Seite /einzelaufgaben steht in keiner der zwei Listen**, und das ist
@@ -5877,6 +5954,15 @@ try {
 	 * zieht `abweisen` aus dem Modul, jeder Rückruf fängt einen Wurf ab) hätten
 	 * dort nichts zu greifen. Dass sie wirklich keines hat, hält der Story-3.2-
 	 * Block weiter unten fest.
+	 *
+	 * Die zwei Wissen-Seiten stehen seit Story 4.1 drin, und der Review
+	 * dieser Story hat sie gefunden: sie waren zuerst nicht eingetragen. Beide
+	 * haben ein Formular und beide rufen `abweisen` — sie fielen damit aus genau
+	 * den zwei geteilten Behauptungen heraus, die für Seiten dieser Art da sind,
+	 * und ihr eigener Prüfblock weiter unten hätte das nicht bemerkt. Das ist die
+	 * Klasse, gegen die diese Listen stehen: eine Story prüft, was sie gebaut hat,
+	 * und übersieht, wovon sie Teil geworden ist. Angehängt und nicht einsortiert,
+	 * aus dem Grund im Block darüber.
 	 */
 	const seitenKomponenten = [
 		['/', quelltext('src', 'routes', '+page.svelte')],
@@ -5885,6 +5971,8 @@ try {
 		['/verwaltung', quelltext('src', 'routes', 'verwaltung', '+page.svelte')],
 		['/dienstplan', quelltext('src', 'routes', 'dienstplan', '+page.svelte')],
 		['/einzelaufgabe', quelltext('src', 'routes', 'einzelaufgabe', '+page.svelte')],
+		['/wissen', quelltext('src', 'routes', 'wissen', '+page.svelte')],
+		['/wissen/[id]', quelltext('src', 'routes', 'wissen', '[id]', '+page.svelte')],
 	] as const;
 
 	const abweisenTeile = [
@@ -5897,7 +5985,7 @@ try {
 			!seitenServer.some(([, text]) => /function abweisen\s*[(<]/.test(text)),
 		],
 		[
-			'alle sechs ziehen sie aus dem Modul',
+			'alle acht ziehen sie aus dem Modul',
 			seitenServer.every(([, text]) =>
 				/import \{ abweisen \} from '[^']*\/abweisen\.ts';/.test(text)
 			),
@@ -6124,11 +6212,27 @@ try {
 	const navTeile = [
 		['der Rumpf des ziele-Arrays ist geschnitten', zieleRumpf !== ''],
 		['die Leiste kennt vier Ziele', (zieleRumpf.match(/beschriftung:/g) ?? []).length === 4],
-		...gerenderteRouten.map(
-			(route) => [`${route} gehört zu einem Eintrag`, genannteRouten.includes(route)] as const
-		),
 	] as const;
 	/*
+	 * **Diese eine Zeile trägt jetzt beide Aussagen** — genau einer, und
+	 * mindestens einer.
+	 *
+	 * Bis Story 4.1 stand daneben eine zweite, schärfere und darum falsche: jede
+	 * gerenderte Route musste im `ziele`-Literal **wörtlich** vorkommen. Das ging
+	 * gut, solange jede Route entweder selbst ein Ziel war oder aus einem anderen
+	 * Zweig des Baums kam. Story 4.1 legt mit der Einzelansicht eines Blatts die
+	 * erste Route an, die **unter** dem Pfad ihres Ziels liegt — die Leiste
+	 * markiert sie über die Segmentgrenze und braucht keinen Eintrag. Jene Fassung
+	 * hätte sie als Waise gemeldet und einen Eintrag verlangt, der die Zuordnung
+	 * verdoppelt hätte.
+	 *
+	 * Der erste Ersatz war eine eigene Waisen-Behauptung daneben. Der Review zu
+	 * Story 4.1 hat sie als **überflüssig** entlarvt, und zwar zu Recht: `zahl !==
+	 * 1` fängt die Null schon mit, und zwei Zeilen für dieselbe Aussage sind eine
+	 * Wache, die man beim nächsten Umbau halb stehen lässt. Der Fall aus Eintrag
+	 * 28 der zurückgestellten Arbeit — eine neue Formularroute in einem eigenen
+	 * Zweig, die niemand einträgt — fällt hier weiterhin, mit `zahl === 0`.
+	 *
 	 * **Genau ein** Eintrag je Route und nicht bloss mindestens einer. Story 3.2
 	 * legt mit /einzelaufgabe und /einzelaufgaben zwei Pfade an, die sich um
 	 * einen Buchstaben unterscheiden; griffe der Vergleich an der Segmentgrenze
@@ -6161,7 +6265,7 @@ try {
 		}))
 		.filter(({ zahl }) => zahl !== 1);
 	pruefen(
-		'jede gerenderte Route wird von genau einem Eintrag beansprucht, nicht von zweien',
+		'jede gerenderte Route wird von genau einem Eintrag beansprucht — nicht von zweien und nicht von keinem',
 		eintraege.length === 4 && mehrdeutig.length === 0,
 		`${eintraege.length} Einträge geschnitten; mehrdeutig: ${mehrdeutig
 			.map(({ route, zahl }) => `${route} von ${zahl}`)
@@ -6173,9 +6277,9 @@ try {
 		(/const trifft =[\s\S]{0,200}/.exec(navCode) ?? [''])[0]
 	);
 	pruefen(
-		'jede gerenderte Route steht in der Navigationsleiste — als Ziel oder als zugehörig',
+		'der Rumpf des ziele-Arrays ist geschnitten und trägt vier Ziele',
 		fehlendeTeile(navTeile).length === 0,
-		`verletzt: ${fehlendeTeile(navTeile).join(', ')} — gefunden im Baum: ${gerenderteRouten.join(', ')}, genannt: ${genannteRouten.join(', ')}`
+		`verletzt: ${fehlendeTeile(navTeile).join(', ')} — genannt: ${genannteRouten.join(', ')}`
 	);
 
 	/*
@@ -6239,7 +6343,7 @@ try {
 		})
 	);
 	const wurfTeile = [
-		['es gibt überhaupt Rückrufe zu prüfen', rueckrufe.length >= 8] as const,
+		['es gibt überhaupt Rückrufe zu prüfen', rueckrufe.length >= 10] as const,
 		...rueckrufe.map(
 			([name, rumpf]) =>
 				[
@@ -7660,6 +7764,580 @@ try {
 		'die Felder auf /einzelaufgabe tragen dieselben Grenzen wie die action',
 		fehlendeTeile(feldTeileEinzel).length === 0,
 		`fehlt: ${fehlendeTeile(feldTeileEinzel).join(', ')}`
+	);
+
+	// -----------------------------------------------------------------------
+	// Story 4.1 — Referenz-Sheets lesen und schreiben
+	// -----------------------------------------------------------------------
+	/*
+	 * Die Faltung des Freitexts, ausgeführt und nicht beschrieben.
+	 *
+	 * Sie ist der Kern der Story: „Absätze und Zeilenumbrüche bleiben beim
+	 * Anzeigen erhalten" ist die einzige Formatierungszusage eines Blatts, und
+	 * sie steht und fällt mit dieser Funktion. Ein Blatt-Freitext, der durch
+	 * `aufgabentextFalten` liefe, wäre eine Textwand — die Gegenprobe darunter
+	 * belegt genau das und ist der Grund, warum es ein zweites Modul gibt.
+	 */
+	const absatzText = 'Gute Nachbarn\n\nKohl und Sellerie.';
+	const faltungTeile = [
+		['der Absatz bleibt stehen', blatttextFalten(absatzText) === absatzText],
+		['ein einzelner Umbruch bleibt', blatttextFalten('eins\nzwei') === 'eins\nzwei'],
+		['\\r\\n wird zu \\n', blatttextFalten('eins\r\nzwei') === 'eins\nzwei'],
+		['ein einzelnes \\r ebenso', blatttextFalten('eins\rzwei') === 'eins\nzwei'],
+		[
+			'Leerraum am Zeilenende fällt, die Leerzeile bleibt',
+			blatttextFalten('eins   \n   \nzwei') === 'eins\n\nzwei',
+		],
+		['drei und mehr Umbrüche werden zu zweien', blatttextFalten('a\n\n\n\n\nb') === 'a\n\nb'],
+		['aussen wird getrimmt', blatttextFalten('\n\n  a  \n\n') === 'a'],
+		['ein Text aus lauter unsichtbaren Zeichen faltet auf leer', blatttextFalten('​ ​\n​') === ''],
+		[
+			'Leerraum **innerhalb** einer Zeile bleibt unangetastet',
+			blatttextFalten('a    b') === 'a    b',
+		],
+	] as const;
+	pruefen(
+		'blatttextFalten lässt Absätze stehen und räumt alles andere auf',
+		fehlendeTeile(faltungTeile).length === 0,
+		`fehlt: ${fehlendeTeile(faltungTeile).join(', ')}`
+	);
+	/*
+	 * Die Gegenprobe, und sie ist die Begründung des Moduls in ausführbarer Form:
+	 * derselbe Text durch den Aufgabenfalter verliert seine Absätze. Wer die zwei
+	 * je zusammenlegt, macht diese Zeile rot.
+	 */
+	pruefen(
+		'und aufgabentextFalten frässe sie — darum zwei Module und nicht eines',
+		aufgabentextFalten(absatzText) === 'Gute Nachbarn Kohl und Sellerie.',
+		JSON.stringify(aufgabentextFalten(absatzText))
+	);
+
+	/*
+	 * Die Deutung. Die Sätze kommen als **Wert** aus dem geteilten Modul und
+	 * nicht als abgeschriebenes Literal — dieselbe Begründung wie bei NAME_FEHLT:
+	 * die Zusage lautet nicht „dieser Wortlaut", sondern „beide Routen werfen
+	 * dieselbe Regel".
+	 */
+	const grenzTitel = 'a'.repeat(AUFGABE_HOECHSTLAENGE);
+	const grenzText = 'b'.repeat(BLATT_HOECHSTLAENGE);
+	const pruefungTeile = [
+		[
+			'der leere Titel fällt mit BLATT_TITEL_FEHLT',
+			JSON.stringify(blattTitelPruefen('  ​ ')) === JSON.stringify({ fehler: BLATT_TITEL_FEHLT }),
+		],
+		[
+			'genau auf der Grenze geht der Titel durch',
+			JSON.stringify(blattTitelPruefen(grenzTitel)) === JSON.stringify({ titel: grenzTitel }),
+		],
+		[
+			'ein Zeichen darüber fällt er',
+			JSON.stringify(blattTitelPruefen(`${grenzTitel}a`)) ===
+				JSON.stringify({ fehler: BLATT_TITEL_ZU_LANG }),
+		],
+		[
+			'ein Emoji zählt als **ein** Codepoint und nicht als zwei',
+			'titel' in blattTitelPruefen(`${'a'.repeat(AUFGABE_HOECHSTLAENGE - 1)}🥕`),
+		],
+		[
+			'der leere Text fällt mit BLATT_TEXT_FEHLT',
+			JSON.stringify(blattTextPruefen('\n\n \n')) === JSON.stringify({ fehler: BLATT_TEXT_FEHLT }),
+		],
+		[
+			'genau auf der Grenze geht der Text durch',
+			JSON.stringify(blattTextPruefen(grenzText)) === JSON.stringify({ text: grenzText }),
+		],
+		[
+			'ein Zeichen darüber fällt er',
+			JSON.stringify(blattTextPruefen(`${grenzText}b`)) ===
+				JSON.stringify({ fehler: BLATT_TEXT_ZU_LANG }),
+		],
+	] as const;
+	pruefen(
+		'die zwei Blatt-Prüfungen werfen die Sätze des geteilten Moduls',
+		fehlendeTeile(pruefungTeile).length === 0,
+		`fehlt: ${fehlendeTeile(pruefungTeile).join(', ')}`
+	);
+
+	const wissen = await wissenLaden();
+	const blatt = await blattseiteLaden();
+
+	/*
+	 * Die load von /wissen nimmt **kein Ereignis**: alle sehen dieselbe Liste.
+	 * Der Aufruf ohne Argument ist die Behauptung — fordert sie je eines, greift
+	 * sie auf undefined zu und wirft.
+	 */
+	const leereListe = await routenausgang(() => wissen.load());
+	pruefen(
+		'die load von /wissen läuft ohne Ereignis und zeigt anfangs nichts',
+		Array.isArray(wertVon(leereListe).blaetter) &&
+			(wertVon(leereListe).blaetter as unknown[]).length === 0,
+		JSON.stringify(wertVon(leereListe).blaetter ?? null)
+	);
+	pruefen(
+		'und sie gibt die zwei Grenzen aus den Konstanten weiter',
+		wertVon(leereListe).titelGrenze === AUFGABE_HOECHSTLAENGE &&
+			wertVon(leereListe).textGrenze === BLATT_HOECHSTLAENGE,
+		JSON.stringify(wertVon(leereListe))
+	);
+
+	/*
+	 * Anlegen. Weitergeleitet wird auf **das Blatt** und nicht auf die Liste: wer
+	 * gerade zwei Absätze getippt hat, sähe dort nur eine Zeile mehr.
+	 */
+	const angelegt = await routenausgang(() =>
+		wissen.actions.anlegen(
+			alsMitglied('/wissen', null, {
+				titel: '  Gute   Nachbarn  ',
+				text: absatzText,
+			}).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'anlegen leitet mit 303 auf das frische Blatt weiter',
+		angelegt.art === 'weiter' &&
+			angelegt.status === 303 &&
+			/^\/wissen\/[0-9]+\?angelegt$/.test(angelegt.ort),
+		angelegt.art === 'weiter' ? `${angelegt.status} auf ${angelegt.ort}` : `Ausgang ${angelegt.art}`
+	);
+	const ersteId = Number(
+		(/^\/wissen\/([0-9]+)/.exec(angelegt.art === 'weiter' ? angelegt.ort : '') ?? ['', '0'])[1]
+	);
+
+	/*
+	 * Gespeichert wird die **gefaltete** Fassung — der Titel einzeilig und
+	 * zusammengezogen, der Freitext mit seinen Absätzen.
+	 */
+	const ersteZeile = datenbank().select().from(sheets).where(eq(sheets.id, ersteId)).get();
+	pruefen(
+		'gespeichert ist die gefaltete Fassung: Titel einzeilig, Absätze im Text',
+		ersteZeile?.titel === 'Gute Nachbarn' && ersteZeile?.text === absatzText,
+		JSON.stringify(ersteZeile ?? null)
+	);
+	/*
+	 * **Keine Autorenspalte, keine Version, kein updated_at** — die Zusage der
+	 * Story, gelesen an der Zeile selbst und nicht am Schema-Quelltext: eine
+	 * Spalte, die eine spätere Migration nachträgt, fällt hier auf.
+	 */
+	pruefenGleich(
+		'die Zeile trägt genau vier Spalten — ohne Autor, ohne Version, ohne updated_at',
+		Object.keys(ersteZeile ?? {})
+			.sort()
+			.join(', '),
+		'createdAt, id, text, titel'
+	);
+
+	/*
+	 * Die Liste. Sie trägt **nur** Kennung und Titel: der Freitext eines Blatts
+	 * kann achttausend Zeichen tragen, und ihn für eine Titelliste mitzuliefern
+	 * hiesse, ihn ins ausgelieferte HTML jeder Listenansicht zu legen.
+	 */
+	await routenausgang(() =>
+		wissen.actions.anlegen(
+			alsMitglied('/wissen', null, {
+				titel: 'Anbau im Tunnel',
+				text: 'Früh und warm.',
+			}).alsRequestEvent()
+		)
+	);
+	const zweiBlaetter = wertVon(await routenausgang(() => wissen.load())).blaetter as {
+		id: number;
+		titel: string;
+	}[];
+	pruefenGleich(
+		'die Liste ordnet nach dem Titel und nicht nach der Zeit',
+		zweiBlaetter.map((zeile) => zeile.titel).join(' | '),
+		'Anbau im Tunnel | Gute Nachbarn'
+	);
+	/*
+	 * **Und sie ordnet ohne Rücksicht auf die Grossschreibung.** Ohne
+	 * `COLLATE NOCASE` gilt SQLites Byte-Ordnung, und die stellt alle
+	 * Grossbuchstaben vor alle kleinen: `zucchini` stünde dann hinter beiden
+	 * grossgeschriebenen statt zwischen ihnen. Ein einziges klein angefangenes
+	 * Blatt genügt, damit die Liste kaputt aussieht — Review-Befund zu Story 4.1,
+	 * und die Zeile hier ist der Beleg, dass die Sortierregel wirklich greift.
+	 */
+	await routenausgang(() =>
+		wissen.actions.anlegen(
+			alsMitglied('/wissen', null, { titel: 'zucchini', text: 'Viel Platz.' }).alsRequestEvent()
+		)
+	);
+	pruefenGleich(
+		'und die Grossschreibung entscheidet dabei nicht mit',
+		(wertVon(await routenausgang(() => wissen.load())).blaetter as { titel: string }[])
+			.map((zeile) => zeile.titel)
+			.join(' | '),
+		'Anbau im Tunnel | Gute Nachbarn | zucchini'
+	);
+	pruefenGleich(
+		'und sie trägt nur Kennung und Titel — der Freitext bleibt in der Datenbank',
+		[...new Set(zweiBlaetter.flatMap((zeile) => Object.keys(zeile)))].sort().join(', '),
+		'id, titel'
+	);
+
+	/*
+	 * Das einzelne Blatt. `createdAt` reist nicht mit — ein Zeitpunkt in den
+	 * Seitendaten wäre der erste Schritt zu einem „zuletzt geändert", das diese
+	 * Story ausdrücklich nicht baut.
+	 */
+	const gelesen = await routenausgang(() =>
+		blatt.load(alsMitglied(`/wissen/${ersteId}`, null).alsServerLoadEvent())
+	);
+	pruefenGleich(
+		'das Blatt kommt mit Titel und Text und ohne Zeitstempel',
+		JSON.stringify(wertVon(gelesen).blatt ?? null),
+		JSON.stringify({ id: ersteId, titel: 'Gute Nachbarn', text: absatzText })
+	);
+	pruefen(
+		'und die Meldung eines Anlegens überlebt die Weiterleitung',
+		wertVon(
+			await routenausgang(() =>
+				blatt.load(alsMitglied(`/wissen/${ersteId}?angelegt`, null).alsServerLoadEvent())
+			)
+		).angelegt === true,
+		'?angelegt wurde nicht gelesen'
+	);
+
+	/*
+	 * Ändern. Wer ändert, ändert für alle — es entsteht **keine** zweite Zeile,
+	 * und der vorige Stand ist fort. Genau das heisst „keine Versionen".
+	 */
+	const geaendert = await routenausgang(() =>
+		blatt.actions.aendern(
+			alsMitglied(`/wissen/${ersteId}`, null, {
+				titel: 'Gute Nachbarn',
+				text: 'Kohl mag Sellerie.\n\nZwiebel mag Karotte.',
+			}).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'aendern leitet mit 303 auf dasselbe Blatt zurück',
+		geaendert.art === 'weiter' &&
+			geaendert.status === 303 &&
+			geaendert.ort === `/wissen/${ersteId}?geaendert`,
+		geaendert.art === 'weiter'
+			? `${geaendert.status} auf ${geaendert.ort}`
+			: `Ausgang ${geaendert.art}`
+	);
+	pruefen(
+		'die Änderung gilt für alle — dieselbe Zeile, kein zweiter Datensatz',
+		datenbank().select().from(sheets).all().length === 3 &&
+			datenbank().select().from(sheets).where(eq(sheets.id, ersteId)).get()?.text ===
+				'Kohl mag Sellerie.\n\nZwiebel mag Karotte.',
+		JSON.stringify(datenbank().select().from(sheets).all())
+	);
+
+	/*
+	 * Die Abweisungen. Jede legt **nichts** an und ändert **nichts**, und jede
+	 * trägt **beide** Eingaben zurück — der Titel über `eingabe`, der Freitext
+	 * über `zweiteEingabe`. Der zweite Rückweg in abweisen.ts ist für genau
+	 * diesen Fall entstanden: ein Blatt-Freitext kann achttausend Zeichen tragen,
+	 * und ohne JavaScript ist fort, was nicht zurückreist.
+	 */
+	const vorAbweisungen = JSON.stringify(datenbank().select().from(sheets).all());
+	const langerText = 'Ein langer Text mit Absatz.\n\nUnd noch einer.';
+	/*
+	 * **Der Rückweg trägt die Zeilenenden des Formulars und nicht die des
+	 * Modells** — und das ist keine Nachlässigkeit, sondern die Zeile, die
+	 * belegt, warum `blatttextFalten` seinen zweiten Schritt hat.
+	 *
+	 * Ein mehrzeiliges Feld reist als multipart-Rumpf, und dort sind die
+	 * Zeilenenden CRLF: was der Browser sendet, ist `\r\n`, egal was jemand
+	 * getippt hat. Gemessen an dieser Attrappe, die einen echten FormData-Rumpf
+	 * baut und parst — nicht vermutet.
+	 *
+	 * Der Wert geht unverändert zurück ins Feld, und das ist richtig: er hat den
+	 * Falter nie durchlaufen, denn ein abgewiesener Versand speichert nichts.
+	 * Gefaltet wird erst der Versand, der durchkommt.
+	 */
+	const langerTextImFormular = langerText.replace(/\n/g, '\r\n');
+	const ohneTitel = await routenausgang(() =>
+		wissen.actions.anlegen(
+			alsMitglied('/wissen', null, { titel: '   ', text: langerText }).alsRequestEvent()
+		)
+	);
+	abgewiesen('ein Blatt ohne Titel entsteht nicht', ohneTitel, BLATT_TITEL_FEHLT);
+	pruefenGleich(
+		'und der lange Text reist trotzdem zurück — das ist der zweite Rückweg',
+		textFeld(datenVon(ohneTitel), 'zweiteEingabe'),
+		langerTextImFormular
+	);
+	const ohneText = await routenausgang(() =>
+		wissen.actions.anlegen(
+			alsMitglied('/wissen', null, { titel: 'Ein Titel', text: '  \n  ' }).alsRequestEvent()
+		)
+	);
+	abgewiesen('ein Blatt ohne Text ebenso wenig', ohneText, BLATT_TEXT_FEHLT);
+	pruefenGleich(
+		'und der getippte Titel reist über den ersten zurück',
+		textFeld(datenVon(ohneText), 'eingabe'),
+		'Ein Titel'
+	);
+	pruefen(
+		'die Meldung des Textfehlers hängt am Textfeld, nicht am Titel',
+		datenVon(ohneText).feld === 'text' && datenVon(ohneTitel).feld === 'titel',
+		`${JSON.stringify(datenVon(ohneText).feld)} / ${JSON.stringify(datenVon(ohneTitel).feld)}`
+	);
+	/*
+	 * Die zwei Längengrenzen **durch die action**, nicht nur an der Prüffunktion.
+	 *
+	 * Die Zeilen darüber belegen, dass `blattTitelPruefen` und `blattTextPruefen`
+	 * an der richtigen Stelle umschlagen. Sie belegen nicht, dass die actions sie
+	 * überhaupt rufen — eine Route, die eine eigene Zahl mitbrächte, bliebe dort
+	 * grün. Die zwei Zeilen hier schliessen genau diese Lücke, und sie rechnen die
+	 * Überlänge aus den Konstanten statt sie hinzuschreiben.
+	 */
+	abgewiesen(
+		'ein zu langer Titel fällt in der action, nicht erst in der Datenbank',
+		await routenausgang(() =>
+			wissen.actions.anlegen(
+				alsMitglied('/wissen', null, {
+					titel: 'a'.repeat(AUFGABE_HOECHSTLAENGE + 1),
+					text: langerText,
+				}).alsRequestEvent()
+			)
+		),
+		BLATT_TITEL_ZU_LANG
+	);
+	abgewiesen(
+		'und ein zu langer Freitext ebenso',
+		await routenausgang(() =>
+			wissen.actions.anlegen(
+				alsMitglied('/wissen', null, {
+					titel: 'Ein Titel',
+					text: 'b'.repeat(BLATT_HOECHSTLAENGE + 1),
+				}).alsRequestEvent()
+			)
+		),
+		BLATT_TEXT_ZU_LANG
+	);
+
+	const aendernOhneTitel = await routenausgang(() =>
+		blatt.actions.aendern(
+			alsMitglied(`/wissen/${ersteId}`, null, { titel: '', text: langerText }).alsRequestEvent()
+		)
+	);
+	abgewiesen('dieselbe Regel wirft beim Ändern', aendernOhneTitel, BLATT_TITEL_FEHLT);
+	pruefenGleich(
+		'und keine der sechs Abweisungen hat etwas angelegt oder geändert',
+		JSON.stringify(datenbank().select().from(sheets).all()),
+		vorAbweisungen
+	);
+
+	/*
+	 * Ein Datei-Upload auf ein Textfeld fällt auf dieselbe leere Eingabe wie ein
+	 * leeres Feld — und damit auf denselben Satz. Jede Unterscheidung wäre eine
+	 * Auskunft ohne Handlung.
+	 */
+	abgewiesen(
+		'ein Datei-Upload auf das Titelfeld ist eine leere Eingabe',
+		await routenausgang(() =>
+			wissen.actions.anlegen(
+				alsMitglied('/wissen', null, {
+					titel: new Blob(['x'], { type: 'text/plain' }),
+					text: langerText,
+				}).alsRequestEvent()
+			)
+		),
+		BLATT_TITEL_FEHLT
+	);
+
+	/*
+	 * Eine Kennung, die es nicht gibt, ist ein 404 und keine leere Seite. Die
+	 * nicht numerische und die unbekannte fallen auf denselben Satz — jede
+	 * Unterscheidung wäre ein Kanal, an dem sich ablesen liesse, welche Blätter
+	 * es gibt.
+	 */
+	const nichtGefunden = (name: string, pfad: string) => {
+		let status = 0;
+		let meldung = '';
+		try {
+			blatt.load(alsMitglied(pfad, null).alsServerLoadEvent());
+		} catch (fehler) {
+			if (isHttpError(fehler)) {
+				status = fehler.status;
+				meldung = fehler.body.message;
+			} else {
+				throw fehler;
+			}
+		}
+		pruefen(name, status === 404 && meldung === NICHT_GEFUNDEN, `${status}: ${meldung}`);
+	};
+	nichtGefunden('eine unbekannte Kennung ist ein 404', '/wissen/999999');
+	nichtGefunden('eine nicht numerische ebenso', '/wissen/abc');
+	nichtGefunden('eine negative ebenso', '/wissen/-1');
+	/*
+	 * Der Dezimalfall ist der einzige, in dem `Number()` gelingt — `1.5` ist eine
+	 * Zahl, nur keine ganze. Die Ziffernprüfung fängt ihn schon am Punkt ab, und
+	 * `Number.isSafeInteger` ist die zweite Schranke dahinter. Der Docblock von
+	 * idLesen nennt ihn seit dem ersten Entwurf; belegt war er bis zum Review
+	 * dieser Story nicht.
+	 */
+	nichtGefunden('und eine mit Nachkommastelle ebenso', '/wissen/1.5');
+	nichtGefunden('und eine leere ebenso', '/wissen/');
+
+	/*
+	 * Ein Blatt, das zwischen dem Öffnen und dem Absenden fortgekommen ist, gibt
+	 * einen **Satz** und keinen 404: die Person hat gerade getippt, und ihr Text
+	 * soll im Formular stehen bleiben.
+	 */
+	const fortgekommen = await routenausgang(() =>
+		blatt.actions.aendern(
+			alsMitglied('/wissen/999999', null, { titel: 'Titel', text: langerText }).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'ein fortgekommenes Blatt gibt einen Satz und keinen 404 — der Text bleibt',
+		fortgekommen.art === 'fehlschlag' &&
+			fortgekommen.status === 400 &&
+			textFeld(fortgekommen.daten, 'zweiteEingabe') === langerTextImFormular &&
+			fortgekommen.daten.feld === null,
+		JSON.stringify(datenVon(fortgekommen))
+	);
+
+	/*
+	 * Und die zwei Seiten selbst: die Grenzen kommen aus der load und nicht als
+	 * Literal ins Markup, beide Felder sind Pflicht, und der Freitext wird als
+	 * Ausdruck gesetzt und nie über Sveltes rohe HTML-Direktive — sonst wäre ein
+	 * Blatt eine Stelle, an der jedes Mitglied Markup in die Seite jedes anderen
+	 * schreibt.
+	 */
+	const nurMarkup = (quelle: string) =>
+		quelle.slice(quelle.indexOf('</script>')).replace(/<!--[\s\S]*?-->/g, '');
+	const wissenKomponente = quelltext('src', 'routes', 'wissen', '+page.svelte');
+	const blattKomponente = quelltext('src', 'routes', 'wissen', '[id]', '+page.svelte');
+	const feldTeileBlatt = [
+		[
+			'maxlength kommt auf /wissen aus der load',
+			/maxlength=\{data\.titelGrenze\}/.test(wissenKomponente) &&
+				/maxlength=\{data\.textGrenze\}/.test(wissenKomponente) &&
+				!/maxlength="[0-9]/.test(wissenKomponente),
+		],
+		[
+			'und am Blatt ebenso',
+			/maxlength=\{data\.titelGrenze\}/.test(blattKomponente) &&
+				/maxlength=\{data\.textGrenze\}/.test(blattKomponente) &&
+				!/maxlength="[0-9]/.test(blattKomponente),
+		],
+		[
+			'beide Felder sind Pflicht — auf /wissen',
+			(nurMarkup(wissenKomponente).match(/\brequired\b/g) ?? []).length === 2,
+		],
+		['und am Blatt', (nurMarkup(blattKomponente).match(/\brequired\b/g) ?? []).length === 2],
+		[
+			'der Freitext steht als Ausdruck, nie als rohes HTML',
+			!/\{@html/.test(wissenKomponente) && !/\{@html/.test(blattKomponente),
+		],
+		[
+			'die Absätze trägt white-space: pre-wrap und kein Zerlegen im Markup',
+			/white-space:\s*pre-wrap/.test(blattKomponente),
+		],
+		[
+			'beide Formulare tragen ein literales action="?/…"',
+			/action="\?\/anlegen"/.test(wissenKomponente) && /action="\?\/aendern"/.test(blattKomponente),
+		],
+		[
+			'und beide benutzen die geteilte Zeilenform statt einer eigenen Hülle',
+			/class="zeilenform"/.test(wissenKomponente) && /class="zeilenform"/.test(blattKomponente),
+		],
+	] as const;
+	pruefen(
+		'die zwei Wissen-Seiten tragen dieselben Grenzen wie ihre actions',
+		fehlendeTeile(feldTeileBlatt).length === 0,
+		`fehlt: ${fehlendeTeile(feldTeileBlatt).join(', ')}`
+	);
+
+	/*
+	 * **Die Verdrahtung beider Formulare**, in der Bauform der Behauptung über
+	 * /aufgabe weiter oben und aus demselben Grund.
+	 *
+	 * Der teure Fehler, gegen den sie steht: `name="text"` in `name="freitext"`
+	 * umbenannt. `formular.get('text')` gibt dann immer null, **jeder** Versand
+	 * endet mit `Ein Blatt ohne Text steht leer in der Liste`, und die ganze
+	 * Prüfliste bliebe grün — die Behauptungen oben bauen ihr FormData selbst und
+	 * kennen das Markup nicht, und smoke:http baut seine URLSearchParams ebenso.
+	 * Gate-Regel 11 hält nur den **Aktionsnamen** gegen die Nachbardatei, nie die
+	 * Feldnamen. Der Review zu Story 4.1 hat die Lücke gefunden; die Behauptung
+	 * gab es für /aufgabe, /monatsplan und /verwaltung schon.
+	 *
+	 * Die zwei Wertbindungen stehen mit drin, und die eine am Textfeld ist die
+	 * schärfste Zeile des Blocks: `zweiteEingabe` gegen `eingabe` zu vertauschen
+	 * ist der wahrscheinlichste Griff daneben — zwei Zeichenketten in derselben
+	 * Nutzlast —, und die Folge wäre, dass nach einer Abweisung der **Titel** im
+	 * Textfeld stünde und der getippte Freitext fort wäre. Genau der Verlust, für
+	 * den der zweite Rückweg gebaut wurde.
+	 */
+	const verdrahtungBlatt = [
+		['/wissen: name="titel" am Feld', /<input\b[^>]*\bname="titel"/.test(wissenKomponente)],
+		['/wissen: name="text" am Feld', /<textarea\b[^>]*\bname="text"/.test(wissenKomponente)],
+		[
+			'/wissen: der Titel kommt aus titelWert',
+			/<input\b[^>]*\bvalue=\{titelWert\}/.test(wissenKomponente),
+		],
+		[
+			'/wissen: der Freitext aus textWert — und der liest zweiteEingabe',
+			/>\{'\\n' \+ textWert\}<\/textarea/.test(wissenKomponente) &&
+				/const textWert = \$derived\([^;]*form\.zweiteEingabe/.test(wissenKomponente),
+		],
+		[
+			'/wissen: use:enhance={versand} am Formular',
+			/<form\b[^>]*use:enhance=\{versand\}/.test(wissenKomponente),
+		],
+		['/wissen/[id]: name="titel" am Feld', /<input\b[^>]*\bname="titel"/.test(blattKomponente)],
+		['/wissen/[id]: name="text" am Feld', /<textarea\b[^>]*\bname="text"/.test(blattKomponente)],
+		[
+			'/wissen/[id]: der Titel kommt aus titelWert',
+			/<input\b[^>]*\bvalue=\{titelWert\}/.test(blattKomponente),
+		],
+		[
+			'/wissen/[id]: der Freitext aus textWert — und der liest zweiteEingabe',
+			/>\{'\\n' \+ textWert\}<\/textarea/.test(blattKomponente) &&
+				/const textWert = \$derived\([\s\S]*?form\.zweiteEingabe/.test(blattKomponente),
+		],
+		[
+			'/wissen/[id]: use:enhance={versand} am Formular',
+			/<form\b[^>]*use:enhance=\{versand\}/.test(blattKomponente),
+		],
+		[
+			'beide klappen nach einer Abweisung vom Server aus auf',
+			/<details class="zeilenform" open=\{abgewiesen\}>/.test(wissenKomponente) &&
+				/<details class="zeilenform" open=\{abgewiesen\}>/.test(blattKomponente),
+		],
+		[
+			// Die zwei Fehlersätze hängen über aria-describedby an ihren Feldern, und
+			// die Ziel-Ids müssen es geben — sonst zeigt das Attribut ins Leere.
+			'die vier Fehlersätze tragen die Ids, auf die aria-describedby zeigt',
+			/<p\b[^>]*\bid="neu-titel-fehler"/.test(wissenKomponente) &&
+				/<p\b[^>]*\bid="neu-text-fehler"/.test(wissenKomponente) &&
+				/<p\b[^>]*\bid="aendern-titel-fehler"/.test(blattKomponente) &&
+				/<p\b[^>]*\bid="aendern-text-fehler"/.test(blattKomponente),
+		],
+		[
+			// Der Erfolgssatz weicht dem Fehlersatz — sonst stünde `Angelegt.` neben
+			// einer Abweisung des Änderns. Review-Befund zu Story 4.1.
+			'die Rückmeldung am Blatt schweigt, solange eine Abweisung ansteht',
+			/const rueckmeldung = \$derived\(\s*form !== null \? ''/.test(blattKomponente),
+		],
+	] as const;
+	pruefen(
+		'beide Wissen-Formulare sind vollständig verdrahtet',
+		fehlendeTeile(verdrahtungBlatt).length === 0,
+		`fehlt: ${fehlendeTeile(verdrahtungBlatt).join(', ')}`
+	);
+	/*
+	 * Das Textfeld-Mass steht seit dieser Story im geteilten Stilblatt und nicht
+	 * mehr lokal in /monatsplan: drei Kopien derselben zwei Zeilen sind das
+	 * Muster, aus dem der Retro-Posten D1 nachwächst, und Gate-Regel 14 sähe sie
+	 * nicht — sie vergleicht Komponentenregeln gegen das Blatt, nicht
+	 * gegeneinander.
+	 */
+	const stilblatt = quelltext('src', 'lib', 'styles', 'bedienelemente.css');
+	pruefen(
+		'.textfeld steht genau einmal — im geteilten Stilblatt',
+		/^\.textfeld \{/m.test(stilblatt) &&
+			!/^\s*\.textfeld \{/m.test(quelltext('src', 'routes', 'monatsplan', '+page.svelte')) &&
+			!/^\s*\.textfeld \{/m.test(wissenKomponente) &&
+			!/^\s*\.textfeld \{/m.test(blattKomponente),
+		'eine Seite trägt die Regel wieder lokal'
 	);
 } catch (fehler) {
 	unerwarteterWurf('smoke', fehler);

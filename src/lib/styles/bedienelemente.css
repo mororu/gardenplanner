@@ -158,6 +158,35 @@ select.feld {
 }
 
 /*
+ * Ein mehrzeiliges Feld. Modifikator zu `.feld` und keine zweite Feldregel:
+ * `.feld` deckt Fläche, Kante, Radius und die task-Rolle (16px, unter denen iOS
+ * beim Fokus hineinzoomt) schon vollständig ab — hier bleiben genau zwei Dinge:
+ *
+ *   - die Mindesthöhe aus dem Token, damit man beim Schreiben einer Monatsliste
+ *     oder eines Blatts nicht in einem Schlitz tippt (DESIGN.md, textarea-bulk);
+ *   - `resize: vertical`, weil ein waagerechtes Ziehen die einspaltige Seite
+ *     sprengte, ein senkrechtes aber genau das ist, was jemand mit vierzig
+ *     Zeilen will.
+ *
+ * Lag bis Story 4.1 lokal in `/monatsplan`, dem damals einzigen `<textarea>` des
+ * Produkts. Story 4.1 bringt zwei weitere — das Anlegen und das Ändern eines
+ * Blatts —, und drei Kopien derselben zwei Zeilen sind genau das Muster, aus dem
+ * die vierzehn byte-gleichen Regelkörper der Retrospektive Epic 3 entstanden
+ * sind. Gate-Regel 14 sieht eine Komponentenregel erst, wenn sie einer **hier**
+ * gleicht; sie hätte drei lokale Zwillinge nicht gemeldet.
+ *
+ * **Die Regel muss hinter `.feld` stehen.** Beide setzen `min-height`, beide
+ * sind eine Klasse tief — bei gleicher Spezifität entscheidet die Reihenfolge.
+ * Wer sie nach oben schiebt, bekommt `--touch` statt der Mindesthöhe, und aus
+ * dem Textfeld wird der Schlitz, gegen den es steht. Als lokale Regel in
+ * `/monatsplan` war das kein Thema: eine Komponentenregel gewinnt ohnehin.
+ */
+.textfeld {
+	min-height: var(--textarea-bulk-min-height);
+	resize: vertical;
+}
+
+/*
  * Ein Feld, dessen Eingabe abgewiesen wurde.
  *
  * Die Kante wird breiter und nimmt die Tintenfarbe — **nicht** var(--danger).

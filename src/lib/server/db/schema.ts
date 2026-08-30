@@ -8,11 +8,11 @@ import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core
  * Drizzle. Zeitstempel sind Integer in Unix-Sekunden, nie ISO-Strings und nie
  * Date-Objekte.
  *
- * In diesem Stand gibt es vier Tabellen: members aus Story 1.2, tasks aus
- * Story 1.4 (seit Story 2.1 um due_at erweitert), duty_weeks aus Story 3.1 und
- * signup_tasks aus Story 3.2. Story 2.2 hat an tasks **nichts** geändert: die
- * Überfälligkeit wird gerechnet und nicht gespeichert, und die Rechnung steht
- * in src/lib/zeit.ts. Getrennte Tabellen ohne gemeinsame
+ * In diesem Stand gibt es fünf Tabellen: members aus Story 1.2, tasks aus
+ * Story 1.4 (seit Story 2.1 um due_at erweitert), duty_weeks aus Story 3.1,
+ * signup_tasks aus Story 3.2 und sheets aus Story 4.1. Story 2.2 hat an tasks
+ * **nichts** geändert: die Überfälligkeit wird gerechnet und nicht gespeichert,
+ * und die Rechnung steht in src/lib/zeit.ts. Getrennte Tabellen ohne gemeinsame
  * Zuständigkeitsspalte, keine Basistabelle und keine Typspalte darüber (AD-3):
  * die drei Aufgabenarten sind verschieden verbindlich, und genau das soll das
  * Schema zeigen — nachlesbar an **einer** Spalte:
@@ -20,6 +20,11 @@ import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core
  *   tasks         keine Mitgliedsspalte für die Zuständigkeit  namenlos
  *   signup_tasks  member_id **nullbar**                        null oder eine
  *   duty_weeks    member_id **nicht nullbar**                  genau eine
+ *
+ * sheets steht ausserhalb dieser Aufstellung, und das ist die Aussage: ein
+ * Blatt ist keine Aufgabenart. Es trägt **gar keine** Mitgliedsspalte — nicht
+ * einmal eine namenlose wie tasks für das Abhaken —, weil Wissen niemandem
+ * gehört. Siehe die Begründung an der Tabelle selbst.
  */
 export const members = sqliteTable('members', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
@@ -383,3 +388,77 @@ export const signupTasks = sqliteTable('signup_tasks', {
 
 export type SignupTask = typeof signupTasks.$inferSelect;
 export type NewSignupTask = typeof signupTasks.$inferInsert;
+
+/**
+ * Ein Wissensblatt. Titel plus Freitext, und sonst nichts.
+ *
+ * **Die Tabelle ist so kurz, weil vier Spalten fehlen, die anderswo
+ * selbstverständlich wären** — und jede davon fehlt aus einem Grund:
+ *
+ *   - **keine Autorenspalte.** Ein Blatt gehört der Gemeinschaft, nicht der
+ *     Person, die es getippt hat. Stünde ein Name daneben, wäre jede Änderung
+ *     eine Korrektur an jemandem, und genau das hält Leute davon ab, einen Satz
+ *     geradezuziehen. Es gibt darum auch keine Mitgliedsspalte für das Ändern:
+ *     tasks speichert wenigstens, wer abgehakt hat (und zeigt es nie an), hier
+ *     wird gar nichts gespeichert.
+ *   - **keine Versions- und keine Verlaufsspalte.** Wer ändert, ändert für
+ *     alle, und der vorige Stand ist fort. Eine Historie hiesse, dass es einen
+ *     richtigen und einen überholten Stand gibt, über den man streiten kann.
+ *   - **kein updated_at.** Es wäre der Anfang genau dieses Verlaufs — eine
+ *     Spalte, aus der die nächste Story eine Sortierung „zuletzt geändert" und
+ *     die übernächste ein „von wem" macht. Die Liste ordnet darum nach dem
+ *     **Titel**: eine Nachschlageliste sucht man alphabetisch ab, nicht
+ *     chronologisch. Damit hat der Zeitpunkt keinen Leser, und eine Spalte ohne
+ *     Leser ist eine Einladung.
+ *   - **keine Verknüpfung zu einem Beet oder einer Pflanze.** Ein Blatt gilt
+ *     für den ganzen Garten. Jeder Aufwand pro Beet ist bei 40+ Beeten
+ *     Ausschlusskriterium — dieselbe Regel, die tasks.text ohne Beet-Bezug
+ *     lässt.
+ *
+ * created_at bleibt: es ist Infrastruktur wie überall, kostet nichts und
+ * beantwortet die eine Frage, die ohne jede Zeitspalte unbeantwortbar wäre —
+ * seit wann es dieses Blatt überhaupt gibt.
+ *
+ * **Die Spaltennamen folgen dem Entscheid vom 2026-08-30**
+ * (ARCHITECTURE-SPINE.md, *Consistency Conventions*): Domänenspalten deutsch,
+ * Infrastrukturspalten englisch. `titel` ist damit dieselbe Spalte wie in
+ * signup_tasks, `text` dieselbe wie in tasks.
+ *
+ * **Kein Unique-Index auf titel.** Zwei Blätter dürfen gleich heissen — es sind
+ * zwanzig Leute und eine Handvoll Blätter, und ein abgewiesenes „gibt es
+ * schon" beim Anlegen wäre eine Hürde vor genau der Handlung, die diese Story
+ * ermöglichen will. Wer merkt, dass es das Blatt schon gibt, ändert das
+ * bestehende.
+ */
+export const sheets = sqliteTable('sheets', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	/*
+	 * Wie das Blatt in der Liste heisst. Einzeilig und durch dieselbe Kette
+	 * geprüft wie signup_tasks.titel und tasks.text: aufgabentextFalten und
+	 * AUFGABE_HOECHSTLAENGE in src/lib/aufgabentext.ts. Ein Titel ist derselbe
+	 * Gegenstand wie ein Aufgabensatz — etwas, das jemand in einer Zeile liest.
+	 */
+	titel: text('titel').notNull(),
+	/*
+	 * Der Freitext. **Mehrzeilig**, und darum die eine Spalte im Schema, deren
+	 * Inhalt Zeilenumbrüche tragen darf und soll: Absätze bleiben beim Anzeigen
+	 * erhalten, und das ist die einzige Formatierungszusage des Blatts.
+	 *
+	 * Gefaltet wird deshalb **nicht** mit aufgabentextFalten — das zieht `\s+`
+	 * zusammen und fräse die Absätze weg. Die eigene Kette samt Grenze steht in
+	 * src/lib/blatttext.ts.
+	 *
+	 * Reiner Text, keine Auszeichnung: die Anzeige setzt ihn über
+	 * `white-space: pre-wrap`, nie über Sveltes rohe HTML-Direktive. Ob je
+	 * Listenpunkte oder Fettschrift erlaubt werden, ist in EXPERIENCE.md als
+	 * offene Frage festgehalten und für diese Story mit Nein beantwortet.
+	 */
+	text: text('text').notNull(),
+	/* Wie bei members, tasks, duty_weeks und signup_tasks über $defaultFn. */
+	createdAt: integer('created_at')
+		.notNull()
+		.$defaultFn(() => Math.floor(Date.now() / 1000)),
+});
+
+export type Sheet = typeof sheets.$inferSelect;
+export type NewSheet = typeof sheets.$inferInsert;

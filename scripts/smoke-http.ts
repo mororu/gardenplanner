@@ -75,6 +75,18 @@ import { mitgliedAnlegen } from '../src/lib/server/db/queries/members.ts';
 import { aufgabenStapelAnlegen } from '../src/lib/server/db/queries/tasks.ts';
 import { tokenErzeugen, tokenHashen } from '../src/lib/server/token.ts';
 import { NAME_HOECHSTLAENGE, NAME_ZU_LANG } from '../src/lib/mitgliedsname.ts';
+/*
+ * Der Satz zum fehlenden Blatt-Titel kommt als **Wert** und nicht abgeschrieben.
+ * Derselbe Grund wie bei NAME_ZU_LANG darüber und wie in smoke-zugang.ts: die
+ * Zusage lautet nicht „dieser Wortlaut", sondern „der Server liefert genau den
+ * Satz aus, den das geteilte Modul führt". Ein Literal hier wäre eine Behauptung
+ * über eine Behauptung und bliebe grün, wenn die Route sich vom Modul löste.
+ * Review-Befund zu Story 4.1 — die drei kurzen Meldungssätze (`Angelegt.`,
+ * `Geändert.`, `Noch nichts aufgeschrieben.`) stehen dagegen weiter als Literal:
+ * sie sind Oberflächentext ihrer Komponente und haben kein geteiltes Modul, aus
+ * dem sie kommen könnten.
+ */
+import { BLATT_TITEL_FEHLT } from '../src/lib/blatttext.ts';
 import {
 	EINZELAUFGABE_NICHT_ANSPRECHBAR,
 	KEIN_ZUGANG,
@@ -93,7 +105,7 @@ import { WOCHE_SEKUNDEN } from '../src/lib/zeit.ts';
  * Stellen, von denen eine niemand rot macht, ist schlechter als eine Zahl an
  * einer — die Schlussmeldung des Laufs nennt sie ohnehin bei jedem Durchgang.
  */
-const ERWARTETE_BEHAUPTUNGEN = 141;
+const ERWARTETE_BEHAUPTUNGEN = 159;
 
 const GUTES_GEHEIMNIS = 'smoke-http-geheimnis-mit-genug-verschiedenen-zeichen-0123456789';
 
@@ -817,6 +829,7 @@ try {
 		{ pfad: '/dienstplan', titel: 'Dienstplan' },
 		{ pfad: '/einzelaufgabe', titel: 'Einzelaufgabe' },
 		{ pfad: '/einzelaufgaben', titel: 'Einzelaufgaben' },
+		{ pfad: '/wissen', titel: 'Wissen' },
 	];
 
 	for (const seite of seiten) {
@@ -2083,6 +2096,240 @@ try {
 		'wer zu spät zusagt, liest den Satz ohne JavaScript im Dokument',
 		fehlendeTeile(zuSpaetTeile).length === 0,
 		`fehlt: ${fehlendeTeile(zuSpaetTeile).join(', ')} (Status ${zuSpaet.status})`
+	);
+
+	// --- Ein Blatt, ohne JavaScript von Anfang bis Ende ----------------------
+	/*
+	 * **Der Kern von Story 4.1 an einem echten Server**, und er ist hier zu
+	 * Hause und nicht in `smoke`: die eine Zusage des Blatts lautet „Absätze und
+	 * Zeilenumbrüche bleiben beim Anzeigen erhalten", und *anzeigen* heisst
+	 * ausgeliefertes HTML. `smoke` sieht den gefalteten Wert in der Datenbank; ob
+	 * daraus im Dokument wirklich zwei Absätze werden statt einer Zeile, sagt es
+	 * nicht.
+	 *
+	 * Dazu die zweite Zusage, die nur hier messbar ist: der Freitext kommt aus
+	 * einem Formular, das jedes Mitglied ausfüllen darf, und er darf im Dokument
+	 * **kein Markup** werden. Ein Blatt wäre sonst die Stelle, an der eine Person
+	 * Skript in die Seite jeder anderen schreibt.
+	 *
+	 * Drei Schritte, so wie ein Browser ohne JavaScript sie geht: anlegen, lesen,
+	 * ändern.
+	 */
+	const leeresWissen = await (await holen(port, '/wissen', { keks: mitgliedKeks })).text();
+	pruefen(
+		'ohne Blatt trägt /wissen den leeren Zustand und keine Liste',
+		leeresWissen.includes('Noch nichts aufgeschrieben.') &&
+			!leeresWissen.includes('blaetter-marke'),
+		leeresWissen.includes('blaetter-marke') ? 'die Marke steht da' : 'der Satz fehlt'
+	);
+
+	const blattText = 'Kohl mag Sellerie.\n\nZwiebel mag Karotte.\n<script>alert(1)</script>';
+	const angelegtesBlatt = await abschicken(port, '/wissen?/anlegen', mitgliedKeks, {
+		titel: 'Gute Nachbarn',
+		text: blattText,
+	});
+	const blattOrt = angelegtesBlatt.headers.get('location') ?? '';
+	pruefen(
+		'anlegen darf jedes Mitglied und leitet mit 303 auf das frische Blatt',
+		angelegtesBlatt.status === 303 && /^\/wissen\/[0-9]+\?angelegt$/.test(blattOrt),
+		`${angelegtesBlatt.status} auf ${blattOrt}`
+	);
+
+	const blattHtml = await (await holen(port, blattOrt, { keks: mitgliedKeks })).text();
+	const blattTeile = [
+		['der Satz Angelegt. hat die Weiterleitung überlebt', blattHtml.includes('Angelegt.')],
+		['der Titel steht als Seitentitel', blattHtml.includes('<title>Gute Nachbarn</title>')],
+		[
+			// Der Umbruch steht im ausgelieferten Text, nicht als <br> und nicht als
+			// zweiter Absatz: das Zerlegen wäre eine zweite Auslegung derselben
+			// Umbrüche neben der Faltung.
+			'die Leerzeile zwischen den Absätzen steht im Dokument',
+			/Kohl mag Sellerie\.\n\nZwiebel mag Karotte\./.test(blattHtml),
+		],
+		['die Rolle steht am Absatz', /class="[^"]*blatt__text/.test(blattHtml)],
+		[
+			/*
+			 * Die scharfe Zeile: das Markup steht als Zeichen da und nicht als
+			 * Element.
+			 *
+			 * Geprüft wird die **spitze Klammer**, nicht ein ganzer maskierter
+			 * Satz: Svelte maskiert in einem Textknoten `&` und `<` und lässt `>`
+			 * stehen — gemessen, nicht vermutet. Ein Erwartungswert mit
+			 * `&gt;` darin wäre rot, obwohl nichts falsch ist, und der nächste
+			 * rote Lauf schwächte dann die Behauptung ab, statt sie zu lesen. Was
+			 * zählt, ist genau dieses Paar: die öffnende Klammer ist maskiert, und
+			 * im Dokument steht kein zweites script-Element.
+			 */
+			'das getippte Markup ist Text geworden und kein Element',
+			blattHtml.includes('&lt;script') && !/<script>alert\(1\)/.test(blattHtml),
+		],
+	] as const;
+	pruefen(
+		'das ausgelieferte Blatt trägt seine Absätze und macht aus Markup Text',
+		fehlendeTeile(blattTeile).length === 0,
+		`fehlt: ${fehlendeTeile(blattTeile).join(', ')}`
+	);
+
+	/*
+	 * **Und die Regel selbst, im ausgelieferten Stilblatt.**
+	 *
+	 * Die erste Fassung dieser Behauptung stand als `||` in der Liste darüber:
+	 * `white-space: pre-wrap` im HTML **oder** die Klasse am Absatz. Zwei Reviewer
+	 * haben unabhängig gefunden, dass die linke Hälfte tot ist — svelte.config.js
+	 * setzt kein inlineStyleThreshold, SvelteKits Vorgabe ist 0, und
+	 * Komponenten-CSS geht als eigenes <link> hinaus, nie inline. Die Behauptung
+	 * fiel damit auf „die Klasse steht im Markup" zusammen und konnte die
+	 * Regression, nach der sie benannt ist, gar nicht sehen: wer
+	 * `white-space: pre-wrap` aus der Regel löscht, liefert beide Absätze als eine
+	 * durchlaufende Zeile — und die Klasse steht weiter da.
+	 *
+	 * Gemessen wird darum am **selben Weg, den der Browser geht**: die
+	 * Stilblatt-Adressen aus dem <head> des Dokuments holen und in dem, was
+	 * zurückkommt, die Deklaration suchen. Das ist die einzige Stelle im ganzen
+	 * Prüfwerkzeug, die die einzige Formatierungszusage dieser Story wirklich
+	 * belegt — smoke-zugang liest dafür den Quelltext der Komponente, und ein
+	 * Quelltext ist kein ausgeliefertes Blatt.
+	 */
+	/*
+	 * Die Attributreihenfolge ist **nicht** festgelegt: SvelteKit schreibt
+	 * `href` vor `rel`. Der Schnitt greift darum das ganze <link>-Element und
+	 * liest die zwei Attribute daraus, statt eine Reihenfolge zu behaupten — die
+	 * erste Fassung tat es und fand null Adressen.
+	 */
+	const stilAdressen = [...blattHtml.matchAll(/<link\b[^>]*>/g)]
+		.map((treffer) => treffer[0])
+		.filter((element) => /rel="stylesheet"/.test(element))
+		.map((element) => /href="([^"]+)"/.exec(element)?.[1] ?? '')
+		.filter((adresse) => adresse !== '');
+	let ausgelieferteStile = '';
+	for (const adresse of stilAdressen) {
+		// Die Adressen stehen relativ zum Dokument; ein führender Schrägstrich
+		// fehlt bei SvelteKits Auslieferung interner Ziele.
+		const pfad = adresse.startsWith('http')
+			? adresse
+			: adresse.startsWith('/')
+				? adresse
+				: `/${adresse.replace(/^\.\//, '')}`;
+		if (pfad.startsWith('http')) continue;
+		ausgelieferteStile += await (await holen(port, pfad)).text();
+	}
+	pruefen(
+		'die Absatzregel steht im ausgelieferten Stilblatt und nicht nur im Quelltext',
+		stilAdressen.length > 0 && /white-space:\s*pre-wrap/.test(ausgelieferteStile),
+		`${stilAdressen.length} Stilblatt-Adresse(n) im Dokument, ${ausgelieferteStile.length} Zeichen gelesen`
+	);
+
+	/*
+	 * **Die Abweisung beim Ändern, ohne JavaScript** — dieselbe Bauform wie die
+	 * beim Anlegen weiter unten, und der Review zu Story 4.1 hat gefordert, dass
+	 * es sie gibt: bis dahin war der Rückweg **beider** Eingaben nur für das
+	 * Anlegen gerendert. Am Blatt ist er wertvoller, denn dort steht schon ein
+	 * Text, den die Person geändert hat — geht er verloren, ist die Fassung fort,
+	 * die es noch nirgends gibt.
+	 */
+	const blattPfad = blattOrt.split('?')[0] ?? '';
+	const aendernAbgewiesen = await abschicken(port, `${blattPfad}?/aendern`, mitgliedKeks, {
+		titel: '  ',
+		text: 'Ein neuer Absatz.\n\nUnd noch einer, gerade getippt.',
+	});
+	const aendernAbweisungHtml = await aendernAbgewiesen.text();
+	const aendernAbweisungTeile = [
+		['der Status ist 400', aendernAbgewiesen.status === 400],
+		['das Formular kommt offen zurück', /<details[^>]*\bopen\b/.test(aendernAbweisungHtml)],
+		[
+			'der gerade getippte Text steht wieder im Feld — nicht der gespeicherte',
+			aendernAbweisungHtml.includes('Und noch einer, gerade getippt.'),
+		],
+		['und der Satz steht dabei', aendernAbweisungHtml.includes(BLATT_TITEL_FEHLT)],
+	] as const;
+	pruefen(
+		'auch das Ändern trägt eine Abweisung ohne JavaScript — offen, mit beiden Eingaben',
+		fehlendeTeile(aendernAbweisungTeile).length === 0,
+		`fehlt: ${fehlendeTeile(aendernAbweisungTeile).join(', ')} (Status ${aendernAbgewiesen.status})`
+	);
+
+	/*
+	 * Die Liste zeigt den Titel und **nicht** den Freitext: er kann achttausend
+	 * Zeichen tragen, und für eine Titelliste hat er im Dokument nichts zu
+	 * suchen. Hier gemessen und nicht am Rückgabewert der load — was die Seite
+	 * ausliefert, entscheidet die Komponente und nicht die Projektion allein.
+	 */
+	const listeHtml = await (await holen(port, '/wissen', { keks: mitgliedKeks })).text();
+	pruefen(
+		'die Liste trägt den Titel und nicht den Freitext',
+		listeHtml.includes('Gute Nachbarn') &&
+			!listeHtml.includes('Zwiebel mag Karotte') &&
+			!listeHtml.includes('Noch nichts aufgeschrieben.'),
+		listeHtml.includes('Zwiebel mag Karotte')
+			? 'der Freitext steht in der Liste'
+			: 'der Titel fehlt'
+	);
+
+	/*
+	 * Ändern, und zwar durch **eine andere Person** als die anlegende: wer
+	 * ändert, ändert für alle, und es gibt keinen Autor, der es verwehren
+	 * könnte. Die Adminperson steht hier für „irgendein anderes Mitglied" — die
+	 * Route kennt den Unterschied nicht, und genau das ist die Zusage.
+	 */
+	const geaendertesBlatt = await abschicken(port, `${blattOrt.split('?')[0]}?/aendern`, adminKeks, {
+		titel: 'Gute Nachbarn im Beet',
+		text: 'Kohl mag Sellerie.',
+	});
+	pruefen(
+		'ändern darf auch, wer das Blatt nicht angelegt hat',
+		geaendertesBlatt.status === 303 &&
+			geaendertesBlatt.headers.get('location') === `${blattOrt.split('?')[0]}?geaendert`,
+		`${geaendertesBlatt.status} auf ${geaendertesBlatt.headers.get('location')}`
+	);
+	const nachAendern = await (
+		await holen(port, `${blattOrt.split('?')[0]}?geaendert`, { keks: mitgliedKeks })
+	).text();
+	pruefen(
+		'die anlegende Person sieht den neuen Stand, und der alte ist fort',
+		nachAendern.includes('Geändert.') &&
+			nachAendern.includes('Gute Nachbarn im Beet') &&
+			!nachAendern.includes('Zwiebel mag Karotte'),
+		nachAendern.includes('Zwiebel mag Karotte') ? 'der alte Text steht noch da' : 'der neue fehlt'
+	);
+
+	/*
+	 * Eine Kennung, die es nicht gibt, ist ein 404 mit der Fehlerseite — nicht
+	 * eine leere Blattseite und nicht ein 500.
+	 */
+	const unbekanntesBlatt = await holen(port, '/wissen/999999', { keks: mitgliedKeks });
+	const unbekanntHtml = await unbekanntesBlatt.text();
+	pruefen(
+		'eine unbekannte Kennung ist über HTTP ein 404 mit dem Satz der Fehlerseite',
+		unbekanntesBlatt.status === 404 && unbekanntHtml.includes('Diese Seite gibt es nicht.'),
+		`${unbekanntesBlatt.status}: ${unbekanntHtml.slice(0, 120)}`
+	);
+	pruefenGleich(
+		'und eine nicht numerische ebenso',
+		(await holen(port, '/wissen/abc', { keks: mitgliedKeks })).status,
+		404
+	);
+
+	/*
+	 * Die Abweisung, ohne JavaScript: das Formular kommt **offen** zurück, beide
+	 * Eingaben stehen wieder drin, und angelegt wurde nichts. Ohne das
+	 * `open`-Attribut vom Server stünde der Fehlersatz unter einem zugeklappten
+	 * Formular.
+	 */
+	const abgewiesenesBlatt = await abschicken(port, '/wissen?/anlegen', mitgliedKeks, {
+		titel: '   ',
+		text: blattText,
+	});
+	const blattAbweisungHtml = await abgewiesenesBlatt.text();
+	const abweisungTeile = [
+		['der Status ist 400', abgewiesenesBlatt.status === 400],
+		['das Formular kommt offen zurück', /<details[^>]*\bopen\b/.test(blattAbweisungHtml)],
+		['der lange Text steht wieder im Feld', blattAbweisungHtml.includes('Zwiebel mag Karotte')],
+		['und der Satz steht dabei', blattAbweisungHtml.includes(BLATT_TITEL_FEHLT)],
+	] as const;
+	pruefen(
+		'eine Abweisung trägt auch ohne JavaScript — offen, mit beiden Eingaben',
+		fehlendeTeile(abweisungTeile).length === 0,
+		`fehlt: ${fehlendeTeile(abweisungTeile).join(', ')}`
 	);
 
 	// --- Was der Server dabei selbst gesagt hat -------------------------------

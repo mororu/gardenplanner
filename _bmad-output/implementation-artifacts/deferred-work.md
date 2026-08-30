@@ -847,3 +847,27 @@ Durchgang wirklich wog, steht als Patch in der Story und nicht hier.
   während die Matrixzeile „Wettrennen" 400 zusagt. Der eigentliche
   Schreib-Wettlauf liefert korrekt 400; gemeint ist die Statusspalte, nicht der
   Satz.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-referenz-sheets-lesen-und-schreiben.md`
+  summary: `BLATT_NICHT_ANSPRECHBAR` ist auf dem Weg ohne JavaScript unerreichbar — SvelteKit fährt nach `fail(400)` die `load` des Blatts erneut, die dann 404 wirft und den getippten Text mitnimmt.
+  evidence: Belegt am SvelteKit-Quelltext (2.70.3, `runtime/server/page/index.js`): nach einer abgewiesenen action rendert der Server die Seite, und dafür laufen alle `load`-Funktionen. `blattLesen` gibt null, die Route wirft `error(404)`, und die Person bekommt die Fehlerseite statt ihres offenen Formulars — genau das, was der Zweig verhindern soll. Heute nur defensiv: es gibt keine Löschen-Aktion, ein Blatt kann nur durch direkten Datenbankzugriff verschwinden. Härtung hiesse, die `load` müsste den Fehlschlag der action kennen — oder der Zweig fällt weg und der 404 wird die zugesagte Antwort.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-referenz-sheets-lesen-und-schreiben.md`
+  summary: Die Zahl der Blätter ist unbegrenzt, jedes Mitglied darf anlegen, und es gibt keine Löschen-Aktion — `/wissen` kann nur wachsen.
+  evidence: `/monatsplan` hat für genau diese Klasse eine `PLAN_HOECHSTZAHL`, mit der Begründung „es gibt keine Löschen-Aktion, die das wieder aufräumte". Für Blätter fehlt sie. Der Unterschied, der sie heute erträglich macht: ein Blatt lässt sich **ändern**, ein versehentlich eingefügter Chatverlauf ist also überschreibbar, und der Auslöser („ein Stapel entsteht in einem Zug") fehlt. Der Entscheid Löschen-Aktion stand unter *Ask First* der Story und ist bewusst mit Nein beantwortet; die Obergrenze war nicht Teil der Frage.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-referenz-sheets-lesen-und-schreiben.md`
+  summary: Gate-Regel 1 zerlegt den ganzen CSS-Abschnitt und unterscheidet Selektor, Eigenschaft und Wert nicht — eine Klasse `.highlight` oder `.tomato` ohne Trennzeichen meldet sie als Farbe.
+  evidence: Story 4.1 hat die halbe Bauform gelöst (Trennzeichen links und rechts, Fehlerprobe `regel-1f-eigenschaftsname`, fünf Verstösse ohne die Wache und null mit). Die ganze wäre, nur die **Wertseite** einer Deklaration zu lesen. Heute schlägt niemand an, weil keine Klasse im Baum so heisst; die Regel behauptet aber mehr, als sie kann, und die nächste Seite mit einer Klasse `.mark` liefe hinein.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-referenz-sheets-lesen-und-schreiben.md`
+  summary: Das ERD der ARCHITECTURE-SPINE nennt `duty_weeks` weiter mit `iso_year`/`iso_week`, während die Tabelle `iso_jahr`/`iso_woche` heisst.
+  evidence: Beim Nachziehen von `SHEETS` auf den Namensentscheid vom 2026-08-30 gesehen und im Nachtrag am ERD benannt. Nicht mitkorrigiert, weil eine Behauptung über eine Tabelle, die Story 4.1 nicht anfasst, nicht in einen Nachtrag zu Story 4.1 gehört. Betrifft ausserdem `duty_kind` gegen `art`.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-referenz-sheets-lesen-und-schreiben.md`
+  summary: Eine Meldung, die eine Weiterleitung überlebt, steht beim Rendern schon in ihrer Live-Region — genau die Lage, die Retro-Posten B2 als „nicht verlässlich vorgelesen" benennt.
+  evidence: Gilt für `?abgelegt` und `?ausgeschrieben` auf `/` seit Epic 1 und 3 ebenso wie für `?angelegt` und `?geaendert` auf `/wissen/[id]`. B2 hat die Region **immer ins Markup** gezogen und damit den Fall gelöst, in dem sie gleichzeitig entsteht; der Fall „ganze Seite lädt neu, Text ist von Anfang an da" ist ein anderer und produktweit offen. Kein Befund dieser Story allein.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-referenz-sheets-lesen-und-schreiben.md`
+  summary: `smoke-http.ts` schickt mehrzeilige Feldwerte als `application/x-www-form-urlencoded` mit `\n`, während ein Browser aus einem Textfeld CRLF sendet.
+  evidence: Schritt 2 von `blatttextFalten` (Zeilenenden vereinheitlichen) ist damit auf dem HTTP-Weg nie ausgeführt. Gedeckt ist er in `smoke-zugang.ts` über die multipart-Attrappe, die einen echten `FormData`-Rumpf baut und parst — dort trägt `langerTextImFormular` genau diese Zeichenform. Der Posten ist, dass der Weg von Anfang bis Ende eine Umbruchform misst, die kein Browser schickt.

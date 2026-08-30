@@ -14,7 +14,7 @@
  *   node scripts/gate.mjs [zielverzeichnis]   prüft ein Projekt (Vorgabe: dieses)
  *   node scripts/gate.mjs --selftest          prüft das Tor gegen die Fehlerproben
  *
- * Die dreizehn Regeln:
+ * Die vierzehn Regeln:
  *   1. In .svelte und .css unter src/ kein Farbliteral (Hex, rgb(), rgba(),
  *      hsl(), hsla(), oklch(), color() …, CSS-Farbname), kein rohes
  *      px/rem-Literal ausser 0 und **kein rohes ms/s-Literal ausser 0** im Wert
@@ -25,7 +25,9 @@
  *      src/ ausser app.html gilt der Farbteil der Regel — src/error.html trägt
  *      Gestaltungswerte und wurde vorher von keiner Regel gelesen, und sie ist
  *      ausschliesslich in Systemfarben gestaltet. Ausgenommen ist allein der
- *      Token-Block in app.html.
+ *      Token-Block in app.html. Ein Farbname zählt nur, wenn links und rechts
+ *      **kein Trennzeichen** steht — weder `-` noch `_`: `white-space` und
+ *      `--surface-white` sind Bezeichner und keine Werte. Seit 2026-08-30.
  *   2. Kein var() mit Fallback-Wert — der Fallback verdeckt genau Regel 3.
  *   3. Jedes in src/ benutzte var(--x) ist im :root-Block von app.html
  *      deklariert.
@@ -740,8 +742,42 @@ const torPrüfen = (ziel) => {
 			// muss dort als Zahl stehen.
 			const ohneBedingungen = ohneAtBedingungen(inhalt);
 
+			/*
+			 * Ein Wort zählt nur, wenn links und rechts **kein Trennzeichen** steht —
+			 * weder Bindestrich noch Unterstrich.
+			 *
+			 * Der Zerleger darüber kennt den Bindestrich nicht, und CSS ist voll von
+			 * zusammengesetzten Bezeichnern, deren Hälften Farbnamen sind:
+			 * `white-space`, `border-color: var(--surface-white)`, `snow-fall`. Bis
+			 * zum 2026-08-30 fiel das nicht auf, weil keine Regel im Baum eine solche
+			 * Hälfte trug — Story 4.1 bringt `white-space: pre-wrap` für den Freitext
+			 * eines Blatts, und die Regel meldete `white`.
+			 *
+			 * Der Test ist scharf und nicht bloss bequem: **kein** CSS-Farbwert und
+			 * keine Systemfarbe steht je unmittelbar an einem Trennzeichen. Was daran
+			 * steht, ist ein Eigenschaftsname, ein Schlüsselwort oder der Name einer
+			 * Custom Property — und keines davon ist der Wert, den diese Regel sucht.
+			 *
+			 * Der Unterstrich steht mit drin, weil eine Custom Property ihn führen
+			 * darf: `--surface_white` wäre sonst dieselbe Falle unter anderem Namen.
+			 * Der Review zu Story 4.1 hat ihn nachgetragen — die erste Fassung
+			 * behauptete „kein Bindestrich" und liess damit genau die Schreibweise
+			 * offen, die jemand wählt, der Bindestriche vermeidet.
+			 *
+			 * **Was sie weiterhin nicht kann:** die Regel zerlegt den ganzen
+			 * CSS-Abschnitt und unterscheidet Selektor, Eigenschaft und Wert nicht.
+			 * Eine Klasse `.highlight` oder `.tomato` ohne Trennzeichen meldet sie
+			 * darum bis heute falsch. Das ist die grössere Bauform derselben Sache
+			 * und in deferred-work.md festgehalten; hier steht die Hälfte, die diese
+			 * Story ausgelöst hat.
+			 */
+			const amTrennzeichen = (/** @type {number} */ index, /** @type {number} */ laenge) =>
+				/[-_]/.test(ohneBedingungen[index - 1] ?? '') ||
+				/[-_]/.test(ohneBedingungen[index + laenge] ?? '');
+
 			for (const treffer of ohneBedingungen.matchAll(/[a-zA-Z][a-zA-Z0-9]*/g)) {
 				const wort = treffer[0].toLowerCase();
+				if (amTrennzeichen(treffer.index ?? 0, treffer[0].length)) continue;
 
 				if (farbnamen.has(wort)) {
 					melden(
@@ -1622,6 +1658,20 @@ const proben = [
 		art: 'Verstoss',
 		beschreibung:
 			'Zeit-Token, Null, Wiederholungszahl und Beschleunigungskurve dürfen nicht fallen',
+	},
+	{
+		regel: 1,
+		verzeichnis: 'regel-1f-eigenschaftsname',
+		erwartet: 0,
+		begruendung:
+			'Gegenprobe mit fünf Fallen: white-space als Eigenschaftsname, --surface-white und ' +
+			'--flaeche-Canvas als Custom Properties mit Bindestrich, --surface_white mit ' +
+			'Unterstrich, und -webkit-tap-highlight-color, dessen Hälfte highlight eine ' +
+			'Systemfarbe ist. Der Zerleger von Regel 1 kennt kein Trennzeichen und sah in allen ' +
+			'fünf einen Farb- oder Systemfarbnamen. Nichts davon ist ein Wert, also null Treffer',
+		art: 'Verstoss',
+		beschreibung:
+			'Farbname als Hälfte eines zusammengesetzten Bezeichners darf die Regel nicht wecken',
 	},
 	{
 		regel: 2,

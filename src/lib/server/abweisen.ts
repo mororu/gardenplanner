@@ -28,6 +28,31 @@ import { fail } from '@sveltejs/kit';
  *     ist null, wenn die Seite nur ein Formular hat. Seit Story 3.0.1 trägt
  *     /verwaltung je aktiver Mitgliedszeile ein Umbenennen-Formular, und `feld`
  *     allein sagt dann nur die Art der Stelle, nicht welche.
+ *   - `zweiteEingabe` trägt den verworfenen Text des **anderen** Feldes zurück.
+ *     Seit Story 4.1, und aus demselben Anlass, aus dem `zeile` entstand: eine
+ *     Seite kam dazu, für die die bisherige Form nicht reichte. /wissen ist das
+ *     erste Formular mit **zwei freien Textfeldern**, die beide ohne JavaScript
+ *     zurückreisen müssen — Titel und Freitext eines Blatts. /einzelaufgabe hat
+ *     ebenfalls zwei Felder, aber das zweite ist ein Datum mit `required`, `min`
+ *     und `max`, das der Browser selbst prüft; ein Blatt-Freitext kann
+ *     achttausend Zeichen tragen, und ihn wegen eines leeren Titels zu verlieren
+ *     wäre der teuerste Fehlschlag dieser Seite.
+ *
+ *     **Ausdrücklich kein dritter Slot und keine Abbildung Feld → Wert.** Ein
+ *     Formular mit drei freien Textfeldern gibt es nicht und soll es nicht
+ *     geben; eine Abbildung machte aus einer Nutzlast, deren Felder jede Seite
+ *     typisiert kennt, ein Wörterbuch, in dem ein Tippfehler wieder stumm wäre.
+ *
+ *     **Und ausdrücklich kein Optionsobjekt**, obwohl der Review zu Story 4.1 es
+ *     vorgeschlagen hat und der Einwand berechtigt ist: `abweisen(satz, 'titel',
+ *     titel, null, text)` liest sich als Rätsel, und die zwei neuen Aufrufe
+ *     schreiben `null` allein, um an den fünften Platz zu kommen. Ein Objekt
+ *     nähme das weg. Es kostete aber, dass **jede** der bisherigen zwölf
+ *     Aufrufstellen in einem Zug umgeschrieben werden müsste — in einer Story,
+ *     die von der Sache her nichts damit zu tun hat, und ohne dass eine
+ *     Behauptung den Umbau abfinge. Der Handel ist bewusst so herum entschieden,
+ *     und er ist die nächste Auslösebedingung: **das sechste Argument gibt es
+ *     nicht.** Wer es braucht, schreibt vorher die Form um.
  *
  * **`feld` und `zeile` zusammen sind die Zuordnung, und beide müssen ohne
  * JavaScript tragen.** Eine erste Fassung von Story 3.0.1 liess die Zeile vom
@@ -37,9 +62,9 @@ import { fail } from '@sveltejs/kit';
  * sprang in eine leere Region. Eine Zuordnung, die nur der Client herstellt, ist
  * für eine Seite, die ohne JavaScript bedienbar sein soll, keine.
  *
- * Dass zwei Seiten drei der vier Angaben leer lassen, ist der Preis der einen
- * Form und ausdrücklich abgenommen: eine leere Angabe kostet ein Feld in der
- * Nutzlast, eine eigene Signatur kostet die nächste Drift.
+ * Dass die meisten Seiten die Hälfte der Angaben leer lassen, ist der Preis der
+ * einen Form und ausdrücklich abgenommen: eine leere Angabe kostet ein Feld in
+ * der Nutzlast, eine eigene Signatur kostet die nächste Drift.
  *
  * `art: 'fehler'` ist die Unterscheidungsmarke: /verwaltung gibt aus derselben
  * action auch Erfolg mit `art: 'link'` zurück, und die Komponenten verzweigen
@@ -58,7 +83,8 @@ export function abweisen<Feld extends string>(
 	meldung: string,
 	feld: Feld | null = null,
 	eingabe = '',
-	zeile: number | null = null
+	zeile: number | null = null,
+	zweiteEingabe = ''
 ) {
-	return fail(400, { art: 'fehler' as const, meldung, feld, eingabe, zeile });
+	return fail(400, { art: 'fehler' as const, meldung, feld, eingabe, zeile, zweiteEingabe });
 }

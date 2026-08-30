@@ -245,14 +245,22 @@ erDiagram
     }
     SHEETS {
         integer id
-        text title
-        text body
-        integer updated_at
+        text titel
+        text text
+        integer created_at
     }
 %% Sheets sind gemeinschaftlich und tragen bewusst keine Autorenspalte.
 ```
 
 `duty_weeks` ist eindeutig über (`duty_kind`, `iso_year`, `iso_week`) — genau eine zuständige Person pro Dienstwoche. Ein Tausch ist ein `UPDATE` der `member_id`, kein neuer Datensatz.
+
+> **Nachgezogen am 2026-08-30** (Story 4.1). `SHEETS` trug bis hierher `title`, `body` und `updated_at` und stand damit im Widerspruch zu zwei Entscheiden desselben Tages, die beide **nach** dem Zeichnen dieses Diagramms fielen.
+>
+> **Die Spaltennamen.** Der Entscheid zur *Sprache der Spalten* (siehe *Consistency Conventions*) macht aus `title` ein `titel` und aus `body` ein `text` — beides Domänenspalten und damit deutsch. `titel` ist dieselbe Spalte wie in `signup_tasks`, `text` dieselbe wie in `tasks`.
+>
+> **`created_at` statt `updated_at`,** und das ist mehr als eine Umbenennung. Ein `updated_at` wäre der Anfang eines Bearbeitungsverlaufs, den die Akzeptanzkriterien ausschliessen: die nächste Story machte daraus eine Sortierung „zuletzt geändert", die übernächste ein „von wem". Die Liste ordnet darum nach dem **Titel**. Damit hat der Änderungszeitpunkt keinen Leser, und eine Spalte ohne Leser ist eine Einladung.
+>
+> `duty_weeks` behält im Diagramm die englischen Namen, obwohl die Tabelle `iso_jahr` und `iso_woche` heisst — das ist die nächste Ungenauigkeit derselben Art und beim Schreiben dieses Blocks gesehen. Sie steht hier benannt, statt still mitkorrigiert zu werden: eine Behauptung über eine Tabelle, die diese Story nicht anfasst, gehört in die Retrospektive und nicht in einen Nachtrag zu Story 4.1.
 
 ### Deployment und Umgebungen
 
@@ -279,9 +287,17 @@ Der `app`-Service veröffentlicht keinen Port; nginx erreicht ihn nur über das 
 
 ### Quellbaum
 
-Stand 2026-08-30, nach Epic 3. Was hier steht, steht im Baum; was im Baum steht,
-steht hier. `wissen/` und `queries/sheets.ts` sind die einzige Ausnahme und als
-solche markiert — sie kommen mit Epic 4.
+Stand 2026-08-30, nach Story 4.1. Was hier steht, steht im Baum; was im Baum
+steht, steht hier — **ohne vorweggenommene Ausnahme**. Bis Story 4.1 waren
+`wissen/` und `queries/sheets.ts` als „noch nicht gebaut" markiert; sie sind es
+jetzt, und die Markierung ist fort.
+
+Zwei Grenzen des Baums sind benannt und keine Auslassung: die Fehlerproben unter
+`scripts/gate-fixtures/` und `scripts/db-check-fixtures/` stehen als
+**Verzeichnisse** darin und nicht Datei für Datei — jede Probe ist ein
+Kleinprojekt mit eigener `src/`, und sie hier auszuschreiben hiesse, den Baum
+der Anwendung mit den Bäumen von dreissig Attrappen zu füllen. Und der Stand ist
+der von Story 4.1, nicht der von Epic 4: die Retrospektive des Epics steht aus.
 
 ```text
 src/
@@ -299,16 +315,17 @@ src/
     einzelaufgabe/         # eine Einzelaufgabe ausschreiben — CAP-6
     einzelaufgaben/        # alle Einzelaufgaben, lesend — CAP-6
     mehr/                  # Einstieg zu den seltenen Handlungen
-    wissen/                # Referenz-Sheets — CAP-7 (Epic 4, noch nicht gebaut)
+    wissen/                # Blattliste und Anlegen — CAP-7
+      [id]/                # ein Blatt lesen und ändern — CAP-7
     i/[token]/+server.ts   # Einladung einlösen, Cookie setzen — AD-3
     verwaltung/            # Mitglieder, Einladungen, Umbenennen — AD-11
   lib/
     server/
       db/
         index.ts           # Verbindung, WAL, foreign_keys, migrate() beim Start
-        schema.ts          # members, tasks, duty_weeks, signup_tasks — AD-4
+        schema.ts          # members, tasks, duty_weeks, signup_tasks, sheets — AD-4
         queries/           # Repository — AD-1
-          members.ts  tasks.ts  duty-weeks.ts  signup-tasks.ts
+          members.ts  tasks.ts  duty-weeks.ts  signup-tasks.ts  sheets.ts
       auth.ts              # Cookie ausstellen und lesen — AD-10
       token.ts             # Token erzeugen und hashen — AD-10
       herkunft.ts          # ORIGIN prüfen und auslegen — AD-13
@@ -316,11 +333,12 @@ src/
       abweisen.ts          # die eine Form, in der eine action abweist
     zeit.ts                # Zone, Tagesende, Überfälligkeit, ISO-Wochen — AD-6, AD-8
     aufgabentext.ts        # Falten, Längengrenze, Zeilen erkennen
+    blatttext.ts           # Blattregel: Falten **mit** Absätzen, zwei Leser
     mitgliedsname.ts       # die Namensregel, drei Leser
     unsichtbar.ts          # die Klasse unsichtbarer Zeichen, zwei Leser
     texte.ts               # die Sätze mit mehr als einer Wurfstelle
     styles/
-      bedienelemente.css   # die zwanzig geteilten Klassen
+      bedienelemente.css   # die geteilten Gestaltungsrollen — Gate-Regel 14
       fonts.css            # @font-face, selbst gehostet — UX-DR3
     client/utils/date.ts   # Datum ausgeschrieben — AD-6
     components/            # NavBar.svelte, TitleBar.svelte
@@ -328,7 +346,9 @@ drizzle/                   # Migrationskette, von drizzle-kit erzeugt
 scripts/                   # siehe Prüfwerkzeug darunter
   create-admin.ts          # erstes Admin-Mitglied anlegen
   backup.sh
-  gate.mjs                 # Gestaltungsrahmen, dreizehn Regeln
+  gate.mjs                 # Gestaltungsrahmen, vierzehn Regeln
+  gate-fixtures/           # je ein Kleinprojekt mit einer Verletzung je Regel
+  db-check-fixtures/       # dasselbe für die drei Prüfungen von db-check
   smoke-zugang.ts          # Zugangs- und Aufgabenschicht, gegen echtes SQLite
   smoke-http.ts            # der gebaute Server auf einem freien Port
   db-check.ts              # Schema gegen Migrationskette
@@ -417,7 +437,7 @@ Nichts im Werkzeug liest heute **Regelkörper oder gerendertes Ergebnis**. Befun
 | CAP-4 Ad-hoc erfassen | `routes/aufgabe/` | AD-1, AD-4, AD-9 |
 | CAP-5 Dienstplan | `routes/dienstplan/`, `queries/duty-weeks.ts` | AD-3, AD-4, AD-11, AD-14 |
 | CAP-6 Einzelaufgabe mit Anmeldung | `routes/einzelaufgabe/` (ausschreiben), `routes/einzelaufgaben/` (lesen), Block 2 auf `/` (übernehmen), `queries/signup-tasks.ts` | AD-3, AD-4, AD-9, AD-14 |
-| CAP-7 Referenz-Sheets | `routes/wissen/`, `queries/sheets.ts` | AD-1, AD-9 |
+| CAP-7 Referenz-Sheets | `routes/wissen/`, `routes/wissen/[id]/`, `queries/sheets.ts`, `lib/blatttext.ts` | AD-1, AD-6, AD-9 |
 | Überfälligkeit (Story 3) | Anzeigelogik der Liste | AD-8 |
 | Zugang und Identität | `routes/i/[token]/`, `lib/server/auth.ts` | AD-3, AD-10, AD-13 |
 | CAP-8 Mitglieder aufnehmen und Zugang beenden | `routes/verwaltung/`, `routes/i/[token]/`, `queries/members.ts` | AD-11, AD-10, AD-3 |
