@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-26-2026 13:20
-last_updated: "08-30-2026 11:40"
+last_updated: "08-30-2026 10:16"
 project: Gemeinschaftsgarten
 project_key: NOKEY
 tracking_system: file-system
@@ -345,7 +345,7 @@ action_items:
     action: "Die Sprache der Domaenenspalten entscheiden, bevor Epic 4 sheets anlegt
       - englisch bis Epic 2, deutsch ab Epic 3, gemischt in signup_tasks (D1)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
   - id: "epic-3-retro-item-43-den-spec-change-log-zur-regel-erheben-st"
     epic: 3
@@ -401,7 +401,7 @@ action_items:
     action: "Namensregel ARCHITECTURE-SPINE.md:148 auf kebab-case ziehen - widerspricht
       dem Abweichungsblock und nennt sheets.ts (A1, blockiert Epic 4)"
     owner: "Manuel"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-30.md"
   - id: "epic-3-retro-item-51-fehler-zwilling-ins-geteilte-fliesstext"
     epic: 3

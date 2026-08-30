@@ -145,8 +145,9 @@ graph TD
 | --- | --- |
 | Komponenten | PascalCase `.svelte` in `src/lib/components/` |
 | Routendateien | Nur SvelteKit-Konventionen: `+page.svelte`, `+page.server.ts`, `+server.ts`, `+layout.svelte`, `+layout.server.ts` |
-| Repository-Dateien | camelCase, nach Domäne benannt: `tasks.ts`, `dutyWeeks.ts`, `signupTasks.ts`, `sheets.ts`, `members.ts` |
+| Repository-Dateien | **kebab-case**, nach Domäne benannt: `tasks.ts`, `duty-weeks.ts`, `signup-tasks.ts`, `sheets.ts`, `members.ts`. Bis zum 2026-08-30 stand hier `camelCase` — gebaut war von Anfang an kebab-case, und der Abweichungsblock am Quellbaum hielt das schon fest, während diese Zeile das Gegenteil vorschrieb. Die Regel folgt jetzt dem Baum. |
 | Tabellen und Spalten | snake_case im Schema, camelCase in TypeScript (Drizzle-Mapping) |
+| **Sprache der Spalten** | **Domänenspalten deutsch, Infrastrukturspalten englisch.** Entschieden am 2026-08-30. Domäne ist, was die Gartengemeinschaft benennt (`titel`, `termin_at`, `iso_jahr`, `iso_woche`); Infrastruktur ist, was jede Tabelle trägt (`id`, `created_at`, `member_id`, `is_active`, `completed_at`). Ein deutsches Nomen mit englischem `_at`-Suffix ist die richtige Mischform, nicht ein Bruch. |
 | Zeilentypen | Immer Drizzles `$inferSelect` / `$inferInsert`; keine handgeschriebenen Interfaces für Tabellen |
 | Einfügewerte | `satisfies NewTask` (usw.) auf `.values({...})`, damit Schemaabweichungen beim Kompilieren auffallen |
 | Importe | `$lib/...` für alles aus `src/lib/`; lokale TypeScript-Dateien mit `.js`-Endung importieren (ESM + `moduleResolution: bundler`) |
@@ -156,6 +157,14 @@ graph TD
 | Farben | Ausschliesslich CSS Custom Properties, keine Hex-Werte in Komponenten-`<style>` |
 | Touch-Ziele | Jedes interaktive Element `min-height: 44px`; Inhaltsbreite `max-width: 600px; margin: 0 auto` |
 | Migrationen | `npm run db:generate` nach Schemaänderung; Migrationsdateien nie von Hand bearbeiten |
+
+> **Zur Sprache der Spalten, entschieden am 2026-08-30** (Retro Epic 3, Befund D1; Aktionspunkt `epic-3-retro-item-42`).
+>
+> Die Retrospektiven zu Epic 2 und Epic 3 haben den Baum als „nach Epoche gespalten" gemeldet: Epic 1 und 2 englisch, Epic 3 deutsch. Beim Nachsehen für Epic 4 stellte sich heraus, dass das so nicht stimmt — **Epic 1 hat nie gewählt.** Seine einzigen zwei Domänenspalten heissen `name` und `text`, und beide Wörter sind im Deutschen wie im Englischen identisch geschrieben. Alles andere aus Epic 1 und 2 (`created_at`, `is_active`, `completed_by`, `due_at`, `invite_token_hash`, `member_id`) ist Infrastruktur und war nie strittig.
+>
+> Es gibt damit genau **einen** wirklich getroffenen Präzedenzfall im Projekt, und der ist deutsch: `titel`, `termin_at`, `iso_jahr`, `iso_woche` aus Epic 3. Die Regel folgt ihm, statt eine Spaltung aufzulösen, die es nie gab. Sie passt ausserdem zur Zeile *Sprache der Oberfläche* darüber: was die Gartengemeinschaft benennt, heisst im ganzen System gleich.
+>
+> **Eine Warze wird dabei benannt und nicht geheilt:** `duty_weeks.art` ist die schwächste Spalte im Baum. Ein englischsprachiger Leser liest „Kunst". Der ehrlichere Name wäre `dienstart`. Sie bleibt, weil eine Migration allein für einen Spaltennamen den Preis nicht wert ist — aber die nächste Tabelle macht diesen Fehler nicht.
 | Qualitätstore | `npm run build` und `npm run lint` müssen sauber durchlaufen, bevor eine Story fertig ist |
 
 ## Stack

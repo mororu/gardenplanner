@@ -579,6 +579,14 @@ So that die anderen nachschauen können, ohne mich zu fragen.
 
 *Erfüllt:* FR11, NFR2, AD-1, AD-9. Legt `sheets` an, ohne Autorenspalte.
 
+*Namensentscheid, getroffen am 2026-08-30 (Retro Epic 3, Befund D1):* Die Tabelle heisst
+`sheets(id, titel, text, created_at)` — **Domänenspalten deutsch, Infrastrukturspalten
+englisch**, die Regel steht jetzt in `ARCHITECTURE-SPINE.md` unter *Consistency Conventions*.
+`titel` ist damit dieselbe Spalte wie in `signup_tasks`; `text` dieselbe wie in `tasks`, und
+das Wort trägt in beiden Sprachen. Die Repository-Datei heisst `sheets.ts` — ein Wort, unter
+kebab-case wie camelCase gleich geschrieben, diese Story stolpert also nicht über die
+Dateinamenregel. Keine Autoren-, Versions- und Verlaufsspalte, wie die Kriterien sagen.
+
 ## Abdeckung der UX-Design-Anforderungen
 
 | UX-DR | Abgedeckt in |
