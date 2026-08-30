@@ -219,7 +219,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 631;
+const ERWARTETE_BEHAUPTUNGEN = 633;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -5634,7 +5634,7 @@ try {
 	const spalteBis = spalteVon < 0 ? -1 : startseitenCode.indexOf('</div>', spalteVon);
 	const spaltenRumpf =
 		spalteVon < 0 || spalteBis < 0 ? '' : startseitenCode.slice(spalteVon, spalteBis);
-	const textStelle = spaltenRumpf.indexOf('<span class="zeile__text"');
+	const textStelle = spaltenRumpf.indexOf('<span class="zeile__aufgabe zeile__text"');
 	const fristStelle = spaltenRumpf.indexOf('<p class="zeile__frist"');
 	const reihenfolgeTeile = [
 		['der each-Block des Pools ist gefunden', poolAnker >= 0],
@@ -5699,7 +5699,7 @@ try {
 		],
 		[
 			'und der Aufgabentext bleibt allein in #aufgabe-{id}',
-			/<span class="zeile__text" id="aufgabe-\{aufgabe\.id\}">\{aufgabe\.text\}<\/span>/.test(
+			/<span class="zeile__aufgabe zeile__text" id="aufgabe-\{aufgabe\.id\}">\{aufgabe\.text\}<\/span>/.test(
 				startseitenCode
 			),
 		],
@@ -7280,6 +7280,42 @@ try {
 		!('actions' in (einzelaufgabenSeite as Record<string, unknown>)) &&
 			!/export const actions/.test(quelltext('src', 'routes', 'einzelaufgaben', '+page.server.ts')),
 		Object.keys(einzelaufgabenSeite).join(', ')
+	);
+
+	/*
+	 * **Derselbe Titel steht auf zwei Seiten und muss dieselbe Form tragen.**
+	 *
+	 * Der Titel einer Einzelaufgabe erscheint zweimal: im Pool-Block auf / und in
+	 * der Liste auf /einzelaufgaben. Bis zum 2026-08-30 stand er auf / in der
+	 * task-Rampe und hier in der body-Rampe — `line-height: 1.45` gegen `1.55`,
+	 * weil eine lokale Regel `.zeile__text` auf / das globale `.fliesstext` per
+	 * Bereichshash schlug. Posten R3 der zweiten Retrospektive zu Epic 3.
+	 *
+	 * Gefunden hat das ein Mensch, der zwei Dateien nebeneinander gelegt hat.
+	 * Keine Behauptung sah es: die eine Seite prüfte ihre Klassen, die andere
+	 * ihre, und dass die zwei **dieselben** sein müssen, stand nirgends. Diese
+	 * Zeile sagt es. Sie hält die Klassenliste beider Stellen gegeneinander,
+	 * nicht gegen ein Literal — wer die Rolle beider Seiten zugleich ändert,
+	 * darf das, wer nur eine ändert, wird rot.
+	 */
+	const titelKlassen = (text: string, muster: RegExp) => muster.exec(text)?.[1] ?? '';
+	const titelAufStart = titelKlassen(
+		startseitenCode,
+		/<p class="([^"]*)" id="einzel-titel-\{aufgabe\.id\}">/
+	);
+	const titelAufListe = titelKlassen(
+		quelltext('src', 'routes', 'einzelaufgaben', '+page.svelte'),
+		/<p class="([^"]*)">\{aufgabe\.titel\}<\/p>/
+	);
+	pruefenGleich(
+		'der Titel einer Einzelaufgabe trägt auf / dieselben Klassen wie auf /einzelaufgaben',
+		titelAufStart === '' ? '(auf / nicht gefunden)' : titelAufStart,
+		titelAufListe === '' ? '(auf /einzelaufgaben nicht gefunden)' : titelAufListe
+	);
+	pruefen(
+		'und die Rampe des Aufgabentexts trägt einen eigenen Namen, damit sie ihn nicht mitnimmt',
+		/\.zeile__aufgabe \{/.test(startseitenCode) && !/\n\t\.zeile__text \{/.test(startseitenCode),
+		'auf / steht wieder eine lokale Regel .zeile__text — sie schlägt das geteilte .fliesstext'
 	);
 
 	// -----------------------------------------------------------------------

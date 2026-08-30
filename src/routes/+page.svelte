@@ -812,7 +812,7 @@
 						Der Spaltencontainer ist keine Zierde, sondern die einzige Stelle,
 						an der die zweite Zeile **unter** dem Text landen kann: .zeile ist
 						ein Flexcontainer in Zeilenrichtung, und ein Geschwister von
-						.zeile__text stünde daneben.
+						.zeile__aufgabe stünde daneben.
 
 						Die zweite Zeile liegt ausdrücklich **neben** #aufgabe-{id} und
 						nicht darin: das Kästchen holt seinen Namen über aria-labelledby
@@ -832,7 +832,7 @@
 						auf eine leere Kennung, und die Beschreibung fiele **ganz** aus.
 					-->
 					<div class="zeile__spalte">
-						<span class="zeile__text" id="aufgabe-{aufgabe.id}">{aufgabe.text}</span>
+						<span class="zeile__aufgabe zeile__text" id="aufgabe-{aufgabe.id}">{aufgabe.text}</span>
 						{#if istUeberfaellig}
 							<p class="zeile__frist" id="frist-{aufgabe.id}">
 								seit {aufgabe.wochenOffen} Wochen überfällig
@@ -1066,7 +1066,25 @@
 		min-width: 0;
 	}
 
-	.zeile__text {
+	/*
+		Die Aufgaben-Rampe. Sie gilt für den **Aufgabentext** und nur für ihn.
+
+		Bis zum 2026-08-30 hiess diese Regel `.zeile__text` — derselbe Name wie der
+		Umbruchhelfer im geteilten Blatt, und damit trug eine Klasse zwei Rollen.
+		Die Folge stand ausgeliefert im Baum: der Titel einer freien Einzelaufgabe
+		trägt `class="fliesstext zeile__text"`, und der Bereichshash von Svelte gab
+		dieser lokalen Regel den Vorrang vor dem globalen `.fliesstext`. Dieselbe
+		Zeile stand darum auf / in der task-Rampe und auf /einzelaufgaben in der
+		body-Rampe — `line-height: 1.45` gegen `1.55`. Vor der Zusammenlegung der
+		geteilten Rollen gewann `.einzel__titel` per Quelltextreihenfolge, also
+		die body-Rampe; die Darstellung auf / hatte sich still geändert.
+
+		Posten R3 der zweiten Retrospektive zu Epic 3. Aufgelöst über den Namen und
+		nicht über die Spezifität: `.zeile__text` ist jetzt allein der Umbruch aus
+		dem geteilten Blatt, den beide Textarten brauchen, und die Rampe hat einen
+		Namen, der sagt, für welche Textart sie gilt.
+	*/
+	.zeile__aufgabe {
 		color: var(--ink-primary);
 		font-family: var(--task-font);
 		font-size: var(--task-size);
@@ -1106,7 +1124,7 @@
 		Kästchen mit Haken und gedämpfte Schrift. Kein Zustand hängt allein an der
 		Farbe — die Dämpfung ist die letzte der drei und nie die einzige.
 	*/
-	.zeile--erledigt .zeile__text {
+	.zeile--erledigt .zeile__aufgabe {
 		color: var(--ink-secondary);
 		text-decoration: line-through;
 	}
@@ -1126,7 +1144,7 @@
 	@media (prefers-reduced-motion: no-preference) {
 		.kaestchen,
 		.haken,
-		.zeile__text {
+		.zeile__aufgabe {
 			transition-property: background-color, border-color, color, opacity;
 			transition-duration: var(--duration-quick);
 		}

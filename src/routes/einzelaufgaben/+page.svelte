@@ -74,6 +74,3 @@
 		</ul>
 	{/if}
 </div>
-
-<style>
-</style>

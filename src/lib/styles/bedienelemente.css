@@ -536,11 +536,19 @@ select.feld {
  * Die Liste. Kein Aufzählungszeichen, kein Einzug, kein Aussenabstand — die
  * Vorgaben des Browsers für `<ul>` sind für jede Liste dieser Anwendung falsch.
  *
- * Lag nach Epic 3 siebenmal im Baum, unter sieben Namen: `.liste` auf `/`,
+ * Lag nach Epic 3 siebenmal im Baum, unter **fünf** Namen: `.liste` auf `/`,
  * `/verwaltung` und `/monatsplan`, dazu `.einzelaufgaben`, `.aufgaben`,
  * `.wochen` und `.eintraege`. Die vier letzten unterschieden sich von den drei
  * ersten in **einer** Eigenschaft, dem Abstand — und darum ist das hier ein
  * Modifikator und keine zweite Liste.
+ *
+ * Die Zahl stand bis zum 2026-08-30 auf „sieben Namen" und zählte damit die
+ * Vorkommen ein zweites Mal — in einer Datei, deren ganze Beweisführung auf der
+ * Unterscheidung von Vorkommen und Namen ruht. Posten R8 der zweiten
+ * Retrospektive zu Epic 3. Nachgemessen an `a25bda5`: sieben Vorkommen, fünf
+ * Namen. Eine achte Fundstelle trägt dieselbe Regel und ist **nicht**
+ * mitgezählt — `.nav-bar__liste` in der Navigationsleiste war nie Teil der
+ * Zusammenlegung und bleibt bei ihrer Komponente.
  */
 .liste {
 	display: flex;

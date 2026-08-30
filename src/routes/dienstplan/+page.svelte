@@ -188,7 +188,7 @@
 			{@const dieseWoche = schluessel(eintrag)}
 			{@const fehlerHier = fehlerAnDerAuswahl !== '' && fehlerWoche === dieseWoche}
 			{@const istLaufend = dieseWoche === data.laufendeWoche}
-			<li class="karte woche" class:woche--laufend={istLaufend}>
+			<li class="karte" class:woche--laufend={istLaufend}>
 				<div class="woche__kopf">
 					<div class="woche__spalte">
 						<!--
@@ -369,14 +369,18 @@
 		Das ISO-Jahr neben der Wochennummer. Nebentext-Rolle: es beantwortet eine
 		Frage, die sich nur an vier Zeilen im Jahr stellt, und soll die
 		Wochennummer nicht zerteilen.
-	*/
-	/*
-		**Bleibt lokal, und das ist gemessen und nicht vergessen.** Er ist
-		`.hinweis hinweis--ziffern` **ohne** `line-height` — als Span in der Zeile
-		von `.woche__nummer` würde ein eigenes `line-height` die Zeilenbox der
-		Wochennummer zerteilen. Eine Eigenschaft Unterschied bei einem inline
-		gesetzten Element ist kein Duplikat, sondern eine andere Regel; vermerkt in
-		deferred-work.md zum Review vom 2026-08-30.
+
+		**Bleibt lokal, und das ist gemessen und nicht vergessen.** Es ist
+		`.hinweis hinweis--ziffern` **ohne** `line-height` und ohne `margin: 0` —
+		als Span in der Zeile von `.woche__nummer` würde ein eigenes `line-height`
+		die Zeilenbox der Wochennummer zerteilen. Zwei Eigenschaften Unterschied
+		bei einem inline gesetzten Element sind kein Duplikat, sondern eine andere
+		Regel; vermerkt in deferred-work.md zum Review vom 2026-08-30.
+
+		Hier standen bis zum 2026-08-30 **zwei** Kommentarblöcke übereinander, der
+		zweite aus einem späteren Durchgang, und der behauptete „eine Eigenschaft
+		Unterschied" — es sind zwei, das `margin: 0` fehlt ebenso. Posten R8 der
+		zweiten Retrospektive zu Epic 3: verschmolzen und nachgezählt.
 	*/
 	.woche__jahr {
 		color: var(--ink-secondary);
