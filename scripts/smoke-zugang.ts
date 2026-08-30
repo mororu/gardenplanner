@@ -61,7 +61,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
 	aufraeumen,
@@ -219,7 +219,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 633;
+const ERWARTETE_BEHAUPTUNGEN = 635;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -3464,13 +3464,7 @@ try {
 	);
 
 	/*
-	 * `tabindex="-1"` sieht an einem <p> wie ein Versehen aus. Ohne es ist
-	 * meldungKasten.focus() ein stiller Leerlauf: die Prüfung des $effect darunter
-	 * bliebe grün, und `Abgelegt.` würde nie angesagt. Es gehört darum mit
-	 * bind:this in **eine** Behauptung — die zwei sind zusammen der Fokusgriff.
-	 */
-	/*
-	 * **Jede Meldungsregion des Baums, nicht nur die auf `/`.**
+	 * **Jede Meldungsregion des Baums, und der Baum sagt selbst, wo er sie hat.**
 	 *
 	 * `tabindex="-1"` sieht an einem `<p>` wie ein Versehen aus. Ohne es ist
 	 * `meldungKasten.focus()` ein stiller Leerlauf: die Prüfung des $effect
@@ -3478,27 +3472,43 @@ try {
 	 * mit `bind:this` in **eine** Behauptung — die zwei sind zusammen der
 	 * Fokusgriff.
 	 *
-	 * Die Retrospektive Epic 3 hat gemessen, dass es die Region dreimal gibt und
-	 * dass sie dreimal verhaltensgleich ist. Diese Zeile las bis dahin nur die
-	 * Startseite; eine vierte Seite, die sich die Region ohne `tabindex`
-	 * danebenschreibt, wäre nirgends aufgefallen. Gesucht wird jetzt über alle
-	 * Seitenkomponenten, und die Zahl wird mitgeprüft: fällt eine Region weg,
-	 * ohne dass jemand die Zahl anfasst, wird die Zeile rot.
+	 * **Die Wache stand bis zum 2026-08-30 auf drei fest verdrahteten Pfaden**,
+	 * während ihr Kommentar „über alle Seitenkomponenten" behauptete. Posten R2
+	 * der zweiten Retrospektive zu Epic 3 hat den Widerspruch benannt, und die
+	 * Lücke war beim Nachsehen nicht bloss theoretisch: Story 4.1 hatte
+	 * inzwischen eine **vierte** Region auf `/wissen/[id]` gebaut, und die Zeile
+	 * las sie nie. Sie trug ihren Fokusgriff — der Fehler war die blinde Wache,
+	 * nicht die Seite.
+	 *
+	 * Gesucht wird jetzt über **jede** `+page.svelte` unter `src/routes/`,
+	 * eingesammelt aus dem Verzeichnisbaum statt aus einer Liste. Eine neue Seite
+	 * mit einer Region ohne `tabindex` fällt damit vom ersten Tag an auf, und
+	 * niemand muss daran denken, sie irgendwo einzutragen — dieselbe Bauform wie
+	 * Gate-Regel 14 und 15, und aus demselben Grund: eine gepflegte Liste
+	 * vergisst genau den Fall, für den sie da wäre.
+	 *
+	 * Die Zahl wird mitgeprüft: fällt eine Region weg, ohne dass jemand die Zahl
+	 * anfasst, wird die Zeile rot. Gelesen wird kommentarfrei — eine Region, die
+	 * jemand in einem Kommentar erwähnt, ist keine.
 	 */
-	const meldungsSeiten = ['+page.svelte', 'dienstplan', 'verwaltung'].map((wo) => {
-		const pfad =
-			wo === '+page.svelte'
-				? join(wurzel, 'src', 'routes', '+page.svelte')
-				: join(wurzel, 'src', 'routes', wo, '+page.svelte');
-		return [wo, readFileSync(pfad, 'utf8')] as const;
-	});
-	const meldungsTags = meldungsSeiten.flatMap(([name, text]) =>
-		[...text.matchAll(/<p\b[^>]*class="meldung live"[^>]*>/g)].map(
-			(treffer) => [name, treffer[0]] as const
-		)
+	const seitenPfade = readdirSync(join(wurzel, 'src', 'routes'), {
+		recursive: true,
+		withFileTypes: true,
+	})
+		.filter((eintrag) => eintrag.isFile() && eintrag.name === '+page.svelte')
+		.map((eintrag) => join(eintrag.parentPath, eintrag.name))
+		.sort();
+	const meldungsTags = seitenPfade.flatMap((pfad) =>
+		[
+			...kommentarfrei(readFileSync(pfad, 'utf8')).matchAll(/<p\b[^>]*class="meldung live"[^>]*>/g),
+		].map((treffer) => [relative(join(wurzel, 'src', 'routes'), pfad), treffer[0]] as const)
 	);
 	const meldungsTeile = [
-		['es gibt genau drei Meldungsregionen im Baum', meldungsTags.length === 3] as const,
+		[
+			`alle Seitenkomponenten sind eingesammelt (${seitenPfade.length} statt der drei verdrahteten)`,
+			seitenPfade.length >= 10,
+		] as const,
+		['es gibt genau vier Meldungsregionen im Baum', meldungsTags.length === 4] as const,
 		...meldungsTags.map(
 			([name, tag]) =>
 				[
@@ -3511,6 +3521,81 @@ try {
 		'jede Meldungsregion trägt den Fokusgriff — tabindex und bind:this zusammen',
 		fehlendeTeile(meldungsTeile).length === 0,
 		`verletzt: ${fehlendeTeile(meldungsTeile).join(', ')}`
+	);
+
+	/*
+	 * **Und jede Live-Region des Baums gegen ihre Attribute — nicht nur die vier
+	 * höflichen.**
+	 *
+	 * `bedienelemente.css` begründet, warum die Region eine CSS-Regel wurde und
+	 * keine Svelte-Komponente, mit dem Satz: „Statt dessen prüft `smoke` **jede**
+	 * Region des Baums gegen ihre Attribute. Das ist die schärfere Zusage." Befund
+	 * F1 der zweiten Retrospektive zu Epic 3 hat nachgemessen, dass das nicht
+	 * stimmte: geprüft waren drei von dreizehn, und genau der Handschriften-Fall,
+	 * den die Zusage ausschliessen sollte, kam durch. Eine Begründung, die auf
+	 * eine Behauptung verweist, die es nicht gibt, ist schlechter als gar keine.
+	 *
+	 * Jetzt stimmt sie. Zwei Familien, jede mit ihrem Paar:
+	 *   `meldung live` → `role="status"` und `aria-live="polite"` — der geglückte
+	 *   Vorgang wartet, bis die Person zu Ende gelesen hat.
+	 *   `fehler live` → `role="alert"` und `aria-live="assertive"` — die
+	 *   Abweisung unterbricht, weil die Eingabe sonst verloren scheint.
+	 *
+	 * **Eine `live` ist ausdrücklich keine Region** und trägt darum keines der
+	 * zwei Attribute: der Datumshinweis auf `/monatsplan` hängt über
+	 * `aria-describedby` am Feld und wird beim Fokussieren mitgelesen. Ein
+	 * `aria-live` daran sagte denselben Satz ein zweites Mal an. Dort ist `live`
+	 * allein die CSS-Rolle, die ein leeres Element aus dem Fluss nimmt — dieselbe
+	 * Klasse, zwei Aufgaben, und das ist hier benannt statt stillschweigend.
+	 * Die Zahl wird mitgeführt: wächst sie, hat jemand eine Region gebaut, die
+	 * nichts ansagt.
+	 */
+	const liveTags = seitenPfade.flatMap((pfad) =>
+		[
+			...kommentarfrei(readFileSync(pfad, 'utf8')).matchAll(
+				/<p\b[^>]*class="[^"]*\blive\b[^"]*"[^>]*>/g
+			),
+		].map((treffer) => [relative(join(wurzel, 'src', 'routes'), pfad), treffer[0]] as const)
+	);
+	const regionenTeile = liveTags.map(([wo, roh]) => {
+		const tag = roh.replace(/\s+/g, ' ');
+		const klasse = /class="([^"]*)"/.exec(tag)?.[1] ?? '';
+		const art = klasse.includes('meldung')
+			? (['status', 'polite'] as const)
+			: klasse.includes('fehler')
+				? (['alert', 'assertive'] as const)
+				: null;
+		if (art === null)
+			return [
+				`${wo}: ${klasse} ist keine Region und trägt darum weder role noch aria-live`,
+				!/role="/.test(tag) && !/aria-live="/.test(tag),
+			] as const;
+		return [
+			`${wo}: ${klasse} trägt role="${art[0]}" und aria-live="${art[1]}"`,
+			tag.includes(`role="${art[0]}"`) && tag.includes(`aria-live="${art[1]}"`),
+		] as const;
+	});
+	pruefen(
+		'jede Live-Region des Baums trägt das Attributpaar ihrer Art — und die eine, die keine ist, trägt keines',
+		fehlendeTeile(regionenTeile).length === 0,
+		`verletzt: ${fehlendeTeile(regionenTeile).join(', ')}`
+	);
+	pruefenGleich(
+		'und es sind vier höfliche, fünfzehn unterbrechende und genau eine, die nur die CSS-Rolle braucht',
+		JSON.stringify(
+			liveTags
+				.map(([, roh]) => /class="([^"]*)"/.exec(roh.replace(/\s+/g, ' '))?.[1] ?? '')
+				.reduce(
+					(zaehler, klasse) => {
+						if (klasse.includes('meldung')) zaehler.hoeflich += 1;
+						else if (klasse.includes('fehler')) zaehler.unterbrechend += 1;
+						else zaehler.keineRegion += 1;
+						return zaehler;
+					},
+					{ hoeflich: 0, unterbrechend: 0, keineRegion: 0 }
+				)
+		),
+		JSON.stringify({ hoeflich: 4, unterbrechend: 15, keineRegion: 1 })
 	);
 
 	const rueckmeldungRumpf = glatterRumpf(

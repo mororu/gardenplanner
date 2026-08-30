@@ -625,6 +625,16 @@ select.feld {
  * Statt dessen prüft `smoke` **jede** Region des Baums gegen ihre Attribute.
  * Das ist die schärfere Zusage: eine Komponente hindert niemanden daran, sich
  * die Region von Hand danebenzuschreiben — die Behauptung schon.
+ *
+ * **Dieser Satz war bis zum 2026-08-30 nicht wahr.** Befund F1 der zweiten
+ * Retrospektive zu Epic 3 hat nachgemessen: geprüft waren drei Regionen von
+ * dreizehn, und zwar über drei fest verdrahtete Dateipfade — genau der
+ * Handschriften-Fall, den die Begründung ausschliessen wollte, kam durch. Eine
+ * Begründung, die auf eine Behauptung verweist, die es nicht gibt, ist
+ * schlechter als gar keine. Seit heute sammelt `smoke` die Seiten aus dem
+ * Verzeichnisbaum und hält alle zwanzig `live`-Elemente gegen das Attributpaar
+ * ihrer Art; die eine, die keine Region ist, ist dort benannt. Zwei Mutationen
+ * wurden dafür einzeln rot gesehen.
  */
 .meldung {
 	color: var(--accent);
