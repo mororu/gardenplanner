@@ -3,7 +3,7 @@ title: 'Story 3.2: Einzelaufgabe ausschreiben und übernehmen'
 type: 'feature'
 created: '2026-08-29'
 status: 'done' # draft | ready-for-dev | in-progress | in-review | done
-review_loop_iteration: 1
+review_loop_iteration: 2
 baseline_commit: 'ca523cffae15fb9d79d36602107ca276f0ad1dce'
 context: ['{project-root}/_bmad-output/implementation-artifacts/epic-3-context.md']
 ---
@@ -116,7 +116,7 @@ context: ['{project-root}/_bmad-output/implementation-artifacts/epic-3-context.m
 
 ### Review Findings
 
-**Durchgang 1 — 2026-08-29, abgearbeitet.** Drei Schichten (Blind Hunter, Edge Case Hunter, Verification Gap), keine ausgefallen. **Kein `intent_gap` und kein `bad_spec`** — kein Akzeptanzkriterium ist verletzt und keine Zeile der I/O-Matrix verhält sich anders als zugesagt. Zwei Befunde betreffen echtes Verhalten, der Rest die Kette und die Prosa. Nach den Patches: `check` und `lint` Exit 0 (`smoke` 592, `smoke:http` 141 Behauptungen, `gate` 0 Hinweise), und **zwölf** Mutationen einzeln rot gesehen statt der sieben aus der Planung.
+**Durchgang 1 — 2026-08-29, abgearbeitet.** Drei Schichten (Blind Hunter, Edge Case Hunter, Verification Gap), keine ausgefallen. **Kein `intent_gap` und kein `bad_spec`** — kein Akzeptanzkriterium ist verletzt und keine Zeile der I/O-Matrix verhält sich anders als zugesagt. Zwei Befunde betreffen echtes Verhalten, der Rest die Kette und die Prosa. Nach den Patches: `check` und `lint` Exit 0 (`smoke` 592, `smoke:http` 140 Behauptungen — je die Konstante `ERWARTETE_BEHAUPTUNGEN`, ohne die Schlusszählung; die Skripte melden am Ende 593 und 141 —, `gate` 0 Hinweise), und **zwölf** Mutationen einzeln rot gesehen statt der sieben aus der Planung.
 
 Verhalten:
 
@@ -159,6 +159,74 @@ Verworfen:
 - [x] [Review][Reject] „`fokusGeholt` verbraucht sich zwischen `?abgelegt` und `?ausgeschrieben`" — die zwei Parameter sind Ziele **verschiedener** Seiten, und der Weg dorthin verlässt `/` und baut die Komponente neu auf
 - [x] [Review][Reject] „`sprint-status.yaml` steht auf in-progress" — der Stand wandert am Ende des Workflows, nicht in der Umsetzung
 
+**Durchgang 2 — 2026-08-30, der separate Review in frischer Sitzung.** Den die Retrospektive Epic 3 als Bedingung für die Abnahme benannt hat (`epic-3-retro-2026-08-29.md:252`). Vier Schichten (Blind Hunter, Edge Case Hunter, Verification Gap, Acceptance Auditor), keine ausgefallen. Diff `ca523cf..a25bda5`, Prüfgegenstand `src/`, `drizzle/`, `scripts/`; jeder Befund gegen **HEAD** verifiziert, nicht gegen den Diff — seit `a25bda5` sind `2ee5b03` und `4af054f` gelaufen.
+
+**Kein `intent_gap` und kein `bad_spec`.** Der Acceptance Auditor hat die I/O-Matrix Zeile für Zeile gegen ausgeführte Behauptungen gehalten: keine Zeile verhält sich anders als zugesagt, kein Akzeptanzkriterium ist verletzt. Ausgangsmessung bei HEAD vor dem Review: `gate` 0 Hinweise, `db:check`, `smoke` 593, `smoke:selftest` 15, `smoke:http` 141 Behauptungen, alle Exit 0.
+
+**Zwei Mutationen ausgeführt und beide grün geblieben** — das ist der Kern dieses Durchgangs. Was Durchgang 1 gefunden hat, war Verhalten; was hier steht, ist zum grossen Teil die Frage, ob dieses Verhalten gemessen wird.
+
+Verhalten:
+
+- [x] [Review][Patch] Der Durchgang-1-Patch an `versandFragen` hat einen Weg geöffnet, den zwei Docblocks seither falsch beschreiben. `if (dialog === null) return;` steht **vor** `cancel()`; der Rückruf gibt dann gar keine Fortsetzung zurück, SvelteKit fährt sein Vorgabeverhalten `update()`, und ein `result.type === 'error'` erreicht `applyAction` statt `VERSAND_FEHLGESCHLAGEN` — die Always-Regel „jeder `use:enhance`-Rückruf fängt `result.type === 'error'` ab" gilt auf diesem Zweig nicht. `src/lib/texte.ts:119` behauptet das Gegenteil („sein Rückruf bricht den Versand ab und gibt gar keine Fortsetzung zurück"), und `src/routes/+page.svelte:598` behauptet „Mit JavaScript entsteht sie nie" über den Inline-Frageblock, der auf genau diesem Zweig **zusätzlich** zum Dialog erscheint [src/routes/+page.svelte:387; src/lib/texte.ts:119]
+- [x] [Review][Patch] Derselbe Patch deckt `dialog === null`, nicht `abbrechenKnopf === null`. Fehlt der Abbrechen-Knopf, ist `cancel()` schon gelaufen, und `uebernahmeFragen` steigt danach still aus — genau der „schlechteste Ausgang", den der Kommentar darüber für behoben erklärt: kein POST, kein Dialog, toter Knopf [src/routes/+page.svelte:352]
+
+Messung — die zwei ausgeführten Mutationen:
+
+- [x] [Review][Patch] **Der Weg mit JavaScript zur Bestätigung ist von keiner Behauptung berührt.** Mutation ausgeführt: `cancel()` in `src/routes/+page.svelte:388` gestrichen → `smoke` Exit 0, 593 Behauptungen, kein Befund. Die Rückruf-Schleife schneidet nur `return async (…) => {`, und `versandFragen` gibt einen synchronen Pfeil zurück; `smoke:http` kennt kein JavaScript. Ungedeckt sind damit `cancel()`, die Reihenfolge gegen den `dialog === null`-Ausstieg, `await tick()`, der `abbrechenKnopf`-Ausstieg, `showModal()` und `abbrechenKnopf.focus()` — und in `versandBestaetigen` zusätzlich `dialog?.close()` **vor** `update()` sowie `meldungKasten?.focus()`. Das Werkzeug dafür gibt es: `glatterRumpf`, benutzt für die Geschwisterseiten [scripts/smoke-zugang.ts]
+- [x] [Review][Patch] **`/einzelaufgaben` wird nie mit einer freien Zeile ausgeliefert.** Mutation ausgeführt: den `{#if aufgabe.uebernehmer === null}`-Zweig kollabiert → `smoke` **und** `smoke:http` beide Exit 0. Die Seite wird im `seiten`-Durchlauf mit **leerer** Tabelle geholt und als `unterseiteHtml` erst **nach** der Zusage; es gibt im ganzen Lauf keinen Moment mit einer freien Zeile, und `Nichts ausgeschrieben.` kommt in keinem Skript vor. Die einzige Aussage, die diese Seite gegenüber `/` hinzufügt, kann still ausfallen [scripts/smoke-http.ts]
+- [x] [Review][Patch] AD-2 ist für Einzelaufgaben Prosa statt Messung: die Gleichheits-Behauptung vergleicht `JSON.stringify(alsNico.aufgaben)` gegen `alsVera.aufgaben` und lässt `einzelaufgaben` aus — obwohl die `load` die Zusage „die freien Einzelaufgaben sind für alle dieselben" ausdrücklich trägt [scripts/smoke-zugang.ts:2644]
+- [x] [Review][Patch] `/einzelaufgabe` wird über HTTP nie als Nicht-Admin geprüft — der `seiten`-Durchlauf und der Ausschreiben-POST fahren beide mit `adminKeks`. Die zentrale Zusage der Route („keine eigene Zugangsschranke, ausschreiben darf jedes aktive Mitglied") ist nur auf Unit-Ebene über `nicoLocals` gedeckt. Ein GET und ein POST mit `mitgliedKeks` schliessen das [scripts/smoke-http.ts]
+
+Kette und Prosa:
+
+- [x] [Review][Patch] `.hinweis--ziffern` ist die einzige neue geteilte Regel **ohne** Eintrag in `SEITENFORM`; der bestehende `.hinweis`-Eintrag greift nicht, weil auf `.hinweis` ein `-` folgt und kein `\s*\{`. Daneben schreiben `.dienst__datum` (`src/routes/+page.svelte:890`) und `.woche__datum` (`src/routes/dienstplan/+page.svelte:388`) dieselbe Regel byte-gleich weiter, `.woche__jahr` (`:373`) fast. Der Retro-Posten D1 wächst an genau der Stelle nach, die ihn beheben sollte [scripts/smoke-zugang.ts:SEITENFORM]
+- [x] [Review][Patch] Der Docblock zu `EINZELAUFGABE_NICHT_ANSPRECHBAR` sagt „**Vier** Wurfstellen, **alle** in der action `uebernehmen`" — `src/routes/+page.svelte:144` liest die Konstante als fünfte Stelle. Kein Wurf, sondern eine Anzeige, und darum kein Widerspruch im Wort „Wurfstelle" — aber „alle in der action" liest sich als erschöpfende Aussage über die Konstante. Durchgang 1 hat diesen Docblock schon einmal nachgezogen [src/lib/texte.ts:223]
+- [x] [Review][Patch] Zahlen-Buchhaltung: das Verifikationsprotokoll nennt „`smoke` 592, `smoke:http` 141" und mischt damit zwei Zählweisen — 592 ist die Konstante, 141 die Gesamtzahl einschliesslich der Schlusszählung; die Konstante steht auf 140. Dazu behauptet `scripts/smoke-http.ts:89` „dieselbe Zahl steht in README.md" — im README steht sie nicht [spec:119,213; scripts/smoke-http.ts:89]
+- [x] [Review][Patch] Zwei Abweichungen ohne Eintrag im Spec Change Log, beide im Code sauber begründet: der lokale `TERMIN_FEHLT` statt des von der Code Map „wörtlich zu übernehmen"-den `DATUM_FEHLT`, und `/einzelaufgaben` **nicht** in `seitenServer`/`seitenKomponenten`, obwohl die abgehakte Aufgabenzeile „beide Seiten" verlangt. Genau die Lücke, die Retro-Posten 43 („Den Spec Change Log zur Regel erheben") adressiert [spec:162]
+
+Entscheidungen für Manuel:
+
+- [x] [Review][Decision] **Die zwei Bestätigungswege sagen nicht dasselbe.** Der Dialog trägt `<h2>Einzelaufgabe übernehmen?</h2>` und den Folgesatz „Dein Name steht danach für alle daneben."; das Dokument ohne JavaScript trägt nur `Du übernimmst: <Titel>, <Termin>.` Die Begründung der Verbindlichkeit — der Grund, warum diese eine Handlung überhaupt eine Bestätigung bekommt — erreicht damit nur, wer JavaScript hat. Die Spec sagt „Die Bestätigung trägt ohne JavaScript … der `<dialog>` ist die Aufwertung, nicht die Bedingung". Ist der Folgesatz Substanz (dann gehört er in beide Wege) oder Aufwertung (dann gehört das in die Design Notes)? Die bestehende Behauptung nagelt nur `Du übernimmst:` fest und sähe die Abweichung nie [src/routes/+page.svelte:830,617]
+- [x] [Review][Decision] **Der Eintrag auf `/mehr` heisst `Übernommene Einzelaufgaben`, die Seite zeigt alle** und nennt sich selbst `Alle Einzelaufgaben` — so auch der Fusslink aus Block 2. Ein Widerspruch **innerhalb** der Spec: der Aufgabentext gab die Beschriftung vor, die Always-Regel sagt „dort stehen **alle**, freie wie übernommene". Umbenennen auf `Alle Einzelaufgaben` oder die Beschriftung halten? [src/routes/mehr/+page.svelte:44]
+
+Zurückgestellt, mit Begründung in `deferred-work.md`:
+
+- [x] [Review][Defer] `versandFragen` setzt `versandFehler` nicht zurück — ein alter `VERSAND_FEHLGESCHLAGEN` bleibt in der `role="alert"`-Region stehen, während der Dialog darüber aufgeht
+- [x] [Review][Defer] Ein einziges `imFlug` koppelt Block 2 an Block 3: ein Häkchen im Pool sperrt jeden `Übernehmen`-Knopf und umgekehrt — nirgends benannt, obwohl die zwei Blöcke sonst als unabhängig argumentiert werden
+- [x] [Review][Defer] `noch niemand` steht als Literal in zwei Komponenten — nach der eigenen Regel von `texte.ts` („Sätze, die an mehr als einer Stelle stehen müssen") gehörte es dorthin; die `Du übernimmst:`-Wache hat kein Gegenstück dafür
+- [x] [Review][Defer] `rueckrufe.length >= 7` ist eine Untergrenze, während der Docblock **genau** sieben nennt; und `return async \([^)]*\) => \{` bricht an einer Klammer im Parameterkopf — ein still nicht gezählter Rückruf macht nichts rot
+- [x] [Review][Defer] `class="karte woche"` trägt einen toten Klassen-Token: eine Regel `.woche {` gibt es nicht mehr, nur `.woche--laufend` und die `.woche__*`
+- [x] [Review][Defer] `<title>Einzelaufgabe</title>` und `<title>Einzelaufgaben</title>` sind in Tab und Verlauf ein Zeichen auseinander, für zwei Seiten mit ganz verschiedenen Aufgaben
+- [x] [Review][Defer] Kein Index auf `signup_tasks.member_id` und `members.is_active`, obwohl `frei()` bei **jedem** Lesen von `/` und `/einzelaufgaben` auf `is_active` unterabfragt — die Begründung im Schema deckt allein `termin_at` und liest sich, als deckte sie den Entscheid
+- [x] [Review][Defer] Der verlorene Wettlauf in **Schritt 1** antwortet mit 200 (die erfolgreiche `fragen`-Antwort, deren Zeile beim Rendern fehlt), während die Matrixzeile „Wettrennen" 400 zusagt — der eigentliche Schreib-Wettlauf liefert korrekt 400
+
+Verworfen:
+
+- [x] [Review][Reject] „`frei()` und `alsEinzelaufgabe` widersprechen sich bei verwaister `member_id`" — dieselbe Klasse, die Durchgang 1 schon mit `foreign_keys = ON` verworfen hat
+- [x] [Review][Reject] „`einzelaufgabeAusschreiben` spreizt `.get()` ohne Null-Prüfung" — ein `INSERT … RETURNING` liefert entweder eine Zeile oder wirft; `undefined` ist dort nicht erreichbar, anders als bei SELECT und UPDATE
+- [x] [Review][Reject] „Vier byte-gleiche Body-Text-Regeln neu erzeugt" — durch `2ee5b03` und `4af054f` nach der Retrospektive bereits ins geteilte Blatt gezogen
+- [x] [Review][Reject] „Kein Zurückgeben, kein Löschen, kein Verfallen; vergangener Termin ohne Zeichen; Block 2 unbegrenzt; doppelter POST legt zwei Zeilen an" — alle vier stehen schon unter „Ask First" der Spec und in den Defers aus Durchgang 1
+
+**Abgearbeitet am 2026-08-30.** Beide Entscheidungen von Manuel getroffen, alle zehn Patches gebaut. `check` und `lint` beide Exit 0: `gate` 0 Hinweise über 44 Dateien, `gate:selftest` alle 29 Fehlerproben, `db:check` und `db:check:selftest`, `smoke` **598**, `smoke:selftest` 15, `smoke:http` **142** Behauptungen. Die zwei Prüfskripte sind um 5 und 1 Behauptung gewachsen (`ERWARTETE_BEHAUPTUNGEN` 592 → 597 und 140 → 141).
+
+**Entschieden:**
+
+- *Die Folge ist Substanz.* „Dein Name steht danach für alle daneben." steht jetzt als `UEBERNAHME_FOLGE` in `texte.ts` und auf **beiden** Bestätigungswegen. Die Überschrift bleibt dem Dialog — sie benennt ein Fenster, nicht den Vorgang.
+- *Ein Ziel, ein Name.* Der Eintrag auf `/mehr` heisst `Alle Einzelaufgaben`, wie die Seite und wie der Fusslink aus Block 2.
+
+**Vier Mutationen einzeln rot gesehen** — dieselben, die vor diesem Durchgang grün durchgingen:
+
+| Mutation | vorher | jetzt |
+| --- | --- | --- |
+| `cancel()` in `versandFragen` gestrichen | grün | **rot** |
+| `{#if uebernehmer === null}` auf `/einzelaufgaben` kollabiert | grün (beide Skripte) | **rot** (`smoke:http`) |
+| `{UEBERNAHME_FOLGE}` aus dem No-JS-Weg genommen | — | **rot** |
+| `.hinweis--ziffern` zurück in eine Komponente kopiert | grün | **rot** |
+
+Ein Nebenbefund aus dem Bauen, gemessen und nicht vermutet: die erste Fassung der drei Rumpf-Behauptungen schnitt an `indexOf(name)` und traf damit die **Typannotation** statt des Funktionskörpers — drei Zeilen rot, aus dem falschen Grund. `koerperRumpf` sucht jetzt die erste `{` auf Klammertiefe null. Dieselbe Falle, die der Kommentar an der Rückruf-Schleife seit Durchgang 1 benennt.
+
+Und eine Folge, die über die Story hinausgeht: der Ausfallweg von `versandFragen` gibt jetzt eine Fortsetzung zurück und wird damit vom `wurfTeile`-Schnitt **mitgezählt** — sieben Rückrufe sind acht geworden, in `texte.ts` und in der Wache nachgezogen.
+
 ## Spec Change Log
 
 **Beim Bauen verengt — `/einzelaufgaben` bekommt keine action.** Die
@@ -176,6 +244,30 @@ darum: sie zeigt zusätzlich die übernommenen, was `/` bewusst nicht tut, und s
 handelt nicht. Dass sie keine action hat, ist gemessen und nicht bloss
 unterlassen — `smoke` hält fest, dass das Modul kein `actions` exportiert, und
 `smoke:http`, dass ihr Dokument weder `<form>` noch `<button>` trägt.
+
+**Beim Bauen abgewichen — `TERMIN_FEHLT` statt `DATUM_FEHLT`.** Die Code Map gab
+die Datumskette von `/monatsplan` „wörtlich zu übernehmen" vor, samt
+`DATUM_FEHLT`. Übernommen ist die **Regel** — `tagesendeInUnixSekunden`,
+`istImFristfenster`, `fristfenster`, `FRIST_AUSSERHALB`, dieselbe Konstante,
+dieselben `min`/`max` —, nicht die Auslegung des leeren Felds. `DATUM_FEHLT`
+lautet „Wähle ein Datum, bis zu dem die **Aufgaben** erledigt sein sollen" und
+beschreibt einen Stapel mit gemeinsamer Frist; hier geht es um **einen** Termin
+für **eine** Sache. Ein geteilter Satz, der auf einer der zwei Seiten die falsche
+Zahl von Dingen nennt, ist kein geteilter Satz, sondern ein Kompromiss. `smoke`
+nagelt die Abweichung ausdrücklich fest („und der Satz ist **nicht**
+DATUM_FEHLT"), damit sie nicht als Versehen zurückgebaut wird. Nachgetragen im
+Review vom 2026-08-30 — begründet war sie seit dem Bau, verbucht nicht.
+
+**Beim Bauen verengt — `/einzelaufgaben` steht nicht in `seitenServer` und
+`seitenKomponenten`.** Die Aufgabenzeile verlangte „**beide** Seiten". Die zwei
+Listen führen die Seiten mit einem Formular; sie tragen die `abweisen`- und die
+Wurf-Behauptung, und beide setzen eine action voraus, die `/einzelaufgaben` nach
+dem Eintrag darüber gerade nicht hat. Ein Eintrag hätte dort eine Behauptung
+über eine Eigenschaft erzwungen, die es nicht gibt. Die Ersatzdeckung ist
+ausgeführt und nicht behauptet: `smoke` hält fest, dass das Modul kein `actions`
+exportiert, `smoke:http`, dass der Seitenbereich weder `<form>` noch `<button>`
+trägt, und seit dem Review vom 2026-08-30 zusätzlich, dass die Seite beide
+Zustände nebeneinander ausliefert. Nachgetragen im selben Review.
 
 ## Design Notes
 
@@ -210,7 +302,7 @@ Der Gegenentwurf wäre der Widerruf-Knopf auf `/verwaltung`: `type="button"`, un
 
 - `member_id` in `signup_tasks` auf `notNull()` gesetzt; `member_id IS NULL` aus der where-Klausel des Übernehmens entfernt; `is_active` aus der Anzeigeabfrage genommen; die Prüfung auf `bestaetigt` in der action entfernt (das Übernehmen liefe dann einschrittig durch); der Block auf `/` auch ohne freie Einzelaufgabe gerendert; eine übernommene Einzelaufgabe weiterhin in Block 2 gezeigt; die Terminschranke `istImFristfenster` entfernt.
 
-**Ausgeführt am 2026-08-29, nach dem Review:** `check` und `lint` beide Exit 0 (`smoke` 592, `smoke:http` 141 Behauptungen, `gate` 0 Hinweise), und **zwölf** Mutationen einzeln rot gesehen — die sieben aus dieser Liste plus fünf, die der Review nachgetragen hat.
+**Ausgeführt am 2026-08-29, nach dem Review:** `check` und `lint` beide Exit 0 (`smoke` 592, `smoke:http` 140 Behauptungen — je die Konstante `ERWARTETE_BEHAUPTUNGEN`, ohne die Schlusszählung; die Skripte melden am Ende 593 und 141 —, `gate` 0 Hinweise), und **zwölf** Mutationen einzeln rot gesehen — die sieben aus dieser Liste plus fünf, die der Review nachgetragen hat.
 
 **Manual checks — offen, nicht durchgeführt.** Diese Sitzung hat keinen Browser; die drei Punkte gehören vor die Abnahme:
 

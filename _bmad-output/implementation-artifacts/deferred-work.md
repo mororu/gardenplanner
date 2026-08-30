@@ -786,3 +786,64 @@ sie nicht von der essenziellen unterscheiden kann — sie zählt Zeichen, nicht
 Bedeutung. Wer die Zahl das nächste Mal liest, liest sie darum als Liste von
 Kandidaten und nicht als Liste von Fehlern.
 
+
+---
+
+## Zurückgestellt aus: code review of spec-3-2-einzelaufgabe-ausschreiben-und-uebernehmen, Durchgang 2 (2026-08-30)
+
+Der separate Review in frischer Sitzung, den die Retrospektive Epic 3 als
+Bedingung für die Abnahme benannt hat. Acht Posten, alle `low` — was in diesem
+Durchgang wirklich wog, steht als Patch in der Story und nicht hier.
+
+- **`versandFragen` setzt `versandFehler` nicht zurück.** Die zwei anderen
+  Versandwege der Seite (`versandFuer:259`, `versandBestaetigen:411`) räumen die
+  Fehlerregion vor dem Absenden. `versandFragen` schickt nicht ab, sondern
+  öffnet den Dialog — ein alter `VERSAND_FEHLGESCHLAGEN` aus einem
+  Pool-Versand bleibt darum als `fehlerOben` stehen, während darüber eine neue,
+  noch offene Frage aufgeht.
+  *Zurückgestellt, weil* die Geschwister beim **Absenden** räumen und nicht beim
+  Öffnen; ob ein alter Fehlersatz das Öffnen eines Dialogs überleben soll, ist
+  eine Frage an die Oberfläche und nicht an den Code.
+
+- **Ein einziges `imFlug` koppelt Block 2 an Block 3.** Ein Häkchen im Pool
+  sperrt jeden `Übernehmen`-Knopf, eine bestätigte Übernahme sperrt jedes
+  Kästchen. Vertretbar — ein Versand je Seite —, aber nirgends benannt,
+  während die zwei Blöcke sonst in jeder anderen Hinsicht als unabhängig
+  argumentiert werden.
+
+- **`noch niemand` steht als Literal in zwei Komponenten**
+  (`+page.svelte:555`, `einzelaufgaben/+page.svelte:68`). Nach der eigenen Regel
+  von `texte.ts` — „die Sätze, die an mehr als einer Stelle stehen müssen" —
+  gehörte es dorthin. Die Story hat sich für `Du übernimmst:` eine Wache gebaut,
+  dass der Satz genau einmal unter `src/` steht; für die Zeichenkette, die sie im
+  selben Zug verdoppelt hat, keine.
+
+- **Die Rückruf-Wache ist an zwei Stellen weicher, als ihre Prosa sagt.**
+  `rueckrufe.length >= 7` ist eine Untergrenze, der Docblock nennt **genau**
+  sieben; und `return async \([^)]*\) => \{` bricht an einer Klammer im
+  Parameterkopf (Destrukturierung mit Vorgabewert, Typannotation). Ein Rückruf,
+  der so durchfällt, wird still nicht gezählt, und die Untergrenze merkt es nicht.
+
+- **`class="karte woche"` trägt einen toten Klassen-Token**
+  (`dienstplan/+page.svelte:191`). Eine Regel `.woche {` gibt es seit dem Zug
+  ins geteilte `.karte` nicht mehr — nur `.woche--laufend` und die `.woche__*`.
+  Wer den Token liest, nimmt eine Regel an, die es nicht gibt.
+
+- **`<title>Einzelaufgabe</title>` und `<title>Einzelaufgaben</title>`** sind in
+  Tab und Verlauf ein Zeichen auseinander, für zwei Seiten, die ganz
+  Verschiedenes tun: die eine ist ein Formular, die andere eine Liste.
+
+- **Kein Index auf `signup_tasks.member_id` und `members.is_active`.** `frei()`
+  fragt `is_active` bei **jedem** Lesen von `/` und `/einzelaufgaben` als
+  Unterabfrage ab, und `member_id` trägt den `leftJoin` und die where-Klausel des
+  UPDATE. Bei zwanzig Mitgliedern kostet das nichts. Der Posten ist, dass die
+  Begründung im Schema allein `termin_at` behandelt und sich liest, als hätte sie
+  den Entscheid gedeckt.
+
+- **Der verlorene Wettlauf in Schritt 1 antwortet mit 200.** Verliert die
+  zurückgegebene Frage zwischen der Antwort der action und dem Rendern ihre Zeile,
+  zeigt `fehlerOben` den Satz `EINZELAUFGABE_NICHT_ANSPRECHBAR` — die
+  HTTP-Antwort ist aber die erfolgreiche `art: 'fragen'`-Antwort mit 200,
+  während die Matrixzeile „Wettrennen" 400 zusagt. Der eigentliche
+  Schreib-Wettlauf liefert korrekt 400; gemeint ist die Statusspalte, nicht der
+  Satz.
