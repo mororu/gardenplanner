@@ -396,7 +396,24 @@
 				Link kopieren
 			</button>
 			{#if kopierstand !== null && kopierstand.link === einmalLink.link}
-				<p class="einmal__stand" role="status">{kopierstand.satz}</p>
+				<!--
+					Die Rückmeldung des Kopierens trägt `hinweis` — die geteilte
+					Nebentext-Rolle, byte-gleich mit dem Regelkörper, den `.einmal__stand`
+					bis zum 2026-08-30 lokal trug. Sie steht damit unter derselben Wache wie
+					der Satz darunter, und die Rolle kann nicht mehr still verlorengehen.
+
+					Die Retrospektive vom 2026-08-30 fand hier eine **ausgelieferte**
+					Regression (Befund R1): beim Ziehen der Kopien wurde `.einmal__warnung`
+					samt Rumpf entfernt, `.einmal__stand,` blieb als Waise stehen und klebte
+					über zwei Commits am Flex-Rumpf von `.aufnahme`. Der Satz verlor
+					`margin: 0` und die meta-Rampe und wurde selbst zum Flexcontainer —
+					sichtbar in dem einen Kasten, in dem der Klartext-Link genau einmal
+					steht. Keine der 755 Behauptungen sah es.
+
+					`role="status"` bleibt: die Rolle sagt, wie der Satz gesetzt wird, `role`
+					sagt, dass er angesagt gehört.
+				-->
+				<p class="hinweis" role="status">{kopierstand.satz}</p>
 			{/if}
 
 			<p class="hinweis">
@@ -715,7 +732,6 @@
 		background-color: var(--surface-raised);
 	}
 
-	.einmal__stand,
 	.aufnahme {
 		display: flex;
 		flex-direction: column;

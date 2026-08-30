@@ -199,7 +199,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 597;
+const ERWARTETE_BEHAUPTUNGEN = 598;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -6550,6 +6550,55 @@ try {
 			/aria-live=/.test(nameFehlerTag) &&
 			!/\{#if fehlerAmNamen/.test(verwaltungCode),
 		nameFehlerTag === '' ? 'kein <p id="name-fehler"> gefunden' : nameFehlerTag
+	);
+
+	/*
+	 * **Der Kopierstand trägt die geteilte Nebentext-Rolle.**
+	 *
+	 * Die Retrospektive vom 2026-08-30 fand hier eine **ausgelieferte**
+	 * Regression (Befund R1). Beim Ziehen der Kopien in `2ee5b03` wurde
+	 * `.einmal__warnung` durch `.hinweis` ersetzt und ihr Regelkörper entfernt —
+	 * der Selektor davor, `.einmal__stand,`, blieb als Waise stehen und klebte
+	 * über zwei Commits am Flex-Rumpf von `.aufnahme`. Der Satz verlor `margin: 0`
+	 * und die ganze meta-Rampe und wurde selbst zum Flexcontainer; die
+	 * UA-Vorgabe `margin: 1em 0` kam zurück, weil app.html nur `body` zurücksetzt.
+	 * Ausgeliefert war das in dem einen Kasten, in dem der Klartext-Link genau
+	 * einmal steht.
+	 *
+	 * **Keine der 755 Behauptungen sah es.** Die SEITENFORM-Wache liest
+	 * Regelköpfe und kennt `.einmal__stand` nicht; `svelte-check` schweigt, weil
+	 * der Selektor benutzt wurde; `gate` hat keine Regel über Selektor-zu-Rumpf.
+	 * Diese Zeile ist die Wache, die gefehlt hat.
+	 *
+	 * Gemessen wird die **Rolle** und nicht der Regelkörper: `.hinweis` steht in
+	 * SEITENFORM und damit an genau einer Stelle, und dort wird sie gepflegt. Wer
+	 * die Klasse hier zurück auf eine lokale nimmt, wird rot — und das ist die
+	 * Bewegung, die die Regression überhaupt erzeugt hat.
+	 *
+	 * `role="status"` gehört dazu: die Rolle sagt, wie der Satz gesetzt wird, das
+	 * Attribut, dass er angesagt gehört. Die zwei zusammen sind die Zusage.
+	 *
+	 * **Die schärfere Fassung ist heute nicht zu haben** und gehört zu Posten R4:
+	 * „die meta-Rampe steht nur im geteilten Blatt" wäre die Behauptung, die
+	 * diese ganze Klasse deckte. Gemessen am 2026-08-30 tragen `+page.svelte`,
+	 * `NavBar.svelte` und `dienstplan/+page.svelte` zusammen noch vier lokale
+	 * Regeln mit `--meta-font`. Die Behauptung wäre heute rot, und zwar zu Recht.
+	 */
+	const standTag =
+		/<p\b[^>]*\brole="status"[^>]*>\{kopierstand\.satz\}/.exec(verwaltungCode)?.[0] ?? '';
+	const standTeile = [
+		['die Zeile ist überhaupt gefunden', standTag !== ''],
+		['sie trägt die geteilte Rolle `hinweis`', /class="hinweis"/.test(standTag)],
+		['und keine eigene Klasse daneben', !/class="[^"]*einmal__stand/.test(verwaltungCode)],
+		[
+			'die Waise ist fort — kein Selektor ohne eigenen Rumpf',
+			!/\.einmal__stand\s*,/.test(verwaltungCode),
+		],
+	] as const;
+	pruefen(
+		'die Rückmeldung des Kopierens trägt die geteilte Nebentext-Rolle, nicht den nächstbesten Rumpf',
+		fehlendeTeile(standTeile).length === 0,
+		`fehlt: ${fehlendeTeile(standTeile).join(', ')} (${standTag || 'kein Treffer'})`
 	);
 
 	// -----------------------------------------------------------------------
