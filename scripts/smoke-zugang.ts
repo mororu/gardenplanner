@@ -219,7 +219,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 635;
+const ERWARTETE_BEHAUPTUNGEN = 633;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -6068,27 +6068,29 @@ try {
 		['/wissen/[id]', quelltext('src', 'routes', 'wissen', '[id]', '+page.svelte')],
 	] as const;
 
-	const abweisenTeile = [
-		[
-			'die eine Form steht in src/lib/server/abweisen.ts',
-			/export function abweisen</.test(quelltext('src', 'lib', 'server', 'abweisen.ts')),
-		],
-		[
-			'keine Seite erklärt eine eigene',
-			!seitenServer.some(([, text]) => /function abweisen\s*[(<]/.test(text)),
-		],
-		[
-			'alle acht ziehen sie aus dem Modul',
-			seitenServer.every(([, text]) =>
-				/import \{ abweisen \} from '[^']*\/abweisen\.ts';/.test(text)
-			),
-		],
-	] as const;
-	pruefen(
-		'abweisen hat eine Form und eine Wurfstelle, nicht vier',
-		fehlendeTeile(abweisenTeile).length === 0,
-		`verletzt: ${fehlendeTeile(abweisenTeile).join(', ')}`
-	);
+	/*
+	 * **`abweisen` hat eine Form — das prüft seit dem 2026-08-30 Gate-Regel 16.**
+	 *
+	 * Hier standen drei Behauptungen: das Modul trägt die Form, keine Seite
+	 * erklärt eine eigene, alle ziehen sie aus dem Modul. Die zweite und dritte
+	 * liefen über die von Hand geführte Liste `seitenServer`, und genau daran
+	 * sind sie einmal gescheitert: Story 4.1 baute `/wissen` und `/wissen/[id]`
+	 * mit je einem Formular, trug sie nicht ein, und beide fielen aus der Prüfung
+	 * heraus. Der Review der Story hat es gefunden, die Story nicht. Die
+	 * Beschriftung sagte dazu „alle acht" — eine Zahl von Hand über einer Liste
+	 * von Hand.
+	 *
+	 * Umgezogen nach dem Entscheid A3 der Retrospektive Epic 3: Regeln über den
+	 * Quelltext sind Lint und gehören ins Tor, wo sie nummeriert sind und jede
+	 * eine Fehlerprobe trägt; Verhalten bleibt hier. Regel 16 leitet die Seiten
+	 * aus dem Verzeichnisbaum ab — eine neue Seite mit Formular ist vom ersten
+	 * Tag an gedeckt, ohne dass jemand eine Liste pflegt. Vier Fehlerproben,
+	 * drei davon einzeln rot gesehen (eigenes `abweisen`, fehlender Import,
+	 * umbenannter Export im Modul).
+	 *
+	 * `seitenServer` bleibt bestehen: die Liste trägt weiter die Behauptungen,
+	 * die eine **bestimmte** Seite meinen und über ihren Index greifen.
+	 */
 
 	/*
 	 * **Die Namensregel hat eine Wurfstelle und drei Leser.**
@@ -6397,71 +6399,27 @@ try {
 	);
 
 	/*
-	 * Ein Wurf in einer action ersetzt die Seite nicht mehr durch die
-	 * Fehlergrenze. Die Behauptung nagelt beide Hälften fest: den abgefangenen
-	 * Fall und den Satz, den er zeigt — ein `if` ohne Satz wäre ein stiller
-	 * Fehlschlag, und ein eigener Satz je Seite wäre die nächste Drift.
+	 * **Jeder use:enhance-Rückruf fängt einen Wurf ab — das prüft seit dem
+	 * 2026-08-30 Gate-Regel 17.**
+	 *
+	 * Hier stand die Wache über die von Hand geführte Liste `seitenKomponenten`,
+	 * davor ein `rueckrufe.length >= 10`: eine **Untergrenze**, während die
+	 * Beschriftung „alle" sagte. Ein gelöschter Rückruf wäre nicht aufgefallen,
+	 * und eine neue Seite mit Formular fiel aus der Liste heraus — Story 4.1 hat
+	 * das mit beiden Wissen-Seiten vorgeführt.
+	 *
+	 * Umgezogen nach dem Entscheid A3 der Retrospektive Epic 3, zusammen mit
+	 * Regel 16 (Aktionspunkt 57). Regel 17 leitet die Seiten aus dem
+	 * Verzeichnisbaum ab und führt gar keine Zahl: was gefunden wird, wird
+	 * geprüft. Beim Umzug ist dabei ein offener Posten aus `deferred-work.md`
+	 * mit erledigt worden — der Parameterkopf wird jetzt **geklammert** gelesen
+	 * statt mit `[^)]*`, das an der ersten schliessenden Klammer im Kopf abbrach
+	 * und den Rückruf still aus der Zählung fallen liess. Gemessen: am selben
+	 * Kopf findet das alte Muster null Rückrufe und die neue Lesung einen.
+	 *
+	 * Vier Fehlerproben, drei davon einzeln rot gesehen; dazu am echten Baum der
+	 * dritte Rückruf auf `/`, den die zwei anderen früher gedeckt haben.
 	 */
-	/*
-	 * **Gezählt werden Rückrufe, nicht Dateien** — und das ist der Unterschied,
-	 * den der Review zu Story 3.2 aufgedeckt hat. Bis dahin lief diese Behauptung
-	 * je Seitendatei einmal über den ganzen Text, und die Beschriftung sprach
-	 * trotzdem von Rückrufen. Solange jede Seite genau einen trug, stimmten beide
-	 * Zählweisen zufällig überein; seit `/` zwei hat — das Abhaken im Pool und das
-	 * Bestätigen der Übernahme —, deckte der eine den anderen. Ein neuer Rückruf
-	 * auf einer Seite, die schon einen hat, wäre ungedeckt eingezogen.
-	 *
-	 * Geschnitten wird an `return async (…) => {`: so beginnt in diesem Baum jede
-	 * Fortsetzung einer SubmitFunction, und genau die kann ein `result` sehen.
-	 *
-	 * Der dritte `use:enhance` auf `/` (der Knopf in der Zeile) ist der **achte**
-	 * und seit dem Review vom 2026-08-30 mitgezählt. Sein Regelweg bricht den
-	 * Versand ab und gibt nichts zurück; sein Ausfallweg — `dialog` nicht
-	 * gebunden — lässt den gewöhnlichen POST laufen und gibt darum sehr wohl eine
-	 * Fortsetzung zurück. Bis zu jenem Review gab er dort **gar nichts** zurück,
-	 * use:enhance fuhr sein Vorgabeverhalten, und ein Wurf lief über applyAction
-	 * an dieser Behauptung vorbei in die Fehlergrenze. Ein Ausfallweg ist keine
-	 * Ausnahme von der Regel.
-	 *
-	 * Der Schnitt beginnt am **Pfeil** und nicht am Fund: `return async ({` trägt
-	 * seine eigene geschweifte Klammer für die Destrukturierung, und glatterRumpf
-	 * nähme die — es käme `{ update, result }` heraus statt des Rumpfs. Gemessen,
-	 * nicht vermutet: mit dem Fundort schnitt die erste Fassung sieben leere
-	 * Rümpfe und machte alle sieben Zeilen rot.
-	 */
-	const rueckrufe = seitenKomponenten.flatMap(([name, text]) =>
-		[...text.matchAll(/return async \([^)]*\) => \{/g)].map((treffer, i) => {
-			const pfeil = (treffer.index ?? 0) + treffer[0].length - 1;
-			return [`${name}, Rückruf ${i + 1}`, glatterRumpf(text, pfeil)] as const;
-		})
-	);
-	const wurfTeile = [
-		['es gibt überhaupt Rückrufe zu prüfen', rueckrufe.length >= 10] as const,
-		...rueckrufe.map(
-			([name, rumpf]) =>
-				[
-					`${name} fängt result.type === 'error' ab und zeigt den geteilten Satz`,
-					/if \(result\.type === 'error'\) \{/.test(rumpf) &&
-						/versandFehler = VERSAND_FEHLGESCHLAGEN;/.test(rumpf),
-				] as const
-		),
-		...seitenKomponenten.map(
-			([name, text]) =>
-				[
-					`${name} zieht den Satz aus dem geteilten Modul`,
-					// Der Import wird über den **Namen** geprüft und nicht über die ganze
-					// Zeile: /monatsplan zieht seit dem Fenster an `Fällig bis` drei
-					// Namen aus demselben Modul, und eine Behauptung über die Form der
-					// Importzeile prüfte die Zeichensetzung statt der Herkunft.
-					/import \{[^}]*\bVERSAND_FEHLGESCHLAGEN\b[^}]*\} from '\$lib\/texte';/.test(text),
-				] as const
-		),
-	];
-	pruefen(
-		`alle ${rueckrufe.length} use:enhance-Rückrufe fangen einen Wurf ab, mit einem Satz für alle`,
-		fehlendeTeile(wurfTeile).length === 0,
-		`verletzt: ${fehlendeTeile(wurfTeile).join(', ')}`
-	);
 
 	/*
 	 * Der Feldfehler auf /verwaltung, wortgleich zur Behauptung über

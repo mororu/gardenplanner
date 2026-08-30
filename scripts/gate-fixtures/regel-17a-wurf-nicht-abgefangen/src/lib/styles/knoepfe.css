@@ -1,0 +1,4 @@
+.zeile {
+	padding: var(--gutter);
+	color: var(--accent);
+}

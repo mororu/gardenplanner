@@ -898,3 +898,42 @@ Durchgang wirklich wog, steht als Patch in der Story und nicht hier.
   summary: UX-DR16 zählt „acht Oberflächen" und nennt darunter `/einzelaufgaben/neu` — eine Route, die es nicht gibt. Gebaut sind zehn Seiten.
   evidence: Beim Abgleich von Story 3.2 (Aktionspunkt 41, Befunde E2/E3) gesehen. `epics.md:91` führt `/`, `/aufgabe`, `/dienstplan`, `/wissen`, `/mehr`, `/monatsplan`, `/einzelaufgaben/neu` und `/verwaltung`. Gemessen am HEAD gibt es zehn `+page.svelte` unter `src/routes/`: die sieben richtig genannten plus `/einzelaufgabe` (das Formular), `/einzelaufgaben` (die Liste) und `/wissen/[id]`. `/einzelaufgaben/neu` existiert nicht und hat nie existiert — der Name stammt aus der Planung vor Story 3.2, die sich für `/einzelaufgabe` entschied. **Nicht mitkorrigiert**, weil UX-DR16 eine Design-Anforderung ist und keine Buchführung: die Zahl von acht auf zehn zu heben hiesse, die Anforderung neu zu fassen, und das gehört dem Menschen, dem sie gehört. Der Aktionspunkt 41 nannte diese Stelle nicht. Zwei Wege: die Zahl auf zehn ziehen und die zwei Routennamen richtigstellen, oder UX-DR16 ausdrücklich als Stand der Planung markieren und den Ist-Stand danebenstellen.
 
+## Erledigt am 2026-08-30: der Umzug der Quelltext-Regeln (Aktionspunkt 57)
+
+Zwei Regeln sind aus `scripts/smoke-zugang.ts` nach `scripts/gate.mjs` gezogen —
+der zweite und dritte Umzug nach Regel 14, gemäss dem Entscheid A3 der
+Retrospektive Epic 3: Regeln über den Quelltext sind Lint und gehören ins Tor,
+Verhalten bleibt in den Prüfskripten.
+
+- **Gate-Regel 16** — `abweisen` hat eine Form. Jede `+page.server.ts` mit
+  `actions` zieht sie aus dem geteilten Modul, keine erklärt eine eigene, und
+  das Modul trägt den Export wirklich. Vier Fehlerproben, drei einzeln rot
+  gesehen.
+- **Gate-Regel 17** — jeder `use:enhance`-Rückruf fängt `result.type === 'error'`
+  ab und zeigt den geteilten Satz. Vier Fehlerproben, drei einzeln rot gesehen,
+  dazu am echten Baum der dritte Rückruf auf `/`.
+
+Beide liefen vorher über die von Hand geführten Listen `seitenServer` und
+`seitenKomponenten` — dieselben, aus denen Story 4.1 mit beiden Wissen-Seiten
+herausgefallen war. Die Regeln leiten die Dateien jetzt aus dem Verzeichnisbaum
+ab; eine neue Seite ist vom ersten Tag an gedeckt.
+
+**Damit schliessen sich zwei Einträge dieser Datei:**
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-2-einzelaufgabe-ausschreiben-und-uebernehmen.md`
+  summary: ERLEDIGT — die Rückruf-Wache war an zwei Stellen weicher, als ihre Prosa sagte. Beide Stellen sind mit dem Umzug nach Gate-Regel 17 fort.
+  evidence: Die Untergrenze (`rueckrufe.length >= 10`, zuletzt; im Eintrag noch `>= 7`) ist ersatzlos entfallen — Regel 17 führt gar keine Zahl, sie prüft, was sie findet. Das Muster `return async \([^)]*\) => \{` ist durch eine geklammerte Lesung des Parameterkopfs ersetzt. **Gemessen an einem Kopf mit Typannotation** (`({ update, result }: { update: () => Promise<void> })`): das alte Muster findet dort **null** Rückrufe, die neue Lesung **einen**. Festgehalten als Fehlerprobe `regel-17c-klammer-im-kopf`, damit der Fall nicht wieder verschwindet.
+  status: erledigt
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-2-einzelaufgabe-ausschreiben-und-uebernehmen.md`
+  summary: ERLEDIGT — `class="karte woche"` trägt keinen toten Klassen-Token mehr.
+  evidence: Am 2026-08-30 im Nachlauf zu Retro-Posten R8 entfernt; eine Regel `.woche {` gibt es seit dem Zug ins geteilte `.karte` nicht mehr, und `.woche--laufend` bleibt unberührt.
+  status: erledigt
+
+**Was aus dieser Klasse offen bleibt:** `smoke-zugang.ts` trägt weiter
+Quelltext-Behauptungen, die eine **bestimmte** Seite meinen (die Verdrahtung
+eines Formulars, die Fokusgriffe einer Route). Sie sind kein Umzugsgut: eine
+Gate-Regel spricht über den ganzen Baum, und eine Aussage über genau eine Seite
+wäre dort eine Liste von Hand — genau das, was die drei Umzüge beseitigt haben.
+Der Aktionspunkt ist damit inhaltlich beantwortet, nicht bloss abgearbeitet.
+

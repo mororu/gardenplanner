@@ -14,7 +14,7 @@
  *   node scripts/gate.mjs [zielverzeichnis]   prüft ein Projekt (Vorgabe: dieses)
  *   node scripts/gate.mjs --selftest          prüft das Tor gegen die Fehlerproben
  *
- * Die fünfzehn Regeln:
+ * Die siebzehn Regeln:
  *   1. In .svelte und .css unter src/ kein Farbliteral (Hex, rgb(), rgba(),
  *      hsl(), hsla(), oklch(), color() …, CSS-Farbname), kein rohes
  *      px/rem-Literal ausser 0 und **kein rohes ms/s-Literal ausser 0** im Wert
@@ -91,6 +91,24 @@
  *      Kommentar in beiden lokalen Fassungen und ist dabei verschwunden
  *      (Retro Epic 3, Posten R7) — ein Kommentar hat sie schon einmal nicht
  *      getragen. Seit 2026-08-30.
+ *  16. Jede `+page.server.ts` unter src/routes/, die `actions` exportiert,
+ *      zieht `abweisen` aus src/lib/server/abweisen.ts und erklärt keines
+ *      selbst. Eine zweite Fehlerform ist eine, die das Markup der Seite nicht
+ *      liest. Stand bis zum 2026-08-30 in scripts/smoke-zugang.ts als zwei
+ *      Behauptungen über eine von Hand geführte Liste — Story 4.1 baute zwei
+ *      Seiten mit Formular, trug sie nicht ein, und beide fielen aus der
+ *      Prüfung. Hier gibt es keine Liste. Aktionspunkt 57, zweiter Umzug nach
+ *      Regel 14. Seit 2026-08-30.
+ *  17. Jeder `use:enhance`-Rückruf unter src/routes/ fängt
+ *      `result.type === 'error'` ab und zeigt den geteilten Satz
+ *      VERSAND_FEHLGESCHLAGEN; jede Komponente mit einem Rückruf zieht ihn aus
+ *      $lib/texte. Sonst ersetzt ein Wurf in der action die Seite durch die
+ *      Fehlergrenze. Stand bis zum 2026-08-30 in scripts/smoke-zugang.ts über
+ *      derselben Hand-Liste wie Regel 16, davor eine **Untergrenze**
+ *      (`>= 10`), während die Beschriftung „alle" sagte. Der Parameterkopf wird
+ *      hier geklammert gelesen statt mit `[^)]*` — die alte Fassung liess einen
+ *      Rückruf mit Klammer im Kopf still aus der Zählung fallen, ein offener
+ *      Posten aus deferred-work.md. Aktionspunkt 57. Seit 2026-08-30.
  *
  * **Regel 13 ist die erste, die über src/ hinausliest.** Bis dahin galt: das
  * Tor sieht src/ und static/manifest.webmanifest. Die Zusage, die Regel 13
@@ -477,6 +495,8 @@ const torPrüfen = (ziel) => {
 
 	const quelle = join(ziel, 'src');
 	const routenWurzel = join(quelle, 'routes') + sep;
+	/** Wie viele +page.server.ts unter src/routes/ `actions` exportieren (Regel 16). */
+	let mitActions = 0;
 	const shell = join(quelle, 'app.html');
 	const statisch = join(ziel, 'static');
 	const manifestPfad = join(statisch, 'manifest.webmanifest');
@@ -711,6 +731,67 @@ const torPrüfen = (ziel) => {
 					`${form} über '${spez}' importiert — unter src/routes/ läuft Datenzugriff ` +
 						'ausschliesslich über die benannten Funktionen aus src/lib/server/db/queries/*.ts'
 				);
+			}
+		}
+
+		// ----- Regel 16: das Abweisen einer action hat eine Form -----
+		/*
+		 * Jede `+page.server.ts` unter src/routes/, die `actions` exportiert, zieht
+		 * `abweisen` aus dem geteilten Modul und erklärt keines selbst. Eine Seite
+		 * mit einem eigenen Abweisen hätte eine eigene Fehlerform, und die
+		 * Komponente daneben läse ein Feld, das nicht kommt.
+		 *
+		 * **Warum diese Regel aus `smoke` hierher gezogen ist.** Sie stand dort als
+		 * zwei Behauptungen über eine von Hand geführte Liste (`seitenServer`), und
+		 * genau daran ist sie einmal gescheitert: Story 4.1 baute zwei Seiten mit
+		 * Formular, trug sie nicht in die Liste ein, und beide fielen aus der
+		 * Prüfung heraus — der Review der Story hat es gefunden, die Story nicht.
+		 * Die Beschriftung sagte ausserdem „alle acht", eine Zahl von Hand.
+		 *
+		 * Hier gibt es keine Liste: geprüft wird jede Datei, die dem Muster
+		 * entspricht. Der Entscheid dahinter steht in der Retrospektive Epic 3
+		 * unter A3 — Regeln über den Quelltext sind Lint und gehören ins Tor,
+		 * Verhalten bleibt in den Prüfskripten. Regel 14 war der erste Umzug,
+		 * dies ist der nächste (Aktionspunkt 57).
+		 *
+		 * **Ohne `actions` schweigt die Regel.** `/einzelaufgaben` und `/mehr`
+		 * lesen nur; ein Import, den niemand braucht, wäre dort der Fehler.
+		 */
+		if (datei.startsWith(routenWurzel) && datei.endsWith('+page.server.ts')) {
+			// Beide Formen, in denen eine Seite sich ein eigenes Abweisen zulegte:
+			// die Deklaration und die Zuweisung. Der erste Entwurf sah nur die
+			// erste — ein `const abweisen = (…) => …` wäre daran vorbeigekommen,
+			// und es ist die naheliegendere der zwei Schreibweisen in diesem Baum.
+			// Der Import (`import { abweisen } from …`) trägt keine der zwei Formen
+			// und fällt darum nicht mit.
+			const eigenes = /\bfunction\s+abweisen\b|\b(?:const|let|var)\s+abweisen\s*=/.exec(text);
+			if (eigenes !== null)
+				melden(
+					16,
+					datei,
+					zeileVon(text, eigenes.index ?? 0),
+					'erklärt ein eigenes `abweisen` — die eine Form steht in ' +
+						'src/lib/server/abweisen.ts, und eine zweite daneben ist eine zweite ' +
+						'Fehlerform, die das Markup der Seite nicht kennt'
+				);
+
+			const hatActions = /\bexport\s+const\s+actions\b/.exec(text);
+			if (hatActions !== null) {
+				mitActions += 1;
+				const zieht = importStellen(text).some(({ spez, nurTyp }) => {
+					if (nurTyp) return false;
+					const basis = modulBasis(ziel, datei, spez);
+					return basis !== null && /(?:^|\/)server\/abweisen$/.test(basis);
+				});
+				if (!zieht)
+					melden(
+						16,
+						datei,
+						zeileVon(text, hatActions.index ?? 0),
+						'exportiert `actions`, zieht `abweisen` aber nicht aus ' +
+							'src/lib/server/abweisen.ts — eine action, die anders abweist, ' +
+							'schickt der Komponente eine Form, die deren use:enhance nicht liest'
+					);
 			}
 		}
 
@@ -1560,6 +1641,157 @@ const torPrüfen = (ziel) => {
 		);
 	}
 
+	// Regel 17: jeder use:enhance-Rückruf fängt einen Wurf ab
+	// -------------------------------------------------------------------
+	/*
+	 * Ein Wurf in einer action ersetzt die Seite sonst durch die Fehlergrenze.
+	 * Jede Fortsetzung einer SubmitFunction — `return async (…) => { … }` — muss
+	 * darum `result.type === 'error'` abfangen und den **geteilten** Satz zeigen:
+	 * ein `if` ohne Satz wäre ein stiller Fehlschlag, und ein eigener Satz je
+	 * Seite die nächste Drift.
+	 *
+	 * **Warum diese Regel aus `smoke` hierher gezogen ist.** Sie lief dort über
+	 * die von Hand geführte Liste `seitenKomponenten` — dieselbe Liste, aus der
+	 * Story 4.1 herausgefallen war — und trug als Wache davor ein
+	 * `rueckrufe.length >= 10`: eine **Untergrenze**, während die Beschriftung
+	 * „alle" sagte. Ein gelöschter Rückruf wäre nicht aufgefallen. Hier werden
+	 * die Seiten aus dem Verzeichnisbaum abgeleitet und die Zahl gar nicht
+	 * geführt: was gefunden wird, wird geprüft, und eine Seite ohne Rückruf ist
+	 * kein Fall (Aktionspunkt 57, dritter Umzug nach Regel 14 und 16).
+	 *
+	 * **Der Parameterkopf wird geklammert gelesen und nicht mit `[^)]*`.** Die
+	 * alte Fassung brach an der ersten schliessenden Klammer im Kopf — eine
+	 * Destrukturierung mit Vorgabewert oder eine Typannotation hätte den Rückruf
+	 * still aus der Zählung fallen lassen. `deferred-work.md` führt genau das als
+	 * offenen Posten; mit dem Umzug ist er erledigt, und die Fehlerprobe
+	 * `regel-17c-klammer-im-kopf` hält es fest.
+	 *
+	 * Geschnitten wird ab dem **Pfeil** und nicht ab dem Fund: `return async ({`
+	 * trägt seine eigene geschweifte Klammer für die Destrukturierung, und ein
+	 * Schnitt am Fundort nähme die — es käme `{ update, result }` heraus statt
+	 * des Rumpfs.
+	 */
+	/** Der klammerbalancierte Rumpf des ersten `{…}`-Blocks ab `von`, geglättet. */
+	const rumpfAb = (quelltext, von) => {
+		const auf = von < 0 ? -1 : quelltext.indexOf('{', von);
+		if (auf < 0) return '';
+		let tiefe = 0;
+		for (let i = auf; i < quelltext.length; i += 1) {
+			if (quelltext[i] === '{') tiefe += 1;
+			else if (quelltext[i] === '}') {
+				tiefe -= 1;
+				if (tiefe === 0)
+					return quelltext
+						.slice(auf + 1, i)
+						.replace(/\s+/g, ' ')
+						.trim();
+			}
+		}
+		return '';
+	};
+
+	/** Das Ende des geklammerten Parameterkopfs ab der öffnenden Klammer. */
+	const kopfEnde = (quelltext, auf) => {
+		let tiefe = 0;
+		for (let i = auf; i < quelltext.length; i += 1) {
+			if (quelltext[i] === '(') tiefe += 1;
+			else if (quelltext[i] === ')') {
+				tiefe -= 1;
+				if (tiefe === 0) return i;
+			}
+		}
+		return -1;
+	};
+
+	for (const datei of dateien) {
+		if (!datei.startsWith(routenWurzel) || !datei.endsWith('.svelte')) continue;
+		const roh = lesen(datei, 17);
+		if (roh === null) continue;
+		const text = ohneZeilenkommentare(datei, ohneKommentare(roh));
+
+		let gefunden = 0;
+		for (const treffer of text.matchAll(/\breturn\s+async\s*\(/g)) {
+			const auf = (treffer.index ?? 0) + treffer[0].length - 1;
+			const zu = kopfEnde(text, auf);
+			if (zu < 0) continue;
+			const pfeil = /^\s*=>\s*\{/.exec(text.slice(zu + 1));
+			if (pfeil === null) continue;
+			gefunden += 1;
+			const rumpf = rumpfAb(text, zu + 1 + pfeil[0].length - 1);
+			const faengt = /if \(result\.type === 'error'\) \{/.test(rumpf);
+			const zeigt = /versandFehler = VERSAND_FEHLGESCHLAGEN;/.test(rumpf);
+			if (faengt && zeigt) continue;
+			melden(
+				17,
+				datei,
+				zeileVon(text, treffer.index ?? 0),
+				`Rückruf ${gefunden} ${faengt ? 'fängt den Wurf ab, zeigt aber nicht ' : 'fängt '}` +
+					`${faengt ? 'den geteilten Satz' : "result.type === 'error' nicht ab"} — ` +
+					'ein Wurf in der action ersetzt die Seite dann durch die Fehlergrenze'
+			);
+		}
+
+		/*
+		 * Der Satz kommt aus dem geteilten Modul. Geprüft wird der **Name** und
+		 * nicht die ganze Importzeile: eine Seite zieht mitunter mehrere Namen aus
+		 * texte.ts, und eine Behauptung über die Form der Zeile prüfte die
+		 * Zeichensetzung statt der Herkunft.
+		 *
+		 * **Die Herkunft steht aber mit drin.** Der erste Entwurf dieses Umzugs
+		 * liess sie weg und hätte den Satz aus jeder beliebigen Datei zugelassen —
+		 * eine stille Abschwächung gegenüber der Fassung, die hier ersetzt wurde.
+		 * Der Review des Nachlaufs hat es gefunden. Der Pfad ist gegenüber dem
+		 * Original bewusst nachgiebiger geschrieben (`…/texte` statt `$lib/texte`):
+		 * ein relativer Import auf dieselbe Datei ist dieselbe Herkunft, und diese
+		 * Regel soll die Herkunft prüfen und nicht die Schreibweise.
+		 */
+		if (
+			gefunden > 0 &&
+			!/import \{[^}]*\bVERSAND_FEHLGESCHLAGEN\b[^}]*\} from '[^']*\/texte(?:\.ts)?';/.test(text)
+		)
+			melden(
+				17,
+				datei,
+				1,
+				'hat einen use:enhance-Rückruf, zieht VERSAND_FEHLGESCHLAGEN aber nicht aus ' +
+					'$lib/texte — ein eigener Satz je Seite ist die nächste Drift'
+			);
+	}
+
+	// Regel 16, Form c: das geteilte Modul trägt die eine Form wirklich
+	// -------------------------------------------------------------------
+	/*
+	 * Form a und b halten jede Seite gegen das Modul. Sie sagen aber nichts
+	 * darüber, ob das Modul die Form überhaupt hat: ein `abweisen.ts`, dessen
+	 * Export jemand umbenennt, liesse beide grün und bräche jede action zugleich.
+	 * Diese Form schliesst das — und mit ihr kann die letzte Behauptung dieser
+	 * Klasse aus `smoke-zugang.ts` verschwinden, statt dort halb stehen zu
+	 * bleiben.
+	 *
+	 * Gefragt wird nur, wenn es überhaupt eine Seite mit `actions` gibt. Ein
+	 * Projekt ohne Formulare braucht kein Abweisen.
+	 */
+	if (mitActions > 0) {
+		const modul = join(quelle, 'lib', 'server', 'abweisen.ts');
+		const roh = existsSync(modul) ? lesen(modul, 16) : null;
+		if (roh === null)
+			melden(
+				16,
+				modul,
+				1,
+				'es gibt Seiten mit `actions`, aber kein src/lib/server/abweisen.ts — ' +
+					'die eine Form, auf die Regel 16 jede von ihnen verpflichtet, fehlt'
+			);
+		else if (!/export function abweisen\b/.test(ohneZeilenkommentare(modul, ohneKommentare(roh))))
+			melden(
+				16,
+				modul,
+				1,
+				'src/lib/server/abweisen.ts exportiert keine Funktion `abweisen` — ' +
+					'jede action zieht einen Namen, den das Modul nicht hergibt'
+			);
+	}
+
 	// Regel 15: der Griff eines Zeilenformulars behält sein Dreieck
 	// -------------------------------------------------------------------
 	/*
@@ -1711,7 +1943,7 @@ const berichten = (ergebnis, ziel) => {
 	}
 	console.log(
 		`gate (${wo}): ${ergebnis.dateien} Dateien und ${ergebnis.tokens} Tokens geprüft, ` +
-			`${ergebnis.hinweise.length} Hinweis(e), fünfzehn Regeln erfüllt.`
+			`${ergebnis.hinweise.length} Hinweis(e), siebzehn Regeln erfüllt.`
 	);
 	return 0;
 };
@@ -2072,6 +2304,95 @@ const proben = [
 		beschreibung: 'geteilte Rolle ohne Leser, der schwächere Backstop zu Form a',
 	},
 	{
+		regel: 17,
+		verzeichnis: 'regel-17a-wurf-nicht-abgefangen',
+		erwartet: 1,
+		begruendung: "1 use:enhance-Rückruf, der result.type === 'error' nicht abfängt",
+		art: 'Verstoss',
+		beschreibung: 'ein Wurf in der action ersetzt die Seite durch die Fehlergrenze',
+	},
+	{
+		regel: 17,
+		verzeichnis: 'regel-17b-eigener-satz',
+		erwartet: 2,
+		begruendung:
+			'2 Wege zum eigenen Satz: ein Rückruf, der abfängt und dann einen Literal zeigt ' +
+			'(der geteilte Satz ist importiert und im Markup benutzt, damit allein die ' +
+			'Rumpfprüfung fällt), und ein tadelloser Rückruf, dessen Satz aus einer eigenen ' +
+			'Datei kommt. Der zweite ist nachgereicht — der erste Entwurf des Umzugs hatte die ' +
+			'Herkunftsprüfung verloren und hätte ihn durchgelassen',
+		art: 'Verstoss',
+		beschreibung: 'ein eigener Satz je Seite — die nächste Drift, auf zwei Wegen',
+	},
+	{
+		regel: 17,
+		verzeichnis: 'regel-17c-klammer-im-kopf',
+		erwartet: 1,
+		begruendung:
+			'1 fehlerhafter Rückruf, dessen Parameterkopf eine Typannotation mit Klammern ' +
+			'trägt. Belegt die geklammerte Kopf-Lesung: das alte Muster `[^)]*` fand ihn ' +
+			'nicht und liess ihn still aus der Prüfung fallen — der offene Posten aus ' +
+			'deferred-work.md, mit diesem Umzug erledigt',
+		art: 'Verstoss',
+		beschreibung: 'der Rückruf, den die alte Fassung nicht einmal gesehen hat',
+	},
+	{
+		regel: 17,
+		verzeichnis: 'regel-17d-sauber',
+		erwartet: 0,
+		begruendung:
+			'Gegenprobe: ein vollständiger Rückruf, dazu eine Seite ganz ohne Rückruf, die ' +
+			'VERSAND_FEHLGESCHLAGEN zu Recht nicht zieht. Keine von beiden darf auslösen, ' +
+			'also null Treffer',
+		art: 'Verstoss',
+		beschreibung: 'vollständige Vorlage; die Seite ohne Formular darf die Regel nicht wecken',
+	},
+	{
+		regel: 16,
+		verzeichnis: 'regel-16a-eigenes-abweisen',
+		erwartet: 2,
+		begruendung:
+			'2 Seiten mit einem eigenen abweisen, in beiden Schreibweisen: als Deklaration und ' +
+			'als Zuweisung. Beide ziehen die geteilte Form daneben ein, damit allein Form a ' +
+			'fällt. Die zweite ist nachgereicht — ein erster Entwurf der Regel sah nur ' +
+			'`function abweisen`, obwohl `const abweisen =` die naheliegendere Form ist',
+		art: 'Verstoss',
+		beschreibung: 'eine zweite Fehlerform neben der einen — das Markup der Seite kennt sie nicht',
+	},
+	{
+		regel: 16,
+		verzeichnis: 'regel-16b-abweisen-nicht-gezogen',
+		erwartet: 1,
+		begruendung: '1 Seite mit actions, die abweisen nicht aus dem geteilten Modul zieht',
+		art: 'Verstoss',
+		beschreibung: 'eine action, die auf eigene Faust abweist',
+	},
+	{
+		regel: 16,
+		verzeichnis: 'regel-16c-modul-ohne-form',
+		erwartet: 1,
+		begruendung:
+			'1 geteiltes Modul, dessen Export anders heisst. Form a und b bleiben grün — die ' +
+			'Seite erklärt nichts Eigenes und zieht aus dem richtigen Pfad —, und trotzdem ' +
+			'fällt jede action zugleich',
+		art: 'Verstoss',
+		beschreibung: 'die eine Form, die es nicht gibt',
+	},
+	{
+		regel: 16,
+		verzeichnis: 'regel-16d-sauber',
+		erwartet: 0,
+		begruendung:
+			'Gegenprobe: actions da, geteilte Form gezogen, kein eigenes abweisen. Dazu zwei ' +
+			'Fallen — eine Seite ohne actions, die abweisen zu Recht nicht zieht, und die ' +
+			'Erwähnung von `function abweisen` in einem Kommentar. Beide dürfen nicht ' +
+			'auslösen, also null Treffer',
+		art: 'Verstoss',
+		beschreibung:
+			'vollständige Vorlage; die nur lesende Seite und die Erwähnung im Kommentar dürfen ' +
+			'die Regel nicht wecken',
+	},
+	{
 		regel: 15,
 		verzeichnis: 'regel-15a-griff-ohne-dreieck',
 		erwartet: 1,
@@ -2136,7 +2457,7 @@ const proben = [
 const selbsttest = () => {
 	let fehlt = 0;
 	console.log(
-		`gate --selftest: ${proben.length} Fehlerproben gegen die fünfzehn Regeln ` +
+		`gate --selftest: ${proben.length} Fehlerproben gegen die siebzehn Regeln ` +
 			`(erwartet: ${erwarteteSvelteRegeln} svelte/*- und ${erwarteteTsRegeln} @typescript-eslint/*-Regeln je Komponente)\n`
 	);
 
@@ -2184,7 +2505,7 @@ const selbsttest = () => {
 	}
 	console.log(
 		`\ngate --selftest: alle ${proben.length} Fehlerproben in erwarteter Zahl gefunden, ` +
-			'jede der fünfzehn Regeln beisst nachweislich.'
+			'jede der siebzehn Regeln beisst nachweislich.'
 	);
 	return 0;
 };

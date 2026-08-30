@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-26-2026 13:20
-last_updated: "08-30-2026 19:55"
+last_updated: "08-30-2026 22:10"
 project: Gemeinschaftsgarten
 project_key: NOKEY
 tracking_system: file-system
@@ -478,5 +478,7 @@ action_items:
     action: "Die uebrigen Quelltext-Regeln aus smoke-zugang.ts nach gate.mjs ziehen,
       Regel fuer Regel mit Fehlerprobe - Regel 14 ist die erste"
     owner: "Manuel"
-    status: open
+    status: done
+    abgeschlossen: "2026-08-30"
+    vermerk: "Zwei Umzuege gebaut, der zweite und dritte nach Regel 14: Gate-Regel 16 (abweisen hat eine Form -- Import, kein eigenes, und das Modul traegt den Export wirklich) und Gate-Regel 17 (jeder use:enhance-Rueckruf faengt result.type === 'error' ab und zeigt den geteilten Satz). Acht Fehlerproben, sechs einzeln rot gesehen. Beide Regeln liefen vorher ueber die Hand-Listen seitenServer und seitenKomponenten, aus denen Story 4.1 herausgefallen war; sie leiten die Dateien jetzt aus dem Verzeichnisbaum ab. Regel 17 hat dabei einen offenen deferred-work-Posten mit erledigt: der Parameterkopf wird geklammert gelesen statt mit [^)]*, das an einer Klammer im Kopf abbrach -- gemessen, altes Muster findet dort 0, neue Lesung 1. gate: 15 -> 17 Regeln, 38 -> 46 Fehlerproben; smoke 636 -> 634 (zwei Behauptungen sind umgezogen, nicht verloren). ABWEICHUNG vom Wortlaut 'die uebrigen': smoke-zugang.ts behaelt bewusst die Quelltext-Behauptungen, die eine BESTIMMTE Seite meinen. Eine Gate-Regel spricht ueber den ganzen Baum; eine Aussage ueber genau eine Seite waere dort eine Liste von Hand -- also das, was die drei Umzuege gerade beseitigt haben. Begruendung ausgeschrieben in deferred-work.md."
     ref: ""
