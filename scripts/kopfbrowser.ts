@@ -77,6 +77,16 @@ export type Browser = {
 	auswerten: <T>(ausdruck: string) => Promise<T>;
 	/** Eine Adresse laden und auf das Ende des Ladens warten. */
 	besuchen: (adresse: string) => Promise<void>;
+	/** Ein echter Klick in die Mitte des Elements, über die Eingabeschicht. */
+	klicken: (auswahl: string) => Promise<void>;
+	/** Das Element fokussieren und Text hineintippen, Zeichen für Zeichen. */
+	tippen: (auswahl: string, text: string) => Promise<void>;
+	/** Eine Taste drücken und loslassen (`Enter`, `Escape`, `Tab`). */
+	taste: (name: 'Enter' | 'Escape' | 'Tab') => Promise<void>;
+	/** Warten, bis ein Ausdruck im Seitenkontext wahr wird. */
+	warten: (ausdruck: string, was: string, fristMs?: number) => Promise<void>;
+	/** Netzverzögerung setzen — für Zusagen, die nur während eines Versands gelten. */
+	verzoegern: (millisekunden: number) => Promise<void>;
 	/** Alles, was Chrome auf die Fehlerausgabe gesagt hat — Plattformrauschen inklusive. */
 	fehlerausgabe: () => string;
 	/**
@@ -317,10 +327,119 @@ export async function browserStarten(chrome: string, profil: string): Promise<Br
 		);
 	};
 
+	/*
+	 * **Ein echter Klick und kein `el.click()`.**
+	 *
+	 * `el.click()` erzeugt ein Ereignis ohne Zeiger, ohne Koordinaten und ohne
+	 * Trefferprüfung: es trifft auch ein Element, das hinter einem anderen liegt,
+	 * ausserhalb des Fensters steht oder `pointer-events: none` trägt. Für eine
+	 * Zusage über ein **Trefferfeld** wäre das die falsche Messung — genau die
+	 * Klasse Fehler, gegen die dieses Skript gebaut ist. Geklickt wird darum in
+	 * die gemessene Mitte, über dieselbe Eingabeschicht, die ein Finger benutzt.
+	 *
+	 * Vorher wird das Element in den Blick gerollt: ein Klick auf Koordinaten
+	 * unterhalb des Fensters trifft, was dort gerade sichtbar ist.
+	 */
+	const klicken = async (auswahl: string): Promise<void> => {
+		const mitte = await auswerten<{ x: number; y: number }>(`
+			const el = document.querySelector(${JSON.stringify(auswahl)});
+			if (el === null) throw new Error('nicht im Dokument: ' + ${JSON.stringify(auswahl)});
+			el.scrollIntoView({ block: 'center', behavior: 'instant' });
+			const r = el.getBoundingClientRect();
+			if (r.width === 0 || r.height === 0)
+				throw new Error('ohne Fläche, also nicht anklickbar: ' + ${JSON.stringify(auswahl)});
+			return { x: r.left + r.width / 2, y: r.top + r.height / 2 };`);
+		for (const art of ['mousePressed', 'mouseReleased'] as const) {
+			await senden('Input.dispatchMouseEvent', {
+				type: art,
+				x: mitte.x,
+				y: mitte.y,
+				button: 'left',
+				buttons: art === 'mousePressed' ? 1 : 0,
+				clickCount: 1,
+			});
+		}
+	};
+
+	const tippen = async (auswahl: string, text: string): Promise<void> => {
+		await auswerten<boolean>(`
+			const el = document.querySelector(${JSON.stringify(auswahl)});
+			if (el === null) throw new Error('nicht im Dokument: ' + ${JSON.stringify(auswahl)});
+			el.focus();
+			return true;`);
+		// insertText und nicht Taste für Taste: der Inhalt ist hier der Gegenstand,
+		// nicht die Tastaturbehandlung, und ein Umlaut über keyDown wäre eine
+		// eigene Baustelle.
+		await senden('Input.insertText', { text });
+	};
+
+	/** Die drei Tasten, die dieses Projekt zusagt, mit ihren Codes. */
+	const TASTEN = {
+		Enter: { key: 'Enter', code: 'Enter', nummer: 13, text: '\r' },
+		Escape: { key: 'Escape', code: 'Escape', nummer: 27, text: '' },
+		Tab: { key: 'Tab', code: 'Tab', nummer: 9, text: '' },
+	} as const;
+
+	const taste = async (name: keyof typeof TASTEN): Promise<void> => {
+		const t = TASTEN[name];
+		for (const art of ['keyDown', 'keyUp'] as const) {
+			await senden('Input.dispatchKeyEvent', {
+				type: art,
+				key: t.key,
+				code: t.code,
+				windowsVirtualKeyCode: t.nummer,
+				nativeVirtualKeyCode: t.nummer,
+				...(art === 'keyDown' && t.text !== '' ? { text: t.text } : {}),
+			});
+		}
+	};
+
+	/*
+	 * **Warten auf eine Bedingung, nicht auf eine Dauer.**
+	 *
+	 * Nach einem Klick läuft ein `use:enhance`-Versand, Svelte arbeitet seine
+	 * Effekte ab, und mitunter navigiert SvelteKit. Ein festes `setTimeout` wäre
+	 * entweder zu kurz (dann misst der Lauf den Zustand davor und wird sprunghaft
+	 * rot) oder zu lang (dann kostet jede Zeile Sekunden). Gewartet wird darum auf
+	 * die Bedingung selbst, und der Fehlschlag nennt, worauf gewartet wurde.
+	 */
+	const warten = async (ausdruck: string, was: string, fristMs = 5_000): Promise<void> => {
+		const ende = Date.now() + fristMs;
+		let letzterFehler = '';
+		while (Date.now() < ende) {
+			try {
+				if (await auswerten<boolean>(`return Boolean(${ausdruck})`)) return;
+			} catch (fehler) {
+				// Ein Ausdruck, der während einer Navigation wirft, ist erwartbar:
+				// gewartet wird auf den Zustand danach, nicht auf den dazwischen.
+				letzterFehler = fehler instanceof Error ? fehler.message : String(fehler);
+			}
+			await new Promise((g) => setTimeout(g, 50));
+		}
+		throw new Error(
+			`${was}: die Bedingung wurde in ${fristMs} ms nicht wahr` +
+				(letzterFehler === '' ? '' : ` (letzter Wurf: ${letzterFehler})`)
+		);
+	};
+
+	const verzoegern = async (millisekunden: number): Promise<void> => {
+		await senden('Network.emulateNetworkConditions', {
+			offline: false,
+			latency: millisekunden,
+			downloadThroughput: -1,
+			uploadThroughput: -1,
+		});
+	};
+
 	return {
 		senden,
 		auswerten,
 		besuchen,
+		klicken,
+		tippen,
+		taste,
+		warten,
+		verzoegern,
 		fehlerausgabe: () => stderr,
 		seitenfehler: () => [...seitenfehler],
 		schliessen: async () => {

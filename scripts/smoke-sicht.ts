@@ -49,6 +49,7 @@ import {
 import { browserStarten, chromeFinden, type Browser } from './kopfbrowser.ts';
 import { aufgabenStapelAnlegen } from '../src/lib/server/db/queries/tasks.ts';
 import { blattAnlegen } from '../src/lib/server/db/queries/sheets.ts';
+import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-tasks.ts';
 
 /**
  * So viele Behauptungen muss ein vollständiger Lauf ablegen, die Schlusszählung
@@ -56,7 +57,7 @@ import { blattAnlegen } from '../src/lib/server/db/queries/sheets.ts';
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 38;
+const ERWARTETE_BEHAUPTUNGEN = 52;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -164,8 +165,6 @@ try {
 	 * Dokument ist das kein Vergleich, sondern eine Einzelmessung.
 	 */
 	aufgabenStapelAnlegen([FRISCHER_TEXT], Math.floor(Date.now() / 1000));
-	const blattAbsaetze = blattAnlegen(BLATT_ABSAETZE.titel, BLATT_ABSAETZE.text);
-	const blattLangwort = blattAnlegen(BLATT_LANGWORT.titel, BLATT_LANGWORT.text);
 
 	const port = await freierPort();
 	server = await serverStarten(port, datenbankPfad);
@@ -564,8 +563,6 @@ try {
 			{ name: 'prefers-reduced-motion', value: 'no-preference' },
 		],
 	});
-	await browser.besuchen(`${adresse}/wissen`);
-
 	/*
 	 * **Gemessen wird gegen die 375 und nicht gegen `window.innerWidth`** — und
 	 * das ist ein Fund aus der Mutationsprobe dieses Blocks, nicht Vorsicht auf
@@ -592,6 +589,34 @@ try {
 			`Dokument ${gemessen.dokument}px, Fenster ${gemessen.fenster}px, erwartet beide ≤ ${BREITE}`
 		);
 	};
+
+	/*
+	 * **Der leere Zustand, und warum er hier vor der Saat steht.**
+	 *
+	 * `Noch nichts aufgeschrieben.` ist ein eigener Seitenzustand, und ein Lauf,
+	 * der zwei Blätter sät, sieht ihn nie. Die Blätter entstehen darum **jetzt**,
+	 * gegen dieselbe SQLite-Datei, die der Server schon offen hält — WAL erlaubt
+	 * den zweiten Schreiber, und die Migrationskette lief längst. Damit trägt ein
+	 * Lauf beide Zustände, statt für den zweiten einen zweiten Lauf zu brauchen.
+	 */
+	await browser.besuchen(`${adresse}/wissen`);
+	const leerZustand = await browser.auswerten<{ leer: boolean; liste: number; satz: string }>(`
+		const leer = document.querySelector('.leer');
+		return {
+			leer: leer !== null,
+			liste: document.querySelectorAll('.blattlink').length,
+			satz: leer === null ? '' : leer.textContent.trim(),
+		};`);
+	pruefen(
+		'ohne Blatt trägt /wissen den leeren Zustand und keine Liste',
+		leerZustand.leer && leerZustand.liste === 0 && leerZustand.satz !== '',
+		JSON.stringify(leerZustand)
+	);
+	await breiteHalten('/wissen im leeren Zustand');
+
+	const blattAbsaetze = blattAnlegen(BLATT_ABSAETZE.titel, BLATT_ABSAETZE.text);
+	const blattLangwort = blattAnlegen(BLATT_LANGWORT.titel, BLATT_LANGWORT.text);
+	await browser.besuchen(`${adresse}/wissen`);
 
 	await breiteHalten('/wissen');
 
@@ -653,6 +678,250 @@ try {
 		formularZu,
 		'das <details> stand offen, ohne dass eine Abweisung anstand'
 	);
+
+	// -----------------------------------------------------------------------
+	// Interaktion auf /wissen: Abweisung, Erfolg, Fokus, Sperre
+	// -----------------------------------------------------------------------
+	/*
+	 * **Ab hier wird geklickt und getippt.** Alles darüber war Darstellung; die
+	 * Zusagen darunter sind Verhalten im Browser und tragen die Zeilen 4, 8 und 9
+	 * der R5-Liste in `deferred-work.md`.
+	 *
+	 * Geklickt wird über die Eingabeschicht in die **gemessene Mitte** des
+	 * Elements, nicht über `el.click()`. Der Unterschied ist der Punkt: ein
+	 * `el.click()` trifft auch ein Element hinter einem anderen oder eines ohne
+	 * Fläche, und eine Zusage über ein Trefferfeld, die so geprüft wird, prüft
+	 * das Trefferfeld nicht.
+	 */
+	await browser.klicken('summary.zeilenform__griff');
+	await browser.warten(
+		"document.querySelector('details.zeilenform').open",
+		'das Formular klappt auf einen Klick auf den Griff auf'
+	);
+	pruefen(
+		'ein Klick auf den Griff klappt das Formular auf',
+		await browser.auswerten<boolean>("return document.querySelector('details.zeilenform').open"),
+		'das <details> blieb zu'
+	);
+
+	/*
+	 * **Zwei Schichten weisen ab, und die erste war mir nicht klar.**
+	 *
+	 * Der erste Entwurf dieser Zeilen schickte das Formular **leer** ab und
+	 * wartete auf den Fehlersatz des Servers. Er kam nie: `required` am Titelfeld
+	 * lässt den Versand gar nicht los, und die Prüfliste lief in ihre Frist. Das
+	 * ist kein Fehler des Produkts, sondern eine Zusage, die ich übersehen hatte
+	 * — und sie steht jetzt als eigene Behauptung da.
+	 *
+	 * Die Abweisung des **Servers** ist damit nur mit Eingabe erreichbar, die
+	 * `required` besteht und serverseitig auf leer faltet: ein Titel aus
+	 * Leerzeichen. Genau diese Zeile führt die I/O-Matrix der Story auch
+	 * („Titel leer / nur Leerraum / nur unsichtbare Zeichen"), und `smoke:http`
+	 * prüft sie ohne JavaScript. Dies ist der Weg **mit**.
+	 */
+	await browser.klicken('details.zeilenform button[type="submit"]');
+	const nativ = await browser.auswerten<{ gueltig: boolean; satz: string; offen: boolean }>(`
+		const feld = document.querySelector('#neu-titel');
+		return {
+			gueltig: feld.checkValidity(),
+			satz: document.querySelector('#neu-titel-fehler').textContent.trim(),
+			offen: document.querySelector('details.zeilenform').open,
+		};`);
+	pruefen(
+		'ein leerer Versand kommt nicht bis zum Server — required hält ihn im Browser auf',
+		!nativ.gueltig && nativ.satz === '' && nativ.offen,
+		JSON.stringify(nativ)
+	);
+
+	// Ein Titel aus Leerzeichen besteht `required` und faltet serverseitig auf
+	// leer — der Weg zur Abweisung, die diese Zeile messen will.
+	await browser.tippen('#neu-titel', '   ');
+	await browser.tippen('#neu-text', 'Ein Text, der für sich in Ordnung ist.');
+	/*
+	 * **Das Formular wird während des Versands zugeklappt** — und das ist kein
+	 * Kunstgriff, sondern der einzige Weg, `open={abgewiesen}` überhaupt zu
+	 * messen.
+	 *
+	 * Der erste Entwurf klappte das `<details>` auf, schickte ab und behauptete
+	 * danach „es ist offen". Die Mutation `open={abgewiesen}` **entfernt** liess
+	 * die Zeile grün: ein von Hand aufgeklapptes `<details>` bleibt offen, weil
+	 * `use:enhance` per fetch abschickt und keine Navigation es zumacht. Die
+	 * Behauptung prüfte, dass nichts es schliesst — nicht, dass die Bindung es
+	 * öffnet.
+	 *
+	 * Jetzt wird es mitten im Versand geschlossen. Trifft die Abweisung ein, muss
+	 * die Bindung es wieder aufmachen; ohne sie bleibt es zu. Die Netzverzögerung
+	 * stellt das Fenster dafür.
+	 */
+	await browser.verzoegern(1_500);
+	await browser.klicken('details.zeilenform button[type="submit"]');
+	await browser.auswerten<boolean>(`
+		document.querySelector('details.zeilenform').open = false;
+		return true;`);
+	await browser.verzoegern(0);
+	await browser.warten(
+		"document.querySelector('#neu-titel-fehler').textContent.trim() !== ''",
+		'die Abweisung erscheint am Titelfeld'
+	);
+	const abgewiesen = await browser.auswerten<{
+		offen: boolean;
+		satz: string;
+		markiert: string | null;
+		blaetter: number;
+	}>(`
+		const d = document.querySelector('details.zeilenform');
+		const feld = document.querySelector('#neu-titel');
+		return {
+			offen: d.open,
+			satz: document.querySelector('#neu-titel-fehler').textContent.trim(),
+			markiert: feld.getAttribute('aria-invalid'),
+			blaetter: document.querySelectorAll('.blattlink').length,
+		};`);
+	pruefen(
+		'eine Abweisung klappt das Formular wieder auf, zeigt den Satz und markiert das Feld',
+		abgewiesen.offen && abgewiesen.satz !== '' && abgewiesen.markiert === 'true',
+		JSON.stringify(abgewiesen)
+	);
+	pruefenGleich(
+		'und es ist kein Blatt entstanden — die Liste steht unverändert bei zwei',
+		abgewiesen.blaetter,
+		2
+	);
+	await breiteHalten('/wissen mit offenem Formular und Abweisung');
+
+	/*
+	 * **Die geglückte Anlage — und wo der Fokus hier ausdrücklich nicht geprüft
+	 * wird.**
+	 *
+	 * Der erste Entwurf dieser Zeilen verlangte, dass die Meldungsregion nach der
+	 * Anlage den Fokus hält, und wurde rot: fokussiert war `<body>`. Der Befund
+	 * war **meiner und nicht der des Produkts**. Der Fokusgriff steht im
+	 * `use:enhance`-Rückruf des **Ändern**-Formulars auf `/wissen/[id]`; das
+	 * Anlegen kommt von `/wissen`, leitet auf das frische Blatt weiter, und dort
+	 * hat kein Rückruf gelaufen. Keine Seite sagt für diesen Weg einen Fokusgriff
+	 * zu — die Behauptung prüfte eine Zusage, die niemand gemacht hat.
+	 *
+	 * Dass eine Meldung, die eine **Weiterleitung** überlebt, damit von Anfang an
+	 * in ihrer Live-Region steht und deshalb nicht verlässlich vorgelesen wird,
+	 * ist ein bekannter, produktweiter Posten (Retro-Punkt B2, in
+	 * `deferred-work.md` festgehalten). Er wird hier nicht als Zusage behauptet
+	 * und nicht als Fehler gemeldet — geprüft wird, dass der Satz **da** ist.
+	 *
+	 * Der Fokusgriff selbst — Zeile 9 der R5-Liste — steht darunter am
+	 * Ändern-Weg, dort, wo er zugesagt ist.
+	 */
+	/*
+	 * Die Felder tragen die verworfene Eingabe noch — `abweisen` reicht sie
+	 * zurück, damit niemand zweimal tippt. Für den Erfolgsweg werden sie darum
+	 * geleert und neu gefüllt, statt an das Bestehende anzuhängen.
+	 */
+	await browser.auswerten<boolean>(`
+		for (const wahl of ['#neu-titel', '#neu-text']) {
+			const el = document.querySelector(wahl);
+			el.value = '';
+			el.dispatchEvent(new Event('input', { bubbles: true }));
+		}
+		return true;`);
+	await browser.tippen('#neu-titel', 'Starkzehrer');
+	await browser.tippen('#neu-text', 'Kohl, Kürbis und Tomaten wollen frischen Kompost.');
+	await browser.klicken('details.zeilenform button[type="submit"]');
+	await browser.warten(
+		"location.pathname.startsWith('/wissen/') && location.search.includes('angelegt')",
+		'die Anlage leitet auf das frische Blatt'
+	);
+	await browser.warten(
+		"document.querySelector('.meldung') !== null && document.querySelector('.meldung').textContent.trim() !== ''",
+		'die Rückmeldung steht in der Region'
+	);
+	const angelegt = await browser.auswerten<{ satz: string; titel: string }>(`
+		return {
+			satz: document.querySelector('.meldung').textContent.trim(),
+			titel: document.querySelector('.seitentitel').textContent.trim(),
+		};`);
+	pruefen(
+		'die geglückte Anlage landet auf dem frischen Blatt, mit Titel und Rückmeldung',
+		angelegt.titel === 'Starkzehrer' && angelegt.satz !== '',
+		JSON.stringify(angelegt)
+	);
+
+	/*
+	 * **Der Fokusgriff der Live-Region — Zeile 9 der R5-Liste, und hier ist sie
+	 * zugesagt.**
+	 *
+	 * Ein geglücktes Ändern leitet auf dieselbe Adresse mit `?geaendert`, das
+	 * Formular klappt zu, und der Rückruf holt den Fokus in die Rückmeldung. Ob
+	 * er das **hält**, entscheidet die Reihenfolge zwischen Sveltes
+	 * Effektabarbeitung und SvelteKits `reset_focus` am Ende der Navigation — und
+	 * die hat bis heute niemand gemessen. Der Quelltext von SvelteKit gibt der
+	 * Bauform recht (`navigate()` überspringt `reset_focus`, wenn eine
+	 * Fokusverwaltung ihn überschrieben hat); ob die Reihenfolge stimmt, sagt er
+	 * nicht.
+	 *
+	 * Hier steht sie als Messung.
+	 */
+	await browser.klicken('summary.zeilenform__griff');
+	await browser.warten(
+		"document.querySelector('details.zeilenform').open",
+		'das Ändern-Formular am Blatt klappt auf'
+	);
+	await browser.tippen('#aendern-text', ' Und Zwiebeln danach.');
+	await browser.klicken('details.zeilenform button[type="submit"]');
+	await browser.warten(
+		"location.search.includes('geaendert')",
+		'das Ändern leitet auf dieselbe Adresse mit ?geaendert'
+	);
+	const fokus = await browser.auswerten<{ rolle: string; klasse: string; satz: string }>(`
+		const a = document.activeElement;
+		const m = document.querySelector('.meldung');
+		return {
+			rolle: a === null ? '(keins)' : a.tagName.toLowerCase(),
+			klasse: a === null ? '' : a.className,
+			satz: m === null ? '' : m.textContent.trim(),
+		};`);
+	pruefen(
+		'nach dem geglückten Ändern hält die Meldungsregion den Fokus — SvelteKits reset_focus nimmt ihn nicht zurück',
+		fokus.klasse.split(/\s+/).includes('meldung'),
+		`fokussiert ist <${fokus.rolle} class="${fokus.klasse}">, Satz ${JSON.stringify(fokus.satz)}`
+	);
+
+	/*
+	 * **Die Sperre gegen Doppelversand — Zeile 4 der R5-Liste.**
+	 *
+	 * `disabled={imFlug}` soll den Knopf für die Dauer des Versands sperren. Der
+	 * Zustand ist im normalen Lauf ein Wimpernschlag lang da und darum nicht
+	 * messbar; er wird hier mit einer **Netzverzögerung** aufgehalten. Ohne diesen
+	 * Griff wäre die Zusage nicht prüfbar, und mit einer festen Wartezeit statt
+	 * einer Bedingung wäre die Zeile sprunghaft.
+	 *
+	 * Gemessen wird am Blatt, nicht auf der Liste: dort steht dasselbe Formular
+	 * ein zweites Mal, und der Ändern-Weg ist der, den niemand ohne JavaScript
+	 * abgesichert sieht.
+	 */
+	await browser.klicken('summary.zeilenform__griff');
+	await browser.warten(
+		"document.querySelector('details.zeilenform').open",
+		'das Ändern-Formular klappt für den zweiten Versand auf'
+	);
+	await browser.verzoegern(1_500);
+	await browser.klicken('details.zeilenform button[type="submit"]');
+	await browser.warten(
+		'document.querySelector(\'details.zeilenform button[type="submit"]\').disabled',
+		'der Knopf sperrt sich für die Dauer des Versands'
+	);
+	pruefen(
+		'der Absendeknopf ist während des Versands gesperrt — ein zweiter Klick trägt nicht',
+		await browser.auswerten<boolean>(
+			'return document.querySelector(\'details.zeilenform button[type="submit"]\').disabled'
+		),
+		'der Knopf blieb bedienbar, während der Versand lief'
+	);
+	await browser.verzoegern(0);
+	await browser.warten(
+		"location.search.includes('geaendert') || document.querySelector('.meldung') !== null",
+		'der aufgehaltene Versand kommt zu Ende'
+	);
+
+	await browser.besuchen(`${adresse}/wissen`);
 
 	// Auch im dunklen Erscheinungsbild darf nichts waagerecht laufen.
 	await browser.senden('Emulation.setEmulatedMedia', {
@@ -734,6 +1003,132 @@ try {
 		'das Wort ist also wirklich umgebrochen — es steht auf mehr als einer Zeile',
 		langwort.zeilen > 1,
 		`gemessen: ${langwort.zeilen} Zeile(n)`
+	);
+
+	// -----------------------------------------------------------------------
+	// Der Bestätigungsdialog auf / — Zeilen 3 und 5 der R5-Liste
+	// -----------------------------------------------------------------------
+	/*
+	 * **Die eine Bestätigung des Aufgabenbereichs, und die drei Zusagen an ihr.**
+	 *
+	 * `showModal()` legt den Fokus auf `Abbrechen`, ein Enter direkt nach dem
+	 * Öffnen gibt darum **keine** Zusage ab, und nach dem Bestätigen schliesst der
+	 * Dialog. Alle drei standen bis heute nur in Kommentaren: `smoke` rendert
+	 * keine Komponente, `smoke:http` sieht den Dialog nur als Markup, und die
+	 * dritte Zusage ist genau der Fehler, den in Story 1.3 der Mensch gefunden
+	 * hat, nachdem drei Review-Schichten ihn durchgelassen hatten.
+	 *
+	 * Die Einzelaufgabe entsteht **jetzt**, nach dem `/`-Block weiter oben: eine
+	 * Saat davor hätte dessen Zeilenmessungen einen zweiten Block über den Pool
+	 * gestellt und sie stillschweigend verschoben.
+	 *
+	 * **Mit JavaScript gibt es hier keinen Server-Umlauf.** `versandFragen` bricht
+	 * den Versand ab und öffnet den Dialog; `form.art` wird nie `fragen`, und der
+	 * Knopf bleibt darum stehen. Der Weg über das Dokument — dieselbe Frage ohne
+	 * JavaScript — ist der von `smoke:http`.
+	 */
+	const einzel = einzelaufgabeAusschreiben(
+		'Zaun am Nordtor nachspannen',
+		Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60
+	);
+	await browser.besuchen(`${adresse}/`);
+	const uebernehmen = `#uebernehmen-${einzel.id}`;
+	pruefen(
+		'die ausgeschriebene Einzelaufgabe steht mit ihrem Knopf auf /',
+		await browser.auswerten<boolean>(
+			`return document.querySelector(${JSON.stringify(uebernehmen)}) !== null`
+		),
+		`${uebernehmen} fehlt im Dokument`
+	);
+
+	await browser.klicken(uebernehmen);
+	await browser.warten(
+		"document.querySelector('dialog.bestaetigung').open",
+		'der Dialog geht auf einen Klick auf Übernehmen auf'
+	);
+	const beimOeffnen = await browser.auswerten<{
+		offen: boolean;
+		fokusText: string;
+		fokusArt: string | null;
+		imDialog: boolean;
+	}>(`
+		const d = document.querySelector('dialog.bestaetigung');
+		const a = document.activeElement;
+		return {
+			offen: d.open,
+			fokusText: a === null ? '' : a.textContent.trim(),
+			fokusArt: a === null ? null : a.getAttribute('type'),
+			imDialog: a !== null && d.contains(a),
+		};`);
+	/*
+	 * **Was diese Zeile trägt und was nicht.** Gemessen wurde: den ausdrücklichen
+	 * `abbrechenKnopf.focus()` zu entfernen lässt sie **grün** — `showModal()`
+	 * fokussiert von sich aus das erste fokussierbare Element, und das ist
+	 * `Abbrechen`, weil es zuerst im DOM steht. Die Zusage hängt also an der
+	 * **Reihenfolge**, und der Aufruf ist der Gurt zum Hosenträger. Genau die
+	 * Reihenfolge zu drehen macht die Zeile rot, gemessen.
+	 */
+	pruefen(
+		'beim Öffnen liegt der Fokus im Dialog auf Abbrechen — nicht auf der zusagenden Handlung',
+		beimOeffnen.offen &&
+			beimOeffnen.imDialog &&
+			beimOeffnen.fokusArt === 'button' &&
+			beimOeffnen.fokusText === 'Abbrechen',
+		JSON.stringify(beimOeffnen)
+	);
+
+	/*
+	 * Und ein Enter direkt nach dem Öffnen gibt keine Zusage ab. Es aktiviert
+	 * `Abbrechen` — der Dialog schliesst, und die Einzelaufgabe steht danach
+	 * **weiterhin frei** auf `/`. Die zweite Hälfte ist die eigentliche: ein Enter,
+	 * das den Dialog schliesst und dabei zusagt, wäre derselbe Fehlgriff mit
+	 * freundlicherem Gesicht.
+	 */
+	await browser.taste('Enter');
+	await browser.warten(
+		"!document.querySelector('dialog.bestaetigung').open",
+		'ein Enter auf Abbrechen schliesst den Dialog'
+	);
+	const nachEnter = await browser.auswerten<{ offen: boolean; knopf: boolean; name: boolean }>(`
+		return {
+			offen: document.querySelector('dialog.bestaetigung').open,
+			knopf: document.querySelector(${JSON.stringify(uebernehmen)}) !== null,
+			name: document.body.textContent.includes('Manu Mitglied'),
+		};`);
+	pruefen(
+		'ein Enter direkt nach dem Öffnen sagt nichts zu — der Dialog schliesst, die Aufgabe bleibt frei',
+		!nachEnter.offen && nachEnter.knopf && !nachEnter.name,
+		JSON.stringify(nachEnter)
+	);
+
+	/*
+	 * **Und nach dem Bestätigen schliesst der Dialog** — die Zusage, die in
+	 * Story 1.3 gebrochen war. `use:enhance` schickt per fetch ab; keine
+	 * Navigation schliesst das Element, und bei einem modalen Dialog wäre
+	 * `Abbrechen` danach der einzige Ausweg, während die Rückmeldung dahinter
+	 * liegt.
+	 */
+	await browser.klicken(uebernehmen);
+	await browser.warten(
+		"document.querySelector('dialog.bestaetigung').open",
+		'der Dialog geht ein zweites Mal auf'
+	);
+	await browser.klicken('dialog.bestaetigung button[type="submit"]');
+	await browser.warten(
+		"!document.querySelector('dialog.bestaetigung').open",
+		'der Dialog schliesst nach dem Bestätigen'
+	);
+	const nachZusage = await browser.auswerten<{ offen: boolean; knopf: boolean; meldung: string }>(`
+		const m = document.querySelector('.meldung');
+		return {
+			offen: document.querySelector('dialog.bestaetigung').open,
+			knopf: document.querySelector(${JSON.stringify(uebernehmen)}) !== null,
+			meldung: m === null ? '' : m.textContent.trim(),
+		};`);
+	pruefen(
+		'nach dem Bestätigen ist der Dialog zu, die Aufgabe von / verschwunden und die Rückmeldung da',
+		!nachZusage.offen && !nachZusage.knopf && nachZusage.meldung !== '',
+		JSON.stringify(nachZusage)
 	);
 
 	// -----------------------------------------------------------------------

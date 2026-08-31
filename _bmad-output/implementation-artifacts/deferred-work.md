@@ -1033,13 +1033,13 @@ abnimmt, hat damit die nächste Arbeit benannt.
 | --- | --- | --- | --- |
 | 1 | Geometrie und Umbruch auf dem **Zielgerät** — einem Handy, also oft iOS Safari | nichts. `smoke:sicht` misst Chromium | eine zweite Engine (Playwright/WebKit) oder eine Prüfung von Hand auf einem iPhone |
 | 2 | Die Live-Regionen werden **angesagt** (`role`, `aria-live`, der Fokusgriff) | die Attribute sind an allen zwanzig Regionen gemessen; die Ansage nicht | VoiceOver oder TalkBack von Hand. Kein kopfloser Browser sieht das |
-| 3 | `showModal()` legt den Fokus auf `Abbrechen`, und ein Enter widerruft nichts | nichts Ausgeführtes. Der Dialog ist im Markup geprüft, sein Verhalten nicht | Interaktion im kopflosen Browser (`Input.dispatchKeyEvent`) — der Treiber kann es, die Prüfliste nutzt es noch nicht |
-| 4 | Die Sperre gegen Doppelversand greift | nichts Ausgeführtes | dasselbe wie 3 |
-| 5 | Der Dialog schliesst nach dem Widerruf, ohne dass eine Navigation ihn schliesst | nichts Ausgeführtes — genau dieser Fehler wurde in Story 1.3 vom User gefunden | dasselbe wie 3 |
+| 3 | `showModal()` legt den Fokus auf `Abbrechen`, und ein Enter widerruft nichts | **gedeckt seit 2026-08-31.** `smoke:sicht` klickt Übernehmen, liest `document.activeElement` im offenen Dialog und drückt Enter; danach ist der Dialog zu und die Aufgabe weiterhin frei | — gemessen: die Zusage hängt an der **DOM-Reihenfolge**, nicht am `focus()`-Aufruf. Den Aufruf zu entfernen lässt die Zeile grün (`showModal()` fokussiert das erste Element ohnehin), die Reihenfolge zu drehen macht sie rot |
+| 4 | Die Sperre gegen Doppelversand greift | **gedeckt seit 2026-08-31.** Mit einer Netzverzögerung aufgehalten und `disabled` am Knopf gemessen | — `disabled={imFlug}` zu entfernen lässt `gate`, `smoke` **und** `smoke:http` grün und wird allein hier rot |
+| 5 | Der Dialog schliesst nach dem Bestätigen, ohne dass eine Navigation ihn schliesst | **gedeckt seit 2026-08-31** für die Übernahme auf `/` — der Dialog ist danach zu, die Aufgabe von `/` fort, die Rückmeldung da | **Rest:** derselbe Dialog auf `/verwaltung` (Widerruf einer Einladung) — dort war der Fehler von Story 1.3, und dieser Lauf fährt als Mitglied ohne Adminrechte |
 | 6 | **Installation zum Home-Bildschirm** zeigt das eigene Icon und startet ohne Browser-Leiste | Manifest, Icons und `display: standalone` sind maschinell belegt; die Installation hat niemand gesehen | ein echtes Telefon. Offen seit Story 1.1 |
 | 7 | Kontrast 4.5:1 für Text, 3:1 für Bedienelement-Umrisse, in **beiden** Modi | die Werte stehen nachgerechnet in Kommentaren; die Wirksamkeit des Dunkel-Blocks ist seit 2026-08-31 gemessen, die **Verhältnisse** nicht | eine Regel, die Vordergrund-/Hintergrundpaare rechnet — sie braucht eine maschinenlesbare Aussage darüber, welche Paare zusammen vorkommen, und die steht nirgends |
-| 8 | Die Oberflächen von **Story 4.1** (`/wissen`, `/wissen/[id]`) bei 375px in Hell und Dunkel, mit und ohne JavaScript | **überwiegend gedeckt seit 2026-08-31**: `smoke:sicht` misst beide Seiten in beiden Erscheinungsbildern (Breite, Trefferfelder, Dreieck, geschlossenes Formular, erhaltene Absätze, Umbruch des 200-Zeichen-Worts); der Weg ohne JavaScript liegt bei `smoke:http` | **Rest:** die Geometrie eines **aufgeklappten** Formulars, einer abgewiesenen Eingabe und des leeren Zustands — alle drei brauchen einen zweiten Seitenzustand im selben Lauf |
-| 9 | Der Fokusgriff der Live-Region überlebt SvelteKits `reset_focus` | der Quelltext von SvelteKit ist gelesen und gibt der Bauform recht; die Reihenfolge zwischen Sveltes Effekten und dem Navigationsende hat niemand gemessen | Interaktion plus Fokusablesung im kopflosen Browser |
+| 8 | Die Oberflächen von **Story 4.1** (`/wissen`, `/wissen/[id]`) bei 375px in Hell und Dunkel, mit und ohne JavaScript | **gedeckt seit 2026-08-31.** Beide Seiten in beiden Erscheinungsbildern; dazu seit der Interaktion auch der **leere Zustand** (die Blätter entstehen erst nach der ersten Messung), das **aufgeklappte** Formular und eine **abgewiesene Eingabe** mit markiertem Feld. Der Weg ohne JavaScript liegt bei `smoke:http` | — vollständig, soweit ein Chromium reichen kann; die Farbwirkung selbst hängt am globalen Token-Block und ist auf `/` gemessen |
+| 9 | Der Fokusgriff der Live-Region überlebt SvelteKits `reset_focus` | **gedeckt seit 2026-08-31, und die Zusage hält.** Nach einem geglückten Ändern am Blatt hält `.meldung` den Fokus | — `meldungKasten?.focus()` zu entfernen lässt die drei anderen Schichten grün und wird allein hier rot |
 
 **Vier davon (3, 4, 5, 9) hängen an derselben Sache:** dieser erste Lauf von
 Stufe C misst Darstellung, nicht Interaktion. Der Treiber in
@@ -1074,4 +1074,52 @@ getroffen wurde.
 - source_spec: `AGENTS.md`
   summary: Die Rundum-Wache über alle zwanzig Live-Regionen steht in `smoke-zugang.ts`, obwohl sie nach der eigenen Grenze eine Gate-Regel wäre.
   evidence: Beim Review des Nachlaufs vom 2026-08-31 gesehen. Die Grenze lautet: eine Regel über den **ganzen Baum** gehört nach `gate.mjs`, eine Behauptung über eine **bestimmte** Seite bleibt in `smoke`. Jene Wache liest die `class`-Attribute jeder `+page.svelte` und hält sie gegen ein Attributpaar — baumweit und über den Quelltext, also Gate-Material. Sie steht trotzdem in `smoke-zugang.ts`, weil sie am 2026-08-30 zusammen mit der Meldungsregion-Wache entstand und deren `seitenPfade` mitbenutzt; ein Umzug hätte die Ableitung dort ein zweites Mal gebraucht. **Bewusst getragen und benannt statt still inkonsistent.** Der Umzug ist billig, sobald `gate.mjs` eine eigene Ableitung der Seitenkomponenten führt — Regel 17 hat sie inzwischen, also wäre es jetzt eine Regel 18 über dieselbe Schleife.
+
+## Erledigt am 2026-08-31: Stufe C kann Interaktion (Zeilen 3, 4, 5, 9 und der Rest von 8)
+
+`scripts/kopfbrowser.ts` bringt jetzt `klicken`, `tippen`, `taste`, `warten` und
+`verzoegern` mit; `smoke:sicht` steht bei **52** Behauptungen. Geklickt wird über
+die Eingabeschicht in die **gemessene Mitte** eines Elements und nicht über
+`el.click()`: jenes trifft auch, was hinter einem anderen Element liegt oder
+keine Fläche hat, und eine Zusage über ein Trefferfeld, die so geprüft wird,
+prüft das Trefferfeld nicht.
+
+**Zwei Mutationen passieren `gate`, `smoke` und `smoke:http` alle drei grün und
+werden allein von der vierten Schicht gefangen** — die neue Deckung, gemessen:
+
+| Mutation | drei Schichten | `smoke:sicht` |
+| --- | --- | --- |
+| `meldungKasten?.focus()` entfernt (Zeile 9) | grün | rot: fokussiert ist `<body>` |
+| `disabled={imFlug}` entfernt (Zeile 4) | grün | rot: der Knopf sperrt sich nicht |
+
+Vier weitere Mutationen werden von beiden Seiten gefangen und sind hier nur der
+Vollständigkeit halber genannt: `dialog?.close()` entfernt, die Knopfreihenfolge
+im Dialog gedreht, `open={abgewiesen}` entfernt, `required` am Titelfeld
+entfernt.
+
+**Drei Befunde an den eigenen Behauptungen**, alle von der Mutationsprobe
+aufgedeckt und nicht vom Lesen:
+
+1. **Der erste Fokus-Test prüfte eine Zusage, die niemand gemacht hat.** Er
+   verlangte, dass die Meldungsregion nach dem **Anlegen** den Fokus hält, und
+   wurde rot. Der Fokusgriff steht im Rückruf des **Ändern**-Formulars; das
+   Anlegen kommt von einer anderen Seite und leitet weiter. Der Befund war
+   meiner, nicht der des Produkts. Gemessen wird jetzt am Ändern-Weg, wo die
+   Zusage steht — und dort **hält** sie.
+2. **`required` hält den leeren Versand im Browser auf.** Der erste Entwurf
+   schickte leer ab und wartete auf den Fehlersatz des Servers; er kam nie. Die
+   Server-Abweisung ist nur mit Eingabe erreichbar, die `required` besteht und
+   serverseitig auf leer faltet — ein Titel aus Leerzeichen. Beide Schichten
+   sind jetzt eigene Behauptungen.
+3. **„Das Formular bleibt offen" prüfte das Gegenteil von dem, was es sagte.**
+   Ein von Hand aufgeklapptes `<details>` bleibt offen, weil `use:enhance` per
+   fetch abschickt und keine Navigation es zumacht: die Mutation
+   `open={abgewiesen}` **entfernt** lief grün durch. Jetzt wird das Formular
+   mitten im Versand geschlossen, und die Bindung muss es wieder aufmachen.
+
+**Was von der Liste bleibt:** Zeile 1 (iOS Safari — der Preis des Entscheids),
+Zeile 2 (die Ansage durch einen Screenreader), Zeile 6 (Installation auf einem
+Telefon), Zeile 7 (Kontrastwerte) und der Rest von Zeile 5: derselbe Dialog auf
+`/verwaltung`. Dort war der Fehler von Story 1.3, und dieser Lauf fährt als
+Mitglied ohne Adminrechte — er bräuchte eine zweite Sitzung.
 
