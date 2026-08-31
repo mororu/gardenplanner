@@ -1,20 +1,29 @@
 # Arbeitsregeln
 
-**Entwurf vom 2026-08-30, zur Abnahme durch Manuel.** Bis dahin sind es
-Vorschläge und keine Regeln.
-
-Acht Aktionspunkte aus drei Retrospektiven verlangen dasselbe: *„daraus eine
-Regel machen"*. Sie standen offen, weil es keine Datei gab, in der eine Regel
+**In Kraft seit dem 2026-08-31.** Sieben Regeln aus acht Aktionspunkten dreier
+Retrospektiven. Sie standen offen, weil es keine Datei gab, in der eine Regel
 hätte stehen können — kein `AGENTS.md`, kein `CLAUDE.md`, keine Prozessdoku.
-Der Vorschlag steht hier gesammelt, damit über acht Regeln in einem Zug
-entschieden werden kann statt über jede einzeln.
 
-**Was diesem Dokument noch fehlt, um zu wirken:** ein Ort, an dem es gelesen
-wird. Eine Regel in einer Datei, die kein Ablauf öffnet, ist genau der Zustand,
-den die Punkte 12, 13 und 14 seit Epic 1 beschreiben. Zwei Wege stehen offen —
-ein `AGENTS.md` im Wurzelbaum, das jede Sitzung mitliest, oder eine
-Anpassung der `bmad-build`-Skills über `bmad-customize`. Das ist die
-eigentliche Entscheidung; die Formulierungen darunter sind der leichtere Teil.
+**Der Ort, an dem sie gelesen werden, ist `AGENTS.md` im Wurzelbaum.** Dort
+steht, was zu tun ist; hier steht, warum — mit dem Vorfall, aus dem jede Regel
+stammt. Diese Trennung ist Absicht: `AGENTS.md` wird in **jeder** Sitzung
+mitgeladen und ist darum knapp gehalten, die Begründungen sind es nicht.
+
+Gegen die zweite offene Möglichkeit — eine Anpassung der `bmad-build`-Skills
+über `bmad-customize` — ist entschieden. Sie hätte die Regeln an die
+Ablaufschritte gebunden, wo mehrere von ihnen hingehören, aber sie greift in
+installierte Skills ein und wäre beim nächsten Update ihrer Fassung zu
+prüfen. `AGENTS.md` ist eine Datei im Repositorium, versioniert mit dem Code,
+den sie bindet, und ohne fremden Lebenszyklus. Wenn sich zeigt, dass eine Regel
+ohne Bindung an ihren Ablaufschritt nicht trägt, ist der Umzug jener einen Regel
+der nächste Schritt — nicht der Umzug aller sieben.
+
+**Zwei Regeln sind bereits angewandt und nicht nur beschlossen.** R7 hat mit den
+Feldern `abgeschlossen` und `vermerk` im Register seine Form bekommen und ist
+auf zehn Aktionspunkte angewandt; R6 hat in seinem ersten Lauf drei eigene
+Befunde erzeugt, darunter eine Behauptung, die schwächer war als die, die sie
+ersetzte. R5 ist am 2026-08-31 erstmals angewandt — die Liste steht in
+`deferred-work.md` unter *Was ungeprüft abgenommen werden soll*.
 
 ---
 

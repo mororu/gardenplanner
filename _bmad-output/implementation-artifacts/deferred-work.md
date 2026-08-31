@@ -1017,3 +1017,45 @@ Posten heisst:
   Treiber kann es (`Input.dispatchKeyEvent`), die Prüfliste tut es noch nicht.
   Das ist der nächste Zuwachs und keine Lücke im Entscheid.
 
+## Was ungeprüft abgenommen werden soll (2026-08-31, erste Anwendung von R5)
+
+Regel R5 der `arbeitsregeln.md` lässt einer Handprüfung zwei Endzustände:
+**durchgeführt und datiert**, oder **ausdrücklich als ungeprüft abgenommen, mit
+dem Namen dessen, der das Risiko trägt**. Ein „sieht gut aus" ist keines von
+beiden, und Retro-Punkt 15 (Befund P3) steht seit Epic 2 genau deswegen offen.
+
+Dies ist die Liste. Sie ist **noch nicht abgenommen** — sie liegt Manuel vor.
+Jede Zeile nennt, was zugesagt ist, was sie heute trägt, und was sie decken
+würde. Wer eine Zeile abnimmt, schreibt Datum und Namen dazu; wer sie nicht
+abnimmt, hat damit die nächste Arbeit benannt.
+
+| # | Zugesagt | Trägt heute | Würde es decken |
+| --- | --- | --- | --- |
+| 1 | Geometrie und Umbruch auf dem **Zielgerät** — einem Handy, also oft iOS Safari | nichts. `smoke:sicht` misst Chromium | eine zweite Engine (Playwright/WebKit) oder eine Prüfung von Hand auf einem iPhone |
+| 2 | Die Live-Regionen werden **angesagt** (`role`, `aria-live`, der Fokusgriff) | die Attribute sind an allen zwanzig Regionen gemessen; die Ansage nicht | VoiceOver oder TalkBack von Hand. Kein kopfloser Browser sieht das |
+| 3 | `showModal()` legt den Fokus auf `Abbrechen`, und ein Enter widerruft nichts | nichts Ausgeführtes. Der Dialog ist im Markup geprüft, sein Verhalten nicht | Interaktion im kopflosen Browser (`Input.dispatchKeyEvent`) — der Treiber kann es, die Prüfliste nutzt es noch nicht |
+| 4 | Die Sperre gegen Doppelversand greift | nichts Ausgeführtes | dasselbe wie 3 |
+| 5 | Der Dialog schliesst nach dem Widerruf, ohne dass eine Navigation ihn schliesst | nichts Ausgeführtes — genau dieser Fehler wurde in Story 1.3 vom User gefunden | dasselbe wie 3 |
+| 6 | **Installation zum Home-Bildschirm** zeigt das eigene Icon und startet ohne Browser-Leiste | Manifest, Icons und `display: standalone` sind maschinell belegt; die Installation hat niemand gesehen | ein echtes Telefon. Offen seit Story 1.1 |
+| 7 | Kontrast 4.5:1 für Text, 3:1 für Bedienelement-Umrisse, in **beiden** Modi | die Werte stehen nachgerechnet in Kommentaren; die Wirksamkeit des Dunkel-Blocks ist seit 2026-08-31 gemessen, die **Verhältnisse** nicht | eine Regel, die Vordergrund-/Hintergrundpaare rechnet — sie braucht eine maschinenlesbare Aussage darüber, welche Paare zusammen vorkommen, und die steht nirgends |
+| 8 | Die Oberflächen von **Story 4.1** (`/wissen`, `/wissen/[id]`) bei 375px in Hell und Dunkel, mit und ohne JavaScript | die Spec verlangt es unter *Manual checks*; der Spec Change Log verzeichnet keine Durchführung. `smoke:sicht` misst `/` und `/dienstplan`, nicht `/wissen` | die Prüfung von Hand — oder `/wissen` in die Prüfliste von `smoke:sicht` aufnehmen |
+| 9 | Der Fokusgriff der Live-Region überlebt SvelteKits `reset_focus` | der Quelltext von SvelteKit ist gelesen und gibt der Bauform recht; die Reihenfolge zwischen Sveltes Effekten und dem Navigationsende hat niemand gemessen | Interaktion plus Fokusablesung im kopflosen Browser |
+
+**Vier davon (3, 4, 5, 9) hängen an derselben Sache:** dieser erste Lauf von
+Stufe C misst Darstellung, nicht Interaktion. Der Treiber in
+`scripts/kopfbrowser.ts` bringt `Input.dispatchKeyEvent` und `Runtime.evaluate`
+schon mit; es fehlt die Prüfliste. Das ist die billigste der drei
+Fortsetzungen und deckt vier Zeilen auf einmal.
+
+**Zeile 8 ist die billigste überhaupt** und die einzige, die eine Story-Zusage
+betrifft, die nie eingelöst wurde. `/wissen` in `smoke:sicht` aufzunehmen kostet
+wenige Behauptungen.
+
+**Zeile 1 ist die einzige, die Stufe C grundsätzlich nicht decken kann.** Sie
+ist der Preis des Entscheids vom 2026-08-31, und er war bekannt, als er
+getroffen wurde.
+
+- source_spec: `AGENTS.md`
+  summary: Die Rundum-Wache über alle zwanzig Live-Regionen steht in `smoke-zugang.ts`, obwohl sie nach der eigenen Grenze eine Gate-Regel wäre.
+  evidence: Beim Review des Nachlaufs vom 2026-08-31 gesehen. Die Grenze lautet: eine Regel über den **ganzen Baum** gehört nach `gate.mjs`, eine Behauptung über eine **bestimmte** Seite bleibt in `smoke`. Jene Wache liest die `class`-Attribute jeder `+page.svelte` und hält sie gegen ein Attributpaar — baumweit und über den Quelltext, also Gate-Material. Sie steht trotzdem in `smoke-zugang.ts`, weil sie am 2026-08-30 zusammen mit der Meldungsregion-Wache entstand und deren `seitenPfade` mitbenutzt; ein Umzug hätte die Ableitung dort ein zweites Mal gebraucht. **Bewusst getragen und benannt statt still inkonsistent.** Der Umzug ist billig, sobald `gate.mjs` eine eigene Ableitung der Seitenkomponenten führt — Regel 17 hat sie inzwischen, also wäre es jetzt eine Regel 18 über dieselbe Schleife.
+

@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-26-2026 13:20
-last_updated: "08-31-2026 19:30"
+last_updated: "08-31-2026 21:40"
 project: Gemeinschaftsgarten
 project_key: NOKEY
 tracking_system: file-system
@@ -135,23 +135,26 @@ action_items:
     epic: 1
     action: "Story-Abschluss um einen Spec-Abgleich ergaenzen"
     owner: "Manuel"
-    status: in-progress
-    vermerk: "Als R1 in _bmad-output/implementation-artifacts/arbeitsregeln.md formuliert (Entwurf vom 2026-08-30). Bleibt offen bis zu zwei Entscheidungen durch Manuel: die Regel abnehmen, und ihr einen Ort geben, an dem sie gelesen wird (AGENTS.md im Wurzelbaum oder eine Skill-Anpassung ueber bmad-customize). Eine Regel in einer Datei, die kein Ablauf oeffnet, ist genau der Zustand, den diese Punkte seit drei Retrospektiven beschreiben."
+    status: done
+    abgeschlossen: "2026-08-31"
+    vermerk: "Als R1 in Kraft. In Kraft seit 2026-08-31. Der Wortlaut steht in AGENTS.md im Wurzelbaum -- die Datei, die jede Sitzung mitlaedt --, die Begruendung mit dem Vorfall in arbeitsregeln.md. Gegen die zweite Moeglichkeit (bmad-customize, Bindung an die Ablaufschritte) ist entschieden: sie greift in installierte Skills ein und waere bei jedem Update ihrer Fassung zu pruefen, waehrend AGENTS.md mit dem Code versioniert ist, den es bindet. Zeigt sich, dass eine Regel ohne Bindung an ihren Schritt nicht traegt, zieht jene eine Regel um -- nicht alle sieben."
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
   - id: "epic-1-retro-item-13-entdeckte-gefahr-einer-story-loest-pruef"
     epic: 1
     action: "Entdeckte Gefahr einer Story loest Pruefung der frueheren Fundstellen
       aus"
     owner: "Manuel"
-    status: in-progress
-    vermerk: "Als R2 in _bmad-output/implementation-artifacts/arbeitsregeln.md formuliert (Entwurf vom 2026-08-30). Bleibt offen bis zu zwei Entscheidungen durch Manuel: die Regel abnehmen, und ihr einen Ort geben, an dem sie gelesen wird (AGENTS.md im Wurzelbaum oder eine Skill-Anpassung ueber bmad-customize). Eine Regel in einer Datei, die kein Ablauf oeffnet, ist genau der Zustand, den diese Punkte seit drei Retrospektiven beschreiben."
+    status: done
+    abgeschlossen: "2026-08-31"
+    vermerk: "Als R2 in Kraft, und bereits zweimal angewandt: .meldung fiel beim Nachmessen des .fehler-Zwillings auf, und der zweite Zaehler beim Nachmessen des ersten. In Kraft seit 2026-08-31. Der Wortlaut steht in AGENTS.md im Wurzelbaum -- die Datei, die jede Sitzung mitlaedt --, die Begruendung mit dem Vorfall in arbeitsregeln.md. Gegen die zweite Moeglichkeit (bmad-customize, Bindung an die Ablaufschritte) ist entschieden: sie greift in installierte Skills ein und waere bei jedem Update ihrer Fassung zu pruefen, waehrend AGENTS.md mit dem Code versioniert ist, den es bindet. Zeigt sich, dass eine Regel ohne Bindung an ihren Schritt nicht traegt, zieht jene eine Regel um -- nicht alle sieben."
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
   - id: "epic-1-retro-item-14-stories-ueber-der-token-empfehlung-vor-d"
     epic: 1
     action: "Stories ueber der Token-Empfehlung vor dem Bau teilen oder Annahme abnehmen"
     owner: "Manuel"
-    status: in-progress
-    vermerk: "Als R3 in _bmad-output/implementation-artifacts/arbeitsregeln.md formuliert (Entwurf vom 2026-08-30). Bleibt offen bis zu zwei Entscheidungen durch Manuel: die Regel abnehmen, und ihr einen Ort geben, an dem sie gelesen wird (AGENTS.md im Wurzelbaum oder eine Skill-Anpassung ueber bmad-customize). Eine Regel in einer Datei, die kein Ablauf oeffnet, ist genau der Zustand, den diese Punkte seit drei Retrospektiven beschreiben."
+    status: done
+    abgeschlossen: "2026-08-31"
+    vermerk: "Als R3 in Kraft. In Kraft seit 2026-08-31. Der Wortlaut steht in AGENTS.md im Wurzelbaum -- die Datei, die jede Sitzung mitlaedt --, die Begruendung mit dem Vorfall in arbeitsregeln.md. Gegen die zweite Moeglichkeit (bmad-customize, Bindung an die Ablaufschritte) ist entschieden: sie greift in installierte Skills ein und waere bei jedem Update ihrer Fassung zu pruefen, waehrend AGENTS.md mit dem Code versioniert ist, den es bindet. Zeigt sich, dass eine Regel ohne Bindung an ihren Schritt nicht traegt, zieht jene eine Regel um -- nicht alle sieben."
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-08-27.md"
   - id: "epic-2-retro-item-15-fehlersatz-in-verwaltung-page-svelte-345"
     epic: 2
@@ -242,8 +245,9 @@ action_items:
     action: "Abgleich-Schritt zwischen die Epics setzen, damit der Spec-Abgleich ueberhaupt
       ausfuehrbar wird (P1)"
     owner: "Manuel"
-    status: in-progress
-    vermerk: "Als R1 (zweiter Absatz) in _bmad-output/implementation-artifacts/arbeitsregeln.md formuliert (Entwurf vom 2026-08-30). Bleibt offen bis zu zwei Entscheidungen durch Manuel: die Regel abnehmen, und ihr einen Ort geben, an dem sie gelesen wird (AGENTS.md im Wurzelbaum oder eine Skill-Anpassung ueber bmad-customize). Eine Regel in einer Datei, die kein Ablauf oeffnet, ist genau der Zustand, den diese Punkte seit drei Retrospektiven beschreiben."
+    status: done
+    abgeschlossen: "2026-08-31"
+    vermerk: "Als zweiter Absatz von R1 in Kraft -- der Abgleichschritt zwischen den Epics ist die Bedingung, unter der R1 ueberhaupt ausfuehrbar ist. In Kraft seit 2026-08-31. Der Wortlaut steht in AGENTS.md im Wurzelbaum -- die Datei, die jede Sitzung mitlaedt --, die Begruendung mit dem Vorfall in arbeitsregeln.md. Gegen die zweite Moeglichkeit (bmad-customize, Bindung an die Ablaufschritte) ist entschieden: sie greift in installierte Skills ein und waere bei jedem Update ihrer Fassung zu pruefen, waehrend AGENTS.md mit dem Code versioniert ist, den es bindet. Zeigt sich, dass eine Regel ohne Bindung an ihren Schritt nicht traegt, zieht jene eine Regel um -- nicht alle sieben."
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-28-deferred-work-md-vor-epic-3-triagieren-u"
     epic: 2
@@ -257,15 +261,17 @@ action_items:
     action: "Barrierefreiheit der Abnahme sichtbar machen: Pruefstufe oder einzeln
       als ungeprueft abnehmen (P3)"
     owner: "Manuel"
-    status: in-progress
-    vermerk: "Als R5 (dritter Absatz) in _bmad-output/implementation-artifacts/arbeitsregeln.md formuliert (Entwurf vom 2026-08-30). Bleibt offen bis zu zwei Entscheidungen durch Manuel: die Regel abnehmen, und ihr einen Ort geben, an dem sie gelesen wird (AGENTS.md im Wurzelbaum oder eine Skill-Anpassung ueber bmad-customize). Eine Regel in einer Datei, die kein Ablauf oeffnet, ist genau der Zustand, den diese Punkte seit drei Retrospektiven beschreiben."
+    status: done
+    abgeschlossen: "2026-08-31"
+    vermerk: "Als dritter Absatz von R5 in Kraft, UND erstmals angewandt: die Liste der ungeprueften Zusagen steht in deferred-work.md unter 'Was ungeprueft abgenommen werden soll', neun Zeilen, jede mit dem, was sie heute traegt und was sie decken wuerde. ABWEICHUNG vom Wortlaut 'Pruefstufe ODER einzeln abnehmen': es ist beides geworden -- Stufe C deckt seit 2026-08-31 einen Teil, der Rest ist einzeln benannt. Die Liste ist NOCH NICHT abgenommen; sie liegt Manuel vor. In Kraft seit 2026-08-31. Der Wortlaut steht in AGENTS.md im Wurzelbaum -- die Datei, die jede Sitzung mitlaedt --, die Begruendung mit dem Vorfall in arbeitsregeln.md. Gegen die zweite Moeglichkeit (bmad-customize, Bindung an die Ablaufschritte) ist entschieden: sie greift in installierte Skills ein und waere bei jedem Update ihrer Fassung zu pruefen, waehrend AGENTS.md mit dem Code versioniert ist, den es bindet. Zeigt sich, dass eine Regel ohne Bindung an ihren Schritt nicht traegt, zieht jene eine Regel um -- nicht alle sieben."
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-30-sitzungsprotokolle-festhalten-wenigstens"
     epic: 2
     action: "Sitzungsprotokolle festhalten, wenigstens die Wendungen (P4)"
     owner: "Manuel"
-    status: in-progress
-    vermerk: "Als R4 -- abgeloest, nicht ausgefuehrt: der Spec Change Log traegt die Wendungen ohnehin in _bmad-output/implementation-artifacts/arbeitsregeln.md formuliert (Entwurf vom 2026-08-30). Bleibt offen bis zu zwei Entscheidungen durch Manuel: die Regel abnehmen, und ihr einen Ort geben, an dem sie gelesen wird (AGENTS.md im Wurzelbaum oder eine Skill-Anpassung ueber bmad-customize). Eine Regel in einer Datei, die kein Ablauf oeffnet, ist genau der Zustand, den diese Punkte seit drei Retrospektiven beschreiben."
+    status: done
+    abgeschlossen: "2026-08-31"
+    vermerk: "Von R4 abgeloest und NICHT ausgefuehrt: der Spec Change Log traegt die Wendungen ohnehin, ein zweites Protokoll daneben waere eine zweite Wahrheit. Die Entscheidung steht in arbeitsregeln.md unter 'Was hier bewusst nicht steht'. In Kraft seit 2026-08-31. Der Wortlaut steht in AGENTS.md im Wurzelbaum -- die Datei, die jede Sitzung mitlaedt --, die Begruendung mit dem Vorfall in arbeitsregeln.md. Gegen die zweite Moeglichkeit (bmad-customize, Bindung an die Ablaufschritte) ist entschieden: sie greift in installierte Skills ein und waere bei jedem Update ihrer Fassung zu pruefen, waehrend AGENTS.md mit dem Code versioniert ist, den es bindet. Zeigt sich, dass eine Regel ohne Bindung an ihren Schritt nicht traegt, zieht jene eine Regel um -- nicht alle sieben."
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-08-28.md"
   - id: "epic-2-retro-item-31-fenster-von-einem-jahr-in-jede-richtung"
     epic: 2
@@ -360,16 +366,18 @@ action_items:
     action: "Den Spec Change Log zur Regel erheben, statt auf Sitzungsprotokolle zu
       warten - er traegt die Wendungen schon (F1, loest P4 aus Epic 2)"
     owner: "Manuel"
-    status: in-progress
-    vermerk: "Als R4 in _bmad-output/implementation-artifacts/arbeitsregeln.md formuliert (Entwurf vom 2026-08-30). Bleibt offen bis zu zwei Entscheidungen durch Manuel: die Regel abnehmen, und ihr einen Ort geben, an dem sie gelesen wird (AGENTS.md im Wurzelbaum oder eine Skill-Anpassung ueber bmad-customize). Eine Regel in einer Datei, die kein Ablauf oeffnet, ist genau der Zustand, den diese Punkte seit drei Retrospektiven beschreiben."
+    status: done
+    abgeschlossen: "2026-08-31"
+    vermerk: "Als R4 in Kraft. In Kraft seit 2026-08-31. Der Wortlaut steht in AGENTS.md im Wurzelbaum -- die Datei, die jede Sitzung mitlaedt --, die Begruendung mit dem Vorfall in arbeitsregeln.md. Gegen die zweite Moeglichkeit (bmad-customize, Bindung an die Ablaufschritte) ist entschieden: sie greift in installierte Skills ein und waere bei jedem Update ihrer Fassung zu pruefen, waehrend AGENTS.md mit dem Code versioniert ist, den es bindet. Zeigt sich, dass eine Regel ohne Bindung an ihren Schritt nicht traegt, zieht jene eine Regel um -- nicht alle sieben."
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
   - id: "epic-3-retro-item-44-eine-regel-fuer-die-abnahme-der-handprue"
     epic: 3
     action: "Eine Regel fuer die Abnahme der Handpruefungen: durchgefuehrt und datiert,
       oder ausdruecklich als ungeprueft abgenommen (F2)"
     owner: "Manuel"
-    status: in-progress
-    vermerk: "Als R5 in _bmad-output/implementation-artifacts/arbeitsregeln.md formuliert (Entwurf vom 2026-08-30). Bleibt offen bis zu zwei Entscheidungen durch Manuel: die Regel abnehmen, und ihr einen Ort geben, an dem sie gelesen wird (AGENTS.md im Wurzelbaum oder eine Skill-Anpassung ueber bmad-customize). Eine Regel in einer Datei, die kein Ablauf oeffnet, ist genau der Zustand, den diese Punkte seit drei Retrospektiven beschreiben."
+    status: done
+    abgeschlossen: "2026-08-31"
+    vermerk: "Als R5 in Kraft, samt erster Anwendung -- siehe den Vermerk zu Punkt 29. In Kraft seit 2026-08-31. Der Wortlaut steht in AGENTS.md im Wurzelbaum -- die Datei, die jede Sitzung mitlaedt --, die Begruendung mit dem Vorfall in arbeitsregeln.md. Gegen die zweite Moeglichkeit (bmad-customize, Bindung an die Ablaufschritte) ist entschieden: sie greift in installierte Skills ein und waere bei jedem Update ihrer Fassung zu pruefen, waehrend AGENTS.md mit dem Code versioniert ist, den es bindet. Zeigt sich, dass eine Regel ohne Bindung an ihren Schritt nicht traegt, zieht jene eine Regel um -- nicht alle sieben."
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-08-29.md"
   - id: "epic-3-retro-item-45-die-zwei-zaehler-aus-bucket-d-nachfuehre"
     epic: 3
