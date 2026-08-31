@@ -5,6 +5,18 @@ Vorfall, aus dem sie stammt — steht in
 `_bmad-output/implementation-artifacts/arbeitsregeln.md`. Hier steht nur, was zu
 tun ist.
 
+## Wo die Arbeit steht
+
+- **Alle Aktionspunkte sind geschlossen** (`_bmad-output/implementation-artifacts/sprint-status.yaml`,
+  57 Stück, jeder mit `vermerk`). Das Backlog aus `epics.md` ist vollständig
+  gebaut: vier Epics, zwölf Stories.
+- **Die offene Arbeit steht als R5-Liste** in
+  `_bmad-output/implementation-artifacts/deferred-work.md` unter _Was ungeprüft
+  abgenommen werden soll_ — neun Zeilen, jede mit dem, was sie heute trägt und
+  was sie decken würde. Vier sind noch offen und warten auf eine Abnahme durch
+  Manuel, nicht auf Code. **Dort nachsehen, bevor neue Arbeit angefangen wird**,
+  und nicht in dieser Datei: sie trägt Regeln, keinen Stand.
+
 ## Prüfkette
 
 - **Vor `npm run lint` immer `npm run build`.** `smoke:http` und `smoke:sicht`
