@@ -165,6 +165,24 @@ export function blatttextFalten(eingabe: string): string {
 - `npm run lint` — erwartet: Prettier, ESLint, `gate`, `gate:selftest`, `db:check`, `db:check:selftest`, `smoke`, `smoke:selftest`, `smoke:http` alle grün, inklusive der neuen Behauptungen.
 
 **Manual checks:**
+
+> **Nachgetragen am 2026-08-31.** Der maschinell erreichbare Teil dieser Liste
+> ist jetzt in `npm run smoke:sicht` ausgeführt — Stufe C, kopfloser Browser:
+> `/wissen` und ein Blatt bei 375px in **beiden** Erscheinungsbildern, kein
+> waagerechtes Scrollen gegen die feste Breite, Trefferfelder ≥ 44px an Griff
+> und Blattlink, das Dreieck des Griffs als **berechneter** Wert, das
+> geschlossene Formular, erhaltene Absätze (gegen einen Klon ohne `pre-wrap`
+> gemessen) und der Umbruch des 200-Zeichen-Worts. Sechs Mutationen einzeln rot
+> gesehen, darunter `summary { display: flex }` ohne Klassennamen — der Fall,
+> den Gate-Regel 15 als für sich unsichtbar benennt.
+>
+> **Nicht** maschinell gedeckt und darum weiter offen: die Geometrie eines
+> **aufgeklappten** Formulars und einer abgewiesenen Eingabe bei 375px, und die
+> Geometrie des leeren Zustands (dieser Lauf sät zwei Blätter). Der Weg ohne
+> JavaScript ist von `smoke:http` gedeckt, die Farbwirkung des Dunkel-Blocks von
+> `smoke:sicht` auf `/`. Zeile 8 der R5-Liste in `deferred-work.md` ist damit
+> **überwiegend, nicht vollständig** geschlossen.
+
 - `/wissen` und `/wissen/<id>` bei **375px** in hellem **und** dunklem Erscheinungsbild: Titelliste, leerer Zustand, beide Formulare offen und zu, eine abgewiesene Eingabe. Trefferfelder ≥ 44px, kein waagerechtes Scrollen, ein Blatt mit einem 200-Zeichen-Wort ohne Leerzeichen bricht um.
 - Ein Blatt mit zwei Absätzen und einer Leerzeile dazwischen anlegen und wieder öffnen: die Absätze stehen wie getippt.
 - Mit abgeschaltetem JavaScript anlegen, ändern und eine leere Eingabe abschicken.

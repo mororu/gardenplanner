@@ -48,6 +48,7 @@ import {
 } from './pruefserver.ts';
 import { browserStarten, chromeFinden, type Browser } from './kopfbrowser.ts';
 import { aufgabenStapelAnlegen } from '../src/lib/server/db/queries/tasks.ts';
+import { blattAnlegen } from '../src/lib/server/db/queries/sheets.ts';
 
 /**
  * So viele Behauptungen muss ein vollständiger Lauf ablegen, die Schlusszählung
@@ -55,7 +56,7 @@ import { aufgabenStapelAnlegen } from '../src/lib/server/db/queries/tasks.ts';
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 25;
+const ERWARTETE_BEHAUPTUNGEN = 38;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -66,6 +67,30 @@ const TREFFER_MINIMUM = 44;
 
 /** Der Text der frischen Aufgabe, die dieses Skript neben die überfällige legt. */
 const FRISCHER_TEXT = 'Beet 7 giessen';
+
+/*
+ * Zwei Blätter für die Oberflächen aus Story 4.1. Sie tragen genau die zwei
+ * Zusagen, die deren *Manual checks* nennen und die niemand abgehakt hat:
+ * erhaltene Absätze und ein sehr langes Wort, das umbrechen muss.
+ *
+ * Der Freitext des ersten trägt zwei Absätze mit einer Leerzeile dazwischen —
+ * die Faltung in `blatttextFalten` lässt genau eine Leerzeile stehen, mehr
+ * nicht, und diese Form ist es, die im Browser erhalten bleiben soll.
+ */
+const BLATT_ABSAETZE = {
+	titel: 'Gute Nachbarn',
+	text: 'Zwiebeln neben Karotten halten die Fliege fern.\n\nStarkzehrer nie zweimal ins selbe Beet.',
+} as const;
+
+/*
+ * Zweihundert Zeichen ohne eine einzige Trennstelle. Genau die Länge, die die
+ * Prüfliste der Story nennt; `BLATT_HOECHSTLAENGE` liegt bei 8000 und ist damit
+ * nicht die Grenze, die hier zählt.
+ */
+const BLATT_LANGWORT = {
+	titel: 'Ein Wort ohne Luft',
+	text: 'a'.repeat(200),
+} as const;
 
 type Kasten = { links: number; oben: number; breite: number; hoehe: number };
 type Rampe = { schriftgroesse: string; zeilenhoehe: string; aussenabstand: string };
@@ -139,6 +164,8 @@ try {
 	 * Dokument ist das kein Vergleich, sondern eine Einzelmessung.
 	 */
 	aufgabenStapelAnlegen([FRISCHER_TEXT], Math.floor(Date.now() / 1000));
+	const blattAbsaetze = blattAnlegen(BLATT_ABSAETZE.titel, BLATT_ABSAETZE.text);
+	const blattLangwort = blattAnlegen(BLATT_LANGWORT.titel, BLATT_LANGWORT.text);
 
 	const port = await freierPort();
 	server = await serverStarten(port, datenbankPfad);
@@ -505,6 +532,208 @@ try {
 		'auf /dienstplan trägt jede Auswahl ihren Pfeil, oder es steht keine im Dokument',
 		auswahl.zahl === 0 || auswahl.erscheinung === 'auto',
 		`${auswahl.zahl} Auswahl(en), appearance ${JSON.stringify(auswahl.erscheinung)}`
+	);
+
+	// -----------------------------------------------------------------------
+	// Die zwei Oberflächen aus Story 4.1
+	// -----------------------------------------------------------------------
+	/*
+	 * **Diese Prüfung löst eine Zusage ein, die nie abgehakt wurde.**
+	 *
+	 * Die Spec zu Story 4.1 verlangt unter *Manual checks*: `/wissen` und
+	 * `/wissen/<id>` bei 375px in hellem **und** dunklem Erscheinungsbild,
+	 * Trefferfelder ≥ 44px, kein waagerechtes Scrollen, erhaltene Absätze, und ein
+	 * Blatt mit einem 200-Zeichen-Wort bricht um. Ihr Spec Change Log verzeichnet
+	 * keine Durchführung — Zeile 8 der R5-Liste in `deferred-work.md`.
+	 *
+	 * Was hier gemessen wird, ist der maschinelle Teil davon. **Nicht** gemessen
+	 * ist der Weg ohne JavaScript — den deckt `smoke:http` seit Story 4.1 mit
+	 * eigenen Behauptungen — und nicht die Farbwirkung: die Tokens sind global,
+	 * und dass der Dunkel-Block wirkt, steht oben schon. Was der dunkle Modus
+	 * hier eigenständig tragen kann, ist die **Geometrie**: ein Token, das im
+	 * Dunkeln eine andere Grösse hätte, brächte den Umbruch zum Kippen.
+	 *
+	 * Die Medienabfragen werden ausdrücklich gesetzt und nicht vom Vorgängerblock
+	 * geerbt — dort steht `reduce`, und eine Messung, deren Zustand von der
+	 * Reihenfolge der Blöcke abhängt, ist eine Messung, die man einmal umstellt
+	 * und danach nicht mehr versteht.
+	 */
+	await browser.senden('Emulation.setEmulatedMedia', {
+		features: [
+			{ name: 'prefers-color-scheme', value: 'light' },
+			{ name: 'prefers-reduced-motion', value: 'no-preference' },
+		],
+	});
+	await browser.besuchen(`${adresse}/wissen`);
+
+	/*
+	 * **Gemessen wird gegen die 375 und nicht gegen `window.innerWidth`** — und
+	 * das ist ein Fund aus der Mutationsprobe dieses Blocks, nicht Vorsicht auf
+	 * Vorrat.
+	 *
+	 * Mit `mobile: true` wertet Chrome das Meta-Viewport aus, und läuft Inhalt
+	 * über, **wächst der Layout-Viewport mit**: die Mutation „overflow-wrap
+	 * entfernt" ergab ein Dokument von 1813px in einem Fenster von 1500px. Ein
+	 * Vergleich `dokument <= fenster` prüft damit zwei Zahlen, die sich gemeinsam
+	 * bewegen — er hat jene Mutation nur gefangen, weil die eine schneller wuchs
+	 * als die andere. Gegen die feste Breite ist es eine Aussage, gegen
+	 * `innerWidth` war es eine Hoffnung.
+	 *
+	 * Beide Hälften stehen in **einer** Behauptung: der Viewport ist noch 375, und
+	 * nichts liegt darüber. Getrennt wären es zwei Zeilen, von denen eine ohne die
+	 * andere nichts sagt.
+	 */
+	const breiteHalten = async (wo: string) => {
+		const gemessen = await browser!.auswerten<{ dokument: number; fenster: number }>(`
+			return { dokument: document.documentElement.scrollWidth, fenster: window.innerWidth };`);
+		pruefen(
+			`${wo} bleibt bei ${BREITE}px — der Viewport ist unverändert, und nichts läuft darüber`,
+			gemessen.fenster === BREITE && gemessen.dokument <= BREITE,
+			`Dokument ${gemessen.dokument}px, Fenster ${gemessen.fenster}px, erwartet beide ≤ ${BREITE}`
+		);
+	};
+
+	await breiteHalten('/wissen');
+
+	/*
+	 * **Der Griff behält sein Dreieck — hier gemessen statt aus dem Quelltext
+	 * gelesen.**
+	 *
+	 * Gate-Regel 15 verbietet ein `display` an der Klasse eines `<summary>` und
+	 * benennt selbst, was sie nicht sehen kann: ein `display`, das ohne
+	 * Klassennamen kommt (`summary { … }`, `details > summary`) oder geerbt wird.
+	 * Der **berechnete** Wert kennt diese Lücke nicht — er ist das Ergebnis aller
+	 * Wege zusammen. Die zwei Prüfungen ergänzen sich also und doppeln sich
+	 * nicht: die Regel sagt, wo der Fehler herkam, diese Zeile, dass er nicht da
+	 * ist.
+	 */
+	const griffe = await browser.auswerten<{ zahl: number; anzeige: string[]; hoehen: number[] }>(`
+		const alle = [...document.querySelectorAll('summary.zeilenform__griff')];
+		return {
+			zahl: alle.length,
+			anzeige: alle.map((el) => getComputedStyle(el).display),
+			hoehen: alle.map((el) => el.getBoundingClientRect().height),
+		};`);
+	pruefen('/wissen trägt genau einen Aufklappgriff', griffe.zahl === 1, `${griffe.zahl} Griff(e)`);
+	pruefen(
+		'und er rendert als list-item — das Dreieck ist da, auf allen Wegen zugleich geprüft',
+		griffe.anzeige.every((wert) => wert === 'list-item'),
+		`gemessen: ${griffe.anzeige.join(', ')}`
+	);
+	pruefen(
+		`und sein Trefferfeld ist mindestens ${TREFFER_MINIMUM}px hoch`,
+		griffe.hoehen.every((hoehe) => hoehe >= TREFFER_MINIMUM),
+		`gemessen: ${griffe.hoehen.map((h) => Math.round(h)).join(', ')}px`
+	);
+
+	/*
+	 * Jeder Blattlink ist ein Trefferfeld. Er ist kein Knopf und sieht auch nicht
+	 * wie einer aus — aber er ist die einzige Art, ein Blatt zu öffnen, und die
+	 * 44px gelten für jedes Ziel und nicht nur für Knöpfe.
+	 */
+	const linkHoehen = await browser.auswerten<number[]>(`
+		return [...document.querySelectorAll('.blattlink')].map((el) => el.getBoundingClientRect().height);`);
+	pruefen(
+		`beide Blattlinks tragen ein Trefferfeld von mindestens ${TREFFER_MINIMUM}px`,
+		linkHoehen.length === 2 && linkHoehen.every((hoehe) => hoehe >= TREFFER_MINIMUM),
+		`${linkHoehen.length} Link(s), Höhen ${linkHoehen.map((h) => Math.round(h)).join(', ')}px`
+	);
+
+	/*
+	 * Und das Formular ist **zu**. `open={abgewiesen}` lässt es der Server
+	 * entscheiden; ohne Abweisung gehört es geschlossen, sonst stünde die Liste
+	 * unter einem aufgeklappten Formular, das niemand geöffnet hat.
+	 */
+	const formularZu = await browser.auswerten<boolean>(`
+		const d = document.querySelector('details.zeilenform');
+		if (d === null) throw new Error('kein details.zeilenform auf /wissen');
+		return !d.open;`);
+	pruefen(
+		'und das Anlegen-Formular ist zu — es klappt nur nach einer Abweisung auf',
+		formularZu,
+		'das <details> stand offen, ohne dass eine Abweisung anstand'
+	);
+
+	// Auch im dunklen Erscheinungsbild darf nichts waagerecht laufen.
+	await browser.senden('Emulation.setEmulatedMedia', {
+		features: [{ name: 'prefers-color-scheme', value: 'dark' }],
+	});
+	await browser.besuchen(`${adresse}/wissen`);
+	await breiteHalten('/wissen im dunklen Erscheinungsbild');
+
+	await browser.senden('Emulation.setEmulatedMedia', {
+		features: [{ name: 'prefers-color-scheme', value: 'light' }],
+	});
+
+	/*
+	 * **Die Absätze bleiben, wie sie getippt wurden.**
+	 *
+	 * Das ist die einzige Formatierungszusage der Story. `smoke:http` prüft, dass
+	 * `white-space: pre-wrap` im ausgelieferten Stilblatt steht; ob es **wirkt**,
+	 * sieht es nicht. Gemessen wird darum gegen einen Klon derselben Zeile mit
+	 * `white-space: normal`: bricht der Text an seinen Umbrüchen, ist er höher als
+	 * derselbe Text ohne sie. Eine feste Zahl von Zeilenhöhen wäre die schwächere
+	 * Fassung — sie hinge an der Schrift und an der Fensterbreite.
+	 */
+	await browser.besuchen(`${adresse}/wissen/${blattAbsaetze}`);
+	const absaetze = await browser.auswerten<{ mit: number; ohne: number; regel: string }>(`
+		const el = document.querySelector('.blatt__text');
+		if (el === null) throw new Error('kein .blatt__text auf dem Blatt');
+		const mit = el.getBoundingClientRect().height;
+		const klon = el.cloneNode(true);
+		klon.style.whiteSpace = 'normal';
+		klon.style.position = 'absolute';
+		klon.style.visibility = 'hidden';
+		klon.style.width = getComputedStyle(el).width;
+		el.parentNode.appendChild(klon);
+		const ohne = klon.getBoundingClientRect().height;
+		klon.remove();
+		return { mit, ohne, regel: getComputedStyle(el).whiteSpace };`);
+	pruefenGleich('der Freitext rendert mit pre-wrap', absaetze.regel, 'pre-wrap');
+	pruefen(
+		'und die Absätze bleiben wirklich erhalten — mit Umbrüchen höher als ohne',
+		absaetze.mit > absaetze.ohne,
+		`mit ${Math.round(absaetze.mit)}px, ohne ${Math.round(absaetze.ohne)}px`
+	);
+
+	const aendernGriff = await browser.auswerten<{ anzeige: string; hoehe: number }>(`
+		const el = document.querySelector('summary.zeilenform__griff');
+		if (el === null) throw new Error('kein Griff auf dem Blatt');
+		const s = getComputedStyle(el);
+		return { anzeige: s.display, hoehe: el.getBoundingClientRect().height };`);
+	pruefen(
+		`der Ändern-Griff am Blatt rendert als list-item und trägt ${TREFFER_MINIMUM}px`,
+		aendernGriff.anzeige === 'list-item' && aendernGriff.hoehe >= TREFFER_MINIMUM,
+		`display ${aendernGriff.anzeige}, ${Math.round(aendernGriff.hoehe)}px`
+	);
+
+	/*
+	 * **Und das Wort ohne Luft bricht um.**
+	 *
+	 * `overflow-wrap: anywhere` an `.blatt__text` ist die Zusage; ohne sie schöbe
+	 * ein Wort von zweihundert Zeichen die Seite bei 375px seitlich aus dem Bild.
+	 * Gemessen wird beides: dass das Dokument nicht breiter wird **und** dass der
+	 * Absatz selbst innerhalb des Fensters bleibt. Die zweite Hälfte ist nötig,
+	 * weil ein überlaufender Absatz in einem Container mit `overflow: hidden`
+	 * das Dokument unberührt liesse und trotzdem abgeschnitten wäre.
+	 */
+	await browser.besuchen(`${adresse}/wissen/${blattLangwort}`);
+	await breiteHalten('ein Blatt mit einem 200-Zeichen-Wort');
+	const langwort = await browser.auswerten<{ textbreite: number; zeilen: number }>(`
+		const el = document.querySelector('.blatt__text');
+		if (el === null) throw new Error('kein .blatt__text auf dem Blatt');
+		const k = el.getBoundingClientRect();
+		const zeilenhoehe = parseFloat(getComputedStyle(el).lineHeight);
+		return { textbreite: k.right, zeilen: Math.round(k.height / zeilenhoehe) };`);
+	pruefen(
+		'und der Absatz bleibt im Fenster, statt unter einem overflow zu verschwinden',
+		langwort.textbreite <= BREITE,
+		`rechte Kante ${Math.round(langwort.textbreite)}px, erwartet ≤ ${BREITE}px`
+	);
+	pruefen(
+		'das Wort ist also wirklich umgebrochen — es steht auf mehr als einer Zeile',
+		langwort.zeilen > 1,
+		`gemessen: ${langwort.zeilen} Zeile(n)`
 	);
 
 	// -----------------------------------------------------------------------

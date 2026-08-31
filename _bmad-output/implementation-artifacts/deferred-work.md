@@ -1038,7 +1038,7 @@ abnimmt, hat damit die nächste Arbeit benannt.
 | 5 | Der Dialog schliesst nach dem Widerruf, ohne dass eine Navigation ihn schliesst | nichts Ausgeführtes — genau dieser Fehler wurde in Story 1.3 vom User gefunden | dasselbe wie 3 |
 | 6 | **Installation zum Home-Bildschirm** zeigt das eigene Icon und startet ohne Browser-Leiste | Manifest, Icons und `display: standalone` sind maschinell belegt; die Installation hat niemand gesehen | ein echtes Telefon. Offen seit Story 1.1 |
 | 7 | Kontrast 4.5:1 für Text, 3:1 für Bedienelement-Umrisse, in **beiden** Modi | die Werte stehen nachgerechnet in Kommentaren; die Wirksamkeit des Dunkel-Blocks ist seit 2026-08-31 gemessen, die **Verhältnisse** nicht | eine Regel, die Vordergrund-/Hintergrundpaare rechnet — sie braucht eine maschinenlesbare Aussage darüber, welche Paare zusammen vorkommen, und die steht nirgends |
-| 8 | Die Oberflächen von **Story 4.1** (`/wissen`, `/wissen/[id]`) bei 375px in Hell und Dunkel, mit und ohne JavaScript | die Spec verlangt es unter *Manual checks*; der Spec Change Log verzeichnet keine Durchführung. `smoke:sicht` misst `/` und `/dienstplan`, nicht `/wissen` | die Prüfung von Hand — oder `/wissen` in die Prüfliste von `smoke:sicht` aufnehmen |
+| 8 | Die Oberflächen von **Story 4.1** (`/wissen`, `/wissen/[id]`) bei 375px in Hell und Dunkel, mit und ohne JavaScript | **überwiegend gedeckt seit 2026-08-31**: `smoke:sicht` misst beide Seiten in beiden Erscheinungsbildern (Breite, Trefferfelder, Dreieck, geschlossenes Formular, erhaltene Absätze, Umbruch des 200-Zeichen-Worts); der Weg ohne JavaScript liegt bei `smoke:http` | **Rest:** die Geometrie eines **aufgeklappten** Formulars, einer abgewiesenen Eingabe und des leeren Zustands — alle drei brauchen einen zweiten Seitenzustand im selben Lauf |
 | 9 | Der Fokusgriff der Live-Region überlebt SvelteKits `reset_focus` | der Quelltext von SvelteKit ist gelesen und gibt der Bauform recht; die Reihenfolge zwischen Sveltes Effekten und dem Navigationsende hat niemand gemessen | Interaktion plus Fokusablesung im kopflosen Browser |
 
 **Vier davon (3, 4, 5, 9) hängen an derselben Sache:** dieser erste Lauf von
@@ -1047,9 +1047,25 @@ Stufe C misst Darstellung, nicht Interaktion. Der Treiber in
 schon mit; es fehlt die Prüfliste. Das ist die billigste der drei
 Fortsetzungen und deckt vier Zeilen auf einmal.
 
-**Zeile 8 ist die billigste überhaupt** und die einzige, die eine Story-Zusage
-betrifft, die nie eingelöst wurde. `/wissen` in `smoke:sicht` aufzunehmen kostet
-wenige Behauptungen.
+**Zeile 8 ist am 2026-08-31 überwiegend eingelöst** — dreizehn Behauptungen in
+`smoke:sicht`, sechs Mutationen einzeln rot gesehen. Zwei Funde daraus, die über
+die Zeile hinausgehen:
+
+- **Eine Behauptung war schwächer, als sie aussah.** `dokument <= innerWidth`
+  vergleicht zwei Zahlen, die sich gemeinsam bewegen: mit `mobile: true` wächst
+  der Layout-Viewport mit überlaufendem Inhalt (gemessen: Dokument 1813px in
+  einem Fenster von 1500px). Sie hat ihre Mutation nur gefangen, weil die eine
+  Zahl schneller wuchs. Gemessen wird jetzt gegen die feste 375, und der
+  Viewport selbst wird mitgeprüft.
+- **Der berechnete `display`-Wert schliesst den blinden Fleck von Gate-Regel
+  15.** Jene Regel benennt selbst, dass sie ein `display` ohne Klassennamen
+  nicht sieht. Die Mutation `summary { display: flex }` lässt `gate` grün und
+  wird von `smoke:sicht` gefangen — vorgeführt, nicht angenommen.
+
+**Der Rest von Zeile 8** braucht einen zweiten Seitenzustand im selben Lauf: ein
+aufgeklapptes Formular entsteht nur nach einer Abweisung, und der leere Zustand
+nur ohne Blätter. Beides ist mit Interaktion (der offene Posten hinter den
+Zeilen 3–5) billig zu haben und ohne sie teuer.
 
 **Zeile 1 ist die einzige, die Stufe C grundsätzlich nicht decken kann.** Sie
 ist der Preis des Entscheids vom 2026-08-31, und er war bekannt, als er
