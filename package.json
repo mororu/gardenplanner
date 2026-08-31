@@ -23,8 +23,9 @@
 		"smoke": "node scripts/smoke-zugang.ts",
 		"smoke:http": "node scripts/smoke-http.ts",
 		"smoke:selftest": "node scripts/pruefhelfer-selftest.ts",
-		"lint": "prettier --check . && eslint . && npm run gate && npm run gate:selftest && npm run db:check && npm run db:check:selftest && npm run smoke && npm run smoke:selftest && npm run smoke:http",
-		"format": "prettier --write ."
+		"lint": "prettier --check . && eslint . && npm run gate && npm run gate:selftest && npm run db:check && npm run db:check:selftest && npm run smoke && npm run smoke:selftest && npm run smoke:http && npm run smoke:sicht",
+		"format": "prettier --write .",
+		"smoke:sicht": "node scripts/smoke-sicht.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "10.0.1",

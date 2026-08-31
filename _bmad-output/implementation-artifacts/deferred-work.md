@@ -937,3 +937,83 @@ Gate-Regel spricht über den ganzen Baum, und eine Aussage über genau eine Seit
 wäre dort eine Liste von Hand — genau das, was die drei Umzüge beseitigt haben.
 Der Aktionspunkt ist damit inhaltlich beantwortet, nicht bloss abgearbeitet.
 
+## Erledigt am 2026-08-31: Stufe C ist gebaut — und kostete keine Abhängigkeit
+
+`npm run smoke:sicht`, die vierte Prüfschicht: `scripts/kopfbrowser.ts` fährt
+Chrome kopflos über das DevTools-Protokoll, `scripts/smoke-sicht.ts` legt 24
+Behauptungen am gerenderten Ergebnis ab. Die Infrastruktur (Bau-Aktualität,
+freier Port, Saat, Unterprozess) ist mit `smoke:http` geteilt und dafür nach
+`scripts/pruefserver.ts` herausgelöst.
+
+**Die Auslösebedingung war eingetreten.** Fassung vom 2026-08-28: *„Stufe C
+kommt, wenn eine Geometrie- oder Fokuszusage im Betrieb bricht."* Befund R1 der
+zweiten Retrospektive zu Epic 3 war genau das.
+
+**Der dokumentierte Preis war nie nötig.** Fünf Stellen setzten voraus, Stufe C
+hiesse Playwright: der ursprüngliche Vorschlag (Eintrag 15, Zeile 55), der
+Entscheid vom 2026-08-28 (Zeile 200), die Aufsetzung von Stufe A (Zeile 333),
+der Nachtrag A3 der zweiten Retrospektive zu Epic 3 (Zeile 192 dort) und die
+*Deferred*-Zeile der ARCHITECTURE-SPINE. Die zwei Stellen der Spine sind
+richtiggestellt; die Retrospektive bleibt als Protokoll stehen, wie sie war —
+ein Protokoll, das man nachträglich ändert, ist keines. Node
+bringt seit 22 ein globales `WebSocket` mit, Chrome spricht CDP darüber, und ein
+Prozessstart ist `spawn`. **Null neue Abhängigkeiten** — `devDependencies`
+stehen unverändert bei 18. NFR13 lautet präzisiert *keine fremde Abhängigkeit
+für Prüfung* und ist gehalten.
+
+**Belegt, nicht behauptet.** Drei Mutationen wurden einzeln vorgeführt, die
+`gate`, `smoke` **und** `smoke:http` alle drei grün passieren und allein von der
+vierten Schicht gefangen werden:
+
+| Mutation | drei Schichten | `smoke:sicht` |
+| --- | --- | --- |
+| `align-items: flex-start` an `.zeile` → `center` | grün | rot: Kästchen-Mitte 188px = Zeilen-Mitte 188px |
+| Trefferfeld `--touch` → `--task-box` | grün | rot: 22×22px statt ≥ 44px |
+| Dunkel-Block durch `and (min-width: 99999px)` ausgeschaltet | grün | rot: hell und dunkel dieselbe Grundfarbe |
+
+Eine vierte Mutation (`.zeile__frist` verliert seinen Regelkörper, die Gestalt
+von R1) wird von `smoke` **mit** gefangen — seit Story 2.2 gibt es dort eine
+Textprüfung auf genau diesen Rumpf. Sie ist darum kein Beleg für die neue
+Schicht und hier nur benannt, damit niemand sie für einen hält.
+
+**Damit sind diese Einträge geschlossen:**
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-offene-aufgaben-sehen-und-abhaken.md`
+  summary: ERLEDIGT — die Geometrie der Aufgabenzeile ist gemessen: Trefferfeld ≥ 44px in beiden Zeilenarten, die überfällige Zeile höher als die frische, das Kästchen über der Zeilenmitte.
+  evidence: `smoke:sicht` misst bei 375px mit `mobile: true`. Die Zusage „Trefferfeld 44px ohne die Zeilenhöhe aufzublähen" ist in beiden Hälften belegt, und die Lage des Kästchens bei zwei Textzeilen über die Mitte der Zeile. **Nicht** gedeckt bleibt die Ansage durch einen Screenreader — die sieht auch ein kopfloser Browser nicht.
+  status: erledigt, mit benannter Grenze
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-2-ueberfaellige-aufgaben-erkennen.md`
+  summary: ERLEDIGT — die gerenderte Geometrie der überfälligen Zeile ist gemessen statt von Hand angesehen.
+  evidence: Zwei Zeilen im selben Dokument, an ihrem Text auseinandergehalten und nicht an ihrer Stellung: die überfällige ist höher, und beide tragen ihr Trefferfeld. Dazu die meta-Rampe des Fristsatzes gegen eine Sonde, die die Tokens selbst auflöst — eine geänderte Rampe bricht die Behauptung damit nicht, ein verlorener Regelkörper schon.
+  status: erledigt
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-1-dienstplan-mit-namen-und-laufender-woche.md`
+  summary: ERLEDIGT — `select.feld { appearance: auto }` trägt eine Behauptung.
+  evidence: `smoke:sicht` liest `getComputedStyle(...).appearance` auf `/dienstplan`. Die Behauptung ist bedingt gefasst — *wenn* eine Auswahl im Dokument steht, trägt sie ihren Pfeil —, weil das Formular nur der Verwaltung offensteht und der Lauf als Mitglied ohne Adminrechte fährt.
+  status: erledigt, mit benannter Grenze
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-1-geruest-und-gestaltungsrahmen.md`
+  summary: ERLEDIGT für den maschinellen Teil — „geprüft in Hell **und** Dunkel" ist keine Prosa mehr.
+  evidence: `Emulation.setEmulatedMedia` fährt beide Erscheinungsbilder, und der Vergleich belegt, dass der Dunkel-Block überhaupt wirkt. Der Vergleich ist absichtlich schwach: er sagt nicht, welche Farbe richtig ist. Ein **Kontrastwert** wäre die nächste Stufe und braucht eine maschinenlesbare Aussage darüber, welche Vordergrund-/Hintergrundpaare zusammen vorkommen — die steht weiter nirgends. Ebenfalls gemessen: der Übergang am Kästchen trägt bei `no-preference` eine Dauer und bei `reduce` keine.
+  status: erledigt für die Wirksamkeit, offen für den Kontrast
+
+**Was Stufe C ausdrücklich nicht schliesst** — und was das für die noch offenen
+Posten heisst:
+
+- **iOS Safari.** Der kopflose Browser ist Chromium. Das Zielgerät dieses
+  Projekts ist ein Handy, und jede Zusage über Safaris Geometrie trägt weiter
+  allein die Handprüfung. Playwright deckte drei Engines; das bleibt der einzige
+  echte Vorteil, den die verworfene Variante hatte, und er ist hier benannt und
+  nicht weggeredet.
+- **Die Ansage.** Ob ein Screenreader eine Live-Region vorliest, ob `showModal()`
+  den Fokus wirklich auf `Abbrechen` legt und was VoiceOver aus einem
+  `aria-describedby` macht, sieht kein kopfloser Browser. Retro-Punkt 15
+  (Befund P3) bleibt damit offen: Barrierefreiheit ist weiterhin **mitgenickt
+  und nicht abgenommen**, und nach Regel R5 des Arbeitsregeln-Entwurfs gehört
+  das einzeln benannt.
+- **Interaktion.** Dieser erste Lauf misst Darstellung, nicht Verhalten im
+  Browser: kein Klick, kein Tastendruck, keine Sperre gegen Doppelversand. Der
+  Treiber kann es (`Input.dispatchKeyEvent`), die Prüfliste tut es noch nicht.
+  Das ist der nächste Zuwachs und keine Lücke im Entscheid.
+

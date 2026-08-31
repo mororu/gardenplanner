@@ -388,14 +388,18 @@ Der Produktcode ist zur Hälfte Prosa, das Werkzeug zu einem Drittel. **Auf Code
 
 Wachstum über die letzten drei Messpunkte, in Gesamtzeilen: 1,10 → 1,21 → 1,25. Stetig, kein Ausreisser.
 
-#### Die drei Schichten und was mit ihnen geschieht
+#### Die Schichten und was mit ihnen geschieht
+
+> **Es sind seit dem 2026-08-31 vier.** Die Tabelle hiess „die drei Schichten"; die vierte — gerendertes Ergebnis im kopflosen Browser — ist unten nachgetragen und war zum Zeitpunkt des Entscheids noch die offene *Stufe C*.
 
 | Schicht | Zeilen | Entscheid |
 | --- | ---: | --- |
+| **Gerendertes Ergebnis** — `smoke-sicht.ts` mit `kopfbrowser.ts` | 496 + 349 | **Architekturbestandteil, gebaut am 2026-08-31.** Fährt Chrome kopflos über das DevTools-Protokoll und misst Geometrie, berechnete Stile und emulierte Medienabfragen bei 375px. Die einzige Schicht, die einen Regel**körper** gegen sein Ergebnis hält — die Klasse von Befund R1. Ohne fremde Abhängigkeit; Grenze: nur Chromium. |
 | **Verhalten am gebauten Server** — `smoke-http.ts` | 2 132 | **Architekturbestandteil.** Startet den gebauten Server auf einem freien Port und misst echte Antworten samt POST. Höchster Wert pro Zeile, durch nichts anderes zu ersetzen. Wächst mit dem Produkt. |
 | **Verhalten an den Modulen** — der aufrufende Teil von `smoke-zugang.ts` | ~ die Hälfte von 7 689 | **Architekturbestandteil.** Ruft `load`- und action-Funktionen direkt gegen eine echte Wegwerf-Datenbank. Das ist die Abnahme dieses Projekts. |
 | **Regeln über den Quelltext** — `gate.mjs`, `db-check.ts`, und der lesende Teil von `smoke-zugang.ts` | 2 569 + Rest | **Das ist Lint, kein Test, und gehört nach `gate.mjs`.** Siehe unten. |
 | **Der Prüfkern selbst** — `pruefhelfer.ts`, `pruefhelfer-selftest.ts` | 325 | **Architekturbestandteil.** Das einzige sonst ungeprüfte Stück der Kette. |
+| **Der geteilte Prüfstand** — `pruefserver.ts` | 444 | **Architekturbestandteil, herausgelöst am 2026-08-31.** Bau-Aktualität, freier Port, Saat und Unterprozess für `smoke:http` **und** `smoke:sicht`. Eine zweite Fassung davon wäre eine zweite Wahrheit über den Umgebungsaufbau des Servers. |
 
 #### Warum die Quelltext-Regeln nach `gate.mjs` gehören
 
@@ -423,9 +427,17 @@ Die Liste war das eigentliche Problem: `.hinweis--ziffern` fehlte darin von sein
 
 **Der Rest zieht schrittweise nach**, Regel für Regel mit ihrer Fehlerprobe. Unbeschrieben weiterwachsen ist der Weg, den dieser Entscheid ausschliesst.
 
-#### Was dieser Entscheid nicht löst
+#### Was dieser Entscheid nicht löste — und am 2026-08-31 gelöst wurde
 
-Nichts im Werkzeug liest heute **Regelkörper oder gerendertes Ergebnis**. Befund R1 — eine sichtbare Regression auf `/verwaltung`, durch 755 Behauptungen gelaufen, ohne rot zu werden — ist in dieser Klasse, und keine der drei Schichten oben hätte sie gefunden. Der einzige Weg dorthin ist *Stufe C*, ein kopfloser Browser. Das ist eine **eigene** Entscheidung mit einem eigenen Preis (eine fremde Abhängigkeit, und NFR13 fällt dann dem Sinn nach) und wird nicht hier mitentschieden.
+Bis dahin las nichts im Werkzeug **Regelkörper oder gerendertes Ergebnis**. Befund R1 — eine sichtbare Regression auf `/verwaltung`, durch 755 Behauptungen gelaufen, ohne rot zu werden — ist in dieser Klasse, und keine der drei Schichten oben hätte sie gefunden.
+
+> **Nachgetragen am 2026-08-31: es gibt eine vierte Schicht, und sie kostet keine Abhängigkeit.**
+>
+> Dieser Abschnitt setzte — wie die *Deferred*-Zeile weiter unten — voraus, *Stufe C* hiesse Playwright und NFR13 fiele dem Sinn nach. **Die Prämisse war falsch.** Node bringt seit 22 ein globales `WebSocket` mit, Chrome spricht das DevTools-Protokoll darüber, und ein Prozessstart ist `spawn`. `scripts/kopfbrowser.ts` ist reines Node — 349 Zeilen, zur Hälfte Begründung —, und `scripts/smoke-sicht.ts` legt darauf 24 Behauptungen am gerenderten Ergebnis ab. NFR13 lautet präzisiert *keine fremde Abhängigkeit für Prüfung* — und ist gehalten.
+>
+> **Belegt statt behauptet:** drei Mutationen wurden einzeln vorgeführt, die `gate`, `smoke` **und** `smoke:http` alle drei grün passieren und allein von der vierten Schicht gefangen werden — `align-items: flex-start` an `.zeile` auf `center` gedreht (das Kästchen sitzt dann zwischen zwei Textzeilen), das Trefferfeld von `--touch` auf `--task-box` geschrumpft (22×22px statt 44×44px), und der Dunkel-Block durch eine unerfüllbare Bedingung ausgeschaltet.
+>
+> **Was die vierte Schicht nicht kann**, ausgeschrieben im Kopf von `kopfbrowser.ts`: nur Chromium, also **keine Zusage über iOS Safari**; keine Ansage eines Screenreaders; und sie braucht einen Chrome auf der Maschine — fehlt er, scheitert der Lauf laut und benannt statt still übersprungen.
 
 ## Capability → Architecture Map
 
@@ -465,7 +477,7 @@ zurückgeflossen (Retro Epic 1, Befund B9). Hier nachgetragen am 2026-08-30:
 ## Deferred
 
 - ~~**Das Prüfwerkzeug: aufnehmen oder zurückbauen.**~~ **Entschieden am 2026-08-30** — siehe *Prüfwerkzeug* im Structural Seed. Nicht aufnehmen oder zurückbauen, sondern trennen: Verhalten wird Architekturbestandteil, Quelltext-Regeln sind Lint und ziehen nach `gate.mjs`. Der offene Punkt aus drei Retrospektiven (`epic-1-retro-item-7`, `epic-2-retro-item-23`, `epic-3-retro-item-36`) ist damit geschlossen.
-- **Stufe C: ein kopfloser Browser** — offen, und die Auslösebedingung ist am 2026-08-30 **eingetreten**. Sie lautete „sobald eine Story tatsächlich unter Regressionen leidet"; Befund R1 der zweiten Retrospektive zu Epic 3 ist eine sichtbare Regression auf `/verwaltung`, die ausgeliefert wurde und durch 755 Behauptungen lief, ohne rot zu werden. Keine der drei Prüfschichten kann diese Klasse fangen: sie lesen Regelköpfe, Markup und Antworten, nie Regelkörper oder gerendertes Ergebnis. Der Preis ist eine fremde Abhängigkeit (Playwright), und NFR13 fällt dann nicht nur dem Wortlaut, sondern dem Sinn nach. **Entscheidbar, nicht entschieden** — sie gehört Manuel und wird getrennt vom Entscheid über die drei Schichten getroffen.
+- ~~**Stufe C: ein kopfloser Browser.**~~ **Gebaut am 2026-08-31** als vierte Prüfschicht, `npm run smoke:sicht`. Die Auslösebedingung (Fassung 2026-08-28: „wenn eine Geometrie- oder Fokuszusage im Betrieb bricht") war mit Befund R1 eingetreten. **Ohne fremde Abhängigkeit** — Chrome über das DevTools-Protokoll, gefahren aus Nodes eingebautem `WebSocket`; NFR13 ist gehalten. Der angenommene Preis (Playwright) war nie nötig, und die zwei Stellen dieses Dokuments, die ihn voraussetzten, sind richtiggestellt. Grenze: nur Chromium, keine Zusage über iOS Safari.
 - **Genaue Ratenbegrenzung auf `/i/`.** Dass sie dort greift, ist entschieden (AD-3, AD-10); der konkrete Wert gehört in die nginx-Konfiguration der Deploy-Story.
 - **Wo das Image gebaut wird.** Zunächst auf dem VPS wie in der Referenz. Falls die nativen Kompilate von `better-sqlite3` den VPS light überfordern, ist der Ausweg ein lokal gebautes Image über eine Registry — eine Betriebsentscheidung, kein Architekturbruch.
 - **Sichtbarkeit der Namensliste innerhalb der Gemeinschaft.** Dass Aussenstehende sie nicht sehen, ist durch AD-3 entschieden. Ob jedes Mitglied alle Namen sieht, ist eine Produktfrage und keine Invariante.

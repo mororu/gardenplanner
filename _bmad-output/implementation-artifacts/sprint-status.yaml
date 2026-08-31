@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-26-2026 13:20
-last_updated: "08-30-2026 22:10"
+last_updated: "08-31-2026 19:30"
 project: Gemeinschaftsgarten
 project_key: NOKEY
 tracking_system: file-system
@@ -471,7 +471,9 @@ action_items:
     action: "Stufe C entscheiden: kopfloser Browser gegen NFR13 - die Ausloesebedingung
       ist mit Befund R1 eingetreten, der Preis ist eine fremde Abhaengigkeit"
     owner: "Manuel"
-    status: open
+    status: done
+    abgeschlossen: "2026-08-31"
+    vermerk: "Gebaut als vierte Pruefschicht: npm run smoke:sicht, 24 Behauptungen am gerenderten Ergebnis. Chrome kopflos ueber das DevTools-Protokoll, gefahren aus Nodes eingebautem WebSocket -- NULL neue Abhaengigkeiten, devDependencies unveraendert bei 18. ENTSCHEIDGRUNDLAGE GEAENDERT: fuenf Stellen der Dokumente setzten voraus, Stufe C hiesse Playwright und NFR13 falle dem Sinn nach. Die Praemisse war falsch und ist widerlegt; die zwei Stellen der ARCHITECTURE-SPINE sind richtiggestellt, die Retrospektive bleibt als Protokoll stehen. Die Ausloesebedingung (Fassung 2026-08-28: Geometrie- oder Fokuszusage bricht im Betrieb) war mit Befund R1 eingetreten. BELEGT: drei Mutationen einzeln vorgefuehrt, die gate, smoke UND smoke:http alle drei gruen passieren und allein von der neuen Schicht gefangen werden (align-items an .zeile, Trefferfeld unter 44px, Dunkel-Block ausgeschaltet). Dafuer herausgeloest: scripts/pruefserver.ts, der geteilte Pruefstand fuer smoke:http und smoke:sicht -- die 160 bestehenden Behauptungen sind das Netz, sie blieben gruen. GRENZEN, benannt und nicht weggeredet: nur Chromium, also keine Zusage ueber iOS Safari; keine Ansage eines Screenreaders; und dieser erste Lauf misst Darstellung, nicht Interaktion. Retro-Punkt 15 (Barrierefreiheit abnehmen) bleibt darum offen."
     ref: ""
   - id: "epic-3-retro-item-57-die-uebrigen-quelltext-regeln-aus-smoke"
     epic: 3
