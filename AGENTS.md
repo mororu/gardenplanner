@@ -1,6 +1,6 @@
 # Arbeitsanweisungen für dieses Repositorium
 
-Geprüft am 2026-09-02 gegen `21f75c1`. Die Begründung zu jeder Regel — mit dem
+Geprüft am 2026-09-02 gegen `625b72c`. Die Begründung zu jeder Regel — mit dem
 Vorfall, aus dem sie stammt — steht in
 `_bmad-output/implementation-artifacts/arbeitsregeln.md`. Hier steht nur, was zu
 tun ist.
@@ -13,28 +13,37 @@ tun ist.
 - **Die offene Arbeit steht als R5-Liste** in
   `_bmad-output/implementation-artifacts/deferred-work.md` unter _Was ungeprüft
   abgenommen werden soll_ — neun Zeilen, jede mit dem, was sie heute trägt und
-  was sie decken würde. Vier sind noch offen: die Zeilen 1, 2 und 6 warten auf
-  ein Gerät oder einen Menschen und damit auf eine Abnahme durch Manuel, nicht
-  auf Code; **Zeile 7 (Kontrastverhältnisse) ist die einzige, die noch an Code
-  hängt**. Der jüngste Abschnitt der Datei nennt den Stand jeder Zeile. **Dort
-  nachsehen, bevor neue Arbeit angefangen wird**, und nicht in dieser Datei: sie
-  trägt Regeln, keinen Stand.
+  was sie decken würde. **Drei sind offen (1, 2, 6), und keine wartet auf
+  Code**: iOS Safari, die Ansage durch einen Screenreader, die Installation auf
+  einem Telefon. Sie brauchen ein Gerät oder einen Menschen und damit eine
+  Abnahme durch Manuel.
+- **Ein Entscheid liegt Manuel vor**, aus dem Kontrast-Sweep vom 2026-09-02: die
+  Umrisse der Bedienelemente (`.feld`, `.button-quiet`, `.eintrag`, `.skip`)
+  liegen auf `--hairline` bei 1.25–1.44:1, versprochen sind 3:1 (NFR9), und
+  DESIGN.md widerspricht sich dazu selbst. Drei Wege samt Empfehlung stehen im
+  jüngsten Abschnitt von `deferred-work.md`. **Dort nachsehen, bevor neue Arbeit
+  angefangen wird**, und nicht in dieser Datei: sie trägt Regeln, keinen Stand.
 
 ## Prüfkette
 
 - **Vor `npm run lint` immer `npm run build`.** `smoke:http` und `smoke:sicht`
   messen den gebauten Baum und weigern sich bei veraltetem Bau — der Lauf wird
   rot, ohne dass am Code etwas falsch ist.
+- **Die Kontrastrechnung liegt in `scripts/kontrast.ts`** und hat ihren eigenen
+  Selbsttest in der Kette (`kontrast:selftest`) — gegen Werte von aussen und
+  gegen die veröffentlichte Tabelle aus DESIGN.md. Wer ein Farbtoken ändert,
+  ändert damit jene Tabelle, und der Selbsttest bricht. Das ist Absicht.
 - **`smoke:sicht` braucht einen Chrome auf der Maschine.** Fehlt er, scheitert
   der Lauf mit Ansage; `CHROME_PFAD=/pfad/zu/chromium` überschreibt die Suche.
   Kein Browser wird als Abhängigkeit installiert — NFR13.
 - **Neue Wache ohne vorgeführte Mutation ist unfertig.** Jede neue Behauptung
   und jede neue Gate-Regel wird einmal absichtlich rot gemacht, und wie, gehört
   in die Commit-Nachricht. Grün ohne diesen Schritt beweist nichts.
-- **Von Hand geführte Zahlen mitziehen.** `ERWARTETE_BEHAUPTUNGEN` in den vier
-  Prüfskripten, `erwartet` je Fehlerprobe in `gate.mjs` und das
-  ausgeschriebene Zahlwort der Regelzahl („siebzehn Regeln") brechen bei jeder
-  Ergänzung. Das ist Absicht.
+- **Von Hand geführte Zahlen mitziehen.** `ERWARTETE_BEHAUPTUNGEN` in den fünf
+  Prüfskripten (`smoke-zugang`, `smoke-http`, `smoke-sicht`,
+  `pruefhelfer-selftest`, `kontrast`), `erwartet` je Fehlerprobe in `gate.mjs`
+  und das ausgeschriebene Zahlwort der Regelzahl („siebzehn Regeln") brechen bei
+  jeder Ergänzung. Das ist Absicht.
 - **Eine Regel über den ganzen Baum gehört nach `gate.mjs`**, nummeriert und mit
   Fehlerprobe. Eine Behauptung über **eine bestimmte** Seite bleibt in
   `smoke-zugang.ts` — im Tor wäre sie eine Liste von Hand, und die ist der
