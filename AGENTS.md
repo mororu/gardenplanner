@@ -1,6 +1,6 @@
 # Arbeitsanweisungen für dieses Repositorium
 
-Geprüft am 2026-08-31 gegen `54d162a`. Die Begründung zu jeder Regel — mit dem
+Geprüft am 2026-09-02 gegen `21f75c1`. Die Begründung zu jeder Regel — mit dem
 Vorfall, aus dem sie stammt — steht in
 `_bmad-output/implementation-artifacts/arbeitsregeln.md`. Hier steht nur, was zu
 tun ist.
@@ -13,9 +13,12 @@ tun ist.
 - **Die offene Arbeit steht als R5-Liste** in
   `_bmad-output/implementation-artifacts/deferred-work.md` unter _Was ungeprüft
   abgenommen werden soll_ — neun Zeilen, jede mit dem, was sie heute trägt und
-  was sie decken würde. Vier sind noch offen und warten auf eine Abnahme durch
-  Manuel, nicht auf Code. **Dort nachsehen, bevor neue Arbeit angefangen wird**,
-  und nicht in dieser Datei: sie trägt Regeln, keinen Stand.
+  was sie decken würde. Vier sind noch offen: die Zeilen 1, 2 und 6 warten auf
+  ein Gerät oder einen Menschen und damit auf eine Abnahme durch Manuel, nicht
+  auf Code; **Zeile 7 (Kontrastverhältnisse) ist die einzige, die noch an Code
+  hängt**. Der jüngste Abschnitt der Datei nennt den Stand jeder Zeile. **Dort
+  nachsehen, bevor neue Arbeit angefangen wird**, und nicht in dieser Datei: sie
+  trägt Regeln, keinen Stand.
 
 ## Prüfkette
 
