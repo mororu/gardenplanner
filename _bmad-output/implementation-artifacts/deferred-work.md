@@ -1035,7 +1035,7 @@ abnimmt, hat damit die nächste Arbeit benannt.
 | 2 | Die Live-Regionen werden **angesagt** (`role`, `aria-live`, der Fokusgriff) | die Attribute sind an allen zwanzig Regionen gemessen; die Ansage nicht | VoiceOver oder TalkBack von Hand. Kein kopfloser Browser sieht das |
 | 3 | `showModal()` legt den Fokus auf `Abbrechen`, und ein Enter widerruft nichts | **gedeckt seit 2026-08-31.** `smoke:sicht` klickt Übernehmen, liest `document.activeElement` im offenen Dialog und drückt Enter; danach ist der Dialog zu und die Aufgabe weiterhin frei | — gemessen: die Zusage hängt an der **DOM-Reihenfolge**, nicht am `focus()`-Aufruf. Den Aufruf zu entfernen lässt die Zeile grün (`showModal()` fokussiert das erste Element ohnehin), die Reihenfolge zu drehen macht sie rot |
 | 4 | Die Sperre gegen Doppelversand greift | **gedeckt seit 2026-08-31.** Mit einer Netzverzögerung aufgehalten und `disabled` am Knopf gemessen | — `disabled={imFlug}` zu entfernen lässt `gate`, `smoke` **und** `smoke:http` grün und wird allein hier rot |
-| 5 | Der Dialog schliesst nach dem Bestätigen, ohne dass eine Navigation ihn schliesst | **gedeckt seit 2026-08-31** für die Übernahme auf `/` — der Dialog ist danach zu, die Aufgabe von `/` fort, die Rückmeldung da | **Rest:** derselbe Dialog auf `/verwaltung` (Widerruf einer Einladung) — dort war der Fehler von Story 1.3, und dieser Lauf fährt als Mitglied ohne Adminrechte |
+| 5 | Der Dialog schliesst nach dem Bestätigen, ohne dass eine Navigation ihn schliesst | **vollständig gedeckt seit 2026-09-02.** Die Übernahme auf `/` seit dem 2026-08-31; der Widerruf auf `/verwaltung` seit dem 2026-09-02, mit einer zweiten Sitzung als Adminperson | — gemessen: `dialog?.close()` im Versand von `/verwaltung` zu entfernen lässt `gate`, `smoke` **und** `smoke:http` grün und wird allein hier rot. Das ist der Fehler von Story 1.3, an seiner eigenen Stelle |
 | 6 | **Installation zum Home-Bildschirm** zeigt das eigene Icon und startet ohne Browser-Leiste | Manifest, Icons und `display: standalone` sind maschinell belegt; die Installation hat niemand gesehen | ein echtes Telefon. Offen seit Story 1.1 |
 | 7 | Kontrast 4.5:1 für Text, 3:1 für Bedienelement-Umrisse, in **beiden** Modi | die Werte stehen nachgerechnet in Kommentaren; die Wirksamkeit des Dunkel-Blocks ist seit 2026-08-31 gemessen, die **Verhältnisse** nicht | eine Regel, die Vordergrund-/Hintergrundpaare rechnet — sie braucht eine maschinenlesbare Aussage darüber, welche Paare zusammen vorkommen, und die steht nirgends |
 | 8 | Die Oberflächen von **Story 4.1** (`/wissen`, `/wissen/[id]`) bei 375px in Hell und Dunkel, mit und ohne JavaScript | **gedeckt seit 2026-08-31.** Beide Seiten in beiden Erscheinungsbildern; dazu seit der Interaktion auch der **leere Zustand** (die Blätter entstehen erst nach der ersten Messung), das **aufgeklappte** Formular und eine **abgewiesene Eingabe** mit markiertem Feld. Der Weg ohne JavaScript liegt bei `smoke:http` | — vollständig, soweit ein Chromium reichen kann; die Farbwirkung selbst hängt am globalen Token-Block und ist auf `/` gemessen |
@@ -1123,3 +1123,88 @@ Telefon), Zeile 7 (Kontrastwerte) und der Rest von Zeile 5: derselbe Dialog auf
 `/verwaltung`. Dort war der Fehler von Story 1.3, und dieser Lauf fährt als
 Mitglied ohne Adminrechte — er bräuchte eine zweite Sitzung.
 
+
+## Erledigt am 2026-09-02: der Rest von Zeile 5 — derselbe Dialog auf `/verwaltung`
+
+`smoke:sicht` steht bei **59** Behauptungen (52 → 59). Der Lauf fährt am Schluss
+eine **zweite Sitzung**: der Einlösepfad stellt der Adminperson einen Keks,
+`Network.setCookie` ersetzt den des Mitglieds unter demselben Namen, und
+`/verwaltung` wird als Adminperson gemessen. Der Abschnitt steht darum zwingend
+zuletzt — er beendet zum Schluss den Zugang von `Manu Mitglied`, und keine
+Messung als Mitglied darf danach noch kommen.
+
+**Drei Mutationen passieren `gate`, `smoke` und `smoke:http` alle drei grün und
+werden allein von der vierten Schicht gefangen** — die neue Deckung, gemessen:
+
+| Mutation | drei Schichten | `smoke:sicht` |
+| --- | --- | --- |
+| `dialog?.close()` im Versand entfernt — **der Fehler von Story 1.3** | grün | rot: der Dialog steht nach dem Widerruf offen, die Rückmeldung liegt dahinter |
+| dem Dialog die falsche Zeile gereicht (`data.mitglieder[…]` statt `mitglied`) | grün | rot: der Dialog nennt `Vera Verwaltung`, angeklickt war `Manu Mitglied` |
+| Knopfreihenfolge gedreht **und** `abbrechenKnopf.focus()` entfernt | grün | rot: fokussiert ist `Widerrufen`, und das Enter danach beendet den Zugang |
+
+Die dritte Zeile ist auch der **gemessene Umfang** der Fokuszusage auf
+`/verwaltung`, und er unterscheidet sich von dem auf `/`: hier tragen **zwei**
+Gurte, die DOM-Reihenfolge und der ausdrückliche `focus()`-Aufruf. Jede Hälfte
+allein zu entfernen lässt die Behauptung grün; rot wird sie erst, wenn beide
+fallen. Sie prüft also, dass wenigstens einer hält — und das steht so im
+Kommentar, statt mehr zu behaupten.
+
+Die übrigen vier neuen Behauptungen sind einzeln rot gesehen: der Admin-Token
+verstümmelt (der Einlösepfad antwortet 403), die Kennung des Widerrufen-Knopfs
+umbenannt, `meldungKasten?.focus()` entfernt — jene fängt allerdings auch
+`smoke` über den Quelltext, sie ist hier die zweite Schicht und keine neue
+Deckung. Den Kekstausch weggelassen endet der Lauf mit dem benannten Wurf `keine
+Zeile für Manu Mitglied auf /verwaltung`: die Adminschranke weist die
+Mitgliedssitzung ab, und die Suche findet nichts. Damit ist auch der Tausch
+selbst gemessen und nicht angenommen.
+
+**Was die Zeile mitgenommen hat, ohne dass sie es zusagte:** der Dialog wird
+gegen **Namen und Aufnahmedatum der angeklickten Zeile** gehalten, und das Datum
+kommt aus der Zeile selbst und nicht aus einer eigenen Rechnung des Skripts —
+sonst prüfte die Behauptung die Datumsformatierung mit, und die gehört ihr
+nicht. Der Grund steht im Quelltext der Seite: auf `name` gibt es keine
+Eindeutigkeitsbedingung, zwei Mitglieder dürfen gleich heissen, und ohne das
+Datum könnte die Bestätigung die falsche Zeile treffen.
+
+### Ein Befund an der eigenen Prüfform, und er war sprunghaft
+
+**Der Lauf wurde in zwei von sieben Durchgängen rot, ohne dass am Code etwas
+falsch war** — beide Male im **bestehenden** `/`-Block, an derselben Stelle: dem
+zweiten Öffnen des Bestätigungsdialogs. Einmal mit `nicht im Dokument:
+dialog.bestaetigung button[type="submit"]`, einmal mit einem Klick, der zwischen
+Messung und Mausereignis ins Leere fiel und den Dialog offen liess. Zwei
+Gesichter, eine Ursache.
+
+`close()` setzt `open` **sofort**; das `close`-Ereignis kommt eine Aufgabe
+später, und erst dessen `onclose` leert `zuUebernehmen` beziehungsweise
+`zuWiderrufen`. Wer auf `!open` wartet und sofort wieder öffnet, bekommt jene
+Leerung mitten in den frisch geöffneten Dialog. Ein Mensch trifft dieses Fenster
+nicht; ein Treiber ohne Pause trifft es in jedem dritten Lauf.
+
+Gerichtet ist es nicht mit einer Wartezeit, sondern durch **die richtige
+Bedingung**: gewartet wird auf den Dialog *mit seinem Inhalt* (`DIALOG_BEREIT`)
+und auf den *geleerten* Dialog (`DIALOG_LEER`), womit der Zwischenzustand nicht
+mehr erreichbar ist. Danach acht Läufe hintereinander grün. Ein Prüflauf, der
+sprunghaft rot wird, ist schlimmer als keiner: er lehrt, rote Läufe zu
+wiederholen.
+
+**Der zweite Handgriff am `/`-Block** folgt aus derselben Ecke. Er wartete nach
+dem Bestätigen auf `!dialog.open` und behauptete danach denselben Zustand — die
+schwächere Anordnung: die Mutation „`dialog?.close()` entfernt" lief dort in eine
+Zeitschranke, und der Lauf endete mit einem *unerwarteten Wurf* statt mit einer
+roten Behauptung. Beide Blöcke warten jetzt auf die **Rückmeldung** — den Ausgang
+des Versands — und behaupten `open` erst danach. Gewartet wird auf das Ergebnis,
+geprüft wird die Zusage. Gemessen: dieselbe Mutation auf `/` meldet seither
+`FEHLER nach dem Bestätigen ist der Dialog zu, …` mit Namen.
+
+Das ist R2 in Anwendung: der Befund lag im Block auf `/`, benannt hat ihn der
+Bau des Blocks auf `/verwaltung`, und behoben sind beide.
+
+**Was von der R5-Liste bleibt — vier Zeilen:** Zeile 1 (iOS Safari, der Preis
+des Entscheids vom 2026-08-31), Zeile 2 (die Ansage durch einen Screenreader),
+Zeile 6 (Installation zum Home-Bildschirm auf einem Telefon) und Zeile 7 (die
+Kontrastverhältnisse). Die ersten drei kann kein Chromium decken; sie warten auf
+ein Gerät oder einen Menschen und damit auf eine Abnahme durch Manuel. **Zeile 7
+ist die einzige, die noch an Code hängt** — und ihr Hindernis ist keine Rechnung,
+sondern die fehlende maschinenlesbare Aussage darüber, welche Vordergrund- und
+Hintergrundpaare überhaupt zusammen vorkommen.

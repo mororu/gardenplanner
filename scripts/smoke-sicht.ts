@@ -57,7 +57,7 @@ import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-t
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 52;
+const ERWARTETE_BEHAUPTUNGEN = 59;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -1027,6 +1027,38 @@ try {
 	 * Knopf bleibt darum stehen. Der Weg über das Dokument — dieselbe Frage ohne
 	 * JavaScript — ist der von `smoke:http`.
 	 */
+	/*
+	 * **Gewartet wird auf den Dialog *mit seinem Inhalt*, nicht auf sein `open`** —
+	 * und beim Schliessen auf den geleerten Dialog, nicht auf das blosse `!open`.
+	 *
+	 * Der Inhalt beider Bestätigungen hängt an einem Zustand (`zuUebernehmen`,
+	 * `zuWiderrufen`) und entsteht erst mit Sveltes nächstem Durchgang. Beim
+	 * Öffnen ist das harmlos: `showModal()` läuft nach einem `tick()`, der Inhalt
+	 * ist also schon da. Der Rückweg ist der gefährliche. `close()` setzt `open`
+	 * **sofort**, das `close`-Ereignis kommt eine Aufgabe später, und erst dessen
+	 * `onclose` leert den Zustand. Wer auf `!open` wartet und sofort wieder
+	 * öffnet, bekommt jene Leerung mitten in den frisch geöffneten Dialog.
+	 *
+	 * **Gemessen, nicht befürchtet:** dieser Lauf scheiterte am 2026-09-02 in
+	 * einem von drei Durchgängen an genau dieser Stelle, auf zwei Weisen — einmal
+	 * `nicht im Dokument: dialog.bestaetigung button[type="submit"]`, einmal ein
+	 * Klick, der zwischen Messung und Mausereignis ins Leere fiel und den Dialog
+	 * offen liess. Ein Prüflauf, der sprunghaft rot wird, ist schlimmer als
+	 * keiner: er lehrt, rote Läufe zu wiederholen. Die zwei Bedingungen unten
+	 * machen den Zwischenzustand unerreichbar, statt eine Wartezeit dagegen zu
+	 * setzen.
+	 *
+	 * Sie gelten für **beide** Bestätigungen dieser Anwendung — die auf `/` und
+	 * die auf `/verwaltung`, die denselben Bauplan tragen.
+	 */
+	const DIALOG_SCHALTER = 'dialog.bestaetigung button[type="submit"]';
+	const DIALOG_BEREIT =
+		`document.querySelector('dialog.bestaetigung')?.open &&` +
+		` document.querySelector('${DIALOG_SCHALTER}') !== null`;
+	const DIALOG_LEER =
+		`!document.querySelector('dialog.bestaetigung').open &&` +
+		` document.querySelector('${DIALOG_SCHALTER}') === null`;
+
 	const einzel = einzelaufgabeAusschreiben(
 		'Zaun am Nordtor nachspannen',
 		Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60
@@ -1042,10 +1074,7 @@ try {
 	);
 
 	await browser.klicken(uebernehmen);
-	await browser.warten(
-		"document.querySelector('dialog.bestaetigung').open",
-		'der Dialog geht auf einen Klick auf Übernehmen auf'
-	);
+	await browser.warten(DIALOG_BEREIT, 'der Dialog geht auf einen Klick auf Übernehmen auf');
 	const beimOeffnen = await browser.auswerten<{
 		offen: boolean;
 		fokusText: string;
@@ -1085,10 +1114,7 @@ try {
 	 * freundlicherem Gesicht.
 	 */
 	await browser.taste('Enter');
-	await browser.warten(
-		"!document.querySelector('dialog.bestaetigung').open",
-		'ein Enter auf Abbrechen schliesst den Dialog'
-	);
+	await browser.warten(DIALOG_LEER, 'ein Enter auf Abbrechen schliesst den Dialog und leert ihn');
 	const nachEnter = await browser.auswerten<{ offen: boolean; knopf: boolean; name: boolean }>(`
 		return {
 			offen: document.querySelector('dialog.bestaetigung').open,
@@ -1109,14 +1135,18 @@ try {
 	 * liegt.
 	 */
 	await browser.klicken(uebernehmen);
+	await browser.warten(DIALOG_BEREIT, 'der Dialog geht ein zweites Mal auf');
+	await browser.klicken(DIALOG_SCHALTER);
+	/*
+	 * Gewartet wird auf die **Rückmeldung** und nicht auf `!open`: die Meldung ist
+	 * der Ausgang des Versands, `open` ist die Zusage — und behauptet werden soll
+	 * die Zusage. Auf `!open` zu warten machte aus einem gebrochenen
+	 * `dialog?.close()` einen unerwarteten Wurf in einer Zeitschranke statt einer
+	 * roten Behauptung mit Namen.
+	 */
 	await browser.warten(
-		"document.querySelector('dialog.bestaetigung').open",
-		'der Dialog geht ein zweites Mal auf'
-	);
-	await browser.klicken('dialog.bestaetigung button[type="submit"]');
-	await browser.warten(
-		"!document.querySelector('dialog.bestaetigung').open",
-		'der Dialog schliesst nach dem Bestätigen'
+		"document.querySelector('.meldung').textContent.trim() !== ''",
+		'die Rückmeldung zur Übernahme steht da'
 	);
 	const nachZusage = await browser.auswerten<{ offen: boolean; knopf: boolean; meldung: string }>(`
 		const m = document.querySelector('.meldung');
@@ -1129,6 +1159,226 @@ try {
 		'nach dem Bestätigen ist der Dialog zu, die Aufgabe von / verschwunden und die Rückmeldung da',
 		!nachZusage.offen && !nachZusage.knopf && nachZusage.meldung !== '',
 		JSON.stringify(nachZusage)
+	);
+
+	// -----------------------------------------------------------------------
+	// Derselbe Dialog auf /verwaltung — der Rest von Zeile 5 der R5-Liste
+	// -----------------------------------------------------------------------
+	/*
+	 * **Warum dieselbe Prüfliste ein zweites Mal läuft.**
+	 *
+	 * Der Fehler von Story 1.3 stand nicht auf `/`, sondern hier: nach einem
+	 * Antippen von `Widerrufen` blieb der Dialog offen stehen, und weil ein
+	 * modaler Dialog den Rest der Seite inert macht, kam man nur über `Abbrechen`
+	 * wieder heraus — die Rückmeldung lag unerreichbar dahinter. Der Block auf `/`
+	 * misst denselben Bauplan an einer **anderen** Komponente und sagt über diese
+	 * nichts; die beiden Fassungen unterscheiden sich sogar (siehe beim Fokus).
+	 *
+	 * Dieser Abschnitt steht **zuletzt**, und zwar zwingend: er tauscht die
+	 * Sitzung gegen die der Adminperson und beendet zum Schluss den Zugang von
+	 * `Manu Mitglied`. Jede Messung oben fährt als Mitglied ohne Adminrechte, und
+	 * keine darf danach noch kommen.
+	 */
+	const adminEingeloest = await holen(port, `/i/${saat.adminToken}`);
+	const adminSetzung = adminEingeloest.headers.getSetCookie()[0] ?? '';
+	const adminKeks = keksAus(adminSetzung);
+	pruefen(
+		'der Einlösepfad hat auch der Adminperson eine Sitzung gestellt',
+		adminEingeloest.status === 303 && adminKeks !== 'sitzung=',
+		`Status ${adminEingeloest.status}, Setzung ${JSON.stringify(adminSetzung)}`
+	);
+	/*
+	 * Gleicher Name, gleiche Domain, gleicher Pfad — die Setzung **ersetzt** den
+	 * Keks des Mitglieds, statt einen zweiten daneben zu legen. Dass der Tausch
+	 * wirklich gegriffen hat, ist keine Annahme, sondern gemessen: den Keks des
+	 * Mitglieds hier stehen zu lassen beendet den Lauf mit dem benannten Wurf
+	 * `keine Zeile für Manu Mitglied auf /verwaltung` — die Adminschranke weist
+	 * eine Sitzung ohne Adminrechte ab, und die Suche unten findet nichts.
+	 */
+	await browser.senden('Network.setCookie', {
+		name: 'sitzung',
+		value: adminKeks.slice('sitzung='.length),
+		domain: '127.0.0.1',
+		path: '/',
+		httpOnly: true,
+		sameSite: 'Lax',
+	});
+	await browser.besuchen(`${adresse}/verwaltung`);
+
+	/*
+	 * **Welche Zeile widerrufen wird, wird am Namen entschieden.**
+	 *
+	 * Nicht an ihrer Stellung in der Liste und nicht an einer Id, die dieses
+	 * Skript aus der Saat mitschleppt: die Ordnung der Liste ist eine Zusage der
+	 * Abfrageschicht, und hinge die Auswahl daran, beendete dieser Lauf bei einer
+	 * geänderten Sortierung still den falschen Zugang — hier wäre das die eigene
+	 * Adminsitzung. Dieselbe Klammer wie bei den Aufgabenzeilen weiter oben.
+	 *
+	 * Mitgenommen wird das Aufnahmedatum der Zeile, weil der Dialog es nennt und
+	 * es der einzige Wert ist, der zwei gleichnamige Zeilen auseinanderhält.
+	 */
+	const fremdeZeile = await browser.auswerten<{ knopfId: string; datum: string }>(`
+		const zeilen = [...document.querySelectorAll('.zeile')];
+		const zeile = zeilen.find((z) => {
+			const name = z.querySelector('.zeile__name');
+			return name !== null && name.textContent.includes('Manu Mitglied');
+		});
+		if (zeile === undefined) throw new Error('keine Zeile für Manu Mitglied auf /verwaltung');
+		const knopf = zeile.querySelector('button[id^="widerrufen-"]');
+		const hinweis = zeile.querySelector('.hinweis');
+		return {
+			knopfId: knopf === null ? '' : knopf.id,
+			datum: hinweis === null ? '' : hinweis.textContent.trim().replace('Aufgenommen am ', ''),
+		};`);
+	pruefen(
+		'die Zeile von Manu Mitglied steht auf /verwaltung mit ihrem Widerrufen-Knopf',
+		fremdeZeile.knopfId !== '' && fremdeZeile.datum !== '',
+		JSON.stringify(fremdeZeile)
+	);
+	const widerrufen = `#${fremdeZeile.knopfId}`;
+
+	await browser.klicken(widerrufen);
+	await browser.warten(
+		DIALOG_BEREIT,
+		'der Widerruf-Dialog geht auf einen Klick auf Einladung widerrufen auf'
+	);
+	const beimWiderruf = await browser.auswerten<{
+		offen: boolean;
+		text: string;
+		fokusText: string;
+		fokusArt: string | null;
+		imDialog: boolean;
+	}>(`
+		const d = document.querySelector('dialog.bestaetigung');
+		const t = d.querySelector('.bestaetigung__text');
+		const a = document.activeElement;
+		return {
+			offen: d.open,
+			text: t === null ? '' : t.textContent.replace(/\\s+/g, ' ').trim(),
+			fokusText: a === null ? '' : a.textContent.trim(),
+			fokusArt: a === null ? null : a.getAttribute('type'),
+			imDialog: a !== null && d.contains(a),
+		};`);
+	/*
+	 * **Der Dialog nennt die Zeile, die angeklickt wurde** — mit Namen und mit
+	 * dem Aufnahmedatum, das in derselben Zeile steht. Solange der Inhalt
+	 * unbedingt im Markup stand, trug er den Satz „, aufgenommen am , kommt
+	 * danach nicht mehr herein" mit zwei leeren Stellen; er ist heute an
+	 * `zuWiderrufen` gebunden, und das ist die Bindung, die hier gemessen wird.
+	 * Das Datum kommt aus der Zeile und nicht aus einer eigenen Rechnung dieses
+	 * Skripts — sonst prüfte die Zeile die Datumsformatierung mit, und die gehört
+	 * ihr nicht.
+	 */
+	pruefen(
+		'der Dialog nennt Namen und Aufnahmedatum der angeklickten Zeile',
+		beimWiderruf.text.includes('Manu Mitglied') &&
+			beimWiderruf.text.includes(`aufgenommen am ${fremdeZeile.datum}`),
+		JSON.stringify(beimWiderruf)
+	);
+	/*
+	 * **Was diese Zeile trägt — und worin sie sich von der auf `/` unterscheidet.**
+	 *
+	 * Gemessen wurde jede Hälfte einzeln: `abbrechenKnopf.focus()` zu entfernen
+	 * lässt sie **grün** (`showModal()` fokussiert das erste fokussierbare
+	 * Element, und das ist `Abbrechen`), die Knopfreihenfolge zu drehen ebenso
+	 * grün (der ausdrückliche Aufruf holt den Fokus zurück). Rot wird sie erst,
+	 * wenn **beides** zugleich fällt. Anders als auf `/` hängt die Zusage hier
+	 * also an zwei Gurten statt an einem — die Zeile prüft, dass wenigstens einer
+	 * hält, und mehr behauptet sie nicht.
+	 */
+	pruefen(
+		'beim Öffnen liegt der Fokus im Dialog auf Abbrechen — nicht auf der zerstörenden Handlung',
+		beimWiderruf.offen &&
+			beimWiderruf.imDialog &&
+			beimWiderruf.fokusArt === 'button' &&
+			beimWiderruf.fokusText === 'Abbrechen',
+		JSON.stringify(beimWiderruf)
+	);
+
+	/*
+	 * Und ein Enter direkt nach dem Öffnen beendet keinen Zugang. Die zweite
+	 * Hälfte ist die eigentliche: ein Enter, das den Dialog schliesst und dabei
+	 * widerruft, wäre derselbe Fehlgriff mit freundlicherem Gesicht — und hier
+	 * gibt es keinen Weg zurück.
+	 */
+	await browser.taste('Enter');
+	await browser.warten(
+		DIALOG_LEER,
+		'ein Enter auf Abbrechen schliesst den Widerruf-Dialog und leert ihn'
+	);
+	const nachEnterHier = await browser.auswerten<{
+		offen: boolean;
+		knopf: boolean;
+		beendet: boolean;
+	}>(`
+		return {
+			offen: document.querySelector('dialog.bestaetigung').open,
+			knopf: document.querySelector(${JSON.stringify(widerrufen)}) !== null,
+			beendet: document.body.textContent.includes('Zugang beendet.'),
+		};`);
+	pruefen(
+		'ein Enter direkt nach dem Öffnen widerruft nichts — der Dialog schliesst, die Zeile bleibt aktiv',
+		!nachEnterHier.offen && nachEnterHier.knopf && !nachEnterHier.beendet,
+		JSON.stringify(nachEnterHier)
+	);
+
+	/*
+	 * **Und nach dem Widerruf schliesst der Dialog** — die Zusage, die in
+	 * Story 1.3 an genau dieser Stelle gebrochen war.
+	 *
+	 * Gewartet wird auf die **Rückmeldung** und nicht auf den geschlossenen
+	 * Dialog. Der Unterschied ist der Befund dieser Zeile: wartete sie auf
+	 * `!open`, dann liefe die Mutation „`dialog?.close()` entfernt" in eine
+	 * Zeitschranke und der Lauf endete mit einem unerwarteten Wurf statt mit
+	 * einer roten Behauptung. Die Rückmeldung ist der Ausgang des Versands,
+	 * `open` ist die Zusage — und geprüft wird die Zusage.
+	 */
+	await browser.klicken(widerrufen);
+	await browser.warten(DIALOG_BEREIT, 'der Widerruf-Dialog geht ein zweites Mal auf');
+	await browser.klicken(DIALOG_SCHALTER);
+	await browser.warten(
+		"document.querySelector('.meldung').textContent.trim() !== ''",
+		'die Rückmeldung zum Widerruf steht da'
+	);
+	const nachWiderruf = await browser.auswerten<{
+		offen: boolean;
+		knopf: boolean;
+		beendet: boolean;
+		meldung: string;
+	}>(`
+		return {
+			offen: document.querySelector('dialog.bestaetigung').open,
+			knopf: document.querySelector(${JSON.stringify(widerrufen)}) !== null,
+			beendet: document.body.textContent.includes('Zugang beendet.'),
+			meldung: document.querySelector('.meldung').textContent.trim(),
+		};`);
+	pruefen(
+		'nach dem Widerruf ist der Dialog zu, die Zeile beendet und die Rückmeldung erreichbar',
+		!nachWiderruf.offen &&
+			!nachWiderruf.knopf &&
+			nachWiderruf.beendet &&
+			nachWiderruf.meldung.includes('Manu Mitglied'),
+		JSON.stringify(nachWiderruf)
+	);
+
+	/*
+	 * Der Fokus liegt danach in der Rückmeldung und nicht im Nichts. `close()`
+	 * gibt ihn an den Knopf zurück, der den Dialog geöffnet hat — und den nimmt
+	 * dieselbe Antwort aus dem Dokument. Ohne den Griff in `fokusNach` stünde er
+	 * darum auf `<body>`, und die Region, die gerade den Ausgang meldet, wäre für
+	 * die Tastatur hinter der ganzen Seite. Dieselbe Zusage wie am Blatt weiter
+	 * oben, hier auf der Seite mit der zerstörenden Aktion.
+	 */
+	const fokusNachWiderruf = await browser.auswerten<{ art: string; klasse: string }>(`
+		const a = document.activeElement;
+		return {
+			art: a === null ? '(keins)' : a.tagName.toLowerCase(),
+			klasse: a === null ? '' : a.className,
+		};`);
+	pruefen(
+		'und die Rückmeldung hält den Fokus — der öffnende Knopf, an den close() ihn gäbe, ist fort',
+		fokusNachWiderruf.klasse.split(/\s+/).includes('meldung'),
+		`fokussiert ist <${fokusNachWiderruf.art} class="${fokusNachWiderruf.klasse}">`
 	);
 
 	// -----------------------------------------------------------------------
