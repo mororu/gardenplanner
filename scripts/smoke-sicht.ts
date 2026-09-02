@@ -26,8 +26,8 @@
  * Aufruf: erst bauen, dann prüfen.
  *   npm run build && npm run smoke:sicht
  */
-import { mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, readdirSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
 import {
 	aufraeumen,
 	pruefen,
@@ -44,8 +44,17 @@ import {
 	saeen,
 	serverBeenden,
 	serverStarten,
+	wurzel,
 	type Server,
 } from './pruefserver.ts';
+import {
+	farbeLesen,
+	gerundet,
+	grundAus,
+	textSchwelle,
+	ueberlagern,
+	verhaeltnis,
+} from './kontrast.ts';
 import { browserStarten, chromeFinden, type Browser } from './kopfbrowser.ts';
 import { aufgabenStapelAnlegen } from '../src/lib/server/db/queries/tasks.ts';
 import { blattAnlegen } from '../src/lib/server/db/queries/sheets.ts';
@@ -57,7 +66,7 @@ import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-t
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 59;
+const ERWARTETE_BEHAUPTUNGEN = 70;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -1162,22 +1171,18 @@ try {
 	);
 
 	// -----------------------------------------------------------------------
-	// Derselbe Dialog auf /verwaltung — der Rest von Zeile 5 der R5-Liste
+	// Die zweite Sitzung: als Adminperson
 	// -----------------------------------------------------------------------
 	/*
-	 * **Warum dieselbe Prüfliste ein zweites Mal läuft.**
+	 * **Ab hier fährt der Lauf mit Adminrechten**, und das haben zwei Abschnitte
+	 * nötig: der Kontrast-Sweep, weil `/verwaltung` einer Mitgliedssitzung
+	 * verschlossen ist, und der Widerruf-Dialog danach.
 	 *
-	 * Der Fehler von Story 1.3 stand nicht auf `/`, sondern hier: nach einem
-	 * Antippen von `Widerrufen` blieb der Dialog offen stehen, und weil ein
-	 * modaler Dialog den Rest der Seite inert macht, kam man nur über `Abbrechen`
-	 * wieder heraus — die Rückmeldung lag unerreichbar dahinter. Der Block auf `/`
-	 * misst denselben Bauplan an einer **anderen** Komponente und sagt über diese
-	 * nichts; die beiden Fassungen unterscheiden sich sogar (siehe beim Fokus).
+	 * Beide stehen darum **am Ende** des Laufs, und der Dialog zuletzt: er
+	 * beendet den Zugang von `Manu Mitglied`, und danach ist `--danger` nirgends
+	 * mehr gerendert — die Abdeckungszeile des Sweeps würde rot.
 	 *
-	 * Dieser Abschnitt steht **zuletzt**, und zwar zwingend: er tauscht die
-	 * Sitzung gegen die der Adminperson und beendet zum Schluss den Zugang von
-	 * `Manu Mitglied`. Jede Messung oben fährt als Mitglied ohne Adminrechte, und
-	 * keine darf danach noch kommen.
+	 * Jede Messung oberhalb fährt als Mitglied ohne Adminrechte.
 	 */
 	const adminEingeloest = await holen(port, `/i/${saat.adminToken}`);
 	const adminSetzung = adminEingeloest.headers.getSetCookie()[0] ?? '';
@@ -1203,6 +1208,408 @@ try {
 		httpOnly: true,
 		sameSite: 'Lax',
 	});
+
+	// -----------------------------------------------------------------------
+	// Kontrast über den ganzen Baum, in beiden Modi — Zeile 7 der R5-Liste
+	// -----------------------------------------------------------------------
+	/*
+	 * **Das Hindernis, an dem diese Zeile zwei Epics lang hing, gibt es nicht
+	 * mehr.**
+	 *
+	 * NFR9 verlangt 4.5:1 für Text und 3:1 für Bedienelement-Umrisse, in Hell und
+	 * Dunkel. Getragen hat das eine Tabelle in DESIGN.md und ein halbes Dutzend
+	 * Zahlen in Kommentaren — alle von Hand gerechnet, keine gemessen. Eintrag 44
+	 * der zurückgestellten Arbeit nannte als Hindernis eine fehlende
+	 * *maschinenlesbare Aussage darüber, welche Paare überhaupt zusammen
+	 * vorkommen*, und die Triage vor Epic 3 hat den Satz übernommen.
+	 *
+	 * Die Aussage gibt es seit dem 2026-08-31: **der gerenderte DOM ist sie.** Ein
+	 * Token muss nicht ausgerechnet werden, wenn ein Browser es auflöst; welcher
+	 * Vordergrund auf welchem Grund steht, muss nicht behauptet werden, wenn die
+	 * Seite es zeigt. Das Hindernis war nie die Rechnung — es war die fehlende
+	 * vierte Prüfschicht.
+	 *
+	 * Gemessen wird über **jede** `+page.svelte` des Baums, eingesammelt aus dem
+	 * Verzeichnisbaum und nicht aus einer Liste (dieselbe Bauform wie die
+	 * Live-Region-Wache in `smoke` und Gate-Regel 14/15), dazu die Fehlerseite
+	 * über einen Pfad, den es nicht gibt. Jede Seite in beiden
+	 * Erscheinungsbildern.
+	 *
+	 * **Was dieser Sweep nicht sieht, ausgeschrieben statt verschwiegen:**
+	 *   - Was nicht gerendert ist. Ein geschlossener `<dialog>` ist
+	 *     `display: none`, seine Flächen sind darum nicht gemessen — sie sind
+	 *     dieselben Paare wie die der Karten, und die Abdeckungszeile unten
+	 *     belegt, dass jedes Token vorkommt.
+	 *   - `::placeholder` und andere Pseudoelemente. Sie haben keinen eigenen
+	 *     Knoten und damit keinen eigenen Textinhalt, an dem eine Messung
+	 *     ansetzen könnte.
+	 *   - Zustände, die dieser Lauf nicht herstellt. Ein Zustand, dessen Farbe
+	 *     niemand hier sichtbar macht, fällt aus der Messung — genau darum ist
+	 *     die **Abdeckung eine eigene Behauptung** und nicht eine Hoffnung: alle
+	 *     zehn Farbtokens müssen in mindestens einem gemessenen Paar vorkommen.
+	 *   - Den Fokusring. Er hängt an `:focus-visible`, und ein berechneter Stil
+	 *     zeigt ihn nur am fokussierten Element. Seine Farbe ist `--accent`, und
+	 *     die ist als Umriss des Kästchens ohnehin gemessen.
+	 */
+	const TOKENS = [
+		'--surface-base',
+		'--surface-raised',
+		'--ink-primary',
+		'--ink-secondary',
+		'--hairline',
+		'--accent',
+		'--accent-ink',
+		'--overdue',
+		'--warn',
+		'--danger',
+	] as const;
+
+	/*
+	 * **Der Messkopf gibt Zeichenketten zurück und rechnet nicht.**
+	 *
+	 * Die Arithmetik steht in `scripts/kontrast.ts` und hat dort einen eigenen
+	 * Selbsttest gegen Werte von aussen (Schwarz auf Weiss ist 21:1) und gegen
+	 * die veröffentlichte Tabelle aus DESIGN.md. Eine Rechnung im Seitenkontext
+	 * wäre die eine Stelle der Prüfkette, die niemand gegen bekannte Werte halten
+	 * kann — und eine falsch gerechnete Leuchtdichte sieht aus wie ein
+	 * Kontrastwert.
+	 *
+	 * Drei Entscheide stecken darin, jeder mit einem Grund:
+	 *
+	 *   - **Nur Elemente mit eigenem Text.** Gemessen wird die Farbe, die einen
+	 *     Buchstaben malt; ein Container, der seine Kinder umschliesst, malt
+	 *     keinen. Ohne diese Grenze zählte jede Verschachtelung dasselbe Paar
+	 *     mehrfach.
+	 *   - **Weggeschnittenes zählt nicht.** `.nur-vorgelesen` steht mit
+	 *     `clip-path: inset(50%)` im Dokument und trägt Text für Screenreader.
+	 *     `checkVisibility()` hält es für sichtbar, ein Auge sieht es nicht, und
+	 *     ein Kontrastwert darüber wäre eine Aussage über nichts. Gesucht wird
+	 *     die **Ursache** (ein Schnitt an ihm oder einem Vorfahren) und nicht der
+	 *     Klassenname — eine zweite Klasse mit demselben Kunstgriff fällt damit
+	 *     vom ersten Tag an mit heraus.
+	 *   - **Gesperrte Bedienelemente zählen nicht.** WCAG 1.4.3 nimmt inaktive
+	 *     Bedienelemente ausdrücklich aus, und `:disabled` färbt in diesem
+	 *     Projekt bewusst gedämpft. Ein `disabled` am Vorfahren (ein
+	 *     `<fieldset>`) zählt mit.
+	 *
+	 * Ein **durchsichtiger** Umriss ist keiner: `.nav-bar__ziel` trägt eine Kante
+	 * in `transparent`, damit die 2px-Markierung des aktiven Ziels die Zeile
+	 * nicht verschiebt. Der erste Entwurf dieses Kopfes zählte sie als Verstoss
+	 * mit dem Verhältnis 1 — gemessen und behoben, statt die Zahl zu erklären.
+	 */
+	const MESSKOPF = `
+		const INTERAKTIV = 'a[href], button, input, select, textarea, summary,' +
+			' [role="button"], [tabindex]:not([tabindex="-1"])';
+		const pfad = (el) => {
+			const klassen = typeof el.className === 'string' && el.className.trim() !== ''
+				? '.' + el.className.trim().split(/\\s+/).join('.') : '';
+			return el.tagName.toLowerCase() + klassen;
+		};
+		const sichtbar = (el) => el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
+		const weggeschnitten = (el) => {
+			let k = el;
+			while (k !== null) {
+				if (getComputedStyle(k).clipPath !== 'none') return true;
+				k = k.parentElement;
+			}
+			return false;
+		};
+		const grundVon = (el) => {
+			const stapel = [];
+			let k = el;
+			let bild = false;
+			let durchscheinend = false;
+			while (k !== null) {
+				const s = getComputedStyle(k);
+				if (s.backgroundImage !== 'none') bild = true;
+				if (parseFloat(s.opacity) < 1) durchscheinend = true;
+				stapel.push(s.backgroundColor);
+				if (k === document.documentElement) break;
+				k = k.parentElement;
+			}
+			return { stapel, bild, durchscheinend };
+		};
+		const funde = [];
+		for (const el of document.querySelectorAll('body *')) {
+			const eigenerText = [...el.childNodes]
+				.filter((knoten) => knoten.nodeType === 3)
+				.map((knoten) => knoten.textContent)
+				.join('')
+				.replace(/\\s+/g, ' ')
+				.trim();
+			if (eigenerText === '') continue;
+			if (!sichtbar(el) || weggeschnitten(el) || el.closest(':disabled') !== null) continue;
+			const s = getComputedStyle(el);
+			const g = grundVon(el);
+			funde.push({ art: 'text', wo: pfad(el), text: eigenerText.slice(0, 40),
+				vordergrund: s.color, stapel: g.stapel, bild: g.bild, durchscheinend: g.durchscheinend,
+				groesse: parseFloat(s.fontSize), gewicht: parseInt(s.fontWeight, 10) });
+		}
+		for (const el of document.querySelectorAll(INTERAKTIV)) {
+			if (!sichtbar(el) || el.closest(':disabled') !== null) continue;
+			const s = getComputedStyle(el);
+			const g = grundVon(el.parentElement === null ? el : el.parentElement);
+			const kanten = [];
+			for (const seite of ['Top', 'Right', 'Bottom', 'Left']) {
+				const stil = s['border' + seite + 'Style'];
+				if (parseFloat(s['border' + seite + 'Width']) <= 0) continue;
+				if (stil === 'none' || stil === 'hidden') continue;
+				kanten.push(['border-' + seite.toLowerCase(), s['border' + seite + 'Color']]);
+			}
+			if (parseFloat(s.outlineWidth) > 0 && s.outlineStyle !== 'none') {
+				kanten.push(['outline', s.outlineColor]);
+			}
+			for (const [name, farbe] of kanten) {
+				funde.push({ art: 'umriss', wo: pfad(el) + ' ' + name, text: '', vordergrund: farbe,
+					stapel: g.stapel, bild: g.bild, durchscheinend: g.durchscheinend,
+					groesse: 0, gewicht: 0 });
+			}
+		}
+		/*
+		 * Die Tokens werden **im Browser aufgelöst** und nicht als Hexwert
+		 * abgeholt: getPropertyValue gibt den geschriebenen Text zurück, und ein
+		 * Vergleich zwischen "#2f6b3f" und "rgb(47, 107, 63)" wäre eine zweite
+		 * Farbschreibweise in der Prüfkette. Die Sonde nimmt denselben Weg wie
+		 * jede Farbe der Seite.
+		 */
+		const sonde = document.createElement('span');
+		sonde.style.cssText = 'position:absolute;visibility:hidden';
+		document.body.appendChild(sonde);
+		const tokens = {};
+		for (const name of ${JSON.stringify(TOKENS)}) {
+			sonde.style.color = 'var(' + name + ')';
+			tokens[name] = getComputedStyle(sonde).color;
+		}
+		sonde.remove();
+		return { funde, tokens, ort: location.pathname };`;
+
+	type Fund = {
+		art: 'text' | 'umriss';
+		wo: string;
+		text: string;
+		vordergrund: string;
+		stapel: string[];
+		bild: boolean;
+		durchscheinend: boolean;
+		groesse: number;
+		gewicht: number;
+	};
+	type Messung = { funde: Fund[]; tokens: Record<string, string>; ort: string };
+
+	/*
+	 * **Die Seiten kommen aus dem Verzeichnisbaum, die Werte für dynamische
+	 * Abschnitte aus einer Zuordnung — und dass die vollständig ist, ist eine
+	 * Behauptung.**
+	 *
+	 * Eine neue Seite mit `[etwas]` im Pfad fiele sonst still aus dem Sweep, und
+	 * genau diese Klasse Fehler hat Story 4.1 zweimal getroffen: zwei Seiten mit
+	 * Formular, in keiner Liste eingetragen, aus zwei geteilten Prüfungen heraus.
+	 */
+	const seitenVerzeichnisse = readdirSync(join(wurzel, 'src', 'routes'), {
+		recursive: true,
+		withFileTypes: true,
+	})
+		.filter((eintrag) => eintrag.isFile() && eintrag.name === '+page.svelte')
+		.map((eintrag) =>
+			relative(join(wurzel, 'src', 'routes'), eintrag.parentPath)
+				.split(sep)
+				.filter((teil) => teil !== '')
+				.join('/')
+		)
+		.sort();
+	const EINSETZUNGEN: Record<string, string> = { '[id]': String(blattAbsaetze) };
+	const platzhalter = [
+		...new Set(seitenVerzeichnisse.flatMap((pfad) => pfad.match(/\[[^\]]+\]/g) ?? [])),
+	].sort();
+	pruefen(
+		`alle zehn Seiten sind aus dem Verzeichnisbaum abgeleitet (gefunden: ${seitenVerzeichnisse.length}), und jeder dynamische Abschnitt hat einen Wert`,
+		seitenVerzeichnisse.length === 10 &&
+			platzhalter.join(' ') === Object.keys(EINSETZUNGEN).sort().join(' '),
+		`Platzhalter im Baum: ${platzhalter.join(' ') || '(keine)'}, eingesetzt: ${Object.keys(EINSETZUNGEN).join(' ')}`
+	);
+	/*
+	 * Die Fehlerseite steht als elfte, über einen Pfad, den es nicht gibt. Sie
+	 * ist keine `+page.svelte` und käme aus dem Verzeichnisbaum darum nie —
+	 * gestaltet ist sie trotzdem, und ihre Zusage („lesbarer Kontrast auch für
+	 * die Statuszeile", Spec 1.2) hat bis heute nichts gemessen.
+	 */
+	const KONTRAST_ROUTEN = [
+		...seitenVerzeichnisse.map(
+			(pfad) => '/' + pfad.replace(/\[[^\]]+\]/g, (treffer) => EINSETZUNGEN[treffer])
+		),
+		'/gibtsnicht',
+	];
+
+	const kontrastSweep = async (modus: 'light' | 'dark') => {
+		await browser!.senden('Emulation.setEmulatedMedia', {
+			features: [{ name: 'prefers-color-scheme', value: modus }],
+		});
+		const wie = modus === 'light' ? 'im hellen Modus' : 'im dunklen Modus';
+		const stumm: string[] = [];
+		const textBefunde: string[] = [];
+		const umrissBefunde: string[] = [];
+		const fremdeFarben: string[] = [];
+		const gesehen = new Set<string>();
+		let ausnahmen = 0;
+		let paare = 0;
+		let tokenwerte: Record<string, string> = {};
+
+		for (const route of KONTRAST_ROUTEN) {
+			await browser!.besuchen(`${adresse}${route}`);
+			const messung = await browser!.auswerten<Messung>(MESSKOPF);
+			tokenwerte = messung.tokens;
+			const tokenmenge = new Set(Object.values(messung.tokens));
+			const textFunde = messung.funde.filter((fund) => fund.art === 'text').length;
+			if (messung.ort !== route || textFunde === 0) {
+				stumm.push(`${route} -> gelandet auf ${messung.ort}, ${textFunde} Textfund(e)`);
+				continue;
+			}
+			for (const fund of messung.funde) {
+				const vorne = farbeLesen(fund.vordergrund);
+				const grund = grundAus(fund.stapel);
+				const ziel = fund.art === 'text' ? textBefunde : umrissBefunde;
+				/*
+				 * **Ein Umriss ohne Deckung malt nichts.** `.nav-bar__ziel` trägt eine
+				 * Kante in `transparent`, damit die 2px-Markierung des aktiven Ziels die
+				 * Zeile nicht verschiebt — sie ist Platzhalter und kein Umriss. Der erste
+				 * Lauf dieses Sweeps meldete sie auf allen elf Seiten mit dem Verhältnis
+				 * 1; gemessen und ausgenommen, statt die Zahl zu erklären. Eine
+				 * **teilweise** durchsichtige Kante bleibt gemessen und wird über ihren
+				 * Grund gelegt.
+				 */
+				if (fund.art === 'umriss' && vorne !== null && vorne.a === 0) continue;
+				if (vorne === null || grund === null || fund.bild || fund.durchscheinend) {
+					ziel.push(
+						`${route} ${fund.wo}: nicht messbar — ${fund.vordergrund} auf ${fund.stapel.join(' auf ')}` +
+							`${fund.bild ? ', Hintergrundbild' : ''}${fund.durchscheinend ? ', Deckung unter 1' : ''}`
+					);
+					continue;
+				}
+				/*
+				 * **Jede gemessene Farbe muss aus dem Tokenblock kommen.**
+				 *
+				 * Gate-Regel 1 verbietet ein Farbliteral im Quelltext. Sie kann nicht
+				 * sehen, was **gar keine** Deklaration hat: ein `<a>` ohne Farbregel
+				 * bekommt sie vom Vorgabestilblatt des Browsers. Genau das hat diese
+				 * Zeile am 2026-09-02 gefunden — zwei Verweise im Fliesstext in
+				 * Chromes `#0000EE`, im Dunkeln `#9E9EFF`, beides Farben, die dieses
+				 * Projekt nie gewählt hat.
+				 */
+				for (const wert of [fund.vordergrund, ...fund.stapel]) {
+					const farbe = farbeLesen(wert);
+					if (farbe === null || farbe.a === 0) continue;
+					if (tokenmenge.has(wert)) gesehen.add(wert);
+					else fremdeFarben.push(`${route} ${fund.wo} ${JSON.stringify(fund.text)}: ${wert}`);
+				}
+				const gemalt = vorne.a === 1 ? vorne : ueberlagern(vorne, grund);
+				const wert = gerundet(verhaeltnis(gemalt, grund));
+				if (fund.art === 'text') {
+					paare += 1;
+					const schwelle = textSchwelle(fund.groesse, fund.gewicht);
+					if (wert < schwelle) {
+						textBefunde.push(
+							`${route} ${fund.wo} ${JSON.stringify(fund.text)}: ${wert} < ${schwelle}`
+						);
+					}
+					continue;
+				}
+				paare += 1;
+				if (fund.vordergrund === messung.tokens['--hairline']) {
+					ausnahmen += 1;
+					continue;
+				}
+				if (wert < 3) umrissBefunde.push(`${route} ${fund.wo}: ${wert} < 3`);
+			}
+		}
+
+		pruefen(
+			`alle ${KONTRAST_ROUTEN.length} Seiten sind ${wie} erreicht und tragen messbaren Text`,
+			stumm.length === 0,
+			stumm.join(' | ')
+		);
+		pruefen(
+			`${wie} erreicht jeder gerenderte Text seine Schwelle nach WCAG 1.4.3 (${paare} Paare gemessen)`,
+			textBefunde.length === 0,
+			[...new Set(textBefunde)].join(' | ')
+		);
+		/*
+		 * **Die Ausnahme ist benannt, nicht verschwiegen — und sie ist ein offener
+		 * Befund.**
+		 *
+		 * `--hairline` trägt heute den Umriss von vier Bedienelementen: `.skip`,
+		 * `.feld` (Text-, Auswahl- und mehrzeiliges Feld), `.button-quiet` und
+		 * `.eintrag` auf `/mehr`. Gemessen liegen die bei 1.25 bis 1.44:1, versprochen
+		 * sind 3:1 (NFR9). **DESIGN.md widerspricht sich dazu selbst:** die
+		 * Komponentenliste schreibt `1px solid {colors.hairline}` für `input` und
+		 * `button-quiet` vor, der Absatz zur Kontrasttabelle behauptet zwei Seiten
+		 * später, jeder Umriss eines Bedienelements nutze den Akzent und liege
+		 * „weit über der Schwelle".
+		 *
+		 * Diese Zeile nimmt darum genau die Umrisse **in `--hairline`** aus, gezählt
+		 * und im Namen der Behauptung mitgeführt, und beisst für jede andere Farbe.
+		 * Die Ausnahme hängt am **Token** und nicht an einer Liste von Selektoren:
+		 * ein fünftes Bedienelement mit einer Kante in `--ink-secondary` würde hier
+		 * rot, ohne dass jemand eine Liste pflegt.
+		 *
+		 * Der Entscheid — Kante der Bedienelemente auf 3:1 heben, oder die Ausnahme
+		 * als getragen abnehmen — steht Manuel zu und liegt in `deferred-work.md`.
+		 * Er ändert das Aussehen jedes Feldes und jedes Nebenknopfs.
+		 */
+		pruefen(
+			`${wie} erreicht jeder Umriss eines Bedienelements 3:1 — ausser den ${ausnahmen} in --hairline (offener Befund vom 2026-09-02)`,
+			umrissBefunde.length === 0,
+			[...new Set(umrissBefunde)].join(' | ')
+		);
+		pruefen(
+			`${wie} stammt jede gemessene Farbe aus dem Tokenblock — keine kommt aus dem Vorgabestilblatt des Browsers`,
+			fremdeFarben.length === 0,
+			[...new Set(fremdeFarben)].join(' | ')
+		);
+		/*
+		 * **Die Abdeckung ist eine eigene Behauptung.**
+		 *
+		 * Ein Sweep, der nichts findet, ist grün. Diese Zeile schliesst das aus:
+		 * jedes der zehn Farbtokens muss in mindestens einem gemessenen Paar
+		 * vorkommen — als Vordergrund oder als deckender Grund. Ein Zustand, den
+		 * dieser Lauf nicht herstellt (die überfällige Zeile, die unbesetzte
+		 * Dienstwoche, der zerstörende Knopf), fällt damit auf, statt still zu
+		 * fehlen.
+		 *
+		 * Im hellen Modus tragen `--surface-raised` und `--accent-ink` **denselben
+		 * Wert** (`#ffffff`); die Zeile kann die zwei dort nicht auseinanderhalten
+		 * und behauptet das auch nicht — sie prüft Werte, nicht Namen.
+		 */
+		const ungesehen = Object.entries(tokenwerte)
+			.filter(([, wert]) => !gesehen.has(wert))
+			.map(([name, wert]) => `${name} (${wert})`);
+		pruefen(
+			`${wie} kommt jedes der ${TOKENS.length} Farbtokens in mindestens einem gemessenen Paar vor`,
+			ungesehen.length === 0,
+			`nicht gesehen: ${ungesehen.join(', ')}`
+		);
+	};
+
+	await kontrastSweep('light');
+	await kontrastSweep('dark');
+	await browser.senden('Emulation.setEmulatedMedia', {
+		features: [{ name: 'prefers-color-scheme', value: 'light' }],
+	});
+
+	// -----------------------------------------------------------------------
+	// Derselbe Dialog auf /verwaltung — der Rest von Zeile 5 der R5-Liste
+	// -----------------------------------------------------------------------
+	/*
+	 * **Warum dieselbe Prüfliste ein zweites Mal läuft.**
+	 *
+	 * Der Fehler von Story 1.3 stand nicht auf `/`, sondern hier: nach einem
+	 * Antippen von `Widerrufen` blieb der Dialog offen stehen, und weil ein
+	 * modaler Dialog den Rest der Seite inert macht, kam man nur über `Abbrechen`
+	 * wieder heraus — die Rückmeldung lag unerreichbar dahinter. Der Block auf `/`
+	 * misst denselben Bauplan an einer **anderen** Komponente und sagt über diese
+	 * nichts; die beiden Fassungen unterscheiden sich sogar (siehe beim Fokus).
+	 *
+	 * Er steht **nach** dem Sweep: der Widerruf nimmt `--danger` von der Seite.
+	 */
 	await browser.besuchen(`${adresse}/verwaltung`);
 
 	/*

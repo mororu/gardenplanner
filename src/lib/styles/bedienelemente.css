@@ -20,6 +20,34 @@
  */
 
 /*
+ * Ein Verweis im Fliesstext — und warum eine Element-Regel und keine Klasse.
+ *
+ * **Ohne sie malt der Browser.** Der Kontrast-Sweep von `smoke:sicht` hat am
+ * 2026-09-02 zwei Verweise gefunden, die keine Farbregel hatten: `Startseite`
+ * auf `/einzelaufgaben` und `Alle Blätter` auf `/wissen/[id]`, beide in einem
+ * `.hinweis`-Absatz. Chrome färbt sie dann aus seinem Vorgabestilblatt —
+ * `#0000EE` im Hellen, `#9E9EFF` im Dunkeln. Zwei Farben, die dieses Projekt
+ * nie gewählt hat, für die es kein Token und kein Dunkel-Pendant gibt, und die
+ * Gate-Regel 1 nicht sehen kann: sie verbietet ein Farb**literal** im
+ * Quelltext und ist blind für eine Farbe, die aus **keiner** Deklaration kommt.
+ *
+ * Als Element-Regel und nicht als `.textlink`: eine Klasse deckt die Verweise,
+ * an die jemand denkt. Diese Regel deckt auch den nächsten, an den niemand
+ * denkt — und sie tritt keinem der benannten Verweise in den Weg, weil `.skip`,
+ * `.eintrag` und `.nav-bar__ziel` ihre Farbe selbst setzen und eine Klasse
+ * spezifischer ist als ein Elementname. Gemessen: nur die zwei Absatzverweise
+ * wechseln ihre Farbe.
+ *
+ * Die Unterstreichung des Browsers bleibt. Ein Verweis, der allein an der
+ * Farbe hängt, verstösst gegen den Barrierefreiheits-Boden — und der Akzent
+ * bedeutet in diesem Entwurf *hier kann gehandelt werden*, was für einen
+ * Verweis genau stimmt.
+ */
+a {
+	color: var(--accent);
+}
+
+/*
  * Die gemeinsame Form beider Knöpfe. DESIGN.md: volle Spaltenbreite,
  * mindestens 44px hoch, Text in der action-Rolle, Radius md.
  *

@@ -1037,7 +1037,7 @@ abnimmt, hat damit die nächste Arbeit benannt.
 | 4 | Die Sperre gegen Doppelversand greift | **gedeckt seit 2026-08-31.** Mit einer Netzverzögerung aufgehalten und `disabled` am Knopf gemessen | — `disabled={imFlug}` zu entfernen lässt `gate`, `smoke` **und** `smoke:http` grün und wird allein hier rot |
 | 5 | Der Dialog schliesst nach dem Bestätigen, ohne dass eine Navigation ihn schliesst | **vollständig gedeckt seit 2026-09-02.** Die Übernahme auf `/` seit dem 2026-08-31; der Widerruf auf `/verwaltung` seit dem 2026-09-02, mit einer zweiten Sitzung als Adminperson | — gemessen: `dialog?.close()` im Versand von `/verwaltung` zu entfernen lässt `gate`, `smoke` **und** `smoke:http` grün und wird allein hier rot. Das ist der Fehler von Story 1.3, an seiner eigenen Stelle |
 | 6 | **Installation zum Home-Bildschirm** zeigt das eigene Icon und startet ohne Browser-Leiste | Manifest, Icons und `display: standalone` sind maschinell belegt; die Installation hat niemand gesehen | ein echtes Telefon. Offen seit Story 1.1 |
-| 7 | Kontrast 4.5:1 für Text, 3:1 für Bedienelement-Umrisse, in **beiden** Modi | die Werte stehen nachgerechnet in Kommentaren; die Wirksamkeit des Dunkel-Blocks ist seit 2026-08-31 gemessen, die **Verhältnisse** nicht | eine Regel, die Vordergrund-/Hintergrundpaare rechnet — sie braucht eine maschinenlesbare Aussage darüber, welche Paare zusammen vorkommen, und die steht nirgends |
+| 7 | Kontrast 4.5:1 für Text, 3:1 für Bedienelement-Umrisse, in **beiden** Modi | **Text gedeckt seit 2026-09-02**: 322 gerenderte Paare je Modus über alle zehn Seiten und die Fehlerseite, alle über ihrer Schwelle. **Umrisse gemessen und offen**: `--hairline` trägt heute den Umriss von vier Bedienelementen und liegt bei 1.25–1.44:1 | **Entscheid durch Manuel** — die Kante der Bedienelemente auf 3:1 heben (ändert das Aussehen jedes Feldes und jedes Nebenknopfs) oder die Ausnahme als getragen abnehmen. DESIGN.md widerspricht sich dazu selbst; siehe den Abschnitt vom 2026-09-02 |
 | 8 | Die Oberflächen von **Story 4.1** (`/wissen`, `/wissen/[id]`) bei 375px in Hell und Dunkel, mit und ohne JavaScript | **gedeckt seit 2026-08-31.** Beide Seiten in beiden Erscheinungsbildern; dazu seit der Interaktion auch der **leere Zustand** (die Blätter entstehen erst nach der ersten Messung), das **aufgeklappte** Formular und eine **abgewiesene Eingabe** mit markiertem Feld. Der Weg ohne JavaScript liegt bei `smoke:http` | — vollständig, soweit ein Chromium reichen kann; die Farbwirkung selbst hängt am globalen Token-Block und ist auf `/` gemessen |
 | 9 | Der Fokusgriff der Live-Region überlebt SvelteKits `reset_focus` | **gedeckt seit 2026-08-31, und die Zusage hält.** Nach einem geglückten Ändern am Blatt hält `.meldung` den Fokus | — `meldungKasten?.focus()` zu entfernen lässt die drei anderen Schichten grün und wird allein hier rot |
 
@@ -1208,3 +1208,149 @@ ein Gerät oder einen Menschen und damit auf eine Abnahme durch Manuel. **Zeile 
 ist die einzige, die noch an Code hängt** — und ihr Hindernis ist keine Rechnung,
 sondern die fehlende maschinenlesbare Aussage darüber, welche Vordergrund- und
 Hintergrundpaare überhaupt zusammen vorkommen.
+
+## Erledigt am 2026-09-02: Zeile 7 — Kontrast gerechnet statt abgeschrieben
+
+**Das Hindernis, an dem diese Zeile zwei Epics lang hing, gab es nicht mehr.**
+Eintrag 44 dieser Datei (2026-08-27) und die Triage vor Epic 3 nannten beide
+denselben Grund: eine Kontrastregel bräuchte „eine maschinenlesbare Aussage
+darüber, welche Paare überhaupt zusammen vorkommen — und die steht heute
+nirgends". Der Satz war ab dem 2026-08-31 falsch: **der gerenderte DOM ist diese
+Aussage.** Ein Browser löst jedes Token auf und sagt, welcher Vordergrund auf
+welchem Grund steht. Das Hindernis war nie die Rechnung — es war die fehlende
+vierte Prüfschicht, und die stand seit elf Tagen.
+
+Was jetzt läuft:
+
+- **`scripts/kontrast.ts`** — Farben lesen, Alpha komponieren, Leuchtdichte und
+  Verhältnis nach WCAG 2. Mit eigenem Selbsttest (`npm run kontrast:selftest`,
+  23 Behauptungen), weil es der erste Prüfcode dieses Projekts ist, der
+  **rechnet**: eine falsch gerechnete Leuchtdichte sieht aus wie ein
+  Kontrastwert, und 4.9 statt 4.4 wäre grün über eine gebrochene Zusage.
+- **Der Sweep in `smoke:sicht`** — jede `+page.svelte` aus dem Verzeichnisbaum
+  (zehn) plus die Fehlerseite über einen Pfad, den es nicht gibt, in beiden
+  Erscheinungsbildern. **322 Paare je Modus**, fünf Behauptungen je Modus.
+
+**Die veröffentlichte Tabelle stimmt — bis auf die letzte Stelle.** Der
+Selbsttest rechnet die zehn Paarungen aus DESIGN.md in beiden Modi nach, also
+zwanzig von Hand gerechnete Werte, und alle zwanzig kommen auf die zweite
+Dezimalstelle heraus (14.74, 4.71, 6.37, 8.34, 5.46, 5.63, 5.11, 7.07, 6.42,
+1.38 …). Verankert ist die Rechnung ausserdem an Werten von aussen — Schwarz auf
+Weiss ist 21:1, `#767676` auf Weiss 4.54:1 —, sonst prüfte sie die eigenen
+Zahlen gegen sich selbst. **Die Dokumentation war richtig; sie war nur nicht
+gemessen.** Ein Nebenfund: DESIGN.md nennt für die Haarlinie 1.38 und 1.30 ohne
+den Grund dazu; gemeint ist die Karte, auf dem Grund ergeben dieselben Tokens
+1.25 und 1.44.
+
+### Der Text hält, in beiden Modi
+
+Kein einziges gerendertes Textpaar liegt unter seiner Schwelle nach WCAG 1.4.3
+(4.5:1, oder 3:1 ab 24px beziehungsweise 18.66px bei Gewicht 700). Das ist die
+grössere Hälfte von NFR9, und sie ist jetzt gemessen statt zugesagt.
+
+**Vier Mutationen passieren `gate`, `smoke` und `smoke:http` alle drei grün und
+werden allein von der vierten Schicht gefangen** — die neue Deckung:
+
+| Mutation | drei Schichten | `smoke:sicht` |
+| --- | --- | --- |
+| `--ink-secondary` im Hellen auf den Dunkelwert | grün | rot: Navigationsbeschriftung bei 2.65:1 |
+| `--ink-secondary` im Dunkeln auf den Hellwert | grün | rot: dieselbe Zeile bei 3.20:1 |
+| Umriss des zerstörenden Knopfs in einer Flächenfarbe | grün | rot: 1.06:1 statt 3:1 |
+| die Regel `a { color: var(--accent) }` entfernt | grün | rot: zwei Verweise in Chromes `#0000EE` |
+
+Dass Gate-Regel 5 einen geänderten Farbwert nicht bemerkt, ist kein Mangel: sie
+hält den Akzent gegen `meta[name=theme-color]` und das Manifest, nicht gegen
+eine Schwelle. Kontrast war bis heute in keiner Schicht.
+
+### Befund 1: zwei Verweise kamen aus dem Vorgabestilblatt des Browsers
+
+`Startseite` auf `/einzelaufgaben` und `Alle Blätter` auf `/wissen/[id]` hatten
+**keine** Farbregel. Chrome färbt sie dann selbst — `#0000EE` im Hellen,
+`#9E9EFF` im Dunkeln. Zwei Farben, die dieses Projekt nie gewählt hat, für die
+es kein Token und kein Dunkel-Pendant gibt.
+
+**Gate-Regel 1 kann das nicht sehen**, und das ist keine Lücke in ihrer
+Umsetzung, sondern in ihrer Form: sie verbietet ein Farb**literal** im
+Quelltext und ist blind für eine Farbe, die aus **keiner** Deklaration kommt.
+Der Sweep hält darum jede gemessene Farbe gegen den Tokenblock — die Behauptung
+„keine kommt aus dem Vorgabestilblatt des Browsers". Behoben mit einer
+Element-Regel `a { color: var(--accent) }` in `bedienelemente.css` und nicht mit
+einer Klasse: eine Klasse deckt die Verweise, an die jemand denkt. Gemessen:
+nur die zwei Absatzverweise wechseln ihre Farbe, weil `.skip`, `.eintrag` und
+`.nav-bar__ziel` ihre eigene setzen.
+
+### Befund 2: die Umrisse der Bedienelemente halten 3:1 nicht — Entscheid offen
+
+NFR9 verspricht 3:1 für Bedienelement-Umrisse. Gemessen trägt `--hairline`
+heute den Umriss von **vier** Bedienelementen:
+
+| Element | hell | dunkel |
+| --- | --- | --- |
+| `.feld` (Text-, Auswahl- und mehrzeiliges Feld) | 1.25:1 auf dem Grund | 1.44:1 |
+| `.button-quiet` (jeder Nebenknopf) | 1.38:1 auf der Karte | 1.30:1 |
+| `.eintrag` (die Liste auf `/mehr`) | 1.25:1 | 1.44:1 |
+| `.skip` (der Sprunglink) | 1.25:1 | 1.44:1 |
+
+**Und DESIGN.md widerspricht sich dazu selbst.** Die Komponentenliste schreibt
+`1px solid {colors.hairline}` für `input` und `button-quiet` ausdrücklich vor
+(Zeilen 118 und 124); der Absatz unter der Kontrasttabelle behauptet zwei Seiten
+später, die Haarlinie erfülle 3:1 bewusst nicht, weil „Trennlinien dekorativ
+sind und kein Bedienelement identifizieren", und „jeder Umriss, der zu einem
+Bedienelement gehört, nutzt `{colors.accent}` und liegt weit über der Schwelle".
+Beides zugleich geht nicht. Das ist ein Fall für R1 — kein Abnahmekriterium darf
+einem anderen widersprechen —, gefunden nicht beim Lesen, sondern beim Messen.
+
+**Beim `.feld` trägt die Begründung nachweislich nicht.** Ein Textfeld hat
+keinen eigenen Text, an dem man es erkennt, und seine Fläche
+(`--surface-raised`) steht auf dem Grund bei 1.06:1. Die Kante **ist** die
+einzige Identifikation des Bedienelements. Bei `.button-quiet`, `.eintrag` und
+`.skip` ist der Fall milder: sie tragen Text im Akzent bei 6.37:1, der die
+Handlungsfähigkeit ohne die Kante ausspricht.
+
+**Wie die Behauptung damit heute umgeht.** Sie nimmt genau die Umrisse **in
+`--hairline`** aus, zählt sie und führt die Zahl in ihrem eigenen Namen mit
+(`ausser den 88 in --hairline (offener Befund vom 2026-09-02)`) — die Zeile
+behauptet also nicht, NFR9 sei erfüllt. Die Ausnahme hängt am **Token** und
+nicht an einer Liste von Selektoren: ein fünftes Bedienelement mit einer Kante
+in `--ink-secondary` wird rot, ohne dass jemand eine Liste pflegt. Belegt durch
+die dritte Mutation der Tabelle oben.
+
+**Der Entscheid steht Manuel zu**, weil er das Aussehen jedes Feldes und jedes
+Nebenknopfs ändert:
+
+- **(a) Die Kante der Bedienelemente auf 3:1 heben.** Am billigsten mit
+  `--ink-secondary` (4.71:1 hell, 6.90:1 dunkel) — ein bestehendes Token, kein
+  neues, und die Felder bleiben neutral statt grün. DESIGN.md würde dann in
+  seinem eigenen Sinn richtig; die Trennlinien in Listen bleiben auf der
+  Haarlinie, denn sie identifizieren wirklich kein Bedienelement.
+- **(b) Die Ausnahme als getragen abnehmen**, mit Datum und Namen — dann fällt
+  NFR9 für Umrisse ausdrücklich, und der Satz in DESIGN.md gehört richtiggestellt.
+- **(c) Nur `.feld` heben** und die drei Textknöpfe auf der Haarlinie lassen.
+  Trennt den harten Fall vom milden und ändert am wenigsten; der Preis ist eine
+  Kante, die je nach Element etwas anderes bedeutet.
+
+**Empfehlung: (a).** Ein Token, ein Wert, keine neue Unterscheidung — und
+DESIGN.md sagt dann die Wahrheit.
+
+### Was der Sweep nicht sieht, ausgeschrieben statt verschwiegen
+
+- **Was nicht gerendert ist.** Ein geschlossener `<dialog>` ist `display: none`.
+  Seine Flächen sind dieselben Paare wie die der Karten, und die Abdeckungszeile
+  belegt, dass jedes Token vorkommt.
+- **Pseudoelemente**, allen voran `::placeholder`: kein eigener Knoten, kein
+  eigener Textinhalt, kein Ansatzpunkt.
+- **Der Fokusring.** Er hängt an `:focus-visible` und zeigt sich einem
+  berechneten Stil nur am fokussierten Element. Seine Farbe ist `--accent`, und
+  die ist als Umriss des Kästchens gemessen. `CSS.forcePseudoState` über CDP
+  wäre der Weg, ihn direkt zu messen — nicht gebaut, benannt.
+- **Zustände, die dieser Lauf nicht herstellt.** Genau darum ist die
+  **Abdeckung eine eigene Behauptung**: alle zehn Farbtokens müssen in
+  mindestens einem gemessenen Paar vorkommen. Ein Sweep, der nichts findet, wäre
+  sonst grün. Belegt: nimmt man `--danger` aus dem zerstörenden Knopf, wird die
+  Zeile rot.
+- **Nur Chromium.** Der Preis des Entscheids vom 2026-08-31, unverändert.
+
+**Was von der R5-Liste bleibt — drei Zeilen**, und keine davon wartet auf Code:
+Zeile 1 (iOS Safari), Zeile 2 (die Ansage durch einen Screenreader) und Zeile 6
+(Installation zum Home-Bildschirm auf einem Telefon). Dazu **ein offener
+Entscheid**: die Umrisse aus Befund 2.
