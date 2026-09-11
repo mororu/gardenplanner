@@ -11,26 +11,15 @@
 		EINZELAUFGABE_NICHT_ANSPRECHBAR,
 		UEBERNAHME_FOLGE,
 		VERSAND_FEHLGESCHLAGEN,
-		ueberblickFrei,
-		ueberblickOffen,
-		ueberblickUeberfaellig,
-		ueberblickUnbesetzt,
+		GRIFF_FREI_LEER,
+		GRIFF_OFFEN_LEER,
+		griffFrei,
+		griffOffen,
+		griffUeberfaellig,
+		zeileUnbesetzt,
 	} from '$lib/texte';
 
 	const { data, form }: PageProps = $props();
-
-	/*
-		Ob das Band überhaupt gerendert wird.
-
-		**Drei Zahlen, nicht vier**: `ueberfaellig` steht nicht darin. Es ist ein
-		Zusatz an der Kachel `offen` und kann ohne sie nicht vorkommen — eine
-		überfällige Aufgabe ist eine offene. Wer es mit aufnähme, behauptete einen
-		Zustand, den die Datenschicht nicht herstellen kann.
-	*/
-	const ueberblick = $derived({
-		sichtbar:
-			data.ueberblick.offen > 0 || data.ueberblick.frei > 0 || data.ueberblick.unbesetzt > 0,
-	});
 
 	/*
 		Welche Zeilen in **dieser Sitzung** abgehakt wurden.
@@ -553,57 +542,6 @@
 	-->
 
 	<!--
-		Block 0 — das Überblicksband.
-
-		**Eine Kachel mit der Zahl 0 erscheint nicht**, und bei vier Nullen fehlt
-		das Band ganz. Eine Kachel `0 überfällig` verlangte Aufmerksamkeit für eine
-		Nicht-Lage; der Pool sagt für denselben Fall `Nichts offen.` — ein Satz,
-		keine Zahl. Das Band folgt derselben Haltung.
-
-		Das Raster hat darum **keine** Spaltenzahl: grid-auto-flow: column verteilt,
-		was da ist, auf gleich breite Spalten. Eine feste Dreizahl brauchte eine
-		Fallunterscheidung für jeden Zustand darunter.
-
-		`nav` und nicht `div`: drei Verweise, die zusammen eine Navigation über den
-		Zustand des Gartens sind. Das aria-label benennt sie, weil die Seite mit der
-		Hauptnavigation unten schon eine zweite hat und ein Screenreader sie sonst
-		nicht auseinanderhält.
-
-		Der Verweis der ersten Kachel bleibt **auf dieser Seite** (#offen-marke) —
-		was sie zählt, steht zwei Blöcke tiefer, und ein Sprung auf eine andere
-		Seite wäre ein Umweg zu etwas, das schon da ist.
-	-->
-	{#if ueberblick.sichtbar}
-		<nav class="ueberblick" aria-label="Überblick">
-			{#if data.ueberblick.offen > 0}
-				<a class="ueberblick__kachel" href="#offen-marke">
-					<span class="ueberblick__zahl">{data.ueberblick.offen}</span>
-					<span class="ueberblick__wort">
-						{ueberblickOffen(data.ueberblick.offen)}
-						{#if data.ueberblick.ueberfaellig > 0}
-							<span class="ueberblick__frist"
-								>{ueberblickUeberfaellig(data.ueberblick.ueberfaellig)}</span
-							>
-						{/if}
-					</span>
-				</a>
-			{/if}
-			{#if data.ueberblick.frei > 0}
-				<a class="ueberblick__kachel" href={resolve('/einzelaufgaben')}>
-					<span class="ueberblick__zahl">{data.ueberblick.frei}</span>
-					<span class="ueberblick__wort">{ueberblickFrei(data.ueberblick.frei)}</span>
-				</a>
-			{/if}
-			{#if data.ueberblick.unbesetzt > 0}
-				<a class="ueberblick__kachel" href={resolve('/traenkeplan')}>
-					<span class="ueberblick__zahl">{data.ueberblick.unbesetzt}</span>
-					<span class="ueberblick__wort">{ueberblickUnbesetzt(data.ueberblick.unbesetzt)}</span>
-				</a>
-			{/if}
-		</nav>
-	{/if}
-
-	<!--
 		Block 1. **Ohne eigenen Dienst fehlt er ganz** — es gibt kein {:else} und
 		keinen leeren Rahmen. Ein Block, der „Diese Woche hast du keinen Dienst"
 		sagte, nähme jede Woche Platz weg, um nichts mitzuteilen.
@@ -621,6 +559,30 @@
 		<a class="dienst" href={resolve('/traenkeplan')}>
 			<span class="dienst__satz">Diese Woche bist du am Tränken</span>
 			<span class="hinweis hinweis--ziffern">{data.dienst.datum}</span>
+		</a>
+	{/if}
+
+	<!--
+		Die unbesetzten Wochen des Tränkeplans.
+
+		**Sie steht hier und nicht bei den zwei Abschnitten darunter**, weil sie
+		dieselbe Sache betrifft wie der Diensthinweis darüber: den Tränkeplan. Erst
+		die eigene Woche, dann die Lücken, die jemand schliessen muss.
+
+		Und sie ist **kein** Aufklapper, obwohl sie wie die Griffe eine Zahl trägt:
+		der Plan ist eine eigene Seite, hier gibt es nichts aufzuklappen. Der Pfeil
+		sagt das, das Dreieck der Griffe fehlt.
+
+		Bei null unbesetzten Wochen fehlt sie ganz — eine Zeile `0 Tränkewochen
+		unbesetzt` verlangte Aufmerksamkeit für eine Nicht-Lage. Dieselbe Haltung wie
+		beim Diensthinweis darüber.
+	-->
+	{#if data.ueberblick.unbesetzt > 0}
+		<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+		<a class="plan-zeile" href={resolve('/traenkeplan')}>
+			<span class="kopfzahl">{data.ueberblick.unbesetzt}</span>
+			<span class="kopfwort">{zeileUnbesetzt(data.ueberblick.unbesetzt)}</span>
+			<span class="plan-zeile__pfeil" aria-hidden="true">→</span>
 		</a>
 	{/if}
 
@@ -649,11 +611,16 @@
 		-->
 	<details open>
 		<summary class="abschnitt__griff">
-			<h2 class="marke marke--griff" id="einzel-marke">Einzelaufgaben zum Übernehmen</h2>
+			<h2 class="griff__satz" id="einzel-marke">
+				{#if data.ueberblick.frei === 0}
+					<span class="kopfwort">{GRIFF_FREI_LEER}</span>
+				{:else}
+					<span class="kopfzahl">{data.ueberblick.frei}</span>
+					<span class="kopfwort">{griffFrei(data.ueberblick.frei)}</span>
+				{/if}
+			</h2>
 		</summary>
-		{#if data.einzelaufgaben.length === 0}
-			<p class="leer">Nichts ausgeschrieben.</p>
-		{:else}
+		{#if data.einzelaufgaben.length > 0}
 			<ul class="liste liste--getrennt" aria-labelledby="einzel-marke">
 				{#each data.einzelaufgaben as aufgabe (aufgabe.id)}
 					{@const frageHier = frage !== null && frage.id === aufgabe.id}
@@ -870,13 +837,21 @@
 	-->
 	<details open>
 		<summary class="abschnitt__griff">
-			<h2 class="marke marke--griff" id="offen-marke">Offen</h2>
+			<h2 class="griff__satz" id="offen-marke">
+				{#if data.ueberblick.offen === 0}
+					<span class="kopfwort">{GRIFF_OFFEN_LEER}</span>
+				{:else}
+					<span class="kopfzahl">{data.ueberblick.offen}</span>
+					<span class="kopfwort">
+						{griffOffen(data.ueberblick.offen)}
+						{#if data.ueberblick.ueberfaellig > 0}
+							<span class="kopffrist">{griffUeberfaellig(data.ueberblick.ueberfaellig)}</span>
+						{/if}
+					</span>
+				{/if}
+			</h2>
 		</summary>
-		{#if data.aufgaben.length === 0}
-			<!-- Der leere Zustand sagt, was gilt — der Erfassen-Knopf steht unter dem
-		     {#if}, also auch hier darunter. -->
-			<p class="leer">Nichts offen.</p>
-		{:else}
+		{#if data.aufgaben.length > 0}
 			<ul class="liste" aria-labelledby="offen-marke">
 				{#each data.aufgaben as aufgabe (aufgabe.id)}
 					{@const istErledigt = erledigt.includes(aufgabe.id)}
@@ -1106,37 +1081,81 @@
 		gerade Linie liest und nicht als angeschnittener Bogen.
 	*/
 	/*
-	 * Das Überblicksband.
+	 * Der Satz im Griff eines Abschnitts: Zahl und Wort nebeneinander.
 	 *
-	 * **Kein grid-template-columns**, sondern grid-auto-flow mit
-	 * grid-auto-columns: 1fr. Das trägt eine, zwei und drei Kacheln mit derselben
-	 * Regel und ohne Fallunterscheidung im Markup — eine feste Dreizahl liesse bei
-	 * zwei Kacheln eine leere Spalte stehen. Und es kommt ohne Längenliteral aus:
-	 * repeat(auto-fit, minmax(…)) bräuchte eines und bräche Gate-Regel 1.
+	 * **Die Zahl ist die Überschrift.** Bis zum 2026-09-11 stand über den beiden
+	 * Abschnitten ein Band mit denselben drei Zahlen, und darunter wiederholten
+	 * zwei Marken dieselben Listen mit anderen Worten — zwei Überschriften für
+	 * dieselbe Sache. Gemessen hat das 251px Kopfbereich gekostet; so sind es 180.
+	 *
+	 * Der eigentliche Gewinn ist aber nicht der Platz: **ein zugeklappter Abschnitt
+	 * verbirgt jetzt seinen Inhalt, nicht mehr seine Lage.** `1 Einzelaufgabe
+	 * offen` steht auch im zugeklappten Griff, und damit hält AD-14 unabhängig
+	 * davon, ob jemand den Abschnitt offen lässt.
+	 *
+	 * `display: inline` bleibt aus demselben Grund wie bei der alten Marke: ein
+	 * Block als erstes Kind eines `<summary>` setzt sich unter das Dreieck statt
+	 * daneben. Das ist ein `display` an der Klasse der Überschrift und nicht an der
+	 * des Griffs — Gate-Regel 15 liest die Klassen des `<summary>`.
 	 */
-	.ueberblick {
-		display: grid;
-		grid-auto-flow: column;
-		grid-auto-columns: 1fr;
-		gap: var(--space-2);
+	.griff__satz {
+		display: inline;
+		margin: 0;
 	}
 
 	/*
-	 * Die Kachel ist ein Verweis und damit ein Bedienelement — ihre Kante liegt
-	 * darum auf --ink-secondary und erfüllt die 3:1 aus NFR9 (4.71:1 hell, 6.90:1
-	 * dunkel, Entscheid (a) vom 2026-09-11). Ohne Kante wäre sie im hellen Schema
-	 * fast flächenlos: --surface-raised steht auf --surface-base bei 1.06:1. Das
-	 * war der Unterschied zwischen den zwei gezeichneten Entwürfen, und B hat
-	 * gewonnen.
+	 * Zahl und Wort einer Kopfzeile. **`kopf` und nicht `griff`**, weil beides
+	 * nicht nur in den zwei Aufklapp-Griffen steht, sondern auch in der Zeile zum
+	 * Tränkeplan — und die klappt nichts auf. Ein Name, der dort `griff` hiesse,
+	 * behauptete ein Verhalten, das die Zeile nicht hat.
 	 *
-	 * **Nicht .karte**: die Klasse ist im geteilten Stilblatt als „benannter
-	 * Eintrag einer Liste" festgelegt. Eine Kachel ist ein Behälter, und die
-	 * Bedeutung der Klasse zu dehnen wäre teurer als vier eigene Regeln.
+	 * Geteilt und nicht kopiert: zwei gleiche Regelkörper an zwei Orten sind das,
+	 * worauf Gate-Regel 14 anschlägt.
 	 */
-	.ueberblick__kachel {
+	.kopfzahl {
+		font-family: var(--section-font);
+		font-size: var(--section-size);
+		font-weight: var(--section-weight);
+		line-height: var(--section-line);
+		letter-spacing: var(--section-tracking);
+		color: var(--ink-primary);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.kopfwort {
+		font-family: var(--meta-font);
+		font-size: var(--meta-size);
+		font-weight: var(--meta-weight);
+		line-height: var(--meta-line);
+		color: var(--ink-secondary);
+	}
+
+	/*
+	 * Der Zusatz zur Überfälligkeit, in derselben Farbe wie der Fristsatz an der
+	 * Zeile — dieselbe Sache, dieselbe Farbe. Kein eigener Umbruch mehr: er steht
+	 * hinter dem Wort statt darunter, und genau das spart die dritte Zeile.
+	 */
+	.kopffrist {
+		color: var(--overdue);
+	}
+
+	/*
+	 * Die Zeile zum Tränkeplan.
+	 *
+	 * **Sie sieht anders aus als die zwei Griffe darüber, weil sie etwas anderes
+	 * tut.** Die Griffe klappen einen Abschnitt dieser Seite auf; diese Zeile führt
+	 * auf eine andere Seite. Gleiche Form bei verschiedenem Verhalten wäre die
+	 * Falle — wer einmal gelernt hat, dass eine Zeile mit Zahl aufklappt, erwartet
+	 * das auch hier.
+	 *
+	 * Darum: kein Dreieck, sondern ein Pfeil am Ende, Akzentfarbe wie jeder andere
+	 * Verweis, und eine Kante wie am Diensthinweis darüber — beide führen auf den
+	 * Tränkeplan, und beide sehen deshalb gleich aus.
+	 */
+	.plan-zeile {
 		display: flex;
-		flex-direction: column;
-		justify-content: center;
+		align-items: baseline;
+		gap: var(--space-2);
 		min-height: var(--touch);
 		padding: var(--space-2) var(--space-3);
 		border: var(--border-hairline) solid var(--ink-secondary);
@@ -1146,47 +1165,11 @@
 		text-decoration: none;
 	}
 
-	/*
-	 * Die Zahl auf der section-Rolle, 20px — **nicht** auf display.
-	 *
-	 * display gehört dem Seitentitel, einer pro Seite. Eine grössere Ziffer wäre
-	 * eine neue Typo-Rolle und damit eine Änderung am Gestaltungsrahmen, nicht an
-	 * dieser Seite. Ausdrücklich entschieden am 2026-09-11.
-	 *
-	 * tabular-nums, damit drei Kacheln nebeneinander nicht je nach Ziffer
-	 * unterschiedlich breit wirken.
-	 */
-	.ueberblick__zahl {
-		font-family: var(--section-font);
-		font-size: var(--section-size);
-		font-weight: var(--section-weight);
-		line-height: var(--section-line);
-		letter-spacing: var(--section-tracking);
-		font-variant-numeric: tabular-nums;
-	}
-
-	.ueberblick__wort {
-		font-family: var(--meta-font);
-		font-size: var(--meta-size);
-		font-weight: var(--meta-weight);
-		line-height: var(--meta-line);
-		color: var(--ink-secondary);
-	}
-
-	/*
-	 * Der Zusatz unter `offen`. Eigene Zeile, damit er die Kachelbreite nicht
-	 * sprengt, und in --overdue wie der Fristsatz der Zeile im Pool — dieselbe
-	 * Sache, dieselbe Farbe.
-	 *
-	 * **Die Dienstkachel bleibt dagegen ungefärbt**, obwohl --warn genau für die
-	 * unbesetzte Woche da ist: der Kommentar zu diesem Token in src/app.html
-	 * begründet seine Nähe zu --overdue (1.07:1 im Hellen) ausdrücklich damit,
-	 * dass die zwei Zustände nie auf derselben Seite vorkommen. Dieses Band wäre
-	 * die erste Stelle, an der sie es täten. Das Wort trägt die Aussage.
-	 */
-	.ueberblick__frist {
-		display: block;
-		color: var(--overdue);
+	.plan-zeile__pfeil {
+		margin-inline-start: auto;
+		color: var(--accent);
+		font-family: var(--action-font);
+		font-size: var(--action-size);
 	}
 
 	.dienst {

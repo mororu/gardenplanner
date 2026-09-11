@@ -280,59 +280,62 @@ export const EINZELAUFGABE_NICHT_ANSPRECHBAR =
 	'Diese Einzelaufgabe lässt sich nicht ansprechen. Lade die Liste neu.';
 
 /**
- * Die Wörter unter den Zahlen des Überblicksbands auf `/`.
+ * Die Sätze in den Griffen der zwei Abschnitte auf `/` — und in der Zeile zum
+ * Tränkeplan.
  *
- * Sie stehen hier und nicht in der Komponente, weil drei von vier eine
- * **Beugung** haben und eine Beugung im Markup die Stelle ist, an der Singular
- * und Plural auseinanderlaufen. `1 Wochen unbesetzt` wäre der Fehler, den
- * niemand bemerkt, bis er auf einem Telefon steht.
+ * **Die Zahl steht im Griff und nicht in einem Band darüber.** Bis zum
+ * 2026-09-11 trug ein Überblicksband die drei Zahlen, und darunter wiederholten
+ * zwei Marken dieselben Abschnitte mit anderen Worten — zwei Überschriften für
+ * dieselbe Liste. Jetzt ist die Zahl die Überschrift.
  *
- * Die Zahl selbst gehört **nicht** hierher: sie ist Zustand und kein Satz, und
- * eine Funktion, die `4 offen` zurückgäbe, machte aus zwei Elementen — der Zahl
- * in ihrer eigenen Schriftrolle und dem Wort in einer anderen — eine
- * Zeichenkette, die man nicht mehr getrennt setzen kann.
+ * Das hat eine Folge, die mehr wert ist als der gesparte Platz: **ein
+ * zugeklappter Abschnitt verbirgt seinen Inhalt, nicht mehr seine Lage.** Wer
+ * `1 Einzelaufgabe offen` liest, weiss, dass etwas ansteht, auch ohne
+ * aufzuklappen. Genau das verlangt AD-14, und vorher hing es daran, dass die
+ * Abschnitte offen ausgeliefert werden.
+ *
+ * Die Zahl selbst gehört **nicht** in diese Sätze: sie steht in einer eigenen
+ * Schriftrolle daneben, und eine Zeichenkette, die sie enthielte, liesse sich
+ * nicht mehr getrennt setzen.
  */
-export function ueberblickOffen(anzahl: number): string {
+export function griffOffen(anzahl: number): string {
 	return anzahl === 1 ? 'Aufgabe offen' : 'Aufgaben offen';
 }
 
-/** Der Zusatz unter `offen`, in --overdue. Immer mit Zahl, nie allein. */
-export function ueberblickUeberfaellig(anzahl: number): string {
-	return `${anzahl} überfällig`;
+/** Der Zusatz im Griff des Pools, in --overdue. Fehlt bei null ganz. */
+export function griffUeberfaellig(anzahl: number): string {
+	return `· ${anzahl} überfällig`;
 }
+
+/** Der leere Pool. Steht im Griff an der Stelle der Zahl. */
+export const GRIFF_OFFEN_LEER = 'Nichts offen.';
 
 /**
  * Freie Einzelaufgaben.
  *
- * **Die Kachel nennt die Art der Sache und ihren Zustand**, in derselben Form
- * wie ihre zwei Nachbarinnen: Gegenstand, dann Zustandswort. `Aufgaben offen`,
- * `Einzelaufgaben offen`, `Tränkewochen unbesetzt` — drei Kacheln, ein Satzbau.
- *
- * Vorher stand hier `Einzelaufgaben zum Übernehmen`. Das war zwölf Zeichen
- * länger, brach in einer Kachel von rund 110px über vier Zeilen und machte die
- * drei Kacheln ungleich hoch — und es fiel als einzige aus dem Satzbau, weil es
- * eine **Handlung** nannte, wo die anderen einen **Zustand** nennen.
- *
- * **`offen` und nicht `frei`**, obwohl `frei` das Wort des Quelltexts ist
- * (`freieEinzelaufgabenLesen`). Die Kachel steht neben `Aufgaben offen`, und
- * zwei verschiedene Wörter für „hier fehlt noch jemand" wären auf zwei
- * benachbarten Kacheln die teurere Genauigkeit. Der Unterschied ist benannt und
- * hingenommen: eine offene **Aufgabe** ist nicht abgehakt, eine offene
- * **Einzelaufgabe** hat noch niemanden — einen Erledigt-Zustand hat sie gar
- * nicht (`signup_tasks` trägt keine Spalte dafür).
+ * `offen` und nicht `frei`, obwohl `frei` das Wort des Quelltexts ist
+ * (`freieEinzelaufgabenLesen`): der Griff steht über dem des Pools, und zwei
+ * verschiedene Wörter für „hier fehlt noch jemand" wären untereinander die
+ * teurere Genauigkeit. Der Unterschied ist benannt und hingenommen — eine offene
+ * Aufgabe ist nicht abgehakt, eine offene Einzelaufgabe hat noch niemanden, und
+ * einen Erledigt-Zustand hat sie gar nicht (`signup_tasks` trägt keine Spalte
+ * dafür).
  */
-export function ueberblickFrei(anzahl: number): string {
+export function griffFrei(anzahl: number): string {
 	return anzahl === 1 ? 'Einzelaufgabe offen' : 'Einzelaufgaben offen';
 }
+
+/** Keine Einzelaufgabe ausgeschrieben. */
+export const GRIFF_FREI_LEER = 'Nichts ausgeschrieben.';
 
 /**
  * Unbesetzte Wochen im Fenster des Tränkeplans.
  *
- * Die Kachel **nennt den Plan** und sagt nicht bloss „Wochen": auf dem Dashboard
- * stehen drei Zahlen nebeneinander, und ohne das Wort wüsste niemand, welche
- * Wochen gemeint sind. `unbesetzt` bleibt daneben stehen — es ist das Wort, das
- * auch auf dem Plan selbst an einer Woche ohne Namen steht.
+ * **Die einzige der drei Zahlen ohne Abschnitt auf dieser Seite**: der Plan ist
+ * eine eigene Seite. Ihre Zeile führt darum dorthin, statt etwas aufzuklappen,
+ * und sieht deshalb anders aus als die zwei Griffe — gleiche Form bei
+ * verschiedenem Verhalten wäre die Falle.
  */
-export function ueberblickUnbesetzt(anzahl: number): string {
+export function zeileUnbesetzt(anzahl: number): string {
 	return anzahl === 1 ? 'Tränkewoche unbesetzt' : 'Tränkewochen unbesetzt';
 }

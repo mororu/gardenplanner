@@ -3425,7 +3425,9 @@ try {
 	 * diese Story beseitigt. Der Bereich des {#if} wird klammerbalanciert
 	 * geschnitten, weil im {:else}-Zweig ein zweites {#if} steckt.
 	 */
-	const poolVon = startseitenCode.indexOf('{#if data.aufgaben.length === 0}');
+	// Seit dem 2026-09-11 hängt die Liste an `> 0` statt an `=== 0`: der leere
+	// Zustand steht nicht mehr als Satz im Rumpf, sondern im Griff darüber.
+	const poolVon = startseitenCode.indexOf('{#if data.aufgaben.length > 0}');
 	let poolBis = -1;
 	for (let tiefe = 0, i = poolVon; poolVon >= 0 && i < startseitenCode.length;) {
 		const auf = startseitenCode.indexOf('{#if', i);
@@ -5666,51 +5668,53 @@ try {
 	);
 
 	/*
-	 * **Keine Kachel mit der Zahl 0 — und kein Band, wenn alle drei null sind.**
+	 * **Die Zahl steht im Griff des Abschnitts — es gibt kein Band mehr.**
 	 *
-	 * Das steht hier und nicht in `smoke:http`, weil es eine Aussage über **alle**
-	 * Zustände ist und nicht über den einen, den ein Lauf herstellt. Der
-	 * ausgelieferte Nachweis deckt die Stände, die die Saat erzeugt; diese Zeile
-	 * deckt die Regel.
+	 * Bis zum 2026-09-11 trug ein Überblicksband drei Kacheln, und darunter
+	 * wiederholten zwei Marken dieselben Abschnitte mit anderen Worten. Diese Zeile
+	 * belegte damals, dass eine Kachel mit der Zahl 0 verschwindet. Jetzt belegt sie
+	 * das Gegenteil und mehr: der Griff steht **immer**, und bei null trägt er einen
+	 * Satz statt einer Zahl.
 	 *
-	 * `ueberfaellig` hat **keine** eigene Schranke und darf keine bekommen: der
-	 * Zusatz sitzt in der Kachel `offen` und kann ohne sie nicht vorkommen — eine
-	 * überfällige Aufgabe ist eine offene. Die Wache zählt darum drei Schranken
-	 * und nicht vier, und ein `data.ueberblick.ueberfaellig > 0` als vierte
-	 * Bandbedingung würde sie rot machen.
+	 * **Warum das die stärkere Zusage ist:** ein zugeklappter Abschnitt verbirgt
+	 * damit seinen Inhalt, nicht mehr seine Lage. `1 Einzelaufgabe offen` steht auch
+	 * im geschlossenen Griff, und AD-14 hält unabhängig davon, ob jemand den
+	 * Abschnitt offen lässt. Vorher hing es allein am `open`.
+	 *
+	 * Die Überfälligkeit hat **keine** eigene Schranke am Abschnitt und darf keine
+	 * bekommen: sie ist ein Zusatz im Griff des Pools und kann ohne offene Aufgaben
+	 * nicht vorkommen.
 	 */
-	// Über Zeilenumbrüche hinweg gelesen: der Ausdruck ist von Prettier umbrochen,
-	// und eine Wache, die an der Formatierung hängt, misst die falsche Sache.
-	const startseiteFlach = startseitenCode.replace(/\s+/g, ' ');
-	const bandTeile = [
+	const griffTeile = [
+		['es gibt kein Überblicksband mehr', !/ueberblick__|class="ueberblick"/.test(startseitenCode)],
 		[
-			'die Sichtbarkeit des Bandes hängt an genau diesen drei Zahlen',
-			startseiteFlach.includes(
-				'sichtbar: data.ueberblick.offen > 0 || data.ueberblick.frei > 0 || data.ueberblick.unbesetzt > 0'
-			),
+			'der Griff der Einzelaufgaben trägt die Zahl',
+			/<span class="kopfzahl">\{data\.ueberblick\.frei\}<\/span>/.test(startseitenCode),
 		],
 		[
-			'und nicht an der Überfälligkeit — sie ist ein Zusatz der Kachel offen, kein eigener Zustand',
-			!/sichtbar:[^}]*ueberfaellig/.test(startseiteFlach),
+			'der Griff des Pools trägt die Zahl',
+			/<span class="kopfzahl">\{data\.ueberblick\.offen\}<\/span>/.test(startseitenCode),
 		],
 		[
-			'das Band steht nur unter dieser Bedingung im Markup',
-			/\{#if ueberblick\.sichtbar\}/.test(startseitenCode),
+			'beide Griffe tragen bei null einen Satz statt einer Zahl',
+			/\{#if data\.ueberblick\.frei === 0\}/.test(startseitenCode) &&
+				/\{#if data\.ueberblick\.offen === 0\}/.test(startseitenCode),
 		],
 		[
-			'jede der drei Kacheln hat ihre eigene Schranke bei 0',
-			(startseitenCode.match(/\{#if data\.ueberblick\.(?:offen|frei|unbesetzt) > 0\}/g) ?? [])
-				.length === 3,
+			'die Überfälligkeit ist ein Zusatz im Griff, kein eigener Abschnitt',
+			/<span class="kopffrist">/.test(startseitenCode) &&
+				!/\{#if data\.ueberblick\.ueberfaellig > 0\}\s*<details/.test(startseitenCode),
 		],
 		[
-			'und es sind genau drei Kacheln',
-			(startseitenCode.match(/<a class="ueberblick__kachel"/g) ?? []).length === 3,
+			'die Zeile zum Tränkeplan ist ein Verweis und kein Aufklapper',
+			/<a class="plan-zeile" href=\{resolve\('\/traenkeplan'\)\}>/.test(startseitenCode) &&
+				/\{#if data\.ueberblick\.unbesetzt > 0\}/.test(startseitenCode),
 		],
 	] as const;
 	pruefen(
-		'das Überblicksband und jede seiner Kacheln verschwinden bei der Zahl 0',
-		fehlendeTeile(bandTeile).length === 0,
-		`fehlt: ${fehlendeTeile(bandTeile).join(', ')}`
+		'die Zahlen stehen in den Griffen der Abschnitte — kein Band, keine zweite Überschrift',
+		fehlendeTeile(griffTeile).length === 0,
+		`fehlt: ${fehlendeTeile(griffTeile).join(', ')}`
 	);
 
 	/*
@@ -7540,12 +7544,14 @@ try {
 		['der Abschnitt ist als Aufklapper zu finden', einzelBlock !== ''],
 		[
 			'die Liste hängt an der Zahl der freien Einzelaufgaben',
-			/\{#if data\.einzelaufgaben\.length === 0\}/.test(einzelBlock),
+			/\{#if data\.einzelaufgaben\.length > 0\}/.test(einzelBlock),
 		],
 		[
-			'und statt der Liste steht ein Satz, kein leerer Rahmen',
-			/\{:else\}/.test(einzelBlock) &&
-				/<p class="leer">Nichts ausgeschrieben\.<\/p>/.test(einzelBlock),
+			// Der Satz steht seit dem 2026-09-11 im **Griff** und nicht mehr im Rumpf:
+			// eine zweite Kopie im Rumpf wäre dieselbe Aussage zweimal, und der Griff
+			// trägt sie auch im zugeklappten Zustand.
+			'und der leere Zustand steht im Griff, nicht im Rumpf',
+			/GRIFF_FREI_LEER/.test(einzelBlock) && !/<p class="leer">/.test(einzelBlock),
 		],
 		['er trägt den Wortlaut `noch niemand`', /noch niemand/.test(einzelBlock)],
 		['und den Knopf `Übernehmen`', />\s*Übernehmen\s*</.test(einzelBlock)],
@@ -7571,8 +7577,12 @@ try {
 				/href=\{resolve\('\/einzelaufgaben'\)\}/.test(einzelBlock),
 		],
 		[
-			'und der Abschnitt hängt an keiner Bedingung',
-			!/\{#if data\.einzelaufgaben\.length > 0\}/.test(startseiteCodeEinzel),
+			// Der Aufklapper geht **vor** der Bedingung auf, also liegt die Bedingung in
+			// ihm und nicht umgekehrt. Ein einfaches „kommt nicht vor" ginge nicht mehr:
+			// die Liste im Rumpf hängt seit dem 2026-09-11 selbst an dieser Zahl.
+			'und der Abschnitt umschliesst die Bedingung, statt in ihr zu liegen',
+			startseiteCodeEinzel.indexOf('id="einzel-marke"') <
+				startseiteCodeEinzel.indexOf('{#if data.einzelaufgaben.length > 0}'),
 		],
 		[
 			'das Zeichen im Knopf ist für Vorlesende verborgen',
@@ -7627,10 +7637,11 @@ try {
 			!/<details(?! open>)[^>]*>\s*<summary class="abschnitt__griff">/.test(startseiteCodeEinzel),
 		],
 		[
-			'der Titel nennt die Sache und die Handlung',
-			/<h2 class="marke marke--griff" id="einzel-marke">Einzelaufgaben zum Übernehmen<\/h2>/.test(
-				startseiteCodeEinzel
-			),
+			// Der Griff trägt seit dem 2026-09-11 die Zahl statt eines Titels — die
+			// Zahl **ist** die Überschrift. Was er sagt, prüft die Griff-Wache weiter
+			// oben; hier steht nur, dass er da ist.
+			'beide Griffe tragen einen Satz mit Kennung',
+			(startseiteCodeEinzel.match(/<h2 class="griff__satz" id="[a-z-]+">/g) ?? []).length === 2,
 		],
 		[
 			'und der primäre Knopf steht hinter dem letzten </details>',

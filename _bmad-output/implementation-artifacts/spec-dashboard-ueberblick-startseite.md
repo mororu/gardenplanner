@@ -2,7 +2,7 @@
 title: 'Überblicksband auf der Startseite — das Dashboard über den drei Blöcken'
 type: 'feature'
 created: '2026-09-11'
-status: 'in-review'
+status: 'done'
 review_loop_iteration: 0
 context: []
 ---
@@ -162,3 +162,19 @@ drei Kacheln, ohne dass jemand die Spaltenzahl nachführt. Bei 375px bleiben run
 **Manual checks (if no CLI):**
 - Jede neue Behauptung einmal absichtlich brechen (Zahl verfälschen, Kachel bei 0 rendern, Kachel unter 44px
   drücken) und den roten Lauf in der Commit-Nachricht festhalten.
+
+## Nachtrag — das Band ist aufgelöst (2026-09-11)
+
+**Diese Story ist abgeschlossen und ihr Ergebnis anschliessend ersetzt worden.** Das Überblicksband hat getan,
+wofür es gebaut wurde: es hat gezeigt, dass die drei Zahlen auf der Startseite gehören. Im Gebrauch zeigte sich
+dann, dass es dieselben Abschnitte ein zweites Mal überschreibt — das Band sagte `4 Aufgaben offen`, die Marke
+darunter `Offen` über derselben Liste.
+
+Die Zahlen stehen seither **in den Griffen der Abschnitte**. Gemessen: der Kopfbereich fiel von 251px auf 180px,
+die drei Kopfzeilen messen 45/53/53px statt der 115px des Bands allein. Der eigentliche Gewinn ist aber, dass
+ein zugeklappter Abschnitt jetzt seinen Inhalt verbirgt und nicht mehr seine Lage — AD-14 hält damit
+unabhängig davon, ob jemand die Abschnitte offen lässt.
+
+Was bleibt: die vier Zahlen in der `load` (`Ueberblick`), die Code Map, und die Erkenntnis, dass `--warn` und
+`--overdue` nicht auf dieselbe Seite gehören. Was fällt: das Band selbst, seine Klassen und die AD-14-Ergänzung
+über ein „Überblicksband" — sie ist neu gefasst.

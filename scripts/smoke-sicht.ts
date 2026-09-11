@@ -1139,33 +1139,32 @@ try {
 	 * ein verlorenes `auto` als „fast rechts" durch.
 	 */
 	/*
-	 * **Das Überblicksband bei 375px — die Frage „was passiert auf dem Natel",
+	 * **Die Kopfzeilen bei 375px — die Frage „was passiert auf dem Natel",
 	 * gemessen statt beantwortet.**
 	 *
-	 * Die Kacheln stehen in drei gleich breiten Spalten von rund 110px. Was darin
-	 * nicht passt, bricht um; was auch dann nicht passt, würde abgeschnitten — und
-	 * abgeschnittener Text ist ein Fehler, keine Gestaltung. Gemessen wird darum
-	 * `scrollHeight` gegen `clientHeight` je Kachel: läuft der Inhalt über seinen
-	 * Kasten hinaus, ist er verborgen.
+	 * Bis zum 2026-09-11 stand hier ein Überblicksband aus drei Kacheln, und diese
+	 * Zeile mass deren Höhen. Das Band ist fort: die Zahlen stehen jetzt in den
+	 * Griffen der zwei Abschnitte und in der Zeile zum Tränkeplan. Gemessen wird
+	 * dasselbe wie vorher — läuft der Inhalt über seinen Kasten hinaus, ist er
+	 * verborgen, und abgeschnittener Text ist ein Fehler und keine Gestaltung.
 	 *
-	 * Die gemessenen Höhen stehen **im Namen der Behauptung**. Sie sind keine
-	 * Schwelle — eine Zahl als Grenze wäre bei jeder Schriftänderung rot aus dem
-	 * falschen Grund —, aber sie machen sichtbar, was eine längere Beschriftung
-	 * kostet. Als `Einzelaufgaben zum Übernehmen` dort stand, war die mittlere
-	 * Kachel spürbar höher als ihre Nachbarinnen.
+	 * Die Höhen stehen im Namen der Behauptung. Sie sind keine Schwelle — eine Zahl
+	 * als Grenze wäre bei jeder Schriftänderung rot aus dem falschen Grund —, aber
+	 * sie machen sichtbar, was eine längere Beschriftung kostet. Der Umbau war
+	 * dadurch belegbar: der Kopfbereich fiel von 251px auf 180px.
 	 */
-	const bandKacheln = await browser.auswerten<{ hoehe: number; inhalt: number; wort: string }[]>(`
-		return [...document.querySelectorAll('.ueberblick__kachel')].map((el) => ({
+	const kopfzeilen = await browser.auswerten<{ hoehe: number; inhalt: number; was: string }[]>(`
+		return [...document.querySelectorAll('.abschnitt__griff, .plan-zeile')].map((el) => ({
 			hoehe: Math.round(el.getBoundingClientRect().height),
 			inhalt: el.scrollHeight,
-			wort: (el.querySelector('.ueberblick__wort')?.textContent ?? '').trim().split(/\\s+/).join(' '),
+			was: (el.textContent ?? '').trim().split(/\\s+/).join(' ').slice(0, 40),
 		}));
 	`);
-	const abgeschnitten = bandKacheln.filter((k) => k.inhalt > k.hoehe + 1);
+	const abgeschnitten = kopfzeilen.filter((k) => k.inhalt > k.hoehe + 1);
 	pruefen(
-		`keine Kachel des Bands schneidet ihren Text ab (${bandKacheln.map((k) => k.hoehe).join('/')}px hoch)`,
-		bandKacheln.length > 0 && abgeschnitten.length === 0,
-		abgeschnitten.map((k) => `${k.wort}: ${k.inhalt} in ${k.hoehe}`).join(' | ')
+		`keine Kopfzeile schneidet ihren Text ab (${kopfzeilen.map((k) => k.hoehe).join('/')}px hoch)`,
+		kopfzeilen.length >= 2 && abgeschnitten.length === 0,
+		abgeschnitten.map((k) => `${k.was}: ${k.inhalt} in ${k.hoehe}`).join(' | ')
 	);
 
 	const kurzKnopf = `#uebernehmen-${kurz.id}`;

@@ -571,70 +571,59 @@ try {
 		(/seit \d+ Wochen offen/.exec(startseiteHtml) ?? [])[0]
 	);
 
-	// --- Das Überblicksband, gegen die Listen gehalten, die es zusammenfasst ---
+	// --- Der Griff des Pools, gegen die Liste gehalten, die er zusammenfasst ---
 	/*
-	 * **Die Kachel wird nicht gegen eine eingetippte Zahl geprüft, sondern gegen
-	 * das Dokument, in dem sie steht.**
+	 * **Die Zahl im Griff wird nicht gegen eine eingetippte Erwartung geprüft,
+	 * sondern gegen das Dokument, in dem sie steht.**
 	 *
-	 * Der Fehler, den das fängt: eine Kachel, die ihre Zahl aus einer zweiten
-	 * Abfrage zöge, stünde irgendwann mit `6` über einer fünfzeiligen Liste. Eine
-	 * feste Erwartung hier wäre dagegen bei jeder Änderung der Saat rot aus dem
-	 * falschen Grund.
+	 * Bis zum 2026-09-11 mass diese Zeile ein Überblicksband über den Abschnitten.
+	 * Das Band ist fort — die Zahl ist jetzt die Überschrift des Abschnitts selbst,
+	 * und dieselbe Gefahr bleibt: eine Zahl aus einer zweiten Abfrage stünde
+	 * irgendwann mit 6 über einer fünfzeiligen Liste.
 	 *
-	 * Gemessen wird an demselben `startseiteHtml`, an dem oben der Fristsatz
-	 * belegt ist — dort steht nachweislich mindestens eine überfällige Zeile.
-	 *
-	 * **Die Klassen werden tolerant gesucht.** Svelte hängt seine Bereichsklasse
-	 * an, `class="zeile"` am Stück fände nichts — derselbe Grund, der schon über
-	 * dem Fristabsatz steht. `\bzeile\b` trifft `zeile svelte-x` und nicht
-	 * `zeile__frist`, weil der Unterstrich ein Wortzeichen ist.
+	 * Die Klassen werden tolerant gesucht: Svelte hängt seine Bereichsklasse an.
 	 */
 	const klasse = (tag: string, name: string) =>
 		new RegExp(`<${tag}\\b[^>]*\\bclass="[^"]*\\b${name}\\b[^"]*"`, 'g');
 	const wieViele = (html: string, muster: RegExp) => (html.match(muster) ?? []).length;
 	const offeneZeilen = wieViele(startseiteHtml, klasse('li', 'zeile'));
 	const fristZeilen = wieViele(startseiteHtml, klasse('p', 'zeile__frist'));
-	const kachelZahl = (html: string, wort: string): number | null => {
-		const treffer = new RegExp(
-			`<a\\b[^>]*\\bclass="[^"]*\\bueberblick__kachel\\b[^"]*"[^>]*>[\\s\\S]*?` +
-				`<span[^>]*\\bclass="[^"]*\\bueberblick__zahl\\b[^"]*"[^>]*>([0-9]+)<\\/span>` +
-				`[\\s\\S]*?${wort}`
-		).exec(html);
+	/*
+	 * **Der Griff des Pools wird ausgeschnitten, nicht der erste im Dokument.**
+	 * `kopfzahl` steht auch in der Zeile zum Tränkeplan, und die kommt weiter oben
+	 * — der erste Treffer im Dokument war darum die Zahl der unbesetzten Wochen.
+	 * Gemessen am 2026-09-11: „Zeilen 1, Griff 13".
+	 */
+	const griffVon = (html: string, kennung: string): string =>
+		(new RegExp(`<h2[^>]*\\bid="${kennung}"[\\s\\S]*?<\\/h2>`).exec(html) ?? [''])[0];
+	const griffZahl = (html: string, kennung: string): number | null => {
+		const treffer = /<span[^>]*\bclass="[^"]*\bkopfzahl\b[^"]*"[^>]*>([0-9]+)</.exec(
+			griffVon(html, kennung)
+		);
 		return treffer === null ? null : Number(treffer[1]);
 	};
-	const bandTeile = [
+	const griffTeile = [
 		[
-			'das Band steht im Dokument und nennt sich',
-			/<nav\b[^>]*\bclass="[^"]*\bueberblick\b[^"]*"[^>]*\baria-label="Überblick"/.test(
-				startseiteHtml
-			),
+			'es steht kein Überblicksband mehr im Dokument',
+			!/class="[^"]*\bueberblick\b/.test(startseiteHtml),
 		],
 		['die Saat trägt überhaupt offene Zeilen', offeneZeilen > 0],
 		[
-			`die Kachel nennt so viele offene, wie Zeilen gerendert sind (${offeneZeilen})`,
-			kachelZahl(startseiteHtml, 'offen') === offeneZeilen,
+			`der Griff nennt so viele offene, wie Zeilen gerendert sind (${offeneZeilen})`,
+			griffZahl(startseiteHtml, 'offen-marke') === offeneZeilen,
 		],
 		[
-			`der Zusatz nennt so viele überfällige, wie Fristsätze gerendert sind (${fristZeilen})`,
+			`und so viele überfällige, wie Fristsätze gerendert sind (${fristZeilen})`,
 			new RegExp(
-				`<span[^>]*\\bclass="[^"]*\\bueberblick__frist\\b[^"]*"[^>]*>${fristZeilen} überfällig<`
+				`<span[^>]*\\bclass="[^"]*\\bkopffrist\\b[^"]*"[^>]*>\\s*· ${fristZeilen} überfällig`
 			).test(startseiteHtml),
 		],
-		[
-			// Jede Kachel ist ein Verweis. Ein Band, das nur zählt und nirgendwohin
-			// führt, informierte exklusiv — und genau das verbietet AD-14.
-			'jede Kachel ist ein Verweis',
-			wieViele(startseiteHtml, klasse('a', 'ueberblick__kachel')) ===
-				wieViele(startseiteHtml, /\bueberblick__kachel\b/g),
-		],
 	] as const;
-	// Nicht `fehlendeTeile`: die Hilfsfunktion wird weiter unten als const
-	// deklariert und liegt hier noch in ihrer temporalen Totzone.
-	const bandFehlt = bandTeile.filter(([, erfuellt]) => !erfuellt).map(([name]) => name);
+	const griffFehlt = griffTeile.filter(([, erfuellt]) => !erfuellt).map(([name]) => name);
 	pruefen(
-		'das Überblicksband auf / stimmt mit den Listen überein, die es zusammenfasst',
-		bandFehlt.length === 0,
-		`fehlt: ${bandFehlt.join(', ')}`
+		'der Griff des Pools auf / stimmt mit der Liste überein, die er zusammenfasst',
+		griffFehlt.length === 0,
+		`fehlt: ${griffFehlt.join(', ')}`
 	);
 
 	// --- Die Navigationsleiste markiert auch auf einer Formularroute ----------
@@ -1302,26 +1291,22 @@ try {
 	);
 
 	/*
-	 * **Dieselbe Kachel, ein zweiter Datenstand.**
+	 * **Derselbe Griff, ein zweiter Datenstand.**
 	 *
-	 * Oben stimmte die Zahl bei mehreren Zeilen samt Überfälligkeit; hier steht
-	 * der Pool anders da. Eine Kachel, die ihre Zahl aus einer zweiten Abfrage
-	 * zöge, käme bei einem der beiden Stände ins Rutschen — ein einziger Messpunkt
-	 * liesse das durch.
-	 *
-	 * Die Zahl der Zeilen wird **mitgenannt** und nicht erwartet: ändert jemand die
-	 * Saat, bleibt die Zeile wahr und sagt trotzdem, womit sie gerechnet hat.
+	 * Oben stimmte die Zahl bei mehreren Zeilen samt Überfälligkeit; hier steht der
+	 * Pool anders da. Ein einziger Messpunkt liesse eine Zahl aus einer zweiten
+	 * Abfrage durch, die bei einem der beiden Stände zufällig passt.
 	 */
 	const zeilenHier = (
 		startseiteMitDienstHtml.match(/<li\b[^>]*\bclass="[^"]*\bzeile\b[^"]*"/g) ?? []
 	).length;
-	const kachelHier = /<span[^>]*\bclass="[^"]*\bueberblick__zahl\b[^"]*"[^>]*>([0-9]+)</.exec(
-		startseiteMitDienstHtml
+	const griffHier = /<span[^>]*\bclass="[^"]*\bkopfzahl\b[^"]*"[^>]*>([0-9]+)</.exec(
+		griffVon(startseiteMitDienstHtml, 'offen-marke')
 	);
 	pruefen(
-		`auch im zweiten Datenstand nennt die erste Kachel die Zahl der Zeilen (${zeilenHier})`,
-		zeilenHier > 0 && kachelHier !== null && Number(kachelHier[1]) === zeilenHier,
-		`Zeilen ${zeilenHier}, Kachel ${kachelHier?.[1] ?? '(keine)'}`
+		`auch im zweiten Datenstand nennt ein Griff die Zahl der Zeilen (${zeilenHier})`,
+		zeilenHier > 0 && griffHier !== null && Number(griffHier[1]) === zeilenHier,
+		`Zeilen ${zeilenHier}, Griff ${griffHier?.[1] ?? '(keiner)'}`
 	);
 
 	/*
@@ -1527,8 +1512,8 @@ try {
 	 */
 	const leerTeile = [
 		[
-			'der Abschnitt steht mit seinem Titel',
-			/<h2[^>]*>\s*Einzelaufgaben zum Übernehmen\s*<\/h2>/.test(leeresBlock2),
+			'der Abschnitt steht mit seinem Griff',
+			/<h2[^>]*\bclass="[^"]*\bgriff__satz\b[^"]*"[^>]*\bid="einzel-marke"/.test(leeresBlock2),
 		],
 		[
 			// Svelte schreibt das Wahrheitsattribut als open="" aus, nicht als nacktes
@@ -1537,10 +1522,10 @@ try {
 			/<details\b[^>]*\bopen\b/.test(leeresBlock2),
 		],
 		[
-			'statt der Liste steht ein Satz',
-			/<p[^>]*\bclass="[^"]*\bleer\b[^"]*"[^>]*>\s*Nichts ausgeschrieben\.\s*<\/p>/.test(
-				leeresBlock2
-			),
+			// Der Satz steht im Griff und nicht im Rumpf — er ist damit auch im
+			// zugeklappten Abschnitt zu lesen.
+			'und sein Griff sagt, dass nichts ausgeschrieben ist',
+			/Nichts ausgeschrieben\./.test(leeresBlock2),
 		],
 		['und kein Rest der Liste', !leeresBlock2.includes('noch niemand')],
 		['kein Übernehmen-Knopf ohne etwas zu übernehmen', !/id="uebernehmen-/.test(leeresBlock2)],
