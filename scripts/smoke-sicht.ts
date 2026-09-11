@@ -66,7 +66,7 @@ import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-t
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 73;
+const ERWARTETE_BEHAUPTUNGEN = 74;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -1138,6 +1138,36 @@ try {
 	 * Toleranz ist ein Pixel für gebrochene Gerätepixel — nicht mehr, sonst ginge
 	 * ein verlorenes `auto` als „fast rechts" durch.
 	 */
+	/*
+	 * **Das Überblicksband bei 375px — die Frage „was passiert auf dem Natel",
+	 * gemessen statt beantwortet.**
+	 *
+	 * Die Kacheln stehen in drei gleich breiten Spalten von rund 110px. Was darin
+	 * nicht passt, bricht um; was auch dann nicht passt, würde abgeschnitten — und
+	 * abgeschnittener Text ist ein Fehler, keine Gestaltung. Gemessen wird darum
+	 * `scrollHeight` gegen `clientHeight` je Kachel: läuft der Inhalt über seinen
+	 * Kasten hinaus, ist er verborgen.
+	 *
+	 * Die gemessenen Höhen stehen **im Namen der Behauptung**. Sie sind keine
+	 * Schwelle — eine Zahl als Grenze wäre bei jeder Schriftänderung rot aus dem
+	 * falschen Grund —, aber sie machen sichtbar, was eine längere Beschriftung
+	 * kostet. Als `Einzelaufgaben zum Übernehmen` dort stand, war die mittlere
+	 * Kachel spürbar höher als ihre Nachbarinnen.
+	 */
+	const bandKacheln = await browser.auswerten<{ hoehe: number; inhalt: number; wort: string }[]>(`
+		return [...document.querySelectorAll('.ueberblick__kachel')].map((el) => ({
+			hoehe: Math.round(el.getBoundingClientRect().height),
+			inhalt: el.scrollHeight,
+			wort: (el.querySelector('.ueberblick__wort')?.textContent ?? '').trim().split(/\\s+/).join(' '),
+		}));
+	`);
+	const abgeschnitten = bandKacheln.filter((k) => k.inhalt > k.hoehe + 1);
+	pruefen(
+		`keine Kachel des Bands schneidet ihren Text ab (${bandKacheln.map((k) => k.hoehe).join('/')}px hoch)`,
+		bandKacheln.length > 0 && abgeschnitten.length === 0,
+		abgeschnitten.map((k) => `${k.wort}: ${k.inhalt} in ${k.hoehe}`).join(' | ')
+	);
+
 	const kurzKnopf = `#uebernehmen-${kurz.id}`;
 	const kurzKasten = await kasten(kurzKnopf);
 	const kurzKarte = await kasten(`li:has(${kurzKnopf})`);

@@ -304,14 +304,25 @@ export function ueberblickUeberfaellig(anzahl: number): string {
 /**
  * Freie Einzelaufgaben.
  *
- * **Die Kachel nennt die Art der Sache**, seit dem 2026-09-11: `zum Übernehmen`
- * allein sagte nicht, was da zu übernehmen ist — neben zwei anderen Zahlen war
- * es die einzige Kachel ohne Gegenstand. Sie ist damit die längste der drei; bei
- * 375px bricht ihr Wort über mehrere Zeilen, und das ist der bewusst genommene
- * Preis für die Klarheit.
+ * **Die Kachel nennt die Art der Sache und ihren Zustand**, in derselben Form
+ * wie ihre zwei Nachbarinnen: Gegenstand, dann Zustandswort. `Aufgaben offen`,
+ * `Einzelaufgaben offen`, `Tränkewochen unbesetzt` — drei Kacheln, ein Satzbau.
+ *
+ * Vorher stand hier `Einzelaufgaben zum Übernehmen`. Das war zwölf Zeichen
+ * länger, brach in einer Kachel von rund 110px über vier Zeilen und machte die
+ * drei Kacheln ungleich hoch — und es fiel als einzige aus dem Satzbau, weil es
+ * eine **Handlung** nannte, wo die anderen einen **Zustand** nennen.
+ *
+ * **`offen` und nicht `frei`**, obwohl `frei` das Wort des Quelltexts ist
+ * (`freieEinzelaufgabenLesen`). Die Kachel steht neben `Aufgaben offen`, und
+ * zwei verschiedene Wörter für „hier fehlt noch jemand" wären auf zwei
+ * benachbarten Kacheln die teurere Genauigkeit. Der Unterschied ist benannt und
+ * hingenommen: eine offene **Aufgabe** ist nicht abgehakt, eine offene
+ * **Einzelaufgabe** hat noch niemanden — einen Erledigt-Zustand hat sie gar
+ * nicht (`signup_tasks` trägt keine Spalte dafür).
  */
 export function ueberblickFrei(anzahl: number): string {
-	return anzahl === 1 ? 'Einzelaufgabe zum Übernehmen' : 'Einzelaufgaben zum Übernehmen';
+	return anzahl === 1 ? 'Einzelaufgabe offen' : 'Einzelaufgaben offen';
 }
 
 /**
