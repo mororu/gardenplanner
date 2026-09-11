@@ -66,7 +66,7 @@ import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-t
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 70;
+const ERWARTETE_BEHAUPTUNGEN = 72;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -1080,6 +1080,39 @@ try {
 			`return document.querySelector(${JSON.stringify(uebernehmen)}) !== null`
 		),
 		`${uebernehmen} fehlt im Dokument`
+	);
+
+	/*
+	 * **Kleiner heisst schmaler und leiser — nicht schwerer zu treffen.**
+	 *
+	 * Der Knopf stand bis zum 2026-09-11 über die volle Spaltenbreite unter dem
+	 * Titel und ist seither ein kompakter Knopf neben ihm. Die Anwendung wird
+	 * überwiegend auf dem Telefon bedient; ein Knopf, der dabei unter das
+	 * 44px-Trefferfeld fiele, wäre die eigentliche Verschlechterung. Gemessen am
+	 * gerenderten Kasten bei 375px und nicht am Regelkörper: `min-height` sagt
+	 * nichts über die Breite, und die ist hier die Grösse, die schrumpfen sollte.
+	 */
+	const kompakt = await kasten(uebernehmen);
+	pruefen(
+		`der kompakte Übernehmen-Knopf hält ${TREFFER_MINIMUM}px in beiden Richtungen`,
+		kompakt.breite >= TREFFER_MINIMUM && kompakt.hoehe >= TREFFER_MINIMUM,
+		`${Math.round(kompakt.breite)}x${Math.round(kompakt.hoehe)}px`
+	);
+	/*
+	 * Und die Reihe aus Titel und Knopf sprengt die Spalte nicht. Der Titel dieser
+	 * Saat ist kurz; was hier gemessen wird, ist darum die Bauform und nicht der
+	 * Grenzfall — den trägt die Handprüfung mit einem langen Titel.
+	 */
+	const breiteHier = await browser.auswerten<{ dokument: number; fenster: number }>(`
+		return {
+			dokument: document.documentElement.scrollWidth,
+			fenster: document.documentElement.clientWidth,
+		};
+	`);
+	pruefen(
+		'und die Zeile aus Titel und Knopf scrollt bei 375px nicht waagrecht',
+		breiteHier.dokument <= breiteHier.fenster,
+		`${breiteHier.dokument} > ${breiteHier.fenster}`
 	);
 
 	await browser.klicken(uebernehmen);

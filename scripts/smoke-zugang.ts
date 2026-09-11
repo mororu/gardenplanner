@@ -7529,9 +7529,38 @@ try {
 				einzelBlock
 			),
 		],
+		/*
+		 * **Die zwei Wege stehen ausserhalb dieses Blocks — das ist die Zusage.**
+		 *
+		 * Bis zum 2026-09-11 stand hier ein Fusslink `Alle Einzelaufgaben`
+		 * **innerhalb** des {#if}, und diese Zeile belegte ihn dort. Damit war eine
+		 * Sackgasse belegt statt verhindert: ohne freie Einzelaufgabe fiel der Block
+		 * weg und mit ihm der einzige Weg von / nach /einzelaufgaben.
+		 *
+		 * Die Bedingung ist darum umgedreht. Der Block darf die zwei Ziele **nicht**
+		 * enthalten, die Seite muss sie enthalten. Wer den Aufklapper wieder
+		 * hineinzieht, macht diese Zeile rot.
+		 */
 		[
-			'der Fusslink führt auf /einzelaufgaben',
-			/href=\{resolve\('\/einzelaufgaben'\)\}/.test(einzelBlock),
+			'die zwei Wege stehen nicht im bedingten Block',
+			!/href=\{resolve\('\/einzelaufgaben?'\)\}/.test(einzelBlock),
+		],
+		[
+			'sondern im Aufklapper darunter, der immer da ist',
+			/<details class="zeilenform einzel__wege">/.test(startseiteCodeEinzel) &&
+				/href=\{resolve\('\/einzelaufgabe'\)\}/.test(startseiteCodeEinzel) &&
+				/href=\{resolve\('\/einzelaufgaben'\)\}/.test(startseiteCodeEinzel),
+		],
+		[
+			'und der Aufklapper steht hinter dem Ende des bedingten Blocks',
+			startseiteCodeEinzel.indexOf('<details class="zeilenform einzel__wege">') >
+				startseiteCodeEinzel.indexOf('{#if data.einzelaufgaben.length > 0}') +
+					einzelBlock.length -
+					1,
+		],
+		[
+			'das Zeichen im Knopf ist für Vorlesende verborgen',
+			/<svg\n?[\s\S]{0,400}?aria-hidden="true"/.test(einzelBlock),
 		],
 		/*
 		 * Block 1 vor Block 2 vor Block 3 — die Reihenfolge aus AD-14, gemessen an

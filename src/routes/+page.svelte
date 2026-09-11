@@ -648,8 +648,19 @@
 					Farbe, sonst lernte man sie zweimal.
 				-->
 				<li class="karte karte--offen">
-					<div class="zeile__spalte">
-						<!--
+					<!--
+						**Eine Reihe, nicht zwei Blöcke übereinander.** Der Knopf stand bis
+						zum 2026-09-11 über die volle Spaltenbreite unter dem Titel und
+						nahm auf dem Telefon — dem Hauptgerät dieser Anwendung — Höhe weg,
+						die die Liste braucht. Jetzt steht er daneben.
+
+						`align-items: flex-start`: bei einem langen Titel, der bei 375px
+						über drei Zeilen läuft, soll der Knopf oben bleiben und nicht in
+						die Mitte rutschen.
+					-->
+					<div class="einzel__reihe">
+						<div class="zeile__spalte">
+							<!--
 							Die Kennung dieser Zeile. Der Knopf darunter heisst in jeder Zeile
 							`Übernehmen`; wer die Liste sieht, liest den Titel mit, wer sie mit
 							einer Elementliste durchgeht, bekäme sonst dasselbe Wort ohne jede
@@ -659,11 +670,11 @@
 							`.zeile__text` bringt den Umbruch für getippten Text aus dem
 							geteilten Stilblatt mit.
 						-->
-						<p class="fliesstext zeile__text" id="einzel-titel-{aufgabe.id}">
-							{aufgabe.titel}
-						</p>
-						<p class="hinweis hinweis--ziffern">{datumLang(aufgabe.terminAt)}</p>
-						<!--
+							<p class="fliesstext zeile__text" id="einzel-titel-{aufgabe.id}">
+								{aufgabe.titel}
+							</p>
+							<p class="hinweis hinweis--ziffern">{datumLang(aufgabe.terminAt)}</p>
+							<!--
 							`noch niemand` steht hier als Wort und nicht als Ausdruck über
 							`aufgabe.uebernehmer`: die load reicht über
 							freieEinzelaufgabenLesen ausschliesslich **freie** Zeilen herein,
@@ -671,10 +682,10 @@
 							ein toter Zweig. Auf /einzelaufgaben, wo beide Zustände stehen,
 							verzweigt die Zeile wirklich.
 						-->
-						<p class="hinweis">noch niemand</p>
-					</div>
+							<p class="hinweis">noch niemand</p>
+						</div>
 
-					<!--
+						<!--
 						**Entweder der Knopf oder die Frage, nie beides.** Steht die Frage
 						zu dieser Zeile offen, ist der Knopf darüber fort: er schickte
 						dieselbe action ein zweites Mal ab und stellte damit nur dieselbe
@@ -693,28 +704,56 @@
 						öffnet den Dialog; **ohne** JavaScript läuft er nicht, der POST geht
 						durch, und der Server antwortet mit derselben Frage als Dokument.
 					-->
-					{#if !frageHier}
-						<form
-							class="einzel__form"
-							method="POST"
-							action="?/uebernehmen"
-							use:enhance={versandFragen(aufgabe)}
-						>
-							<input type="hidden" name="einzelaufgabeId" value={aufgabe.id} />
-							<button
-								class="button-quiet"
-								type="submit"
-								id="uebernehmen-{aufgabe.id}"
-								aria-labelledby="uebernehmen-{aufgabe.id} einzel-titel-{aufgabe.id}"
-								disabled={imFlug}
+						{#if !frageHier}
+							<form
+								class="einzel__form"
+								method="POST"
+								action="?/uebernehmen"
+								use:enhance={versandFragen(aufgabe)}
 							>
-								Übernehmen
-							</button>
-						</form>
-					{/if}
+								<input type="hidden" name="einzelaufgabeId" value={aufgabe.id} />
+								<button
+									class="button-quiet button-quiet--kompakt"
+									type="submit"
+									id="uebernehmen-{aufgabe.id}"
+									aria-labelledby="uebernehmen-{aufgabe.id} einzel-titel-{aufgabe.id}"
+									disabled={imFlug}
+								>
+									<!--
+									**Das Zeichen steht neben dem Wort, nicht an seiner Stelle.**
+									Ein Kopf mit Schultern, weil Übernehmen in diesem System genau
+									eines heisst: die Sache bekommt einen Namen (AD-4). Ein Häkchen
+									sagte `erledigt` und bedeutet im Kästchen der Aufgabenzeile
+									schon etwas anderes; ein `+` sagte `anlegen` und steht am
+									primären Knopf.
+
+									`aria-hidden`, weil das Wort daneben den Namen schon trägt —
+									sonst hörte man die Handlung zweimal. `currentColor`, damit es
+									im deaktivierten Zustand mit der Schrift mitgeht.
+								-->
+									<svg
+										class="zeichen"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										aria-hidden="true"
+									>
+										<circle cx="12" cy="8" r="4" />
+										<path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+									</svg>
+									Übernehmen
+								</button>
+							</form>
+						{/if}
+					</div>
 
 					<!--
 						Die Bestätigung **ohne JavaScript**, an der Zeile, um die es geht.
+						Sie steht **ausserhalb** der Reihe: sie gehört nicht neben den Titel,
+						sondern unter die ganze Zeile — sie ist eine Frage an die Person, kein
+						Bedienelement der Kopfzeile.
 						Mit JavaScript entsteht sie im Regelfall nie — der Rückruf oben bricht
 						den ersten Versand ab, und `form` wird dann nicht auf `fragen` gesetzt.
 						Die Ausnahme ist sein Ausfallweg: ist `dialog` nicht gebunden, läuft
@@ -767,9 +806,35 @@
 				</li>
 			{/each}
 		</ul>
-		<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-		<a class="einzel__mehr" href={resolve('/einzelaufgaben')}>Alle Einzelaufgaben</a>
 	{/if}
+
+	<!--
+		**Der Aufklapper steht ausserhalb der Bedingung darüber, und das ist sein
+		ganzer Zweck.**
+
+		Bis zum 2026-09-11 stand hier ein Link `Alle Einzelaufgaben` **innerhalb**
+		des {#if}. War nichts ausgeschrieben, fiel Block 2 ganz weg — und mit ihm
+		der einzige Weg von `/` nach `/einzelaufgaben`; man musste über `/mehr`.
+		Eine Sackgasse genau in dem Zustand, in dem jemand am ehesten etwas
+		ausschreiben will.
+
+		`Einzelaufgabe ausschreiben` steht **auch** weiterhin auf `/mehr`. Zwei Wege
+		zum selben Ziel sind kein Widerspruch: `/mehr` ist das Inhaltsverzeichnis
+		der Anwendung, dieser Aufklapper ist der kurze Griff am Ort der Sache.
+
+		Ein `<details>` nach der Bauform von `/verwaltung` und `/traenkeplan` — es
+		klappt **ohne JavaScript** auf. Zugeklappt verbirgt es nur Handlungen, nie
+		den Zustand des Gartens: die freien Einzelaufgaben stehen darüber offen da,
+		und AD-14 ist genau dagegen geschrieben, sie wegzuklappen.
+	-->
+	<details class="zeilenform einzel__wege">
+		<summary class="zeilenform__griff">Einzelaufgaben</summary>
+		<div class="knoepfe">
+			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+			<a class="eintrag" href={resolve('/einzelaufgabe')}>Einzelaufgabe ausschreiben</a>
+			<a class="eintrag" href={resolve('/einzelaufgaben')}>Alle Einzelaufgaben</a>
+		</div>
+	</details>
 
 	<h2 class="marke" id="offen-marke">Offen</h2>
 	{#if data.aufgaben.length === 0}
@@ -1350,21 +1415,29 @@
 	}
 
 	/*
-		Der Fusslink auf die Unterseite. Ein Zeilenziel, kein Knopf: er führt
-		weiter, er tut nichts — dieselbe Rolle wie ein Eintrag auf /mehr, und
-		darum in der Nebentext-Grösse statt in der Knopfform. Höchstens ein
-		primärer Knopf pro Seite, und das ist `+ Aufgabe` unter dem Pool.
+		Die Kopfzeile einer Einzelaufgabe: Titelspalte und Knopf nebeneinander.
+
+		`align-items: flex-start` hält den Knopf oben, wenn der Titel bei 375px
+		über mehrere Zeilen läuft. Die Spalte trägt `min-width: 0` aus
+		`.zeile__spalte` und darf darum schrumpfen; der Knopf trägt
+		`flex: 0 0 auto` aus dem Modifikator und bleibt vollständig.
+
+		Der Fusslink `.einzel__mehr` stand hier bis zum 2026-09-11 und ist in den
+		Aufklapper unter der Liste gezogen — die Begründung, warum er kein Knopf
+		sein durfte, gilt dort weiter: er führt weiter, er tut nichts, und der eine
+		primäre Knopf der Seite ist `+ Aufgabe` unter dem Pool.
 	*/
-	.einzel__mehr {
+	.einzel__reihe {
 		display: flex;
-		align-items: center;
-		/* Trefferfeld: 44px Boden, auch für einen blossen Link */
-		min-height: var(--touch);
-		color: var(--accent);
-		font-family: var(--action-font);
-		font-size: var(--action-size);
-		font-weight: var(--action-weight);
-		line-height: var(--action-line);
-		text-decoration: none;
+		align-items: flex-start;
+		gap: var(--space-3);
+	}
+
+	/*
+		Der Aufklapper steht mit Abstand unter der Liste und nicht als Fuss der
+		letzten Karte — er gehört zum Block, nicht zu einer Zeile.
+	*/
+	.einzel__wege {
+		margin-block-start: var(--space-3);
 	}
 </style>

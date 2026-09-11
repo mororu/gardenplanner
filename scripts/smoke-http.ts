@@ -115,7 +115,7 @@ import {
  * Stellen, von denen eine niemand rot macht, ist schlechter als eine Zahl an
  * einer — die Schlussmeldung des Laufs nennt sie ohnehin bei jedem Durchgang.
  */
-const ERWARTETE_BEHAUPTUNGEN = 161;
+const ERWARTETE_BEHAUPTUNGEN = 162;
 
 /**
  * Ein Jahr in Sekunden — die Laufzeit aus src/lib/server/auth.ts.
@@ -1519,6 +1519,38 @@ try {
 		leeresBlock2.includes('Zum Übernehmen') ? 'die Marke steht da' : 'ein Rest steht da'
 	);
 
+	/*
+	 * **Und trotzdem kommt man von hier weiter — genau das war vorher nicht so.**
+	 *
+	 * Bis zum 2026-09-11 stand der Link auf /einzelaufgaben **innerhalb** des
+	 * {#if} darüber. In genau diesem Zustand — nichts ausgeschrieben — fiel er mit
+	 * dem Block weg, und `/` hatte keinen Weg mehr dorthin; man musste über /mehr.
+	 * Eine Sackgasse in dem Moment, in dem jemand am ehesten etwas ausschreiben
+	 * will.
+	 *
+	 * Gemessen wird am selben Dokument, das eine Zeile höher belegt, dass der Block
+	 * fehlt. Beides zusammen ist die Zusage: der Block darf verschwinden, die Wege
+	 * nicht.
+	 */
+	const wegeTeile = [
+		[
+			'der Aufklapper steht im Dokument',
+			/<details[^>]*\bclass="[^"]*\bzeilenform\b/.test(leeresBlock2),
+		],
+		['und nennt sich Einzelaufgaben', /<summary[^>]*>\s*Einzelaufgaben\s*</.test(leeresBlock2)],
+		['der Weg zum Ausschreiben', /<a\b[^>]*\bhref="\.?\/einzelaufgabe"/.test(leeresBlock2)],
+		[
+			'und der Weg zu allen Einzelaufgaben',
+			/<a\b[^>]*\bhref="\.?\/einzelaufgaben"/.test(leeresBlock2),
+		],
+	] as const;
+	const wegeFehlt = wegeTeile.filter(([, erfuellt]) => !erfuellt).map(([name]) => name);
+	pruefen(
+		'ohne freie Einzelaufgabe führen von / trotzdem beide Wege weiter — keine Sackgasse',
+		wegeFehlt.length === 0,
+		`fehlt: ${wegeFehlt.join(', ')}`
+	);
+
 	const ausschreibenHtml = await (await holen(port, '/einzelaufgabe', { keks: adminKeks })).text();
 	const terminMin =
 		/<input\b[^>]*\bname="termin"[^>]*\bmin="([0-9-]+)"/.exec(ausschreibenHtml)?.[1] ?? '';
@@ -1577,8 +1609,19 @@ try {
 		['danach steht der Titel auf der Startseite', startseiteHtmlEinzel.includes(einzelTitel)],
 		['mit dem Wort `noch niemand`', startseiteHtmlEinzel.includes('noch niemand')],
 		[
-			'und einem Knopf `Übernehmen`',
-			/<button\b[^>]*type="submit"[^>]*>\s*Übernehmen\s*</.test(startseiteHtmlEinzel),
+			// Seit dem 2026-09-11 steht ein Zeichen vor dem Wort, darum nicht mehr
+			// `>Übernehmen<` am Stück. Das **Wort** bleibt die Zusage: ein Knopf, der
+			// nur noch das Zeichen trüge, macht diese Zeile rot.
+			'und einem Knopf mit dem Wort `Übernehmen`',
+			/<button\b[^>]*type="submit"[^>]*>[\s\S]{0,400}?Übernehmen\s*<\/button>/.test(
+				startseiteHtmlEinzel
+			),
+		],
+		[
+			// Und das Zeichen daneben ist für Vorlesende verborgen — sonst hörte man
+			// die Handlung zweimal.
+			'dessen Zeichen aria-hidden trägt',
+			/<svg[^>]*\baria-hidden="true"/.test(startseiteHtmlEinzel),
 		],
 		[
 			// SvelteKit liefert interne Ziele **relativ** aus (`./einzelaufgaben`),

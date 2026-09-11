@@ -566,6 +566,73 @@ select.feld {
 }
 
 /*
+ * Ein Eintrag in einer Liste von Zielen — ein Link, der wie ein Nebenknopf
+ * aussieht.
+ *
+ * **Steht seit dem 2026-09-11 hier und nicht mehr in mehr/+page.svelte**: der
+ * Aufklapper auf `/` ist der zweite Leser, und zwei gleiche Regelkörper an zwei
+ * Orten sind genau das, worauf Gate-Regel 14 anschlägt. Der Kommentar zur Kante
+ * zieht mit um, weil er die Begründung trägt und nicht die Zeile.
+ *
+ * Die Kante liegt auf --ink-secondary und nicht auf --hairline: der Eintrag ist
+ * ein Bedienelement, und NFR9 verlangt für dessen Umriss 3:1. Auf der Haarlinie
+ * waren es 1.25:1 hell und 1.44:1 dunkel — gemessen im Kontrast-Sweep vom
+ * 2026-09-02, gehoben mit Entscheid (a).
+ */
+.eintrag {
+	display: flex;
+	align-items: center;
+	min-height: var(--touch);
+	padding: var(--space-2) var(--space-3);
+	border: var(--border-hairline) solid var(--ink-secondary);
+	border-radius: var(--radius-md);
+	background-color: var(--surface-raised);
+	color: var(--accent);
+	font-family: var(--action-font);
+	font-size: var(--action-size);
+	font-weight: var(--action-weight);
+	line-height: var(--action-line);
+	text-decoration: none;
+}
+
+/*
+ * Der Nebenknopf **neben** einem Text statt über die ganze Spalte.
+ *
+ * Modifikator und keine zweite Knopfregel: Kante, Radius, Farben und der
+ * deaktivierte Zustand kommen unverändert von .button-quiet. Weg fällt allein
+ * die volle Breite, dazu kommt eine kleinere Schrift und engerer Innenabstand.
+ *
+ * **Die Höhe bleibt bei --touch.** Kleiner heisst schmaler und leiser, nicht
+ * schwerer zu treffen — die Anwendung wird überwiegend auf dem Telefon bedient,
+ * und ein Knopf unter 44px wäre dort die eigentliche Verschlechterung.
+ */
+.button-quiet--kompakt {
+	width: auto;
+	flex: 0 0 auto;
+	gap: var(--space-1);
+	padding: var(--space-1) var(--space-2);
+	font-size: var(--meta-size);
+	line-height: var(--meta-line);
+}
+
+/*
+ * Das Zeichen neben einem Wort.
+ *
+ * `currentColor` und kein eigenes Farbtoken: es soll dieselbe Farbe tragen wie
+ * das Wort, das es begleitet — auch im deaktivierten Zustand, in dem der Knopf
+ * seine Schriftfarbe wechselt. Ein eigenes Token müsste dort mitgeführt werden
+ * und liefe irgendwann auseinander.
+ *
+ * `flex: 0 0 auto` und eine feste Grösse: ohne sie zieht ein Flexrahmen das SVG
+ * schmal, sobald der Text daneben lang wird.
+ */
+.zeichen {
+	flex: 0 0 auto;
+	width: var(--zeichen);
+	height: var(--zeichen);
+}
+
+/*
  * Ziffern in Tabellenstellung, für Nebentext, der aus Zahlen besteht: eine Liste
  * von Daten untereinander liest sich schlecht, wenn die Zahlen springen.
  * Modifikator und keine eigene Regel — die Schrift ist dieselbe wie bei

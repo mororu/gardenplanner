@@ -70,25 +70,4 @@
 		über die ganze Zeile, weil hier — anders als beim Kästchen einer
 		Aufgabenzeile — ein Fehlgriff nichts verändert.
 	*/
-	/*
-	 * Die Kante liegt auf --ink-secondary und nicht auf --hairline: der Eintrag
-	 * ist ein Bedienelement, und NFR9 verlangt für dessen Umriss 3:1. Auf der
-	 * Haarlinie waren es 1.25:1 hell und 1.44:1 dunkel — gemessen im
-	 * Kontrast-Sweep vom 2026-09-02, gehoben mit Entscheid (a) am 2026-09-11.
-	 */
-	.eintrag {
-		display: flex;
-		align-items: center;
-		min-height: var(--touch);
-		padding: var(--space-2) var(--space-3);
-		border: var(--border-hairline) solid var(--ink-secondary);
-		border-radius: var(--radius-md);
-		background-color: var(--surface-raised);
-		color: var(--accent);
-		font-family: var(--action-font);
-		font-size: var(--action-size);
-		font-weight: var(--action-weight);
-		line-height: var(--action-line);
-		text-decoration: none;
-	}
 </style>

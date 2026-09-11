@@ -185,6 +185,12 @@
 				   calc((var(--touch) - var(--task-box)) / -2) zieht das Trefferfeld
 				   über die Zeile hinaus, ohne die Zeilenhöhe aufzublähen. */
 				--task-box: 1.375rem;
+				/* Die **sichtbare** Grösse eines Zeichens neben einem Wort, 18px. Wie beim
+				   Kästchen der Aufgabenzeile ist das nicht das Trefferfeld: das entsteht am
+				   Knopf darum herum und hält --touch. 18px und nicht 22px, weil das Zeichen
+				   neben Text in der meta-Rolle (13px) steht und nicht allein in einer Zeile.
+				   Kein Farbwert, also ohne Dunkel-Pendant — das Zeichen nimmt currentColor. */
+				--zeichen: 1.125rem;
 				/* Mindesthöhe des Textfelds der Massen-Eingabe auf /monatsplan
 				   (DESIGN.md, components.textarea-bulk.minHeight): 16em, damit man
 				   beim Schreiben einer Monatsliste nicht in einem Schlitz tippt.
