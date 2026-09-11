@@ -219,7 +219,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 634;
+const ERWARTETE_BEHAUPTUNGEN = 635;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -5839,8 +5839,12 @@ try {
 			fristRegel !== '' && !/background|border|radius|padding/.test(fristRegel),
 		],
 		[
+			// Über Zeilenumbrüche hinweg gelesen: seit die Blöcke in Aufklappern
+			// stehen, ist das Markup eine Ebene tiefer, und Prettier bricht den
+			// <span> samt seiner spitzen Klammern um. Eine Wache, die an der
+			// Formatierung hängt, misst die falsche Sache.
 			'und der Aufgabentext bleibt allein in #aufgabe-{id}',
-			/<span class="zeile__aufgabe zeile__text" id="aufgabe-\{aufgabe\.id\}">\{aufgabe\.text\}<\/span>/.test(
+			/<span class="zeile__aufgabe zeile__text" id="aufgabe-\{aufgabe\.id\}"\s*>\s*\{aufgabe\.text\}<\/span\s*>/.test(
 				startseitenCode
 			),
 		],
@@ -6983,7 +6987,10 @@ try {
 			'und er steht vor der Marke des Aufgaben-Pools',
 			startseiteCodeDienst.indexOf('{#if data.dienst !== null}') > 0 &&
 				startseiteCodeDienst.indexOf('{#if data.dienst !== null}') <
-					startseiteCodeDienst.indexOf('<h2 class="marke"'),
+					// Auf die Kennung und nicht auf das ganze Tag: die Marke trägt seit dem
+					// Aufklapper eine zweite Klasse, und ein Tag-Vergleich wäre bei jeder
+					// künftigen Klasse rot, ohne dass sich die Reihenfolge geändert hätte.
+					startseiteCodeDienst.indexOf('id="offen-marke"'),
 		],
 	] as const;
 	pruefen(
@@ -7571,13 +7578,61 @@ try {
 			startseiteCodeEinzel.indexOf('{#if data.dienst !== null}') <
 				startseiteCodeEinzel.indexOf('{#if data.einzelaufgaben.length > 0}') &&
 				startseiteCodeEinzel.indexOf('{#if data.einzelaufgaben.length > 0}') <
-					startseiteCodeEinzel.indexOf('<h2 class="marke" id="offen-marke">'),
+					startseiteCodeEinzel.indexOf('id="offen-marke"'),
 		],
 	] as const;
 	pruefen(
 		'Block 2 auf / fehlt ganz oder gar nicht — und steht zwischen Dienst und Pool',
 		fehlendeTeile(blockTeile).length === 0,
 		`fehlt: ${fehlendeTeile(blockTeile).join(', ')}`
+	);
+
+	/*
+	 * **Die zwei Abschnitte sind zuklappbar — und werden offen geliefert.**
+	 *
+	 * Das `open` ist hier die eigentliche Behauptung und nicht der Aufklapper.
+	 * AD-14 verlangt, dass man beim Öffnen der Seite sieht, was zu tun ist; ein
+	 * Abschnitt, der zugeklappt ausgeliefert wird, bricht das, ohne dass jemand
+	 * eine Regel verletzt hätte — er hält jede andere Zusage ein und verbirgt
+	 * trotzdem, dass Setzlinge abzuholen sind. Genau der Fall, gegen den die
+	 * Prevents-Klausel von AD-14 geschrieben ist.
+	 *
+	 * Der Zustand wird nirgends gespeichert: es gibt keinen Speicher und keinen
+	 * Cookie dafür, und damit stellt jedes Laden wieder den offenen Zustand her.
+	 *
+	 * Der primäre Knopf steht **ausserhalb** des zweiten Aufklappers: er legt etwas
+	 * an, statt etwas anzuzeigen, und muss auch bei weggeklappter Liste erreichbar
+	 * bleiben.
+	 */
+	const aufklappTeile = [
+		[
+			'es sind genau zwei Abschnitts-Aufklapper',
+			(startseiteCodeEinzel.match(/<details open>/g) ?? []).length === 2,
+		],
+		[
+			'beide tragen einen Griff',
+			(startseiteCodeEinzel.match(/<summary class="abschnitt__griff">/g) ?? []).length === 2,
+		],
+		[
+			'keiner wird zugeklappt ausgeliefert',
+			!/<details(?! open>)[^>]*>\s*<summary class="abschnitt__griff">/.test(startseiteCodeEinzel),
+		],
+		[
+			'der Titel nennt die Sache und die Handlung',
+			/<h2 class="marke marke--griff" id="einzel-marke">Einzelaufgaben zum Übernehmen<\/h2>/.test(
+				startseiteCodeEinzel
+			),
+		],
+		[
+			'und der primäre Knopf steht hinter dem letzten </details>',
+			startseiteCodeEinzel.lastIndexOf('</details>') <
+				startseiteCodeEinzel.indexOf('class="button-primary"'),
+		],
+	] as const;
+	pruefen(
+		'beide Abschnitte auf / sind zuklappbar und werden offen ausgeliefert',
+		fehlendeTeile(aufklappTeile).length === 0,
+		`fehlt: ${fehlendeTeile(aufklappTeile).join(', ')}`
 	);
 
 	/*

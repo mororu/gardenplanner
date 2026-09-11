@@ -66,7 +66,7 @@ import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-t
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 72;
+const ERWARTETE_BEHAUPTUNGEN = 73;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -1072,6 +1072,20 @@ try {
 		'Zaun am Nordtor nachspannen',
 		Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60
 	);
+	/*
+	 * **Ein kurzer Titel, damit die Ausrichtung überhaupt prüfbar ist.**
+	 *
+	 * Der Knopf steht rechts, weil `margin-inline-start: auto` ihn dorthin
+	 * schiebt. Neben einem breiten Titel stünde er auch ohne diese Regel dort —
+	 * die Spalte füllt dann die Zeile von allein, und eine Wache an dieser Zeile
+	 * wäre grün, ohne etwas zu belegen. Gemessen am 2026-09-11: mit
+	 * `Zaun am Nordtor nachspannen` blieb die Behauptung grün, als die Regel
+	 * entfernt wurde. Mit diesem Titel nicht mehr.
+	 */
+	const kurz = einzelaufgabeAusschreiben(
+		'Giessen',
+		Math.floor(Date.now() / 1000) + 3 * 24 * 60 * 60
+	);
 	await browser.besuchen(`${adresse}/`);
 	const uebernehmen = `#uebernehmen-${einzel.id}`;
 	pruefen(
@@ -1113,6 +1127,29 @@ try {
 		'und die Zeile aus Titel und Knopf scrollt bei 375px nicht waagrecht',
 		breiteHier.dokument <= breiteHier.fenster,
 		`${breiteHier.dokument} > ${breiteHier.fenster}`
+	);
+
+	/*
+	 * **Rechts ausgerichtet, gemessen und nicht am Regelkörper abgelesen.**
+	 *
+	 * `margin-inline-start: auto` ist der Griff; ob er wirkt, entscheidet der
+	 * Flexrahmen darum herum. Gemessen wird darum die rechte Kante des Knopfs
+	 * gegen die rechte Kante seiner Karte, abzüglich deren Innenabstand. Die
+	 * Toleranz ist ein Pixel für gebrochene Gerätepixel — nicht mehr, sonst ginge
+	 * ein verlorenes `auto` als „fast rechts" durch.
+	 */
+	const kurzKnopf = `#uebernehmen-${kurz.id}`;
+	const kurzKasten = await kasten(kurzKnopf);
+	const kurzKarte = await kasten(`li:has(${kurzKnopf})`);
+	const innen = await browser.auswerten<number>(
+		`return parseFloat(getComputedStyle(document.querySelector(${JSON.stringify(kurzKnopf)}).closest('li')).paddingRight);`
+	);
+	const knopfRechts = kurzKasten.links + kurzKasten.breite;
+	const karteInnenRechts = kurzKarte.links + kurzKarte.breite - innen;
+	pruefen(
+		'der Übernehmen-Knopf steht an der rechten Kante seiner Karte',
+		Math.abs(knopfRechts - karteInnenRechts) <= 1,
+		`Knopf endet bei ${Math.round(knopfRechts)}, Karte innen bei ${Math.round(karteInnenRechts)}`
 	);
 
 	await browser.klicken(uebernehmen);

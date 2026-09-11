@@ -668,6 +668,42 @@ select.feld {
 }
 
 /*
+ * Der Griff eines zuklappbaren Abschnitts.
+ *
+ * **Kein `display` hier — Gate-Regel 15 verbietet es, und aus gutem Grund:** das
+ * Dreieck kommt aus der Voreinstellung `list-item` und ist die einzige Anzeige,
+ * dass sich etwas aufklappt. Ein `display: flex`, der naheliegende Griff, um die
+ * Marke senkrecht zu zentrieren, nähme es weg — und zwar auf allen Abschnitten
+ * zugleich.
+ *
+ * Der Innenabstand macht das Trefferfeld statt einer Höhe mit Zentrierung: an
+ * einem `list-item` zentriert `min-height` nicht senkrecht, und genau dort
+ * beginnt der Weg zum verlorenen Dreieck.
+ *
+ * Der Aussenabstand unten ersetzt den Abstand, den Marke und Liste vorher aus
+ * dem `gap` der Seite bekamen: als Geschwister waren sie zwei Kinder von
+ * `.seite`, im Aufklapper sind sie eines.
+ */
+.abschnitt__griff {
+	min-height: var(--touch);
+	padding-block: var(--space-2);
+	margin-block-end: var(--space-2);
+	cursor: pointer;
+}
+
+/*
+ * Die Marke **im** Griff.
+ *
+ * `display: inline` und nicht die Vorgabe `block`: ein Block als erstes Kind
+ * eines `<summary>` setzt sich unter das Dreieck statt daneben. Das ist ein
+ * `display` an der Klasse der Überschrift und nicht an der des Griffs — Regel 15
+ * liest die Klassen des `<summary>`, und dort steht weiterhin keines.
+ */
+.marke--griff {
+	display: inline;
+}
+
+/*
  * Die Liste. Kein Aufzählungszeichen, kein Einzug, kein Aussenabstand — die
  * Vorgaben des Browsers für `<ul>` sind für jede Liste dieser Anwendung falsch.
  *

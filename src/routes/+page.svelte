@@ -636,19 +636,34 @@
 		vertieft, sie informiert nicht exklusiv.
 	-->
 	{#if data.einzelaufgaben.length > 0}
-		<h2 class="marke" id="einzel-marke">Zum Übernehmen</h2>
-		<ul class="liste liste--getrennt" aria-labelledby="einzel-marke">
-			{#each data.einzelaufgaben as aufgabe (aufgabe.id)}
-				{@const frageHier = frage !== null && frage.id === aufgabe.id}
-				<!--
+		<!--
+			Der Titel nennt beides: **was** es ist und **was man damit tut**. `Zum
+			Übernehmen` allein sagte nicht, worum es sich handelt, `Einzelaufgaben`
+			allein nicht, dass hier etwas zu holen ist.
+
+		**Offen geliefert, und das ist keine Kleinigkeit.** AD-14 verlangt, dass man
+		beim Öffnen der Seite sieht, was zu tun ist. Ein zugeklappter Abschnitt
+		bräche das — `open` hält die Zusage, und zugleich darf jede Person den
+		Abschnitt wegklappen, wenn sie ihn gerade nicht braucht. Der Zustand wird
+		**nicht** gespeichert: beim nächsten Laden steht wieder alles offen, und
+		damit kann kein einmaliger Griff dauerhaft verbergen, dass etwas ansteht.
+		-->
+		<details open>
+			<summary class="abschnitt__griff">
+				<h2 class="marke marke--griff" id="einzel-marke">Einzelaufgaben zum Übernehmen</h2>
+			</summary>
+			<ul class="liste liste--getrennt" aria-labelledby="einzel-marke">
+				{#each data.einzelaufgaben as aufgabe (aufgabe.id)}
+					{@const frageHier = frage !== null && frage.id === aufgabe.id}
+					<!--
 					`karte--offen` ohne Bedingung: dieser Block führt ausschliesslich freie
 					Einzelaufgaben (die load holt nur die), und eine Bedingung, die immer
 					wahr ist, behauptete eine Unterscheidung, die es hier nicht gibt.
 					Dieselbe Fläche wie auf /einzelaufgaben — derselbe Zustand, dieselbe
 					Farbe, sonst lernte man sie zweimal.
 				-->
-				<li class="karte karte--offen">
-					<!--
+					<li class="karte karte--offen">
+						<!--
 						**Eine Reihe, nicht zwei Blöcke übereinander.** Der Knopf stand bis
 						zum 2026-09-11 über die volle Spaltenbreite unter dem Titel und
 						nahm auf dem Telefon — dem Hauptgerät dieser Anwendung — Höhe weg,
@@ -658,9 +673,9 @@
 						über drei Zeilen läuft, soll der Knopf oben bleiben und nicht in
 						die Mitte rutschen.
 					-->
-					<div class="einzel__reihe">
-						<div class="zeile__spalte">
-							<!--
+						<div class="einzel__reihe">
+							<div class="zeile__spalte">
+								<!--
 							Die Kennung dieser Zeile. Der Knopf darunter heisst in jeder Zeile
 							`Übernehmen`; wer die Liste sieht, liest den Titel mit, wer sie mit
 							einer Elementliste durchgeht, bekäme sonst dasselbe Wort ohne jede
@@ -670,11 +685,11 @@
 							`.zeile__text` bringt den Umbruch für getippten Text aus dem
 							geteilten Stilblatt mit.
 						-->
-							<p class="fliesstext zeile__text" id="einzel-titel-{aufgabe.id}">
-								{aufgabe.titel}
-							</p>
-							<p class="hinweis hinweis--ziffern">{datumLang(aufgabe.terminAt)}</p>
-							<!--
+								<p class="fliesstext zeile__text" id="einzel-titel-{aufgabe.id}">
+									{aufgabe.titel}
+								</p>
+								<p class="hinweis hinweis--ziffern">{datumLang(aufgabe.terminAt)}</p>
+								<!--
 							`noch niemand` steht hier als Wort und nicht als Ausdruck über
 							`aufgabe.uebernehmer`: die load reicht über
 							freieEinzelaufgabenLesen ausschliesslich **freie** Zeilen herein,
@@ -682,10 +697,10 @@
 							ein toter Zweig. Auf /einzelaufgaben, wo beide Zustände stehen,
 							verzweigt die Zeile wirklich.
 						-->
-							<p class="hinweis">noch niemand</p>
-						</div>
+								<p class="hinweis">noch niemand</p>
+							</div>
 
-						<!--
+							<!--
 						**Entweder der Knopf oder die Frage, nie beides.** Steht die Frage
 						zu dieser Zeile offen, ist der Knopf darüber fort: er schickte
 						dieselbe action ein zweites Mal ab und stellte damit nur dieselbe
@@ -704,22 +719,22 @@
 						öffnet den Dialog; **ohne** JavaScript läuft er nicht, der POST geht
 						durch, und der Server antwortet mit derselben Frage als Dokument.
 					-->
-						{#if !frageHier}
-							<form
-								class="einzel__form"
-								method="POST"
-								action="?/uebernehmen"
-								use:enhance={versandFragen(aufgabe)}
-							>
-								<input type="hidden" name="einzelaufgabeId" value={aufgabe.id} />
-								<button
-									class="button-quiet button-quiet--kompakt"
-									type="submit"
-									id="uebernehmen-{aufgabe.id}"
-									aria-labelledby="uebernehmen-{aufgabe.id} einzel-titel-{aufgabe.id}"
-									disabled={imFlug}
+							{#if !frageHier}
+								<form
+									class="einzel__form"
+									method="POST"
+									action="?/uebernehmen"
+									use:enhance={versandFragen(aufgabe)}
 								>
-									<!--
+									<input type="hidden" name="einzelaufgabeId" value={aufgabe.id} />
+									<button
+										class="button-quiet button-quiet--kompakt"
+										type="submit"
+										id="uebernehmen-{aufgabe.id}"
+										aria-labelledby="uebernehmen-{aufgabe.id} einzel-titel-{aufgabe.id}"
+										disabled={imFlug}
+									>
+										<!--
 									**Das Zeichen steht neben dem Wort, nicht an seiner Stelle.**
 									Ein Kopf mit Schultern, weil Übernehmen in diesem System genau
 									eines heisst: die Sache bekommt einen Namen (AD-4). Ein Häkchen
@@ -731,25 +746,25 @@
 									sonst hörte man die Handlung zweimal. `currentColor`, damit es
 									im deaktivierten Zustand mit der Schrift mitgeht.
 								-->
-									<svg
-										class="zeichen"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-										stroke-linecap="round"
-										aria-hidden="true"
-									>
-										<circle cx="12" cy="8" r="4" />
-										<path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
-									</svg>
-									Übernehmen
-								</button>
-							</form>
-						{/if}
-					</div>
+										<svg
+											class="zeichen"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											aria-hidden="true"
+										>
+											<circle cx="12" cy="8" r="4" />
+											<path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+										</svg>
+										Übernehmen
+									</button>
+								</form>
+							{/if}
+						</div>
 
-					<!--
+						<!--
 						Die Bestätigung **ohne JavaScript**, an der Zeile, um die es geht.
 						Sie steht **ausserhalb** der Reihe: sie gehört nicht neben den Titel,
 						sondern unter die ganze Zeile — sie ist eine Frage an die Person, kein
@@ -769,9 +784,9 @@
 						die Fokusreihenfolge, und die zusagende Handlung soll nicht die
 						erste sein, die ein Enter trifft.
 					-->
-					{#if frageHier && frage !== null}
-						<div class="einzel__frage">
-							<!--
+						{#if frageHier && frage !== null}
+							<div class="einzel__frage">
+								<!--
 								**Derselbe Satz und dieselbe Folge wie im Dialog.** `uebernahmeSatz`
 								nennt, was übernommen wird; `UEBERNAHME_FOLGE` sagt, warum das
 								verbindlich ist. Der zweite Teil ist Substanz und keine Zierde —
@@ -784,28 +799,29 @@
 								Die Überschrift bleibt dem Dialog: sie benennt ein Fenster, nicht
 								den Vorgang. Hier trägt die Zeile selbst den Zusammenhang.
 							-->
-							<p class="fliesstext" id="einzel-frage-{aufgabe.id}">
-								{uebernahmeSatz(frage)}
-								{UEBERNAHME_FOLGE}
-							</p>
-							<form class="knoepfe" method="POST" action="?/uebernehmen">
-								<input type="hidden" name="einzelaufgabeId" value={frage.id} />
-								<input type="hidden" name="bestaetigt" value="1" />
-								<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-								<a class="button-quiet" href={resolve('/')}>Abbrechen</a>
-								<button
-									class="button-quiet"
-									type="submit"
-									aria-describedby="einzel-frage-{aufgabe.id}"
-								>
-									Übernehmen
-								</button>
-							</form>
-						</div>
-					{/if}
-				</li>
-			{/each}
-		</ul>
+								<p class="fliesstext" id="einzel-frage-{aufgabe.id}">
+									{uebernahmeSatz(frage)}
+									{UEBERNAHME_FOLGE}
+								</p>
+								<form class="knoepfe" method="POST" action="?/uebernehmen">
+									<input type="hidden" name="einzelaufgabeId" value={frage.id} />
+									<input type="hidden" name="bestaetigt" value="1" />
+									<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+									<a class="button-quiet" href={resolve('/')}>Abbrechen</a>
+									<button
+										class="button-quiet"
+										type="submit"
+										aria-describedby="einzel-frage-{aufgabe.id}"
+									>
+										Übernehmen
+									</button>
+								</form>
+							</div>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		</details>
 	{/if}
 
 	<!--
@@ -836,16 +852,34 @@
 		</div>
 	</details>
 
-	<h2 class="marke" id="offen-marke">Offen</h2>
-	{#if data.aufgaben.length === 0}
-		<!-- Der leere Zustand sagt, was gilt — der Erfassen-Knopf steht unter dem
+	<!--
+		Derselbe Aufklapper wie über den Einzelaufgaben — ein Abschnitt, zwei
+		Abschnitte, eine Bauform.
+
+		**Offen geliefert, und das ist keine Kleinigkeit.** AD-14 verlangt, dass man
+		beim Öffnen der Seite sieht, was zu tun ist. Ein zugeklappter Abschnitt
+		bräche das — `open` hält die Zusage, und zugleich darf jede Person den
+		Abschnitt wegklappen, wenn sie ihn gerade nicht braucht. Der Zustand wird
+		**nicht** gespeichert: beim nächsten Laden steht wieder alles offen, und
+		damit kann kein einmaliger Griff dauerhaft verbergen, dass etwas ansteht.
+
+		Der Knopf `+ Aufgabe` steht **ausserhalb**: er legt etwas an, statt etwas
+		anzuzeigen, und muss auch dann erreichbar sein, wenn jemand die Liste
+		weggeklappt hat.
+	-->
+	<details open>
+		<summary class="abschnitt__griff">
+			<h2 class="marke marke--griff" id="offen-marke">Offen</h2>
+		</summary>
+		{#if data.aufgaben.length === 0}
+			<!-- Der leere Zustand sagt, was gilt — der Erfassen-Knopf steht unter dem
 		     {#if}, also auch hier darunter. -->
-		<p class="leer">Nichts offen.</p>
-	{:else}
-		<ul class="liste" aria-labelledby="offen-marke">
-			{#each data.aufgaben as aufgabe (aufgabe.id)}
-				{@const istErledigt = erledigt.includes(aufgabe.id)}
-				<!--
+			<p class="leer">Nichts offen.</p>
+		{:else}
+			<ul class="liste" aria-labelledby="offen-marke">
+				{#each data.aufgaben as aufgabe (aufgabe.id)}
+					{@const istErledigt = erledigt.includes(aufgabe.id)}
+					<!--
 					Überfällig heisst zweierlei auf einmal (AD-8), und beide Konjunkte
 					stehen hier: `completed_at IS NULL` erfüllt schon die Abfrage — was in
 					`data.aufgaben` steht, ist offen —, und `wochenOffen !== null` ist die
@@ -893,9 +927,9 @@
 					der Anlage, die laut AD-8 die Ersatzfrist **ist**. Der Satz steht
 					wörtlich so in den Akzeptanzkriterien des Epics und in DESIGN.md.
 				-->
-				{@const istUeberfaellig = !istErledigt && aufgabe.wochenOffen !== null}
-				<li class="zeile" class:zeile--erledigt={istErledigt}>
-					<!--
+					{@const istUeberfaellig = !istErledigt && aufgabe.wochenOffen !== null}
+					<li class="zeile" class:zeile--erledigt={istErledigt}>
+						<!--
 						Zwei getrennte Formulare mit **literalem** action, bedingt
 						gerendert — nicht ein Formular mit wechselndem Ziel. Gate-Regel 11
 						liest action="?/name" textuell und vergleicht mit den actions der
@@ -910,50 +944,50 @@
 						liest „<Aufgabentext>, erledigen" mit der Rolle Kontrollkästchen,
 						und der Text bleibt ein toter <span>.
 					-->
-					{#if istErledigt}
-						<form
-							class="zeile__form"
-							method="POST"
-							action="?/wiederOeffnen"
-							use:enhance={versandFuer(aufgabe.id)}
-						>
-							<input type="hidden" name="aufgabeId" value={aufgabe.id} />
-							<span class="treffer">
-								<input
-									class="kaestchen"
-									type="checkbox"
-									checked
-									disabled={imFlug}
-									aria-labelledby="aufgabe-{aufgabe.id} verb-{aufgabe.id}"
-									onchange={abschicken}
-								/>
-								<span class="haken" aria-hidden="true"></span>
-							</span>
-							<span class="nur-vorgelesen" id="verb-{aufgabe.id}">, wieder öffnen</span>
-						</form>
-					{:else}
-						<form
-							class="zeile__form"
-							method="POST"
-							action="?/abhaken"
-							use:enhance={versandFuer(aufgabe.id)}
-						>
-							<input type="hidden" name="aufgabeId" value={aufgabe.id} />
-							<span class="treffer">
-								<input
-									class="kaestchen"
-									type="checkbox"
-									disabled={imFlug}
-									aria-labelledby="aufgabe-{aufgabe.id} verb-{aufgabe.id}"
-									aria-describedby={istUeberfaellig ? `frist-${aufgabe.id}` : undefined}
-									onchange={abschicken}
-								/>
-								<span class="haken" aria-hidden="true"></span>
-							</span>
-							<span class="nur-vorgelesen" id="verb-{aufgabe.id}">, erledigen</span>
-						</form>
-					{/if}
-					<!--
+						{#if istErledigt}
+							<form
+								class="zeile__form"
+								method="POST"
+								action="?/wiederOeffnen"
+								use:enhance={versandFuer(aufgabe.id)}
+							>
+								<input type="hidden" name="aufgabeId" value={aufgabe.id} />
+								<span class="treffer">
+									<input
+										class="kaestchen"
+										type="checkbox"
+										checked
+										disabled={imFlug}
+										aria-labelledby="aufgabe-{aufgabe.id} verb-{aufgabe.id}"
+										onchange={abschicken}
+									/>
+									<span class="haken" aria-hidden="true"></span>
+								</span>
+								<span class="nur-vorgelesen" id="verb-{aufgabe.id}">, wieder öffnen</span>
+							</form>
+						{:else}
+							<form
+								class="zeile__form"
+								method="POST"
+								action="?/abhaken"
+								use:enhance={versandFuer(aufgabe.id)}
+							>
+								<input type="hidden" name="aufgabeId" value={aufgabe.id} />
+								<span class="treffer">
+									<input
+										class="kaestchen"
+										type="checkbox"
+										disabled={imFlug}
+										aria-labelledby="aufgabe-{aufgabe.id} verb-{aufgabe.id}"
+										aria-describedby={istUeberfaellig ? `frist-${aufgabe.id}` : undefined}
+										onchange={abschicken}
+									/>
+									<span class="haken" aria-hidden="true"></span>
+								</span>
+								<span class="nur-vorgelesen" id="verb-{aufgabe.id}">, erledigen</span>
+							</form>
+						{/if}
+						<!--
 						Der Spaltencontainer ist keine Zierde, sondern die einzige Stelle,
 						an der die zweite Zeile **unter** dem Text landen kann: .zeile ist
 						ein Flexcontainer in Zeilenrichtung, und ein Geschwister von
@@ -976,18 +1010,21 @@
 						nicht. Ein aria-describedby am wiederOeffnen-Kästchen zeigte damit
 						auf eine leere Kennung, und die Beschreibung fiele **ganz** aus.
 					-->
-					<div class="zeile__spalte">
-						<span class="zeile__aufgabe zeile__text" id="aufgabe-{aufgabe.id}">{aufgabe.text}</span>
-						{#if istUeberfaellig}
-							<p class="zeile__frist" id="frist-{aufgabe.id}">
-								seit {aufgabe.wochenOffen} Wochen überfällig
-							</p>
-						{/if}
-					</div>
-				</li>
-			{/each}
-		</ul>
-	{/if}
+						<div class="zeile__spalte">
+							<span class="zeile__aufgabe zeile__text" id="aufgabe-{aufgabe.id}"
+								>{aufgabe.text}</span
+							>
+							{#if istUeberfaellig}
+								<p class="zeile__frist" id="frist-{aufgabe.id}">
+									seit {aufgabe.wochenOffen} Wochen überfällig
+								</p>
+							{/if}
+						</div>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</details>
 
 	<!--
 		Der Erfassen-Knopf steht **hinter** dem {#if}/{:else} und damit in beiden
@@ -1396,8 +1433,15 @@
 
 	/* Das Formular ist nur der Träger des Knopfs — der Knopf trägt seine Breite
 	   selbst (.button-quiet ist 100% breit). */
+	/*
+		Rechts in der Reihe, nicht direkt neben dem Titel: `margin-inline-start:
+		auto` schiebt den Knopf an die Kante der Karte, und damit stehen die Knöpfe
+		aller Zeilen untereinander auf einer Linie. Neben einem kurzen Titel klebend
+		sprängen sie von Zeile zu Zeile.
+	*/
 	.einzel__form {
 		margin: 0;
+		margin-inline-start: auto;
 	}
 
 	/*

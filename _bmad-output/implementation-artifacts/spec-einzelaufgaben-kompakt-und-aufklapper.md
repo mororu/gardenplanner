@@ -143,3 +143,23 @@ damit als einziges Element ausserhalb der Palette.
 - **KEEP bei einer Neuableitung:** der Aufklapper steht **ausserhalb** von
   `{#if data.einzelaufgaben.length > 0}`. Das ist nicht Kosmetik, sondern der ganze Zweck — und es ist die
   einzige Stelle, an der eine Neuableitung still in die alte Sackgasse zurückfallen kann.
+
+- **Nachtrag vom 2026-09-11, nach Rückmeldung: Titel, Zuklappbarkeit, Ausrichtung.**
+  Der Titel heisst `Einzelaufgaben zum Übernehmen` — er nennt die Sache und die Handlung, weil keines von beiden
+  allein verständlich war. **Beide** Abschnitte (`Einzelaufgaben zum Übernehmen` und `Offen`) sind jetzt
+  `<details open>`. Das `open` ist die eigentliche Zusage und trägt eine eigene Wache: ein zugeklappt
+  ausgelieferter Abschnitt bricht AD-14, ohne eine andere Regel zu verletzen. Der Zustand wird nirgends
+  gespeichert — jedes Laden stellt den offenen Zustand wieder her. Der primäre Knopf `+ Aufgabe` steht
+  ausserhalb des Aufklappers und bleibt bei weggeklappter Liste erreichbar.
+
+- **Eine Wache war grün und belegte nichts — gemessen, nicht vermutet.**
+  Die Ausrichtungszeile prüfte den Knopf an einer Karte mit breitem Titel; dort füllt die Textspalte die Zeile
+  von allein, und die Behauptung blieb grün, als `margin-inline-start: auto` versuchsweise entfernt wurde. Die
+  Saat trägt darum jetzt zusätzlich eine Einzelaufgabe mit kurzem Titel (`Giessen`), und gemessen wird an ihr.
+  Mit der Mutation: `Knopf endet bei 287, Karte innen bei 347`. Vermiedener bekannt-schlechter Zustand: eine
+  Zeile, die eine Regel behauptet, die man folgenlos löschen kann.
+
+- **Drei bestehende Wachen hingen an der Formatierung statt an der Struktur** und wurden beim Umbau rot, weil
+  das Markup eine Ebene tiefer rutschte und Prettier umbrach. Sie lesen jetzt über Zeilenumbrüche hinweg
+  beziehungsweise auf die Kennung `id="offen-marke"` statt auf das ganze `<h2>`-Tag — eine zweite Klasse an der
+  Marke hätte sie sonst erneut rot gemacht, ohne dass sich die Reihenfolge geändert hätte.
