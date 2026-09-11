@@ -93,7 +93,27 @@ export type Ueberblick = {
 	ueberfaellig: number;
 	frei: number;
 	unbesetzt: number;
+	/**
+	 * Wie viele der **nächsten zwei** Wochen niemanden haben — die laufende und
+	 * die darauf.
+	 *
+	 * Getrennt von `unbesetzt` und nicht als Schwelle darin: eine Lücke in vier
+	 * Wochen ist Planung, eine Lücke diese Woche ist ein Loch. Beide Zahlen
+	 * stehen nebeneinander, weil die Zeile beide braucht — die eine sagt, wie
+	 * viel offen ist, die andere, wie dringend.
+	 */
+	unbesetztBald: number;
 };
+
+/**
+ * Wie weit „bald" reicht: die laufende Woche und die darauf.
+ *
+ * Zwei und nicht drei, weil eine Woche Vorlauf das Mindeste ist, um jemanden zu
+ * fragen, und weil `wochenfenster` die laufende Woche als erste zurückgibt.
+ * Steht als benannte Konstante hier und nicht als `2` in der Rechnung — dieselbe
+ * Hausregel wie bei UEBERFAELLIG_SEKUNDEN.
+ */
+const BALD_WOCHEN = 2;
 
 /**
  * Die offenen Aufgaben, älteste zuerst — dazu die freien Einzelaufgaben, der
@@ -230,6 +250,14 @@ export function load({ locals, url }: ServerLoadEvent): {
 	 * niemand übernommen hat.
 	 */
 	const einzelaufgaben = freieEinzelaufgabenLesen();
+	/*
+	 * Einmal gelesen, zweimal gezählt: `wochenfenster` gibt die Wochen in
+	 * Reihenfolge zurück, die laufende zuerst. Die ersten BALD_WOCHEN Einträge
+	 * sind darum „bald", und eine zweite Abfrage mit engerem Fenster wäre eine
+	 * zweite Wahrheit über denselben Kalender.
+	 */
+	const wochen = dienstwochenLesen(wochenfenster(jetztSekunden));
+	const unbesetzteWochen = wochen.filter((woche) => woche.name === null);
 	const ueberblick: Ueberblick = {
 		offen: aufgaben.length,
 		// `wochenOffen !== null` **ist** die Überfälligkeit (AD-8) — dieselbe
@@ -237,9 +265,8 @@ export function load({ locals, url }: ServerLoadEvent): {
 		// zweite Schwelle hier wäre eine zweite Wahrheit über dasselbe Wort.
 		ueberfaellig: aufgaben.filter((aufgabe) => aufgabe.wochenOffen !== null).length,
 		frei: einzelaufgaben.length,
-		unbesetzt: dienstwochenLesen(wochenfenster(jetztSekunden)).filter(
-			(woche) => woche.name === null
-		).length,
+		unbesetzt: unbesetzteWochen.length,
+		unbesetztBald: wochen.slice(0, BALD_WOCHEN).filter((woche) => woche.name === null).length,
 	};
 
 	return {

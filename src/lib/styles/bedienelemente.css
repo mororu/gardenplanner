@@ -80,7 +80,7 @@ a {
 	appearance: none;
 }
 
-/* Höchstens einer pro Seite (DESIGN.md). */
+/* Höchstens einer je Abschnitt (DESIGN.md, neu gefasst am 2026-09-11). */
 .button-primary {
 	border-color: var(--accent);
 	background-color: var(--accent);
@@ -683,11 +683,21 @@ select.feld {
  * Der Aussenabstand unten ersetzt den Abstand, den Marke und Liste vorher aus
  * dem `gap` der Seite bekamen: als Geschwister waren sie zwei Kinder von
  * `.seite`, im Aufklapper sind sie eines.
+ *
+ * **Seit dem 2026-09-11 eine Kachel**: Fläche, Kante und Radius wie am Eintrag
+ * und an der Zeile zum Tränkeplan. Der Griff trägt seit dem Umbau die Zahl des
+ * Abschnitts und ist damit die Überschrift **und** die Zusammenfassung — ein
+ * blosser Textabsatz wurde dem nicht mehr gerecht. Die Kante liegt auf
+ * `--ink-secondary` und nicht auf der Haarlinie: ein Griff ist ein Bedienelement
+ * (NFR9, Entscheid (a)).
  */
 .abschnitt__griff {
 	min-height: var(--touch);
-	padding-block: var(--space-2);
+	padding: var(--space-2) var(--space-3);
 	margin-block-end: var(--space-2);
+	border: var(--border-hairline) solid var(--ink-secondary);
+	border-radius: var(--radius-md);
+	background-color: var(--surface-raised);
 	cursor: pointer;
 }
 

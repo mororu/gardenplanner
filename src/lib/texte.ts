@@ -336,6 +336,19 @@ export const GRIFF_FREI_LEER = 'Nichts ausgeschrieben.';
  * und sieht deshalb anders aus als die zwei Griffe — gleiche Form bei
  * verschiedenem Verhalten wäre die Falle.
  */
+/**
+ * Die Warnung an der Tränkeplan-Zeile: eine Lücke steht unmittelbar bevor.
+ *
+ * Sie steht **neben** der Gesamtzahl und ersetzt sie nicht: die eine sagt, wie
+ * viel offen ist, die andere, wie dringend. Eine Lücke in vier Wochen ist
+ * Planung, eine diese Woche ist ein Loch.
+ */
+export function zeileBald(anzahl: number): string {
+	return anzahl === 1
+		? 'davon eine in den nächsten zwei Wochen'
+		: 'davon beide in den nächsten zwei Wochen';
+}
+
 export function zeileUnbesetzt(anzahl: number): string {
 	return anzahl === 1 ? 'Tränkewoche unbesetzt' : 'Tränkewochen unbesetzt';
 }

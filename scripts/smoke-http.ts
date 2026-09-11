@@ -115,7 +115,7 @@ import {
  * Stellen, von denen eine niemand rot macht, ist schlechter als eine Zahl an
  * einer — die Schlussmeldung des Laufs nennt sie ohnehin bei jedem Durchgang.
  */
-const ERWARTETE_BEHAUPTUNGEN = 161;
+const ERWARTETE_BEHAUPTUNGEN = 162;
 
 /**
  * Ein Jahr in Sekunden — die Laufzeit aus src/lib/server/auth.ts.
@@ -1307,6 +1307,38 @@ try {
 		`auch im zweiten Datenstand nennt ein Griff die Zahl der Zeilen (${zeilenHier})`,
 		zeilenHier > 0 && griffHier !== null && Number(griffHier[1]) === zeilenHier,
 		`Zeilen ${zeilenHier}, Griff ${griffHier?.[1] ?? '(keiner)'}`
+	);
+
+	/*
+	 * **Die Warnung am ausgelieferten Dokument.**
+	 *
+	 * An dieser Stelle des Laufs ist genau **eine** Woche besetzt — die laufende,
+	 * eben über /traenkeplan eingetragen. Die Woche darauf ist damit offen, und die
+	 * Zeile muss warnen. Gemessen wird gegen die Zahl, die das Dokument selbst
+	 * nennt, nicht gegen eine eingetippte Erwartung: die Saat darf sich ändern,
+	 * ohne diese Zeile aus dem falschen Grund rot zu machen.
+	 */
+	const planZeile =
+		/<a\b[^>]*\bclass="[^"]*\bplan-zeile\b[^"]*"[\s\S]*?<\/a>/.exec(startseiteMitDienstHtml)?.[0] ??
+		'';
+	const warnTeile = [
+		['die Zeile zum Tränkeplan steht im Dokument', planZeile !== ''],
+		[
+			'sie nennt eine Zahl unbesetzter Wochen',
+			/<span[^>]*\bclass="[^"]*\bkopfzahl\b[^"]*"[^>]*>[1-9][0-9]*</.test(planZeile),
+		],
+		[
+			'und warnt vor der Lücke in den nächsten zwei Wochen',
+			/<span[^>]*\bclass="[^"]*\bplan-zeile__bald\b[^"]*"[^>]*>\s*davon (eine|beide) in den nächsten zwei Wochen/.test(
+				planZeile
+			),
+		],
+	] as const;
+	const warnFehlt = warnTeile.filter(([, erfuellt]) => !erfuellt).map(([name]) => name);
+	pruefen(
+		'die Tränkeplan-Zeile auf / warnt im ausgelieferten Dokument vor der nahen Lücke',
+		warnFehlt.length === 0,
+		`fehlt: ${warnFehlt.join(', ')}`
 	);
 
 	/*

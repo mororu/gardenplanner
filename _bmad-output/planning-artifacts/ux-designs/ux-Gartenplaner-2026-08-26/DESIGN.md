@@ -270,7 +270,7 @@ Kästchen links, Text rechts, 12px Abstand. Zeilenhöhe mindestens 44px. Trennun
 
 ### `button-primary`
 
-Über die volle Spaltenbreite, `{colors.accent}` gefüllt, Text `{typography.action}` in `{colors.accent-ink}`, Radius `{rounded.md}`, mindestens 44px hoch. Höchstens einer pro Seite. Er trägt immer ein Verb und, wo eine Menge im Spiel ist, die Zahl: `25 Aufgaben ablegen`.
+Über die volle Spaltenbreite, `{colors.accent}` gefüllt, Text `{typography.action}` in `{colors.accent-ink}`, Radius `{rounded.md}`, mindestens 44px hoch. **Höchstens einer je Abschnitt** — bis zum 2026-09-11 hiess die Regel „höchstens einer pro Seite“, und das stimmte, solange die Startseite eine einzige Handlung trug. Seit ihre zwei Blöcke eigene Aufklapper mit eigener Hauptaktion sind (`+ Einzelaufgabe`, `+ Aufgabe`), stehen zwei auf der Seite — nie nebeneinander, und darum ohne die Konkurrenz, gegen die die Regel geschrieben war. Er trägt immer ein Verb und, wo eine Menge im Spiel ist, die Zahl: `25 Aufgaben ablegen`.
 
 ### `button-quiet`
 

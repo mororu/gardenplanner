@@ -16,6 +16,7 @@
 		griffFrei,
 		griffOffen,
 		griffUeberfaellig,
+		zeileBald,
 		zeileUnbesetzt,
 	} from '$lib/texte';
 
@@ -581,7 +582,17 @@
 		<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
 		<a class="plan-zeile" href={resolve('/traenkeplan')}>
 			<span class="kopfzahl">{data.ueberblick.unbesetzt}</span>
-			<span class="kopfwort">{zeileUnbesetzt(data.ueberblick.unbesetzt)}</span>
+			<span class="kopfwort">
+				{zeileUnbesetzt(data.ueberblick.unbesetzt)}
+				<!--
+					**Die Warnung trägt das Wort und die Farbe, nicht die Farbe allein.**
+					DESIGN.md verbietet Farbe als einzigen Träger eines Zustands; der Satz
+					sagt es auch in Graustufen.
+				-->
+				{#if data.ueberblick.unbesetztBald > 0}
+					<span class="plan-zeile__bald">{zeileBald(data.ueberblick.unbesetztBald)}</span>
+				{/if}
+			</span>
 			<span class="plan-zeile__pfeil" aria-hidden="true">→</span>
 		</a>
 	{/if}
@@ -814,8 +825,22 @@
 				und statt der Liste ein Satz.
 			-->
 		<div class="knoepfe">
-			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-			<a class="eintrag" href={resolve('/einzelaufgabe')}>Einzelaufgabe ausschreiben</a>
+			<!--
+				**Ein primärer Knopf je Abschnitt, nicht je Seite.**
+
+				DESIGN.md schrieb bis zum 2026-09-11 „höchstens einer pro Seite", und das
+				stimmte, solange `/` eine einzige Handlung trug. Seit die zwei Abschnitte
+				eigene Aufklapper sind, hat jeder seine eigene: hier ausschreiben, im Pool
+				erfassen. Sie stehen nie nebeneinander und konkurrieren darum nicht — was
+				die Regel meinte.
+
+				`+ Einzelaufgabe` und nicht `Einzelaufgabe ausschreiben`: dieselbe Form wie
+				`+ Aufgabe` im Abschnitt darunter, weil es dieselbe Art Handlung ist.
+
+				resolve() ist Pflicht für interne Ziele
+				(svelte/no-navigation-without-resolve).
+			-->
+			<a class="button-primary" href={resolve('/einzelaufgabe')}>+ Einzelaufgabe</a>
 			<a class="eintrag" href={resolve('/einzelaufgaben')}>Alle Einzelaufgaben</a>
 		</div>
 	</details>
@@ -1000,21 +1025,24 @@
 				{/each}
 			</ul>
 		{/if}
+		<!--
+			Der Erfassen-Knopf steht **hinter** dem {#if} um die Liste und damit in
+			beiden Zuständen — auch wenn der Griff darüber `Nichts offen.` sagt. Das war
+			ein eigener Befund und bleibt es.
+
+			Ein <a> und kein <button>: er navigiert nur, er tut nichts. .button-primary
+			trägt text-decoration: none und appearance: none und wirkt darum auch auf
+			einem Anker. resolve() ist für interne Ziele Pflicht
+			(svelte/no-navigation-without-resolve).
+
+			**Seit dem 2026-09-11 steht er im Aufklapper und nicht dahinter.** Der Preis
+			ist benannt und nicht verschwiegen: wer den Pool zuklappt, kommt von dieser
+			Seite nicht mehr zum Erfassen — dieser Knopf ist der einzige Weg nach
+			`/aufgabe` im ganzen Baum. Getragen wird das davon, dass der Zustand nirgends
+			gespeichert ist: jedes Laden stellt den offenen Abschnitt wieder her.
+		-->
+		<a class="button-primary" href={resolve('/aufgabe')}>+ Aufgabe</a>
 	</details>
-
-	<!--
-		Der Erfassen-Knopf steht **hinter** dem {#if}/{:else} und damit in beiden
-		Zuständen unter dem Pool — auch unter `Nichts offen.`.
-
-		Ein <a> und kein <button>: er navigiert nur, er tut nichts. .button-primary
-		trägt text-decoration: none und appearance: none und wirkt darum auch auf
-		einem Anker. resolve() ist für interne Ziele Pflicht
-		(svelte/no-navigation-without-resolve).
-
-		Der einzige primäre Knopf dieser Seite: die Kästchen sind Kästchen, und es
-		gibt daneben keinen zweiten Knopf.
-	-->
-	<a class="button-primary" href={resolve('/aufgabe')}>+ Aufgabe</a>
 </div>
 
 <!--
@@ -1165,11 +1193,40 @@
 		text-decoration: none;
 	}
 
+	/*
+		Der Pfeil ist grösser als der Knopftext, und zwar absichtlich: er ist das
+		einzige Zeichen, das diese Zeile von den zwei Griffen darüber
+		unterscheidet — gleiche Kachel, anderes Verhalten. Das Dreieck der Griffe
+		malt der Browser, seine Grösse ist nicht unsere; dieser Pfeil kann sich
+		darum nicht auf ein Gegengewicht verlassen, das wir setzen.
+	*/
+	/*
+		Die Warnung, wenn in den nächsten zwei Wochen jemand fehlt.
+
+		`--warn` ist genau dafür da — der Kommentar an diesem Token nennt die
+		unbesetzte Dienstwoche als seinen einzigen Zweck. **Seine zweite Aussage
+		stimmt seit dem 2026-09-11 nicht mehr**: er begründete die Nähe zu
+		`--overdue` (1.07:1 im Hellen) damit, dass Überfälligkeit und
+		Unbesetztheit nie auf derselben Seite vorkommen. Seit die Zahlen in den
+		Griffen stehen, tun sie es — `· 2 überfällig` im Pool-Griff, diese Zeile
+		darüber. Der Tokenblock ist entsprechend richtiggestellt.
+
+		Getragen wird das von dem, was dort schon stand: die Wörter sind
+		verschieden und sie stehen in verschiedenen Blöcken. Wer die zwei Brauntöne
+		nicht auseinanderhält, liest `überfällig` und `unbesetzt` — und die sagen
+		es ohne jede Farbe.
+	*/
+	.plan-zeile__bald {
+		display: block;
+		color: var(--warn);
+	}
+
 	.plan-zeile__pfeil {
 		margin-inline-start: auto;
 		color: var(--accent);
-		font-family: var(--action-font);
-		font-size: var(--action-size);
+		font-family: var(--section-font);
+		font-size: var(--section-size);
+		line-height: var(--section-line);
 	}
 
 	.dienst {
@@ -1445,8 +1502,10 @@
 	/*
 		Die Kopfzeile einer Einzelaufgabe: Titelspalte und Knopf nebeneinander.
 
-		`align-items: flex-start` hält den Knopf oben, wenn der Titel bei 375px
-		über mehrere Zeilen läuft. Die Spalte trägt `min-width: 0` aus
+		`align-items: center` stellt den Knopf auf die Mitte der Textspalte. Bis zum
+		2026-09-11 stand hier `flex-start`, damit er bei einem mehrzeiligen Titel
+		oben bleibt — im Gebrauch sah das aus, als gehörte er zur ersten Zeile
+		statt zur Zeile als Ganzes. Die Spalte trägt `min-width: 0` aus
 		`.zeile__spalte` und darf darum schrumpfen; der Knopf trägt
 		`flex: 0 0 auto` aus dem Modifikator und bleibt vollständig.
 
@@ -1457,7 +1516,7 @@
 	*/
 	.einzel__reihe {
 		display: flex;
-		align-items: flex-start;
+		align-items: center;
 		gap: var(--space-3);
 	}
 </style>

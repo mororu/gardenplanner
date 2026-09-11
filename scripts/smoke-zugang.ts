@@ -219,7 +219,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 635;
+const ERWARTETE_BEHAUPTUNGEN = 636;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -3459,10 +3459,32 @@ try {
 					nachPool.includes('button-primary') ? 'ja' : 'nein'
 				}`
 	);
-	pruefenGleich(
-		'und / trägt genau einen button-primary',
-		(startseitenCode.match(/button-primary/g) ?? []).length,
-		1
+	/*
+	 * **Einer je Abschnitt, nicht einer je Seite.**
+	 *
+	 * Diese Zeile verlangte bis zum 2026-09-11 genau einen `button-primary` auf
+	 * `/`, nach DESIGN.md „höchstens einer pro Seite". Das stimmte, solange die
+	 * Seite eine einzige Handlung trug. Seit die zwei Abschnitte eigene Aufklapper
+	 * sind, hat jeder seine eigene — `+ Einzelaufgabe` und `+ Aufgabe` —, und sie
+	 * stehen nie nebeneinander.
+	 *
+	 * Was die Regel meinte, bleibt darum gemessen: **kein Abschnitt trägt zwei.**
+	 * Wer einen dritten irgendwohin setzt oder zwei in denselben Aufklapper legt,
+	 * macht diese Zeile rot.
+	 */
+	const abschnitte = startseitenCode.split('<details open>').slice(1);
+	const primaerJeAbschnitt = abschnitte.map(
+		(teil) =>
+			(teil.slice(0, teil.indexOf('</details>')).match(/class="button-primary"/g) ?? []).length
+	);
+	pruefen(
+		`jeder Aufklapper auf / trägt genau einen button-primary (${primaerJeAbschnitt.join('/')})`,
+		primaerJeAbschnitt.length === 2 &&
+			primaerJeAbschnitt.every((zahl) => zahl === 1) &&
+			(startseitenCode.match(/class="button-primary"/g) ?? []).length === 2,
+		`je Abschnitt: ${primaerJeAbschnitt.join('/')}, insgesamt: ${
+			(startseitenCode.match(/class="button-primary"/g) ?? []).length
+		}`
 	);
 
 	/*
@@ -5718,6 +5740,43 @@ try {
 	);
 
 	/*
+	 * **Die Warnung an der Tränkeplan-Zeile.**
+	 *
+	 * Sie hängt an einer **eigenen** Zahl und nicht an einer Schwelle über
+	 * `unbesetzt`: eine Lücke in vier Wochen ist Planung, eine diese Woche ist ein
+	 * Loch, und die Zeile braucht beide Zahlen nebeneinander.
+	 *
+	 * Und sie trägt **Wort und Farbe**, nicht Farbe allein — DESIGN.md verbietet
+	 * Farbe als einzigen Träger eines Zustands. Wer den Satz streicht und die
+	 * Farbe behält, macht diese Zeile rot.
+	 */
+	const warnTeile = [
+		[
+			'die Warnung hängt an unbesetztBald',
+			/\{#if data\.ueberblick\.unbesetztBald > 0\}/.test(startseitenCode),
+		],
+		[
+			'sie trägt einen Satz und nicht nur eine Farbe',
+			/<span class="plan-zeile__bald">\{zeileBald\(data\.ueberblick\.unbesetztBald\)\}<\/span>/.test(
+				startseitenCode
+			),
+		],
+		[
+			'und steht in --warn, dem Token der unbesetzten Woche',
+			/\.plan-zeile__bald \{[^}]*color: var\(--warn\);[^}]*\}/.test(startseitenCode),
+		],
+		[
+			'die Gesamtzahl bleibt daneben stehen',
+			/<span class="kopfzahl">\{data\.ueberblick\.unbesetzt\}<\/span>/.test(startseitenCode),
+		],
+	] as const;
+	pruefen(
+		'die Tränkeplan-Zeile warnt vor einer Lücke in den nächsten zwei Wochen',
+		fehlendeTeile(warnTeile).length === 0,
+		`fehlt: ${fehlendeTeile(warnTeile).join(', ')}`
+	);
+
+	/*
 	 * **Die Beschreibung hängt am richtigen Kästchen**, und geprüft wird das je
 	 * Formular und nicht über die Datei.
 	 *
@@ -7644,9 +7703,13 @@ try {
 			(startseiteCodeEinzel.match(/<h2 class="griff__satz" id="[a-z-]+">/g) ?? []).length === 2,
 		],
 		[
-			'und der primäre Knopf steht hinter dem letzten </details>',
-			startseiteCodeEinzel.lastIndexOf('</details>') <
-				startseiteCodeEinzel.indexOf('class="button-primary"'),
+			// Seit dem 2026-09-11 umgekehrt: die primären Knöpfe liegen **in** ihren
+			// Abschnitten. Der Preis — zugeklappt kein Erfassen — ist am Knopf
+			// ausgeschrieben; getragen wird er davon, dass der Zustand nirgends
+			// gespeichert ist.
+			'und beide primären Knöpfe liegen in ihren Abschnitten',
+			startseiteCodeEinzel.lastIndexOf('class="button-primary"') <
+				startseiteCodeEinzel.lastIndexOf('</details>'),
 		],
 	] as const;
 	pruefen(
