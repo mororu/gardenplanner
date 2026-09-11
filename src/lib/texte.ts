@@ -278,3 +278,31 @@ export const UEBERNAHME_FOLGE = 'Dein Name steht danach für alle daneben.';
  */
 export const EINZELAUFGABE_NICHT_ANSPRECHBAR =
 	'Diese Einzelaufgabe lässt sich nicht ansprechen. Lade die Liste neu.';
+
+/**
+ * Die Wörter unter den Zahlen des Überblicksbands auf `/`.
+ *
+ * Sie stehen hier und nicht in der Komponente, weil drei von vier eine
+ * **Beugung** haben und eine Beugung im Markup die Stelle ist, an der Singular
+ * und Plural auseinanderlaufen. `1 Wochen unbesetzt` wäre der Fehler, den
+ * niemand bemerkt, bis er auf einem Telefon steht.
+ *
+ * Die Zahl selbst gehört **nicht** hierher: sie ist Zustand und kein Satz, und
+ * eine Funktion, die `4 offen` zurückgäbe, machte aus zwei Elementen — der Zahl
+ * in ihrer eigenen Schriftrolle und dem Wort in einer anderen — eine
+ * Zeichenkette, die man nicht mehr getrennt setzen kann.
+ */
+export const UEBERBLICK_OFFEN = 'offen';
+
+/** Der Zusatz unter `offen`, in --overdue. Immer mit Zahl, nie allein. */
+export function ueberblickUeberfaellig(anzahl: number): string {
+	return `${anzahl} überfällig`;
+}
+
+/** Freie Einzelaufgaben. Ohne Beugung — die Wendung trägt Ein- und Mehrzahl. */
+export const UEBERBLICK_FREI = 'zum Übernehmen';
+
+/** Unbesetzte Dienstwochen im Fenster von /dienstplan. */
+export function ueberblickUnbesetzt(anzahl: number): string {
+	return anzahl === 1 ? 'Woche unbesetzt' : 'Wochen unbesetzt';
+}

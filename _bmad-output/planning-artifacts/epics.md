@@ -28,6 +28,8 @@ FR4: Die planende Person legt einen Monatsplan von 20–40 Aufgaben in einer Sit
 FR5: Offene Aufgaben verfallen nie; nach drei Wochen ohne Erledigung werden sie sichtbar als überfällig gekennzeichnet. (Constraint, AD-8)
 FR6: Wochenweise Dienste sind bis drei Monate im Voraus namentlich zugeteilt, genau eine zuständige Person pro Dienstwoche. (CAP-5)
 FR7: Die betrachtende Person erkennt auf der Startseite ohne Suchen, dass ihre Dienstwoche läuft. (CAP-5, AD-14)
+
+FR7a: Die Startseite trägt über den drei Blöcken ein Überblicksband mit den offenen Aufgaben (samt überfälligen), den freien Einzelaufgaben und den unbesetzten Dienstwochen. Jede Kachel verweist auf die Stelle, die vertieft; eine Kachel mit der Zahl 0 erscheint nicht. (AD-14, ergänzt am 2026-09-11)
 FR8: Ein in einer Dienstwoche zugeteilter Name wird durch einen anderen ersetzt. (CAP-5)
 FR9: Eine unregelmässig anfallende verbindliche Einzelaufgabe wird mit Titel und Termin ausgeschrieben. (CAP-6)
 FR10: Eine ausgeschriebene Einzelaufgabe wird von einer Person verbindlich übernommen; jederzeit ist sichtbar, ob sie übernommen ist und von wem. (CAP-6)

@@ -9,11 +9,28 @@
 	import { datumLang } from '$lib/client/utils/date';
 	import {
 		EINZELAUFGABE_NICHT_ANSPRECHBAR,
+		UEBERBLICK_FREI,
+		UEBERBLICK_OFFEN,
 		UEBERNAHME_FOLGE,
 		VERSAND_FEHLGESCHLAGEN,
+		ueberblickUeberfaellig,
+		ueberblickUnbesetzt,
 	} from '$lib/texte';
 
 	const { data, form }: PageProps = $props();
+
+	/*
+		Ob das Band überhaupt gerendert wird.
+
+		**Drei Zahlen, nicht vier**: `ueberfaellig` steht nicht darin. Es ist ein
+		Zusatz an der Kachel `offen` und kann ohne sie nicht vorkommen — eine
+		überfällige Aufgabe ist eine offene. Wer es mit aufnähme, behauptete einen
+		Zustand, den die Datenschicht nicht herstellen kann.
+	*/
+	const ueberblick = $derived({
+		sichtbar:
+			data.ueberblick.offen > 0 || data.ueberblick.frei > 0 || data.ueberblick.unbesetzt > 0,
+	});
 
 	/*
 		Welche Zeilen in **dieser Sitzung** abgehakt wurden.
@@ -516,8 +533,13 @@
 	<p class="fehler live" role="alert" aria-live="assertive">{fehlerOben}</p>
 
 	<!--
-		Die Startseite führt genau drei Blöcke in dieser Reihenfolge (AD-14):
+		Die Startseite führt genau drei Blöcke in dieser Reihenfolge (AD-14), und
+		seit dem 2026-09-11 ein Überblicksband davor:
 
+		  Block 0 — das Band. **Keine eigene Aufgabenart**, sondern drei Zahlen über
+		            das, was die Blöcke darunter und /dienstplan ohnehin zeigen. AD-14
+		            lässt es ausdrücklich zu, solange es nie exklusiv informiert —
+		            jede Kachel verweist auf die Stelle, die vertieft.
 		  Block 1 — Diensthinweis: „Diese Woche bist du am Tränken", nur vorhanden,
 		            wenn die betrachtende Person Dienst hat. Seit Story 3.1 gebaut,
 		            steht direkt unter diesem Kommentar.
@@ -529,6 +551,57 @@
 		Entscheidung über die Aufmerksamkeit im Garten und keine Folge davon, in
 		welcher Reihenfolge die Stories gebaut wurden.
 	-->
+
+	<!--
+		Block 0 — das Überblicksband.
+
+		**Eine Kachel mit der Zahl 0 erscheint nicht**, und bei vier Nullen fehlt
+		das Band ganz. Eine Kachel `0 überfällig` verlangte Aufmerksamkeit für eine
+		Nicht-Lage; der Pool sagt für denselben Fall `Nichts offen.` — ein Satz,
+		keine Zahl. Das Band folgt derselben Haltung.
+
+		Das Raster hat darum **keine** Spaltenzahl: grid-auto-flow: column verteilt,
+		was da ist, auf gleich breite Spalten. Eine feste Dreizahl brauchte eine
+		Fallunterscheidung für jeden Zustand darunter.
+
+		`nav` und nicht `div`: drei Verweise, die zusammen eine Navigation über den
+		Zustand des Gartens sind. Das aria-label benennt sie, weil die Seite mit der
+		Hauptnavigation unten schon eine zweite hat und ein Screenreader sie sonst
+		nicht auseinanderhält.
+
+		Der Verweis der ersten Kachel bleibt **auf dieser Seite** (#offen-marke) —
+		was sie zählt, steht zwei Blöcke tiefer, und ein Sprung auf eine andere
+		Seite wäre ein Umweg zu etwas, das schon da ist.
+	-->
+	{#if ueberblick.sichtbar}
+		<nav class="ueberblick" aria-label="Überblick">
+			{#if data.ueberblick.offen > 0}
+				<a class="ueberblick__kachel" href="#offen-marke">
+					<span class="ueberblick__zahl">{data.ueberblick.offen}</span>
+					<span class="ueberblick__wort">
+						{UEBERBLICK_OFFEN}
+						{#if data.ueberblick.ueberfaellig > 0}
+							<span class="ueberblick__frist"
+								>{ueberblickUeberfaellig(data.ueberblick.ueberfaellig)}</span
+							>
+						{/if}
+					</span>
+				</a>
+			{/if}
+			{#if data.ueberblick.frei > 0}
+				<a class="ueberblick__kachel" href={resolve('/einzelaufgaben')}>
+					<span class="ueberblick__zahl">{data.ueberblick.frei}</span>
+					<span class="ueberblick__wort">{UEBERBLICK_FREI}</span>
+				</a>
+			{/if}
+			{#if data.ueberblick.unbesetzt > 0}
+				<a class="ueberblick__kachel" href={resolve('/dienstplan')}>
+					<span class="ueberblick__zahl">{data.ueberblick.unbesetzt}</span>
+					<span class="ueberblick__wort">{ueberblickUnbesetzt(data.ueberblick.unbesetzt)}</span>
+				</a>
+			{/if}
+		</nav>
+	{/if}
 
 	<!--
 		Block 1. **Ohne eigenen Dienst fehlt er ganz** — es gibt kein {:else} und
@@ -922,6 +995,90 @@
 		`--radius-sm` und nicht `--radius-md`: fast eckig, damit die 3px-Kante als
 		gerade Linie liest und nicht als angeschnittener Bogen.
 	*/
+	/*
+	 * Das Überblicksband.
+	 *
+	 * **Kein grid-template-columns**, sondern grid-auto-flow mit
+	 * grid-auto-columns: 1fr. Das trägt eine, zwei und drei Kacheln mit derselben
+	 * Regel und ohne Fallunterscheidung im Markup — eine feste Dreizahl liesse bei
+	 * zwei Kacheln eine leere Spalte stehen. Und es kommt ohne Längenliteral aus:
+	 * repeat(auto-fit, minmax(…)) bräuchte eines und bräche Gate-Regel 1.
+	 */
+	.ueberblick {
+		display: grid;
+		grid-auto-flow: column;
+		grid-auto-columns: 1fr;
+		gap: var(--space-2);
+	}
+
+	/*
+	 * Die Kachel ist ein Verweis und damit ein Bedienelement — ihre Kante liegt
+	 * darum auf --ink-secondary und erfüllt die 3:1 aus NFR9 (4.71:1 hell, 6.90:1
+	 * dunkel, Entscheid (a) vom 2026-09-11). Ohne Kante wäre sie im hellen Schema
+	 * fast flächenlos: --surface-raised steht auf --surface-base bei 1.06:1. Das
+	 * war der Unterschied zwischen den zwei gezeichneten Entwürfen, und B hat
+	 * gewonnen.
+	 *
+	 * **Nicht .karte**: die Klasse ist im geteilten Stilblatt als „benannter
+	 * Eintrag einer Liste" festgelegt. Eine Kachel ist ein Behälter, und die
+	 * Bedeutung der Klasse zu dehnen wäre teurer als vier eigene Regeln.
+	 */
+	.ueberblick__kachel {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		min-height: var(--touch);
+		padding: var(--space-2) var(--space-3);
+		border: var(--border-hairline) solid var(--ink-secondary);
+		border-radius: var(--radius-md);
+		background-color: var(--surface-raised);
+		color: var(--ink-primary);
+		text-decoration: none;
+	}
+
+	/*
+	 * Die Zahl auf der section-Rolle, 20px — **nicht** auf display.
+	 *
+	 * display gehört dem Seitentitel, einer pro Seite. Eine grössere Ziffer wäre
+	 * eine neue Typo-Rolle und damit eine Änderung am Gestaltungsrahmen, nicht an
+	 * dieser Seite. Ausdrücklich entschieden am 2026-09-11.
+	 *
+	 * tabular-nums, damit drei Kacheln nebeneinander nicht je nach Ziffer
+	 * unterschiedlich breit wirken.
+	 */
+	.ueberblick__zahl {
+		font-family: var(--section-font);
+		font-size: var(--section-size);
+		font-weight: var(--section-weight);
+		line-height: var(--section-line);
+		letter-spacing: var(--section-tracking);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.ueberblick__wort {
+		font-family: var(--meta-font);
+		font-size: var(--meta-size);
+		font-weight: var(--meta-weight);
+		line-height: var(--meta-line);
+		color: var(--ink-secondary);
+	}
+
+	/*
+	 * Der Zusatz unter `offen`. Eigene Zeile, damit er die Kachelbreite nicht
+	 * sprengt, und in --overdue wie der Fristsatz der Zeile im Pool — dieselbe
+	 * Sache, dieselbe Farbe.
+	 *
+	 * **Die Dienstkachel bleibt dagegen ungefärbt**, obwohl --warn genau für die
+	 * unbesetzte Woche da ist: der Kommentar zu diesem Token in src/app.html
+	 * begründet seine Nähe zu --overdue (1.07:1 im Hellen) ausdrücklich damit,
+	 * dass die zwei Zustände nie auf derselben Seite vorkommen. Dieses Band wäre
+	 * die erste Stelle, an der sie es täten. Das Wort trägt die Aussage.
+	 */
+	.ueberblick__frist {
+		display: block;
+		color: var(--overdue);
+	}
+
 	.dienst {
 		display: flex;
 		flex-direction: column;

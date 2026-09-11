@@ -137,7 +137,9 @@ graph TD
 
 - **Binds:** CAP-1, CAP-5, CAP-6, Stories 1, 4, 5
 - **Prevents:** Story 1 rendert nur den Aufgaben-Pool und Story 5 legt die Einzelaufgaben auf eine eigene Seite — beide halten jede Regel ein, und trotzdem sieht niemand beim Öffnen, dass Setzlinge abzuholen sind.
-- **Rule:** Die Startseite `/` führt genau drei Blöcke in dieser Reihenfolge: (1) einen Hinweis, falls die betrachtende Person diese Woche Dienst hat, (2) offene Einzelaufgaben ohne Übernehmer, (3) den offenen Aufgaben-Pool. Eine neue Aufgabenart erscheint nur dann in der Anwendung, wenn sie auch hier einsortiert wird. Unterseiten dürfen vertiefen, nie exklusiv informieren.
+- **Rule:** Die Startseite `/` führt genau drei Blöcke in dieser Reihenfolge: (1) einen Hinweis, falls die betrachtende Person diese Woche Dienst hat, (2) offene Einzelaufgaben ohne Übernehmer, (3) den offenen Aufgaben-Pool. Eine neue Aufgabenart erscheint nur dann in der Anwendung, wenn sie auch hier einsortiert wird. Unterseiten dürfen vertiefen, nie exklusiv informieren. **Ein Überblicksband ohne eigene Aufgabenart darf vorangestellt werden; es informiert nie exklusiv.**
+
+> **Ergänzt am 2026-09-11 um den letzten Satz.** Das Band zeigt drei Zahlen — offene Aufgaben samt überfälligen, freie Einzelaufgaben, unbesetzte Dienstwochen —, und jede Kachel verweist auf die Stelle, die vertieft. Es ist damit kein vierter Block im Sinn der Regel, sondern deren Kurzfassung: was es zählt, steht ohnehin darunter oder auf `/dienstplan`. Die Schranke bleibt scharf und ist die alte: **wer eine Aufgabenart nur ins Band schreibt und nicht in einen der drei Blöcke, verstösst gegen AD-14.** Eine Kachel mit der Zahl 0 erscheint nicht, und sind alle drei null, fehlt das Band ganz.
 
 ## Consistency Conventions
 

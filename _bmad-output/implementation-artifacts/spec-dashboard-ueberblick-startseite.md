@@ -2,7 +2,7 @@
 title: 'Überblicksband auf der Startseite — das Dashboard über den drei Blöcken'
 type: 'feature'
 created: '2026-09-11'
-status: 'draft'
+status: 'in-review'
 review_loop_iteration: 0
 context: []
 ---
@@ -22,6 +22,10 @@ einem Wort, jede ein Verweis auf die Stelle, die vertieft. Kein neuer Aufgabenty
 Query-Funktion — alle drei Zahlen entstehen in der bestehenden `load` aus schon geladenen oder schon vorhandenen
 Repository-Funktionen.
 
+**Gewählt am 2026-09-11 nach einem gezeichneten Entwurf: Fassung B**, die Kachel mit Kante. Sie liegt seit
+Commit `be6e262` auf `--ink-secondary` und erfüllt damit NFR9 — der Entwurf ohne Kante war im hellen Schema
+fast flächenlos, weil `--surface-raised` auf `--surface-base` bei 1.06:1 steht.
+
 ## Boundaries & Constraints
 
 **Always:**
@@ -36,17 +40,24 @@ Repository-Funktionen.
 - Jede Kachel ist ein Trefferfeld von mindestens `--touch` (44px) und das Band scrollt bei 375px nicht waagrecht.
 - Jede neue Wache wird einmal absichtlich rot gemacht, und wie, steht in der Commit-Nachricht.
 
+**Entschieden am 2026-09-11 — was vorher Ask First war:**
+- **AD-14 wird ergänzt.** Die Regel lautete „genau drei Blöcke in dieser Reihenfolge" (`ARCHITECTURE-SPINE.md:136`);
+  ein vorangestelltes Band ist ein vierter. Sie bekommt den Satz: *„Ein Überblicksband ohne eigene Aufgabenart darf
+  vorangestellt werden; es informiert nie exklusiv."* — in `ARCHITECTURE-SPINE.md` **und** `epics.md`.
+- **Die Kante ist entschieden.** Entscheid (a) ist gebaut; die Kachel nimmt `--ink-secondary` wie jedes andere
+  Bedienelement. Kein Sonderweg, kein neues Token.
+- **Die Zahl bleibt auf `--section-size` (20px).** `--display-size` ist für den Seitentitel reserviert, „einer pro
+  Seite". Ein Dashboard mit grösseren Ziffern wäre eine neue Typo-Rolle und damit eine Änderung am
+  Gestaltungsrahmen — ausdrücklich nicht Teil dieser Story.
+
 **Ask First:**
-- **AD-14 wird berührt.** Die Regel lautet „genau drei Blöcke in dieser Reihenfolge"
-  (`ARCHITECTURE-SPINE.md:136`). Ein vorangestelltes Band ist ein vierter Block. Vor dem Bau ist zu entscheiden,
-  ob AD-14 um den Satz ergänzt wird: *„Ein Überblicksband ohne eigene Aufgabenart darf vorangestellt werden; es
-  informiert nie exklusiv."* — und die Ergänzung gehört dann in `ARCHITECTURE-SPINE.md` **und** `epics.md`.
-- Ein **mehrspaltiges Layout jenseits des Bandes** — `.inhalt` hält heute `max-width: var(--measure)` (600px) und
-  eine Spalte (`+layout.svelte:78`). Das Band bleibt darin. Wer die Breitenbegrenzung aufbricht, ändert jede Seite.
-- Der **offene Entscheid zu den Bedienelement-Umrissen** (`--hairline`, 1.25–1.44:1 gegen versprochene 3:1, NFR9)
-  bleibt unberührt. Die Kacheln bekommen **keine** Kante, solange er offen ist.
+- Ein **mehrspaltiges Layout jenseits des Bandes** — `.inhalt` hält `max-width: var(--measure)` (600px) und eine
+  Spalte (`+layout.svelte:78`). Das Band bleibt darin. Wer die Breitenbegrenzung aufbricht, ändert jede Seite.
 
 **Never:**
+- **Die Dienstkachel wird nicht eingefärbt.** `--warn` begründet seine Nähe zu `--overdue` (1.07:1 im Hellen)
+  ausdrücklich damit, dass Überfälligkeit und Unbesetztheit **nie auf derselben Seite** stehen (`src/app.html`).
+  Das Band bräche genau diese Annahme. Das Wort trägt die Aussage, wie überall sonst.
 - Keine neue Tabelle, keine Migration, keine neue Query-Funktion.
 - Kein Diagramm, keine Zeitreihe, kein Verlauf — es gibt kein Archiv erledigter Aufgaben (`tasks.ts:190-196`), und
   jede Trendzahl wäre erfunden.
@@ -101,9 +112,10 @@ Repository-Funktionen.
 - [ ] `src/routes/+page.svelte` -- Band als `<nav class="ueberblick">` mit bis zu drei `<a class="ueberblick__kachel">`
   vor Block 1 einsetzen; Ziele: Pool-Anker `#offen-marke`, `./einzelaufgaben`, `./dienstplan` -- jede Kachel ein
   Verweis, damit „vertiefen statt exklusiv informieren" gilt.
-- [ ] `src/routes/+page.svelte` (`<style>`) -- `.ueberblick` als `grid-template-columns: repeat(3, 1fr)` mit
-  `gap: var(--space-2)`, Kachel `min-height: var(--touch)`, Zahl auf der `--display-*`-Rampe, Wort auf `--meta-*`;
-  der Zusatz „überfällig" in `var(--overdue)` als **Text** -- keine Fläche, keine Kante (offener NFR9-Entscheid).
+- [ ] `src/routes/+page.svelte` (`<style>`) -- `.ueberblick` als Raster mit `grid-auto-flow: column` und
+  `grid-auto-columns: 1fr` (trägt eine, zwei oder drei Kacheln ohne Fallunterscheidung), `gap: var(--space-2)`,
+  Kachel mit `border: var(--border-hairline) solid var(--ink-secondary)` und `min-height: var(--touch)`, Zahl auf
+  `--section-*`, Wort auf `--meta-*`; der Zusatz „überfällig" in `var(--overdue)` als **Text**, keine Fläche.
 - [ ] `src/lib/texte.ts` -- die Wortformen (`offen`, `überfällig`, `zum Übernehmen`, `Woche`/`Wochen` unbesetzt)
   an einer Stelle, damit Singular und Plural nicht in der Komponente auseinanderlaufen.
 - [ ] `scripts/smoke-zugang.ts` -- Behauptungen über das Markup: Band steht vor Block 1; jede Kachel ist ein `<a>`;
@@ -135,8 +147,9 @@ Handlung zu verstellen.
 **Warum keine Kachel bei Null.** Eine Kachel `0 überfällig` behauptet Aufmerksamkeit für eine Nicht-Lage. Der
 Pool zeigt für denselben Fall `Nichts offen.` — ein Satz, keine Zahl. Das Band folgt derselben Haltung.
 
-**Drei Spalten, keine `auto-fit`.** `repeat(auto-fit, minmax(…))` bräuchte ein Längenliteral und bräche Gate-Regel 1.
-`repeat(3, 1fr)` kommt ohne aus; bei 375px bleiben rund 110px je Kachel, und die Zahl trägt die Aussage.
+**Ein Raster ohne Spaltenzahl.** `repeat(auto-fit, minmax(…))` bräuchte ein Längenliteral und bräche Gate-Regel 1.
+`grid-auto-flow: column` mit `grid-auto-columns: 1fr` kommt ohne aus und trägt zugleich den Fall mit weniger als
+drei Kacheln, ohne dass jemand die Spaltenzahl nachführt. Bei 375px bleiben rund 110px je Kachel.
 
 ## Verification
 

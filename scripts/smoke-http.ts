@@ -115,7 +115,7 @@ import {
  * Stellen, von denen eine niemand rot macht, ist schlechter als eine Zahl an
  * einer — die Schlussmeldung des Laufs nennt sie ohnehin bei jedem Durchgang.
  */
-const ERWARTETE_BEHAUPTUNGEN = 159;
+const ERWARTETE_BEHAUPTUNGEN = 161;
 
 /**
  * Ein Jahr in Sekunden — die Laufzeit aus src/lib/server/auth.ts.
@@ -569,6 +569,72 @@ try {
 		'das Wort „offen" steht nirgends in diesem Satz — der Wortlaut ist umgestellt',
 		!/seit \d+ Wochen offen/.test(startseiteHtml),
 		(/seit \d+ Wochen offen/.exec(startseiteHtml) ?? [])[0]
+	);
+
+	// --- Das Überblicksband, gegen die Listen gehalten, die es zusammenfasst ---
+	/*
+	 * **Die Kachel wird nicht gegen eine eingetippte Zahl geprüft, sondern gegen
+	 * das Dokument, in dem sie steht.**
+	 *
+	 * Der Fehler, den das fängt: eine Kachel, die ihre Zahl aus einer zweiten
+	 * Abfrage zöge, stünde irgendwann mit `6` über einer fünfzeiligen Liste. Eine
+	 * feste Erwartung hier wäre dagegen bei jeder Änderung der Saat rot aus dem
+	 * falschen Grund.
+	 *
+	 * Gemessen wird an demselben `startseiteHtml`, an dem oben der Fristsatz
+	 * belegt ist — dort steht nachweislich mindestens eine überfällige Zeile.
+	 *
+	 * **Die Klassen werden tolerant gesucht.** Svelte hängt seine Bereichsklasse
+	 * an, `class="zeile"` am Stück fände nichts — derselbe Grund, der schon über
+	 * dem Fristabsatz steht. `\bzeile\b` trifft `zeile svelte-x` und nicht
+	 * `zeile__frist`, weil der Unterstrich ein Wortzeichen ist.
+	 */
+	const klasse = (tag: string, name: string) =>
+		new RegExp(`<${tag}\\b[^>]*\\bclass="[^"]*\\b${name}\\b[^"]*"`, 'g');
+	const wieViele = (html: string, muster: RegExp) => (html.match(muster) ?? []).length;
+	const offeneZeilen = wieViele(startseiteHtml, klasse('li', 'zeile'));
+	const fristZeilen = wieViele(startseiteHtml, klasse('p', 'zeile__frist'));
+	const kachelZahl = (html: string, wort: string): number | null => {
+		const treffer = new RegExp(
+			`<a\\b[^>]*\\bclass="[^"]*\\bueberblick__kachel\\b[^"]*"[^>]*>[\\s\\S]*?` +
+				`<span[^>]*\\bclass="[^"]*\\bueberblick__zahl\\b[^"]*"[^>]*>([0-9]+)<\\/span>` +
+				`[\\s\\S]*?${wort}`
+		).exec(html);
+		return treffer === null ? null : Number(treffer[1]);
+	};
+	const bandTeile = [
+		[
+			'das Band steht im Dokument und nennt sich',
+			/<nav\b[^>]*\bclass="[^"]*\bueberblick\b[^"]*"[^>]*\baria-label="Überblick"/.test(
+				startseiteHtml
+			),
+		],
+		['die Saat trägt überhaupt offene Zeilen', offeneZeilen > 0],
+		[
+			`die Kachel nennt so viele offene, wie Zeilen gerendert sind (${offeneZeilen})`,
+			kachelZahl(startseiteHtml, 'offen') === offeneZeilen,
+		],
+		[
+			`der Zusatz nennt so viele überfällige, wie Fristsätze gerendert sind (${fristZeilen})`,
+			new RegExp(
+				`<span[^>]*\\bclass="[^"]*\\bueberblick__frist\\b[^"]*"[^>]*>${fristZeilen} überfällig<`
+			).test(startseiteHtml),
+		],
+		[
+			// Jede Kachel ist ein Verweis. Ein Band, das nur zählt und nirgendwohin
+			// führt, informierte exklusiv — und genau das verbietet AD-14.
+			'jede Kachel ist ein Verweis',
+			wieViele(startseiteHtml, klasse('a', 'ueberblick__kachel')) ===
+				wieViele(startseiteHtml, /\bueberblick__kachel\b/g),
+		],
+	] as const;
+	// Nicht `fehlendeTeile`: die Hilfsfunktion wird weiter unten als const
+	// deklariert und liegt hier noch in ihrer temporalen Totzone.
+	const bandFehlt = bandTeile.filter(([, erfuellt]) => !erfuellt).map(([name]) => name);
+	pruefen(
+		'das Überblicksband auf / stimmt mit den Listen überein, die es zusammenfasst',
+		bandFehlt.length === 0,
+		`fehlt: ${bandFehlt.join(', ')}`
 	);
 
 	// --- Die Navigationsleiste markiert auch auf einer Formularroute ----------
@@ -1233,6 +1299,29 @@ try {
 		'der Diensthinweis steht im ausgelieferten HTML — und nur bei der zuständigen Person',
 		fehlendeTeile(hinweisTeile).length === 0,
 		`fehlt: ${fehlendeTeile(hinweisTeile).join(', ')}`
+	);
+
+	/*
+	 * **Dieselbe Kachel, ein zweiter Datenstand.**
+	 *
+	 * Oben stimmte die Zahl bei mehreren Zeilen samt Überfälligkeit; hier steht
+	 * der Pool anders da. Eine Kachel, die ihre Zahl aus einer zweiten Abfrage
+	 * zöge, käme bei einem der beiden Stände ins Rutschen — ein einziger Messpunkt
+	 * liesse das durch.
+	 *
+	 * Die Zahl der Zeilen wird **mitgenannt** und nicht erwartet: ändert jemand die
+	 * Saat, bleibt die Zeile wahr und sagt trotzdem, womit sie gerechnet hat.
+	 */
+	const zeilenHier = (
+		startseiteMitDienstHtml.match(/<li\b[^>]*\bclass="[^"]*\bzeile\b[^"]*"/g) ?? []
+	).length;
+	const kachelHier = /<span[^>]*\bclass="[^"]*\bueberblick__zahl\b[^"]*"[^>]*>([0-9]+)</.exec(
+		startseiteMitDienstHtml
+	);
+	pruefen(
+		`auch im zweiten Datenstand nennt die erste Kachel die Zahl der Zeilen (${zeilenHier})`,
+		zeilenHier > 0 && kachelHier !== null && Number(kachelHier[1]) === zeilenHier,
+		`Zeilen ${zeilenHier}, Kachel ${kachelHier?.[1] ?? '(keine)'}`
 	);
 
 	/*

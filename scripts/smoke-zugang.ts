@@ -219,7 +219,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 633;
+const ERWARTETE_BEHAUPTUNGEN = 634;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -5663,6 +5663,54 @@ try {
 		'die Überfälligkeitszeile hängt an !istErledigt und verschwindet beim Abhaken',
 		fehlendeTeile(fristTeile).length === 0,
 		`fehlt: ${fehlendeTeile(fristTeile).join(', ')}`
+	);
+
+	/*
+	 * **Keine Kachel mit der Zahl 0 — und kein Band, wenn alle drei null sind.**
+	 *
+	 * Das steht hier und nicht in `smoke:http`, weil es eine Aussage über **alle**
+	 * Zustände ist und nicht über den einen, den ein Lauf herstellt. Der
+	 * ausgelieferte Nachweis deckt die Stände, die die Saat erzeugt; diese Zeile
+	 * deckt die Regel.
+	 *
+	 * `ueberfaellig` hat **keine** eigene Schranke und darf keine bekommen: der
+	 * Zusatz sitzt in der Kachel `offen` und kann ohne sie nicht vorkommen — eine
+	 * überfällige Aufgabe ist eine offene. Die Wache zählt darum drei Schranken
+	 * und nicht vier, und ein `data.ueberblick.ueberfaellig > 0` als vierte
+	 * Bandbedingung würde sie rot machen.
+	 */
+	// Über Zeilenumbrüche hinweg gelesen: der Ausdruck ist von Prettier umbrochen,
+	// und eine Wache, die an der Formatierung hängt, misst die falsche Sache.
+	const startseiteFlach = startseitenCode.replace(/\s+/g, ' ');
+	const bandTeile = [
+		[
+			'die Sichtbarkeit des Bandes hängt an genau diesen drei Zahlen',
+			startseiteFlach.includes(
+				'sichtbar: data.ueberblick.offen > 0 || data.ueberblick.frei > 0 || data.ueberblick.unbesetzt > 0'
+			),
+		],
+		[
+			'und nicht an der Überfälligkeit — sie ist ein Zusatz der Kachel offen, kein eigener Zustand',
+			!/sichtbar:[^}]*ueberfaellig/.test(startseiteFlach),
+		],
+		[
+			'das Band steht nur unter dieser Bedingung im Markup',
+			/\{#if ueberblick\.sichtbar\}/.test(startseitenCode),
+		],
+		[
+			'jede der drei Kacheln hat ihre eigene Schranke bei 0',
+			(startseitenCode.match(/\{#if data\.ueberblick\.(?:offen|frei|unbesetzt) > 0\}/g) ?? [])
+				.length === 3,
+		],
+		[
+			'und es sind genau drei Kacheln',
+			(startseitenCode.match(/<a class="ueberblick__kachel"/g) ?? []).length === 3,
+		],
+	] as const;
+	pruefen(
+		'das Überblicksband und jede seiner Kacheln verschwinden bei der Zahl 0',
+		fehlendeTeile(bandTeile).length === 0,
+		`fehlt: ${fehlendeTeile(bandTeile).join(', ')}`
 	);
 
 	/*

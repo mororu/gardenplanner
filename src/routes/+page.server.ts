@@ -1,6 +1,6 @@
 import type { Actions, RequestEvent, ServerLoadEvent } from '@sveltejs/kit';
 import { abweisen } from '../lib/server/abweisen.ts';
-import { eigeneDienstwoche } from '../lib/server/db/queries/duty-weeks.ts';
+import { dienstwochenLesen, eigeneDienstwoche } from '../lib/server/db/queries/duty-weeks.ts';
 import {
 	einzelaufgabeUebernehmen,
 	freieEinzelaufgabeLesen,
@@ -14,7 +14,7 @@ import {
 	type OffeneAufgabe,
 } from '../lib/server/db/queries/tasks.ts';
 import { AUFGABE_NICHT_ANSPRECHBAR, EINZELAUFGABE_NICHT_ANSPRECHBAR } from '../lib/texte.ts';
-import { wochendatum } from '../lib/zeit.ts';
+import { wochendatum, wochenfenster } from '../lib/zeit.ts';
 
 /*
  * / — die Kernschleife: sehen, was offen ist, und mit einem Griff abhaken.
@@ -79,6 +79,21 @@ function abgelegtLesen(url: URL): number | null {
 	const anzahl = Number(roh);
 	return Number.isSafeInteger(anzahl) && anzahl > 0 ? anzahl : 1;
 }
+
+/**
+ * Die vier Zahlen des Überblicksbands.
+ *
+ * Alle vier sind **Summen ohne Person**: der Pool ist namenlos (AD-2), und
+ * `completed_by` verlässt die Datenschicht ohnehin nicht (AD-5). Zwei Mitglieder
+ * sehen dieselben vier Zahlen — das ist dieselbe Zusage, die weiter unten für
+ * die Aufgabenliste gilt, und sie gilt fürs Band mit.
+ */
+export type Ueberblick = {
+	offen: number;
+	ueberfaellig: number;
+	frei: number;
+	unbesetzt: number;
+};
 
 /**
  * Die offenen Aufgaben, älteste zuerst — dazu die freien Einzelaufgaben, der
@@ -162,6 +177,7 @@ function abgelegtLesen(url: URL): number | null {
 export function load({ locals, url }: ServerLoadEvent): {
 	aufgaben: OffeneAufgabe[];
 	einzelaufgaben: Einzelaufgabe[];
+	ueberblick: Ueberblick;
 	dienst: { datum: string } | null;
 	abgelegt: number | null;
 	ausgeschrieben: boolean;
@@ -184,22 +200,52 @@ export function load({ locals, url }: ServerLoadEvent): {
 	 * `Date.now()` in einer Komponente liefe zweimal.
 	 */
 	const eigene = mitglied === null ? null : eigeneDienstwoche(mitglied.id, jetztSekunden);
+
+	/*
+	 * **Das Band zählt, was ohnehin schon geladen ist — bis auf eine Abfrage.**
+	 *
+	 * `offen` und `ueberfaellig` entstehen aus derselben Liste, die der Pool
+	 * rendert, und nicht aus einem zweiten SELECT mit COUNT: eine zweite Abfrage
+	 * liefe gegen einen anderen Moment als die Liste, und dann stünde über einer
+	 * fünfzeiligen Liste die Zahl 6. Ein Bestand, eine Uhr, eine Wahrheit.
+	 *
+	 * `unbesetzt` ist die einzige wirklich neue Abfrage dieser Seite. Sie nimmt
+	 * dasselbe Fenster wie /dienstplan (`wochenfenster`, rund vierzehn Wochen) und
+	 * dieselbe Funktion — nicht eine eigene, engere Rechnung, sonst zeigte das Band
+	 * eine andere Zahl als die Seite, auf die seine Kachel verweist.
+	 */
+	const aufgaben = offeneAufgabenAuflisten(jetztSekunden);
+	/*
+	 * Nur die **freien**. Eine übernommene Einzelaufgabe verlässt diese Seite —
+	 * sie trägt einen Namen, und damit ist sie geregelt; wer wissen will, wer was
+	 * übernommen hat, findet es auf /einzelaufgaben. Die Startseite beantwortet
+	 * die Frage „was ist noch offen", und dazu gehört eine übernommene Sache
+	 * nicht mehr. Die Kachel `zum Übernehmen` zählt darum dieselbe Liste und
+	 * nicht etwa alle Einzelaufgaben.
+	 *
+	 * Ohne Bezugszeitpunkt und ohne Fenster: ein vergangener Termin nimmt eine
+	 * freie Einzelaufgabe **nicht** aus der Liste. Sie bleibt stehen wie eine
+	 * Poolaufgabe stehenbleibt — es gibt keine Löschen-Aktion und kein Verfallen,
+	 * und ein stilles Verschwinden wäre die schlechtere Antwort auf etwas, das
+	 * niemand übernommen hat.
+	 */
+	const einzelaufgaben = freieEinzelaufgabenLesen();
+	const ueberblick: Ueberblick = {
+		offen: aufgaben.length,
+		// `wochenOffen !== null` **ist** die Überfälligkeit (AD-8) — dieselbe
+		// Bedingung, die die Zeile im Pool ihren Fristsatz tragen lässt. Eine
+		// zweite Schwelle hier wäre eine zweite Wahrheit über dasselbe Wort.
+		ueberfaellig: aufgaben.filter((aufgabe) => aufgabe.wochenOffen !== null).length,
+		frei: einzelaufgaben.length,
+		unbesetzt: dienstwochenLesen(wochenfenster(jetztSekunden)).filter(
+			(woche) => woche.name === null
+		).length,
+	};
+
 	return {
-		aufgaben: offeneAufgabenAuflisten(jetztSekunden),
-		/*
-		 * Nur die **freien**. Eine übernommene Einzelaufgabe verlässt diese Seite —
-		 * sie trägt einen Namen, und damit ist sie geregelt; wer wissen will, wer
-		 * was übernommen hat, findet es auf /einzelaufgaben. Die Startseite
-		 * beantwortet die Frage „was ist noch offen", und dazu gehört eine
-		 * übernommene Sache nicht mehr.
-		 *
-		 * Ohne Bezugszeitpunkt und ohne Fenster: ein vergangener Termin nimmt eine
-		 * freie Einzelaufgabe **nicht** aus der Liste. Sie bleibt stehen wie eine
-		 * Poolaufgabe stehenbleibt — es gibt keine Löschen-Aktion und kein
-		 * Verfallen, und ein stilles Verschwinden wäre die schlechtere Antwort auf
-		 * etwas, das niemand übernommen hat.
-		 */
-		einzelaufgaben: freieEinzelaufgabenLesen(),
+		aufgaben,
+		einzelaufgaben,
+		ueberblick,
 		dienst: eigene === null ? null : { datum: wochendatum(eigene.woche) },
 		abgelegt: abgelegtLesen(url),
 		// Ohne Wert und ohne Deutung: der Parameter ist da oder nicht.
