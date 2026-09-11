@@ -1366,6 +1366,39 @@ try {
 			}
 		}
 		/*
+		 * **Die Kanten der Behälter und Trennlinien — gemessen, aber nicht an 3:1
+		 * gehalten.**
+		 *
+		 * Seit dem 2026-09-11 trägt --hairline keinen einzigen Bedienelement-Umriss
+		 * mehr (Entscheid (a)). Damit fiel es aus jedem gemessenen Paar heraus und die
+		 * Abdeckungszeile wurde rot — zu Recht: die Sonde las Kanten ausschliesslich
+		 * an interaktiven Knoten und war für Karten, Dialog und Listentrennlinien
+		 * blind. Diese Schleife schliesst den Fleck.
+		 *
+		 * Die Funde tragen die Art trennlinie und **nicht** umriss: die 3:1-Schwelle
+		 * aus NFR9 gilt für Bedienelemente, nicht für Dekor. Sie zählen für die
+		 * Abdeckung und für die Herkunftsprüfung der Farben — eine Trennlinie in
+		 * einer Farbe, die in keinem Token steht, fällt weiterhin auf.
+		 *
+		 * Kein Backtick in diesem Block: er steht innerhalb des Template-Literals
+		 * MESSKOPF, und ein Backtick beendete es mitten im Satz.
+		 */
+		for (const el of document.querySelectorAll('body *')) {
+			if (el.matches(INTERAKTIV) || el.closest(':disabled') !== null) continue;
+			if (!sichtbar(el)) continue;
+			const s = getComputedStyle(el);
+			const g = grundVon(el.parentElement === null ? el : el.parentElement);
+			for (const seite of ['Top', 'Right', 'Bottom', 'Left']) {
+				const stil = s['border' + seite + 'Style'];
+				if (parseFloat(s['border' + seite + 'Width']) <= 0) continue;
+				if (stil === 'none' || stil === 'hidden') continue;
+				funde.push({ art: 'trennlinie', wo: pfad(el) + ' border-' + seite.toLowerCase(),
+					text: '', vordergrund: s['border' + seite + 'Color'],
+					stapel: g.stapel, bild: g.bild, durchscheinend: g.durchscheinend,
+					groesse: 0, gewicht: 0 });
+			}
+		}
+		/*
 		 * Die Tokens werden **im Browser aufgelöst** und nicht als Hexwert
 		 * abgeholt: getPropertyValue gibt den geschriebenen Text zurück, und ein
 		 * Vergleich zwischen "#2f6b3f" und "rgb(47, 107, 63)" wäre eine zweite
@@ -1384,7 +1417,7 @@ try {
 		return { funde, tokens, ort: location.pathname };`;
 
 	type Fund = {
-		art: 'text' | 'umriss';
+		art: 'text' | 'umriss' | 'trennlinie';
 		wo: string;
 		text: string;
 		vordergrund: string;
@@ -1450,7 +1483,6 @@ try {
 		const umrissBefunde: string[] = [];
 		const fremdeFarben: string[] = [];
 		const gesehen = new Set<string>();
-		let ausnahmen = 0;
 		let paare = 0;
 		let tokenwerte: Record<string, string> = {};
 
@@ -1477,7 +1509,7 @@ try {
 				 * **teilweise** durchsichtige Kante bleibt gemessen und wird über ihren
 				 * Grund gelegt.
 				 */
-				if (fund.art === 'umriss' && vorne !== null && vorne.a === 0) continue;
+				if (fund.art !== 'text' && vorne !== null && vorne.a === 0) continue;
 				if (vorne === null || grund === null || fund.bild || fund.durchscheinend) {
 					ziel.push(
 						`${route} ${fund.wo}: nicht messbar — ${fund.vordergrund} auf ${fund.stapel.join(' auf ')}` +
@@ -1514,10 +1546,8 @@ try {
 					continue;
 				}
 				paare += 1;
-				if (fund.vordergrund === messung.tokens['--hairline']) {
-					ausnahmen += 1;
-					continue;
-				}
+				// Dekor: gezählt und auf Farbherkunft geprüft, nicht an NFR9 gehalten.
+				if (fund.art === 'trennlinie') continue;
 				if (wert < 3) umrissBefunde.push(`${route} ${fund.wo}: ${wert} < 3`);
 			}
 		}
@@ -1533,30 +1563,33 @@ try {
 			[...new Set(textBefunde)].join(' | ')
 		);
 		/*
-		 * **Die Ausnahme ist benannt, nicht verschwiegen — und sie ist ein offener
-		 * Befund.**
+		 * **Ohne Ausnahme — seit dem 2026-09-11.**
 		 *
-		 * `--hairline` trägt heute den Umriss von vier Bedienelementen: `.skip`,
-		 * `.feld` (Text-, Auswahl- und mehrzeiliges Feld), `.button-quiet` und
-		 * `.eintrag` auf `/mehr`. Gemessen liegen die bei 1.25 bis 1.44:1, versprochen
-		 * sind 3:1 (NFR9). **DESIGN.md widerspricht sich dazu selbst:** die
-		 * Komponentenliste schreibt `1px solid {colors.hairline}` für `input` und
-		 * `button-quiet` vor, der Absatz zur Kontrasttabelle behauptet zwei Seiten
+		 * Bis dahin nahm diese Zeile die Umrisse in `--hairline` aus und führte
+		 * ihre Zahl im eigenen Namen mit. Der Grund war ein offener Befund: der
+		 * Kontrast-Sweep vom 2026-09-02 hatte gemessen, dass `--hairline` den Umriss
+		 * von vier Bedienelementen trug — `.skip`, `.feld`, `.button-quiet` und
+		 * `.eintrag` auf `/mehr` — und zwar bei 1.25 bis 1.44:1, wo NFR9 3:1
+		 * verspricht. **DESIGN.md widersprach sich dazu selbst:** die
+		 * Komponentenliste schrieb `1px solid {colors.hairline}` für `input` und
+		 * `button-quiet` vor, der Absatz zur Kontrasttabelle behauptete zwei Seiten
 		 * später, jeder Umriss eines Bedienelements nutze den Akzent und liege
 		 * „weit über der Schwelle".
 		 *
-		 * Diese Zeile nimmt darum genau die Umrisse **in `--hairline`** aus, gezählt
-		 * und im Namen der Behauptung mitgeführt, und beisst für jede andere Farbe.
-		 * Die Ausnahme hängt am **Token** und nicht an einer Liste von Selektoren:
-		 * ein fünftes Bedienelement mit einer Kante in `--ink-secondary` würde hier
-		 * rot, ohne dass jemand eine Liste pflegt.
+		 * Entscheid (a) hat die vier Kanten auf `--ink-secondary` gehoben (4.71:1
+		 * hell, 6.90:1 dunkel) und DESIGN.md richtiggestellt. Damit ist die Ausnahme
+		 * gegenstandslos und **entfernt statt verengt**: diese Zeile beisst jetzt
+		 * für jede Farbe.
 		 *
-		 * Der Entscheid — Kante der Bedienelemente auf 3:1 heben, oder die Ausnahme
-		 * als getragen abnehmen — steht Manuel zu und liegt in `deferred-work.md`.
-		 * Er ändert das Aussehen jedes Feldes und jedes Nebenknopfs.
+		 * **Was sie weiterhin nicht misst, und warum das kein Loch ist:** die Sonde
+		 * liest nur `INTERAKTIV` (oben), also Bedienelemente. Die Haarlinie an einer
+		 * Karte, am Dialog und an den Trennlinien der Listen kommt hier nie vor —
+		 * sie identifiziert kein Bedienelement, und für sie gilt die 3:1-Schwelle
+		 * nicht. Deaktivierte Bedienelemente überspringt die Sonde ebenfalls
+		 * (`el.closest(':disabled')`), im Einklang mit WCAG 1.4.11.
 		 */
 		pruefen(
-			`${wie} erreicht jeder Umriss eines Bedienelements 3:1 — ausser den ${ausnahmen} in --hairline (offener Befund vom 2026-09-02)`,
+			`${wie} erreicht jeder Umriss eines Bedienelements 3:1`,
 			umrissBefunde.length === 0,
 			[...new Set(umrissBefunde)].join(' | ')
 		);

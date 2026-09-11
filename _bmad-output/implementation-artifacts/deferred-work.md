@@ -1354,3 +1354,31 @@ DESIGN.md sagt dann die Wahrheit.
 Zeile 1 (iOS Safari), Zeile 2 (die Ansage durch einen Screenreader) und Zeile 6
 (Installation zum Home-Bildschirm auf einem Telefon). Dazu **ein offener
 Entscheid**: die Umrisse aus Befund 2.
+
+### Befund 2 geschlossen — Entscheid (a), 2026-09-11
+
+**Manuel hat Weg (a) gewählt.** Die Kante jedes Bedienelements liegt seither auf
+`--ink-secondary` (4.71:1 hell, 6.90:1 dunkel); `--hairline` trägt nur noch
+Trennlinien und Behälterkanten, für die die 3:1 aus NFR9 nicht gilt. DESIGN.md
+ist richtiggestellt — Komponentenliste, Kontrasttabelle und der Absatz darunter
+sagen jetzt dasselbe —, und die Ausnahme in `scripts/smoke-sicht.ts` ist
+**ersatzlos entfernt** statt verengt.
+
+**Der Sweep hatte vier genannt; gehoben wurden sechs.** Dazu kamen
+`textarea-bulk` (dieselbe `.feld`-Regel) und **`.dienst`**, der Diensthinweis auf
+`/`. Er ist ein `<a href>` und damit ein Bedienelement, und drei seiner vier
+Kanten lagen auf der Haarlinie — der Sweep vom 2026-09-02 hat ihn nie gesehen,
+weil der Sichtlauf den Zustand „ich habe diese Woche Dienst" nicht herstellt.
+
+**Wie das auffiel, ist selbst der Beleg:** nachdem die vier gemessenen Kanten
+gehoben waren, wurde die Abdeckungszeile rot — `--hairline` kam in **keinem**
+gemessenen Paar mehr vor. Genau dafür ist sie gebaut. Sie hat damit einen
+blinden Fleck der Sonde vorgeführt: Kanten wurden ausschliesslich an
+interaktiven Knoten gelesen, Karten, Dialog und Listentrennlinien waren
+unsichtbar.
+
+**Der Fleck ist geschlossen.** Die Sonde liest seither auch die Kanten
+nicht-interaktiver Knoten und legt sie als Art `trennlinie` ab: gezählt für die
+Abdeckung und die Herkunftsprüfung der Farben, **nicht** an 3:1 gehalten. Die
+gemessenen Paare stiegen je Schema von 322 auf 479. Die Zahl der Behauptungen
+ist unverändert (70) — es kam keine Wache dazu, eine bestehende sieht mehr.

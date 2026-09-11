@@ -87,9 +87,22 @@ a {
 	color: var(--accent-ink);
 }
 
-/* Nebenaktionen: durchsichtig, Text im Akzent, Umriss auf der Haarlinie. */
+/*
+ * Nebenaktionen: durchsichtig, Text im Akzent, Umriss im Nebentext-Ton.
+ *
+ * Der Umriss lag bis zum 2026-09-11 auf --hairline und damit bei 1.38:1 hell
+ * und 1.30:1 dunkel — NFR9 verlangt 3:1 für den Umriss eines Bedienelements.
+ * Der Kontrast-Sweep vom 2026-09-02 hat das gemessen, und Entscheid (a) hebt
+ * die Kante auf --ink-secondary: 4.71:1 hell, 6.90:1 dunkel, ein bestehendes
+ * Token. **Nicht --accent**, obwohl der Text schon darin steht — ein grüner
+ * Umriss machte aus jeder Nebenaktion optisch eine Hauptaktion.
+ *
+ * Der deaktivierte Zustand weiter unten bleibt auf der Haarlinie: WCAG 1.4.11
+ * nimmt inaktive Bedienelemente aus, und der Sweep misst sie nicht
+ * (scripts/smoke-sicht.ts, el.closest(':disabled')).
+ */
 .button-quiet {
-	border-color: var(--hairline);
+	border-color: var(--ink-secondary);
 	background-color: transparent;
 	color: var(--accent);
 }
@@ -149,13 +162,21 @@ a {
  * Die Schriftgrösse kommt aus der task-Rolle und damit auf 16px: unter 16px
  * zoomt iOS beim Fokus in das Feld hinein und die Seite bleibt danach
  * verschoben.
+ *
+ * **Die Kante ist die einzige Identifikation dieses Bedienelements**, und darum
+ * liegt sie seit dem 2026-09-11 auf --ink-secondary statt auf --hairline. Ein
+ * Textfeld trägt keinen eigenen Text, an dem man es erkennt, und seine Fläche
+ * (--surface-raised) steht auf dem Grund bei 1.06:1. Auf der Haarlinie kam der
+ * Umriss auf 1.25:1 hell und 1.44:1 dunkel; NFR9 verlangt 3:1, --ink-secondary
+ * liefert 4.71:1 und 6.90:1. Gemessen im Kontrast-Sweep vom 2026-09-02,
+ * entschieden als Weg (a).
  */
 .feld {
 	display: block;
 	width: 100%;
 	min-height: var(--touch);
 	padding: var(--space-2) var(--space-3);
-	border: var(--border-hairline) solid var(--hairline);
+	border: var(--border-hairline) solid var(--ink-secondary);
 	border-radius: var(--radius-md);
 	background-color: var(--surface-raised);
 	color: var(--ink-primary);

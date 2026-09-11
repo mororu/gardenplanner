@@ -204,7 +204,7 @@ export function gerundet(wert: number): number {
  * gewollte Reibung wie `ERWARTETE_BEHAUPTUNGEN`.
  */
 
-/** Die zehn Paarungen der Tabelle „Kontrast, geprüft statt behauptet". */
+/** Die elf Paarungen der Tabelle „Kontrast, geprüft statt behauptet". */
 const DOKUMENTIERT = [
 	['Fliesstext auf Grund', 'ink', 'base', 14.74, 15.43],
 	['Nebentext auf Grund', 'ink2', 'base', 4.71, 6.9],
@@ -216,11 +216,27 @@ const DOKUMENTIERT = [
 	['Zerstörend auf Karte', 'danger', 'raised', 7.07, 6.48],
 	['Zerstörend auf Grund', 'danger', 'base', 6.42, 7.13],
 	/*
+	 * **Zahlengleich mit „Nebentext auf Grund", und trotzdem eine eigene Zeile.**
+	 * Seit Entscheid (a) vom 2026-09-11 trägt `--ink-secondary` zwei Rollen: den
+	 * Nebentext und den Umriss jedes Bedienelements, das nicht den Akzent nutzt.
+	 * Die Tabelle in DESIGN.md führt beide, weil sie an verschiedenen Schwellen
+	 * hängen — 4.5 für Text, 3.0 für den Umriss —, und diese Vorgabe bildet die
+	 * Tabelle ab und nicht die Menge der verschiedenen Farbpaare. Wer die Zeile
+	 * streicht, weil sie „doppelt" ist, entkoppelt Vorgabe und Tabelle.
+	 */
+	['Bedienelement-Umriss auf Grund', 'ink2', 'base', 4.71, 6.9],
+	/*
 	 * Die Haarlinie liegt **auf der Karte** — das ist nachgemessen und nicht
 	 * abgelesen: DESIGN.md nennt die zwei Zahlen 1.38 und 1.30 ohne den Grund
 	 * dazu, und auf `--surface-base` ergeben dieselben Tokens 1.25 (hell) und
 	 * 1.44 (dunkel). Gemeint ist also die Linie in der Liste, und die liegt auf
 	 * der Karte.
+	 *
+	 * **Seit dem 2026-09-11 ist das ihre einzige Rolle.** Vorher trug sie auch den
+	 * Umriss von fünf Bedienelementen und verfehlte dort die 3:1 aus NFR9;
+	 * Entscheid (a) hat die auf `--ink-secondary` gehoben. Die 1.38 bleibt damit
+	 * richtig und ist kein offener Befund mehr — eine Trennlinie muss die Schwelle
+	 * nicht erreichen.
 	 */
 	['Haarlinie auf Karte', 'hair', 'raised', 1.38, 1.3],
 ] as const;

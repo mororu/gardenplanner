@@ -16,13 +16,17 @@ tun ist.
   was sie decken würde. **Drei sind offen (1, 2, 6), und keine wartet auf
   Code**: iOS Safari, die Ansage durch einen Screenreader, die Installation auf
   einem Telefon. Sie brauchen ein Gerät oder einen Menschen und damit eine
-  Abnahme durch Manuel.
-- **Ein Entscheid liegt Manuel vor**, aus dem Kontrast-Sweep vom 2026-09-02: die
-  Umrisse der Bedienelemente (`.feld`, `.button-quiet`, `.eintrag`, `.skip`)
-  liegen auf `--hairline` bei 1.25–1.44:1, versprochen sind 3:1 (NFR9), und
-  DESIGN.md widerspricht sich dazu selbst. Drei Wege samt Empfehlung stehen im
-  jüngsten Abschnitt von `deferred-work.md`. **Dort nachsehen, bevor neue Arbeit
-  angefangen wird**, und nicht in dieser Datei: sie trägt Regeln, keinen Stand.
+  Abnahme durch Manuel. **Dort nachsehen, bevor neue Arbeit angefangen wird**,
+  und nicht in dieser Datei: sie trägt Regeln, keinen Stand.
+- **Der Entscheid zu den Umrissen ist gefallen** (2026-09-11, Weg (a)): die
+  Kante jedes Bedienelements liegt auf `--ink-secondary` (4.71:1 hell, 6.90:1
+  dunkel), `--hairline` trägt nur noch Trennlinien und Behälterkanten. Die
+  Ausnahme in `smoke-sicht.ts` ist ersatzlos entfernt, DESIGN.md ist
+  richtiggestellt. **Dabei kam ein sechstes Element dazu, das der Sweep nie
+  gemessen hatte** — `.dienst`, weil der Sichtlauf den Zustand „ich habe diese
+  Woche Dienst" nicht herstellt. Die Sonde liest seither auch die Kanten
+  nicht-interaktiver Knoten (Art `trennlinie`), womit die gemessenen Paare je
+  Schema von 322 auf 479 stiegen.
 
 ## Prüfkette
 

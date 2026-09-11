@@ -115,7 +115,7 @@ components:
   button-quiet:
     background: transparent
     color: '{colors.accent}'
-    border: '1px solid {colors.hairline}'
+    border: '1px solid {colors.ink-secondary}'
     minHeight: '{spacing.touch}'
     radius: '{rounded.md}'
     font: '{typography.action}'
@@ -127,12 +127,12 @@ components:
   duty-banner:
     background: '{colors.surface-raised}'
     borderLeft: '3px solid {colors.accent}'
-    border: '1px solid {colors.hairline}'
+    border: '1px solid {colors.ink-secondary}'
     radius: '{rounded.sm}'
     padding: '{spacing.3}'
   textarea-bulk:
     background: '{colors.surface-raised}'
-    border: '1px solid {colors.hairline}'
+    border: '1px solid {colors.ink-secondary}'
     radius: '{rounded.md}'
     font: '{typography.task}'
     minHeight: 16em
@@ -181,8 +181,13 @@ Ein einziger chromatischer Ton für alles Handlungsfähige, einer für Überfäl
 | Unbesetzt auf Karte | 5.63:1 | 8.70:1 | 4.5 |
 | Unbesetzt auf Grund | 5.11:1 | 9.58:1 | 4.5 |
 | Kästchen-Umriss auf Karte | 6.37:1 | 7.43:1 | 3.0 |
+| Bedienelement-Umriss auf Grund | 4.71:1 | 6.90:1 | 3.0 |
 
-Die Haarlinie liegt bei 1.38:1 (hell) bzw. 1.30:1 (dunkel) und erfüllt 3:1 **nicht** — bewusst. Trennlinien sind dekorativ und identifizieren kein Bedienelement; die Zeile bleibt ohne sie eindeutig lesbar. Jeder Umriss, der zu einem Bedienelement gehört, nutzt `{colors.accent}` und liegt weit über der Schwelle. Wird die Haarlinie je zum einzigen Träger einer Bedeutung, muss sie auf 3:1 angehoben werden.
+Die Haarlinie liegt bei 1.38:1 (hell) bzw. 1.30:1 (dunkel) und erfüllt 3:1 **nicht** — bewusst. Sie trägt ausschliesslich Trennlinien und Behälterkanten: Karten, den Dialog, die Linie über der Navigationsleiste und die Trennung zwischen Aufgabenzeilen. Die sind dekorativ und identifizieren kein Bedienelement; die Zeile bleibt ohne sie eindeutig lesbar.
+
+**Jeder Umriss, der zu einem Bedienelement gehört, liegt über 3:1** — in `{colors.accent}` beim Kästchen der Aufgabenzeile und beim Fokusring (6.37:1 / 7.43:1), sonst in `{colors.ink-secondary}` (4.71:1 / 6.90:1): Textfeld, Auswahlfeld, mehrzeiliges Feld, `button-quiet`, der Eintrag auf `/mehr`, der Sprunglink und der Diensthinweis.
+
+> **Richtiggestellt am 2026-09-11.** Bis dahin schrieb die Komponentenliste oben die Haarlinie für `button-quiet`, `duty-banner` und `textarea-bulk` vor, während dieser Absatz behauptete, jeder Bedienelement-Umriss nutze den Akzent. Beides zugleich ging nicht — ein R1-Widerspruch, gefunden nicht beim Lesen, sondern beim Rechnen im Kontrast-Sweep vom 2026-09-02. Aufgelöst mit Entscheid (a): die Kanten sind gehoben, dieser Absatz sagt jetzt, was der Baum tut. Die Wache in `scripts/smoke-sicht.ts` führt seither keine Ausnahme mehr.
 
 **Nicht verwenden:** Farbverläufe · Schattenfarben · gesättigte Varianten des Akzents · Rot für irgendetwas ausser Zerstörendem · Farbe als einziger Träger eines Zustands.
 
@@ -265,7 +270,7 @@ Kästchen links, Text rechts, 12px Abstand. Zeilenhöhe mindestens 44px. Trennun
 
 ### `button-quiet`
 
-Für Nebenaktionen: durchsichtig, Text `{colors.accent}`, Umriss `{colors.hairline}`. Gleiche Höhe wie der primäre Knopf. Zerstörende Aktionen — im MVP nur `Einladung widerrufen` — nehmen dieselbe Form, aber Text und Umriss in Rot; das ist die einzige Stelle, an der Rot vorkommt.
+Für Nebenaktionen: durchsichtig, Text `{colors.accent}`, Umriss `{colors.ink-secondary}`. Gleiche Höhe wie der primäre Knopf. Zerstörende Aktionen — im MVP nur `Einladung widerrufen` — nehmen dieselbe Form, aber Text und Umriss in Rot; das ist die einzige Stelle, an der Rot vorkommt.
 
 ### `duty-banner`
 

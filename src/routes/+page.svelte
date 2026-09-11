@@ -928,7 +928,22 @@
 		gap: var(--space-1);
 		min-height: var(--touch);
 		background-color: var(--surface-raised);
-		border: var(--border-hairline) solid var(--hairline);
+		/*
+		 * --ink-secondary und nicht --hairline, seit dem 2026-09-11: der
+		 * Diensthinweis ist ein <a href> und damit ein Bedienelement, und NFR9
+		 * verlangt 3:1 für dessen Umriss. Auf der Haarlinie waren es 1.25:1 hell
+		 * und 1.44:1 dunkel.
+		 *
+		 * **Diese Kante hat der Kontrast-Sweep vom 2026-09-02 nicht gemessen**, und
+		 * das ist der Grund, warum sie in seiner Liste der vier fehlte: der
+		 * Sichtlauf stellt den Zustand „diese Woche habe ich Dienst" nicht her, der
+		 * Block wird also nie gerendert. Belegt am 2026-09-11: nachdem die vier
+		 * gemessenen Kanten gehoben waren, kam --hairline in keinem gemessenen Paar
+		 * mehr vor — hätte die Sonde diesen Block gesehen, wäre er dort gewesen.
+		 * Gehoben wird sie trotzdem, weil Entscheid (a) Bedienelemente meint und
+		 * nicht die Auswahl, die ein Lauf zufällig rendert.
+		 */
+		border: var(--border-hairline) solid var(--ink-secondary);
 		border-inline-start: var(--border-marker) solid var(--accent);
 		border-radius: var(--radius-sm);
 		padding: var(--space-3);
