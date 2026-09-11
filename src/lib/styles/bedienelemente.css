@@ -197,7 +197,7 @@ a {
  * Pfeil; ein selbstgemalter daneben wäre ein Bild mehr, das in beiden Modi
  * stimmen müsste.
  *
- * Steht hier und nicht in dienstplan/+page.svelte, obwohl das heute die einzige
+ * Steht hier und nicht in traenkeplan/+page.svelte, obwohl das heute die einzige
  * Seite mit einem <select> ist: `.feld` steht hier, und die Ausnahme zu einer
  * Regel gehört neben die Regel — sonst sucht sie die nächste Seite mit einer
  * Auswahl vergeblich und schreibt sie ein zweites Mal (Retro-Posten D1).
@@ -320,7 +320,7 @@ select.feld {
  * Nebentext: die Zeile, die neben einer Sache steht und selbst keine ist.
  *
  * Der mitlaufende Zähler unter dem Textfeld auf /monatsplan, der Satz am
- * Datumsfeld daneben, der Satz über dem Dienstplan — alle drei sind Nebentext
+ * Datumsfeld daneben, der Satz über dem Tränkeplan — alle drei sind Nebentext
  * zu etwas anderem und tragen dieselbe Form: die meta-Rolle, gedämpft.
  *
  * Sie stand bis zum 2026-08-29 zweimal je Komponente, und der Review zu Story
@@ -512,7 +512,7 @@ select.feld {
  * Die Karte: eine Zeile einer Liste, deren Einträge je einen Namen tragen.
  *
  * Tiefe nur tonal — aufgehellte Fläche plus Haarlinie, kein Schatten (UX-DR14).
- * Sie steht unter den Wochen des Dienstplans und unter den Einzelaufgaben, und
+ * Sie steht unter den Wochen des Tränkeplans und unter den Einzelaufgaben, und
  * sie steht ausdrücklich **nicht** unter einer Poolzeile: der Pool ist namenlos,
  * seine Zeilen sind Kästchen mit Text und keine Karten. Die Form trägt damit
  * eine Aussage, und die ist an allen Orten dieselbe.
@@ -522,7 +522,7 @@ select.feld {
  * Umbruchregel `.zeile__text` greift erst, wenn die Breite überhaupt begrenzt
  * ist.
  *
- * Lag bis Story 3.2 als `.woche` in `/dienstplan`. Diese Story hätte zwei
+ * Lag bis Story 3.2 als `.woche` in `/traenkeplan`. Diese Story hätte zwei
  * weitere Kopien daraus gemacht.
  */
 .karte {
@@ -677,7 +677,7 @@ select.feld {
  * die Rückmeldung von Fehlersatz und leerem Zustand unterscheidet, ist der
  * Akzent und sonst nichts.
  *
- * Lag dreimal gleichlautend in `/`, `/dienstplan` und `/verwaltung`. Die
+ * Lag dreimal gleichlautend in `/`, `/traenkeplan` und `/verwaltung`. Die
  * Retrospektive Epic 3 hat gemessen, dass die drei nicht nur gleich **aussehen**,
  * sondern verhaltensgleich sind: dieselben fünf Attribute, nur in anderer
  * Reihenfolge geschrieben.

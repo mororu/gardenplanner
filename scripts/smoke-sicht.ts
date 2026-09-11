@@ -517,7 +517,7 @@ try {
 	);
 
 	// -----------------------------------------------------------------------
-	// Der Pfeil der Auswahl auf /dienstplan
+	// Der Pfeil der Auswahl auf /traenkeplan
 	// -----------------------------------------------------------------------
 	/*
 	 * `select.feld { appearance: auto }` nimmt das `appearance: none` der
@@ -527,17 +527,17 @@ try {
 	 * als „das wäre Stufe C".
 	 *
 	 * Gemessen wird als Mitglied ohne Adminrechte: die Auswahl steht nur der
-	 * Verwaltung offen, und `/dienstplan` leitet ein Mitglied nicht weg — es sieht
+	 * Verwaltung offen, und `/traenkeplan` leitet ein Mitglied nicht weg — es sieht
 	 * den Plan, nur ohne Formular. Die Behauptung sagt darum, was sie sehen kann:
 	 * **wenn** eine Auswahl im Dokument steht, trägt sie ihren Pfeil.
 	 */
-	await browser.besuchen(`${adresse}/dienstplan`);
+	await browser.besuchen(`${adresse}/traenkeplan`);
 	const auswahl = await browser.auswerten<{ zahl: number; erscheinung: string | null }>(`
 		const el = document.querySelector('select.feld');
 		return { zahl: document.querySelectorAll('select.feld').length,
 		         erscheinung: el === null ? null : getComputedStyle(el).appearance };`);
 	pruefen(
-		'auf /dienstplan trägt jede Auswahl ihren Pfeil, oder es steht keine im Dokument',
+		'auf /traenkeplan trägt jede Auswahl ihren Pfeil, oder es steht keine im Dokument',
 		auswahl.zahl === 0 || auswahl.erscheinung === 'auto',
 		`${auswahl.zahl} Auswahl(en), appearance ${JSON.stringify(auswahl.erscheinung)}`
 	);

@@ -99,7 +99,7 @@ import {
 	mitgliedUmbenennen,
 } from '../src/lib/server/db/queries/members.ts';
 /*
- * Die Dienstplan-Schicht aus Story 3.1. Sie kommt als **Wert** herein und wird
+ * Die Tränkeplan-Schicht aus Story 3.1. Sie kommt als **Wert** herein und wird
  * ausgeführt, nicht beschrieben: dass eine beendete Person als unbesetzt
  * erscheint und ihr Datensatz trotzdem stehenbleibt, ist keine Zusage der
  * Oberfläche, sondern eine der Abfrage.
@@ -115,7 +115,7 @@ import {
 } from '../src/lib/server/db/queries/tasks.ts';
 /*
  * Die Einzelaufgaben-Schicht aus Story 3.2. Sie kommt als **Wert** herein und
- * wird ausgeführt, aus demselben Grund wie die Dienstplan-Schicht darüber: dass
+ * wird ausgeführt, aus demselben Grund wie die Tränkeplan-Schicht darüber: dass
  * eine Zeile auf ein beendetes Mitglied wieder als frei gilt und dass zwei
  * gleichzeitige Zusagen nicht beide durchkommen, sind Zusagen der Abfrage und
  * nicht der Oberfläche.
@@ -659,19 +659,19 @@ async function startseiteLaden(): Promise<StartseitenModul> {
 }
 
 /*
- * Der Dienstplan aus Story 3.1. Er hat beides: eine load, die jedes aktive
+ * Der Tränkeplan aus Story 3.1. Er hat beides: eine load, die jedes aktive
  * Mitglied lesen darf, und **eine** action hinter der Adminschranke.
  */
-type DienstplanModul = {
+type TraenkeplanModul = {
 	load: (ereignis: ServerLoadEvent) => unknown;
 	actions: Record<string, Aktion>;
 };
-let dienstplanModul: DienstplanModul | null = null;
+let traenkeplanModul: TraenkeplanModul | null = null;
 
-async function dienstplanLaden(): Promise<DienstplanModul> {
-	dienstplanModul ??=
-		(await import('../src/routes/dienstplan/+page.server.ts')) as unknown as DienstplanModul;
-	return dienstplanModul;
+async function traenkeplanLaden(): Promise<TraenkeplanModul> {
+	traenkeplanModul ??=
+		(await import('../src/routes/traenkeplan/+page.server.ts')) as unknown as TraenkeplanModul;
+	return traenkeplanModul;
 }
 
 /*
@@ -1832,7 +1832,7 @@ try {
 	 * ein Name aus ihnen legte eine Zeile ohne lesbaren Namen an, mit einem
 	 * lebenden Einladungslink und ohne jede Aussage, wer das ist. Seit Story 3.0.1
 	 * gibt es dafür ein Umbenennen; endgültig ist der Fehler damit nicht mehr,
-	 * aber er stünde bis zu seiner Entdeckung im Dienstplan vor allen.
+	 * aber er stünde bis zu seiner Entdeckung im Tränkeplan vor allen.
 	 *
 	 * Die Überlänge steht daneben, weil beide dieselbe Stelle prüfen und beide
 	 * dieselbe Zusage tragen: kein Mitglied, kein Token.
@@ -2708,7 +2708,7 @@ try {
 	);
 
 	/*
-	 * Die zweite Hälfte. Sie steht hier und nicht erst im Dienstplan-Block,
+	 * Die zweite Hälfte. Sie steht hier und nicht erst im Tränkeplan-Block,
 	 * obwohl sie dessen Zusage mitträgt: sie gehört zur load von /, und wer diese
 	 * Datei nach „AD-2" durchsieht, soll beide Hälften nebeneinander finden.
 	 */
@@ -5004,7 +5004,7 @@ try {
 	);
 
 	// =======================================================================
-	// /dienstplan und der Diensthinweis auf / — Story 3.1.
+	// /traenkeplan und der Diensthinweis auf / — Story 3.1.
 	//
 	// Drei Schichten, jede eigens: die ISO-Wochenrechnung als reine Funktion,
 	// die Abfrageschicht gegen dieselbe Datenbank, und die zwei Routen darüber.
@@ -5015,7 +5015,7 @@ try {
 	// besetzten und läsen dann eben einträchtig die falsche Woche. Ein
 	// Prüfblock, dessen Fehler sich selbst deckt, prüft nichts.
 	// =======================================================================
-	const dienstplan = await dienstplanLaden();
+	const traenkeplan = await traenkeplanLaden();
 
 	/*
 	 * Feste Zeitpunkte statt `Date.now()`.
@@ -5054,7 +5054,7 @@ try {
 		 * **Die Zone entscheidet, nicht UTC.** Montag 00:30 Ortszeit ist in UTC
 		 * noch Sonntag 22:30. Ohne Zonenrechnung zeigte der Diensthinweis in der
 		 * Nacht zum Montag noch die Woche davor — und niemand bemerkte es, weil
-		 * um halb eins nachts niemand den Dienstplan öffnet. Die Gegenprobe eine
+		 * um halb eins nachts niemand den Tränkeplan öffnet. Die Gegenprobe eine
 		 * Stunde davor gehört dazu: eine Rechnung, die **immer** die neue Woche
 		 * nennt, erfüllte die erste Zeile allein.
 		 */
@@ -5374,16 +5374,16 @@ try {
 	pruefenGleich('und gibt jedem anderen null', eigeneDienstwoche(tilde.id, jetztFuerDienst), null);
 
 	// -----------------------------------------------------------------------
-	// Die Route /dienstplan: load für alle, action hinter der Adminschranke
+	// Die Route /traenkeplan: load für alle, action hinter der Adminschranke
 	// -----------------------------------------------------------------------
 	const planAlsAdmin = wertVon(
 		await routenausgang(() =>
-			dienstplan.load(alsMitglied('/dienstplan', tildeLocals).alsServerLoadEvent())
+			traenkeplan.load(alsMitglied('/traenkeplan', tildeLocals).alsServerLoadEvent())
 		)
 	);
 	const planAlsMitglied = wertVon(
 		await routenausgang(() =>
-			dienstplan.load(alsMitglied('/dienstplan', rasmusLocals).alsServerLoadEvent())
+			traenkeplan.load(alsMitglied('/traenkeplan', rasmusLocals).alsServerLoadEvent())
 		)
 	);
 
@@ -5398,7 +5398,7 @@ try {
 	 * die erste.
 	 */
 	pruefen(
-		'beide sehen denselben Plan — der Dienstplan gehört allen',
+		'beide sehen denselben Plan — der Tränkeplan gehört allen',
 		JSON.stringify(planAlsAdmin.wochen) === JSON.stringify(planAlsMitglied.wochen),
 		`${JSON.stringify(planAlsAdmin.wochen).slice(0, 120)}`
 	);
@@ -5421,7 +5421,7 @@ try {
 		JSON.stringify(planAlsAdmin.mitglieder).slice(0, 200)
 	);
 	pruefen(
-		'die load von /dienstplan gibt keinen einzigen Token-Hash heraus',
+		'die load von /traenkeplan gibt keinen einzigen Token-Hash heraus',
 		!hashes.some((hash) => JSON.stringify(planAlsAdmin).includes(hash))
 	);
 	pruefen(
@@ -5436,7 +5436,7 @@ try {
 	 */
 	const besetzenAls = (wer: AngemeldetesMitglied | null, formular: Record<string, string>) =>
 		routenausgang(() =>
-			dienstplan.actions.besetzen?.(alsMitglied('/dienstplan', wer, formular).alsRequestEvent())
+			traenkeplan.actions.besetzen?.(alsMitglied('/traenkeplan', wer, formular).alsRequestEvent())
 		);
 	const wocheFormular = (woche: { jahr: number; woche: number }, mitgliedId: string) => ({
 		jahr: String(woche.jahr),
@@ -6070,7 +6070,7 @@ try {
 	const quelltext = (...teile: string[]) =>
 		kommentarfrei(readFileSync(join(wurzel, ...teile), 'utf8'));
 	/*
-	 * Die Seite `/dienstplan` steht **hinten** und nicht in alphabetischer
+	 * Die Seite `/traenkeplan` steht **hinten** und nicht in alphabetischer
 	 * Ordnung, und das
 	 * ist kein Versehen: die Behauptungen darunter greifen /verwaltung über den
 	 * Index `[3]`. Eine neue Seite vorn hinein zu schieben verschöbe jene
@@ -6083,7 +6083,7 @@ try {
 		['/aufgabe', quelltext('src', 'routes', 'aufgabe', '+page.server.ts')],
 		['/monatsplan', quelltext('src', 'routes', 'monatsplan', '+page.server.ts')],
 		['/verwaltung', quelltext('src', 'routes', 'verwaltung', '+page.server.ts')],
-		['/dienstplan', quelltext('src', 'routes', 'dienstplan', '+page.server.ts')],
+		['/traenkeplan', quelltext('src', 'routes', 'traenkeplan', '+page.server.ts')],
 		['/einzelaufgabe', quelltext('src', 'routes', 'einzelaufgabe', '+page.server.ts')],
 		['/wissen', quelltext('src', 'routes', 'wissen', '+page.server.ts')],
 		['/wissen/[id]', quelltext('src', 'routes', 'wissen', '[id]', '+page.server.ts')],
@@ -6110,7 +6110,7 @@ try {
 		['/aufgabe', quelltext('src', 'routes', 'aufgabe', '+page.svelte')],
 		['/monatsplan', quelltext('src', 'routes', 'monatsplan', '+page.svelte')],
 		['/verwaltung', quelltext('src', 'routes', 'verwaltung', '+page.svelte')],
-		['/dienstplan', quelltext('src', 'routes', 'dienstplan', '+page.svelte')],
+		['/traenkeplan', quelltext('src', 'routes', 'traenkeplan', '+page.svelte')],
 		['/einzelaufgabe', quelltext('src', 'routes', 'einzelaufgabe', '+page.svelte')],
 		['/wissen', quelltext('src', 'routes', 'wissen', '+page.svelte')],
 		['/wissen/[id]', quelltext('src', 'routes', 'wissen', '[id]', '+page.svelte')],
@@ -6247,7 +6247,7 @@ try {
 	 */
 	const zeilenformSeiten = [
 		['/verwaltung', quelltext('src', 'routes', 'verwaltung', '+page.svelte')],
-		['/dienstplan', quelltext('src', 'routes', 'dienstplan', '+page.svelte')],
+		['/traenkeplan', quelltext('src', 'routes', 'traenkeplan', '+page.svelte')],
 	] as const;
 	const zeilenformTeile = zeilenformSeiten.flatMap(([name, text]) => {
 		const rumpf = /<details class="zeilenform"[\s\S]*?<\/details>/.exec(text)?.[0] ?? '';
@@ -6273,7 +6273,7 @@ try {
 			 * Zeilen liesse sich eine Seite still wieder eigene Namen zulegen: die
 			 * Wache über das Stilblatt zählt nur, dass `.zeilenform__griff` dort
 			 * genau einmal steht — nicht, dass jemand sie anfasst. Gemessen: eine
-			 * zurückgedrehte Klasse in `/dienstplan` kam grün durch.
+			 * zurückgedrehte Klasse in `/traenkeplan` kam grün durch.
 			 */
 			[`${name}: der Griff trägt die geteilte Klasse`, /class="zeilenform__griff"/.test(rumpf)],
 			[`${name}: der Rumpf trägt die geteilte Klasse`, /class="zeilenform__formular"/.test(rumpf)],
@@ -6725,7 +6725,7 @@ try {
 	 * **Die schärfere Fassung ist heute nicht zu haben** und gehört zu Posten R4:
 	 * „die meta-Rampe steht nur im geteilten Blatt" wäre die Behauptung, die
 	 * diese ganze Klasse deckte. Gemessen am 2026-08-30 tragen `+page.svelte`,
-	 * `NavBar.svelte` und `dienstplan/+page.svelte` zusammen noch vier lokale
+	 * `NavBar.svelte` und `traenkeplan/+page.svelte` zusammen noch vier lokale
 	 * Regeln mit `--meta-font`. Die Behauptung wäre heute rot, und zwar zu Recht.
 	 */
 	const standTag =
@@ -6757,15 +6757,15 @@ try {
 	 * ausgelieferte HTML misst scripts/smoke-http.ts an einem echten Server; hier
 	 * steht, was ohne einen Browser überhaupt prüfbar ist — die Verdrahtung.
 	 */
-	const dienstplanCode = seitenKomponenten[4][1];
+	const traenkeplanCode = seitenKomponenten[4][1];
 	const startseiteCodeDienst = seitenKomponenten[0][1];
 
-	const besetzenVon = dienstplanCode.indexOf('<details class="zeilenform"');
-	const besetzenBis = dienstplanCode.indexOf('</form>', besetzenVon);
+	const besetzenVon = traenkeplanCode.indexOf('<details class="zeilenform"');
+	const besetzenBis = traenkeplanCode.indexOf('</form>', besetzenVon);
 	const besetzenFormular =
 		besetzenVon < 0 || besetzenBis < 0
 			? ''
-			: dienstplanCode.slice(besetzenVon, besetzenBis).replace(/\s+/g, ' ');
+			: traenkeplanCode.slice(besetzenVon, besetzenBis).replace(/\s+/g, ' ');
 	const besetzenTeile = [
 		['das Formular ist da', besetzenFormular !== ''],
 		['method="POST"', /<form\b[^>]*\bmethod="POST"/.test(besetzenFormular)],
@@ -6823,7 +6823,7 @@ try {
 		],
 	] as const;
 	pruefen(
-		'das Besetzen-Formular auf /dienstplan ist vollständig verdrahtet',
+		'das Besetzen-Formular auf /traenkeplan ist vollständig verdrahtet',
 		fehlendeTeile(besetzenTeile).length === 0,
 		`fehlt: ${fehlendeTeile(besetzenTeile).join(', ')}`
 	);
@@ -6835,15 +6835,15 @@ try {
 	 * `data.istAdmin`: ein `{#if}` irgendwo in der Datei erfüllte eine
 	 * Vorkommensprüfung, ohne das Formular zu decken.
 	 */
-	const adminMarke = dienstplanCode.indexOf('{#if data.istAdmin}');
+	const adminMarke = traenkeplanCode.indexOf('{#if data.istAdmin}');
 	pruefen(
 		'das Besetzen-Formular liegt hinter {#if data.istAdmin}',
 		adminMarke >= 0 && besetzenVon > adminMarke,
 		`Marke bei ${adminMarke}, Formular bei ${besetzenVon}`
 	);
 	pruefen(
-		'/dienstplan erklärt genau ein Besetzen-Formular — je Zeile eines aus einem Block',
-		(dienstplanCode.match(/<details class="zeilenform"/g) ?? []).length === 1
+		'/traenkeplan erklärt genau ein Besetzen-Formular — je Zeile eines aus einem Block',
+		(traenkeplanCode.match(/<details class="zeilenform"/g) ?? []).length === 1
 	);
 
 	const planTeile = [
@@ -6851,15 +6851,15 @@ try {
 		 * Unbesetzt trägt **das Wort**. Ohne diese Zeile bliebe die Zusage an der
 		 * Farbe allein hängen, und ein Screenreader läse eine leere Zelle.
 		 */
-		["das Wort '— unbesetzt —' steht im Markup", /— unbesetzt —/.test(dienstplanCode)],
+		["das Wort '— unbesetzt —' steht im Markup", /— unbesetzt —/.test(traenkeplanCode)],
 		[
 			'und es hängt am fehlenden Namen, nicht an einer Farbe',
-			/\{eintrag\.name \?\? '— unbesetzt —'\}/.test(dienstplanCode),
+			/\{eintrag\.name \?\? '— unbesetzt —'\}/.test(traenkeplanCode),
 		],
 		[
 			'die Farbe kommt zusätzlich, über eine eigene Klasse',
-			/class:woche__name--unbesetzt=\{eintrag\.name === null\}/.test(dienstplanCode) &&
-				/\.woche__name--unbesetzt \{[^}]*color: var\(--warn\)/.test(dienstplanCode),
+			/class:woche__name--unbesetzt=\{eintrag\.name === null\}/.test(traenkeplanCode) &&
+				/\.woche__name--unbesetzt \{[^}]*color: var\(--warn\)/.test(traenkeplanCode),
 		],
 		/*
 		 * Ziffern in Tabellenstellung — UX-DR: eine Wochenliste, deren Zahlen
@@ -6868,7 +6868,7 @@ try {
 		 */
 		[
 			'die Wochennummer steht in Tabellenstellung',
-			/\.woche__nummer \{[^}]*font-variant-numeric: tabular-nums/.test(dienstplanCode),
+			/\.woche__nummer \{[^}]*font-variant-numeric: tabular-nums/.test(traenkeplanCode),
 		],
 		/*
 		 * Das Wochendatum trägt sie seit dem Review vom 2026-08-30 über die
@@ -6879,7 +6879,7 @@ try {
 		 */
 		[
 			'das Wochendatum ebenso, über die geteilte Rolle',
-			/<p class="hinweis hinweis--ziffern">\{wochendatum\(eintrag\)\}<\/p>/.test(dienstplanCode),
+			/<p class="hinweis hinweis--ziffern">\{wochendatum\(eintrag\)\}<\/p>/.test(traenkeplanCode),
 		],
 		/*
 		 * Die Wochenrechnung wird **importiert** und nicht nachgebaut. Ein
@@ -6888,21 +6888,21 @@ try {
 		 */
 		[
 			'die Komponente zieht Datum und Schlüssel aus zeit.ts',
-			/import \{ wochendatum, wochenSchluessel \} from '\$lib\/zeit';/.test(dienstplanCode),
+			/import \{ wochendatum, wochenSchluessel \} from '\$lib\/zeit';/.test(traenkeplanCode),
 		],
 		[
 			'und faltet den Schlüssel nicht selbst',
-			!/jahr \* 100/.test(dienstplanCode) && !/\$\{[^}]*jahr[^}]*\}-\$\{/.test(dienstplanCode),
+			!/jahr \* 100/.test(traenkeplanCode) && !/\$\{[^}]*jahr[^}]*\}-\$\{/.test(traenkeplanCode),
 		],
 		/* Die Liste ist keyed — sonst zeigte ein offenes <details> nach dem
 		   Neubesetzen auf eine andere Woche. */
 		[
 			'der each-Block ist über den Wochenschlüssel keyed',
-			/\{#each data\.wochen as eintrag \(schluessel\(eintrag\)\)\}/.test(dienstplanCode),
+			/\{#each data\.wochen as eintrag \(schluessel\(eintrag\)\)\}/.test(traenkeplanCode),
 		],
 	] as const;
 	pruefen(
-		'/dienstplan trägt das Wort, die Tabellenstellung und die eine Wochenrechnung',
+		'/traenkeplan trägt das Wort, die Tabellenstellung und die eine Wochenrechnung',
 		fehlendeTeile(planTeile).length === 0,
 		`fehlt: ${fehlendeTeile(planTeile).join(', ')}`
 	);
@@ -6921,16 +6921,16 @@ try {
 	 * rot, ohne dass eine Zusage gebrochen wäre.
 	 */
 	const planFehlerTreffer = /<p\b[^>]*id="besetzen-fehler-\{dieseWoche\}"[\s\S]*?<\/p>/.exec(
-		dienstplanCode
+		traenkeplanCode
 	);
 	const planFehlerTag = (planFehlerTreffer?.[0] ?? '').replace(/\s+/g, ' ');
 	pruefen(
-		'der Satz zur Woche auf /dienstplan ist eine immer vorhandene Live-Region',
+		'der Satz zur Woche auf /traenkeplan ist eine immer vorhandene Live-Region',
 		planFehlerTag !== '' &&
 			/role="alert"/.test(planFehlerTag) &&
 			/aria-live=/.test(planFehlerTag) &&
 			/\{fehlerHier \? fehlerAnDerAuswahl : ''\}/.test(planFehlerTag) &&
-			(planFehlerTreffer?.index ?? -1) > dienstplanCode.indexOf('</details>'),
+			(planFehlerTreffer?.index ?? -1) > traenkeplanCode.indexOf('</details>'),
 		planFehlerTag === '' ? 'kein <p id="besetzen-fehler-…"> gefunden' : planFehlerTag
 	);
 
@@ -6952,13 +6952,13 @@ try {
 		],
 		['und das Wochendatum daneben', /\{data\.dienst\.datum\}/.test(dienstBlock)],
 		/*
-		 * Der ganze Block ist ein Link auf den Dienstplan — und **kein** Formular
+		 * Der ganze Block ist ein Link auf den Tränkeplan — und **kein** Formular
 		 * und kein Knopf: ein Dienst ist keine Aufgabe, er ist nicht abhakbar und
 		 * nicht wegklickbar.
 		 */
 		[
-			'er ist als Ganzes ein Link auf /dienstplan',
-			/<a class="dienst" href=\{resolve\('\/dienstplan'\)\}>/.test(dienstBlock),
+			'er ist als Ganzes ein Link auf /traenkeplan',
+			/<a class="dienst" href=\{resolve\('\/traenkeplan'\)\}>/.test(dienstBlock),
 		],
 		[
 			'und trägt weder Knopf noch Kästchen noch Formular',
@@ -7116,7 +7116,7 @@ try {
 
 	/*
 	 * **Ein beendeter Zugang gibt die Einzelaufgabe frei.** Dieselbe Lage wie im
-	 * Dienstplan, mit der anderen Folge: dort fällt die Woche auf `— unbesetzt —`
+	 * Tränkeplan, mit der anderen Folge: dort fällt die Woche auf `— unbesetzt —`
 	 * und wartet auf die Verwaltung, hier fällt die Aufgabe zurück in Block 2 und
 	 * wartet auf die Nächste. Der Datensatz bleibt in beiden Fällen stehen.
 	 */

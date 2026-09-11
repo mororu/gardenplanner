@@ -194,7 +194,7 @@ export function load({ locals, url }: ServerLoadEvent): {
 	 * Rechnung an einer Stelle, die keine braucht.
 	 *
 	 * **Nicht** aus Sorge vor einem Hydrierungsunterschied — `wochendatum` ist
-	 * rein und gäbe im Browser dasselbe wie auf dem Server; /dienstplan ruft es
+	 * rein und gäbe im Browser dasselbe wie auf dem Server; /traenkeplan ruft es
 	 * denn auch in der Komponente. Was hier wirklich nicht in den Browser gehört,
 	 * ist der **Bezugszeitpunkt**: der entsteht einmal in dieser load, und ein
 	 * `Date.now()` in einer Komponente liefe zweimal.
@@ -210,7 +210,7 @@ export function load({ locals, url }: ServerLoadEvent): {
 	 * fünfzeiligen Liste die Zahl 6. Ein Bestand, eine Uhr, eine Wahrheit.
 	 *
 	 * `unbesetzt` ist die einzige wirklich neue Abfrage dieser Seite. Sie nimmt
-	 * dasselbe Fenster wie /dienstplan (`wochenfenster`, rund vierzehn Wochen) und
+	 * dasselbe Fenster wie /traenkeplan (`wochenfenster`, rund vierzehn Wochen) und
 	 * dieselbe Funktion — nicht eine eigene, engere Rechnung, sonst zeigte das Band
 	 * eine andere Zahl als die Seite, auf die seine Kachel verweist.
 	 */

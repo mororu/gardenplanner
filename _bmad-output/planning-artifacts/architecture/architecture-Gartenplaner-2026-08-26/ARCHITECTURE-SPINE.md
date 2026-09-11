@@ -139,7 +139,7 @@ graph TD
 - **Prevents:** Story 1 rendert nur den Aufgaben-Pool und Story 5 legt die Einzelaufgaben auf eine eigene Seite — beide halten jede Regel ein, und trotzdem sieht niemand beim Öffnen, dass Setzlinge abzuholen sind.
 - **Rule:** Die Startseite `/` führt genau drei Blöcke in dieser Reihenfolge: (1) einen Hinweis, falls die betrachtende Person diese Woche Dienst hat, (2) offene Einzelaufgaben ohne Übernehmer, (3) den offenen Aufgaben-Pool. Eine neue Aufgabenart erscheint nur dann in der Anwendung, wenn sie auch hier einsortiert wird. Unterseiten dürfen vertiefen, nie exklusiv informieren. **Ein Überblicksband ohne eigene Aufgabenart darf vorangestellt werden; es informiert nie exklusiv.**
 
-> **Ergänzt am 2026-09-11 um den letzten Satz.** Das Band zeigt drei Zahlen — offene Aufgaben samt überfälligen, freie Einzelaufgaben, unbesetzte Dienstwochen —, und jede Kachel verweist auf die Stelle, die vertieft. Es ist damit kein vierter Block im Sinn der Regel, sondern deren Kurzfassung: was es zählt, steht ohnehin darunter oder auf `/dienstplan`. Die Schranke bleibt scharf und ist die alte: **wer eine Aufgabenart nur ins Band schreibt und nicht in einen der drei Blöcke, verstösst gegen AD-14.** Eine Kachel mit der Zahl 0 erscheint nicht, und sind alle drei null, fehlt das Band ganz.
+> **Ergänzt am 2026-09-11 um den letzten Satz.** Das Band zeigt drei Zahlen — offene Aufgaben samt überfälligen, freie Einzelaufgaben, unbesetzte Tränkewochen —, und jede Kachel verweist auf die Stelle, die vertieft. Es ist damit kein vierter Block im Sinn der Regel, sondern deren Kurzfassung: was es zählt, steht ohnehin darunter oder auf `/traenkeplan`. Die Schranke bleibt scharf und ist die alte: **wer eine Aufgabenart nur ins Band schreibt und nicht in einen der drei Blöcke, verstösst gegen AD-14.** Eine Kachel mit der Zahl 0 erscheint nicht, und sind alle drei null, fehlt das Band ganz.
 
 ## Consistency Conventions
 
@@ -313,7 +313,7 @@ src/
     +page.svelte|.server.ts    # Startseite: drei Blöcke — CAP-1, CAP-2, AD-14
     aufgabe/               # Ad-hoc erfassen — CAP-4
     monatsplan/            # Massen-Eingabe — CAP-3
-    dienstplan/            # Dienstplan und Besetzen — CAP-5
+    traenkeplan/            # Tränkeplan und Besetzen — CAP-5
     einzelaufgabe/         # eine Einzelaufgabe ausschreiben — CAP-6
     einzelaufgaben/        # alle Einzelaufgaben, lesend — CAP-6
     mehr/                  # Einstieg zu den seltenen Handlungen
@@ -396,7 +396,7 @@ Wachstum über die letzten drei Messpunkte, in Gesamtzeilen: 1,10 → 1,21 → 1
 
 | Schicht | Zeilen | Entscheid |
 | --- | ---: | --- |
-| **Gerendertes Ergebnis und Verhalten im Browser** — `smoke-sicht.ts` mit `kopfbrowser.ts` | 1 178 + 468 | **Architekturbestandteil, gebaut am 2026-08-31.** Fährt Chrome kopflos über das DevTools-Protokoll und misst Geometrie, berechnete Stile, emulierte Medienabfragen und — seit dem 2026-08-31 — **Interaktion** bei 375px: Klick, Eingabe, Taste, Fokus. Auf `/`, `/dienstplan`, `/wissen` und einem Blatt. Die einzige Schicht, die einen Regel**körper** gegen sein Ergebnis hält — die Klasse von Befund R1. Ohne fremde Abhängigkeit; Grenze: nur Chromium. |
+| **Gerendertes Ergebnis und Verhalten im Browser** — `smoke-sicht.ts` mit `kopfbrowser.ts` | 1 178 + 468 | **Architekturbestandteil, gebaut am 2026-08-31.** Fährt Chrome kopflos über das DevTools-Protokoll und misst Geometrie, berechnete Stile, emulierte Medienabfragen und — seit dem 2026-08-31 — **Interaktion** bei 375px: Klick, Eingabe, Taste, Fokus. Auf `/`, `/traenkeplan`, `/wissen` und einem Blatt. Die einzige Schicht, die einen Regel**körper** gegen sein Ergebnis hält — die Klasse von Befund R1. Ohne fremde Abhängigkeit; Grenze: nur Chromium. |
 | **Verhalten am gebauten Server** — `smoke-http.ts` | 2 132 | **Architekturbestandteil.** Startet den gebauten Server auf einem freien Port und misst echte Antworten samt POST. Höchster Wert pro Zeile, durch nichts anderes zu ersetzen. Wächst mit dem Produkt. |
 | **Verhalten an den Modulen** — der aufrufende Teil von `smoke-zugang.ts` | ~ die Hälfte von 7 689 | **Architekturbestandteil.** Ruft `load`- und action-Funktionen direkt gegen eine echte Wegwerf-Datenbank. Das ist die Abnahme dieses Projekts. |
 | **Regeln über den Quelltext** — `gate.mjs`, `db-check.ts`, und der lesende Teil von `smoke-zugang.ts` | 2 569 + Rest | **Das ist Lint, kein Test, und gehört nach `gate.mjs`.** Siehe unten. |
@@ -449,7 +449,7 @@ Bis dahin las nichts im Werkzeug **Regelkörper oder gerendertes Ergebnis**. Bef
 | CAP-2 Abhaken | form action in `routes/+page.server.ts` | AD-5, AD-9, AD-7 |
 | CAP-3 Monatsplan ablegen | `routes/monatsplan/` | AD-1, AD-8, AD-9 |
 | CAP-4 Ad-hoc erfassen | `routes/aufgabe/` | AD-1, AD-4, AD-9 |
-| CAP-5 Dienstplan | `routes/dienstplan/`, `queries/duty-weeks.ts` | AD-3, AD-4, AD-11, AD-14 |
+| CAP-5 Tränkeplan | `routes/traenkeplan/`, `queries/duty-weeks.ts` | AD-3, AD-4, AD-11, AD-14 |
 | CAP-6 Einzelaufgabe mit Anmeldung | `routes/einzelaufgabe/` (ausschreiben), `routes/einzelaufgaben/` (lesen), Block 2 auf `/` (übernehmen), `queries/signup-tasks.ts` | AD-3, AD-4, AD-9, AD-14 |
 | CAP-7 Referenz-Sheets | `routes/wissen/`, `routes/wissen/[id]/`, `queries/sheets.ts`, `lib/blatttext.ts` | AD-1, AD-6, AD-9 |
 | Überfälligkeit (Story 3) | Anzeigelogik der Liste | AD-8 |

@@ -3,7 +3,7 @@
 
 	/*
 	 * Vier Ziele mit Wort statt Symbol. Alle vier sind seit Story 4.1 bebaut:
-	 * /mehr steht seit Story 1.3, /dienstplan seit Story 3.1, /wissen seit
+	 * /mehr steht seit Story 1.3, /traenkeplan seit Story 3.1, /wissen seit
 	 * Story 4.1 — bis dahin führte es auf die Fehlerseite mit
 	 * `Diese Seite gibt es nicht.`
 	 *
@@ -22,7 +22,7 @@
 	 * auf eine Frage, die dieses Projekt seit Story 1.5 offen mit sich trug
 	 * (Eintrag 28 der zurückgestellten Arbeit): auf /aufgabe, /monatsplan und
 	 * /verwaltung war **kein** Eintrag markiert, und die ganze Erfassung lief
-	 * ohne Ortsangabe. Mit /dienstplan als echtem Ziel und den zwei Routen aus
+	 * ohne Ortsangabe. Mit /traenkeplan als echtem Ziel und den zwei Routen aus
 	 * Story 3.2 sind es fünf solche Seiten statt zwei.
 	 *
 	 * Zugeordnet wird nach dem **Weg dorthin**, nicht nach dem Thema: /aufgabe
@@ -52,7 +52,7 @@
 	 */
 	const ziele = [
 		{ href: '/', beschriftung: 'Aufgaben', gehoertDazu: ['/aufgabe'] },
-		{ href: '/dienstplan', beschriftung: 'Dienstplan', gehoertDazu: [] },
+		{ href: '/traenkeplan', beschriftung: 'Tränkeplan', gehoertDazu: [] },
 		{ href: '/wissen', beschriftung: 'Wissen', gehoertDazu: [] },
 		{
 			href: '/mehr',

@@ -90,7 +90,7 @@ UX-DR12: Leere Zustände und Fehlertexte nach den Tonfall-Regeln — `Nichts off
 UX-DR13: Barrierefreiheits-Boden — Trefferfelder ≥44px, Kontrast geprüft in beiden Modi, kein Zustand nur über Farbe, sichtbarer Tastaturfokus auf allem Bedienbaren, Leserichtung als Fokusreihenfolge, Schriftgrösse nie unter 12px und gelesener Text nie unter 16px, alle Grössen in `rem`.
 UX-DR14: Keine Schatten und keine Pillen-Radien. Tiefe entsteht ausschliesslich tonal über zwei Ebenen (Grund und Karte) plus Haarlinie.
 UX-DR15: Ausdrücklich nicht bauen — Fortschrittsbalken, Serien, Abzeichen, Ranglisten, Zählungen erledigter Aufgaben, Wischgesten, Push-Benachrichtigungen, Illustrationen, Maskottchen, Bestätigungsdialog beim Abhaken, Symbole ohne Beschriftung, unendliches Nachladen.
-UX-DR16: Acht Oberflächen gemäss Informationsarchitektur — `/`, `/aufgabe`, `/dienstplan`, `/wissen`, `/mehr`, `/monatsplan`, `/einzelaufgaben/neu`, `/verwaltung`. Seltene Handlungen liegen hinter `/mehr`; `/verwaltung` erscheint dort nur für Admins.
+UX-DR16: Acht Oberflächen gemäss Informationsarchitektur — `/`, `/aufgabe`, `/traenkeplan`, `/wissen`, `/mehr`, `/monatsplan`, `/einzelaufgaben/neu`, `/verwaltung`. Seltene Handlungen liegen hinter `/mehr`; `/verwaltung` erscheint dort nur für Admins.
 
 ### FR Coverage Map
 
@@ -494,7 +494,7 @@ So that der Dienst verbindlich ist und ich ihn nicht vergesse.
 **Acceptance Criteria:**
 
 **Given** einen gefüllten Dienstplan
-**When** ich `/dienstplan` öffne
+**When** ich `/traenkeplan` öffne
 **Then** sehe ich die Wochen der nächsten drei Monate mit je genau einer zuständigen Person, Ziffern in Tabellenstellung
 
 **Given** ich habe in der laufenden Woche Dienst

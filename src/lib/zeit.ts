@@ -305,7 +305,7 @@ export function wochenOffenSeit(bezugSekunden: number, jetztSekunden: number): n
  *
  * Sie steht hier und nicht in der Route oder der Komponente, aus demselben
  * Grund wie die Zone und die Schwelle darüber: eine zweite Wochenrechnung wäre
- * eine zweite Wahrheit über denselben Kalender. Der Dienstplan rechnet damit
+ * eine zweite Wahrheit über denselben Kalender. Der Tränkeplan rechnet damit
  * das Fenster der nächsten drei Monate, die Startseite die laufende Woche, und
  * die Datenschicht speichert das Ergebnis als zwei Integer.
  *
@@ -523,7 +523,7 @@ const WOCHENDATUM_TAG = new Intl.DateTimeFormat('de-CH', {
  * der er entstanden ist.
  *
  * Ohne Jahr — **und das trägt nur, weil die Wochenzeile es nennt.** Auf
- * /dienstplan steht das ISO-Jahr als eigene Angabe neben `KW n`; diese Funktion
+ * /traenkeplan steht das ISO-Jahr als eigene Angabe neben `KW n`; diese Funktion
  * darf es darum weglassen, ohne dass `28. Dezember bis 3. Januar` offenliesse,
  * welches Jahr gemeint ist. Die Begründung stand hier schon, bevor die Angabe
  * existierte, und war bis zur Review von Story 3.1 schlicht falsch: der Plan

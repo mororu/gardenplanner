@@ -415,8 +415,8 @@ try {
 	 * Anfrage, und eine ungeprüfte gerenderte Seite ist genau der Ort, an dem die
 	 * nächste Kommentarmarke aufbricht.
 	 *
-	 * **Der Dienstplan kam mit Story 3.1 dazu — und nicht von selbst.** Die Story
-	 * baute daneben einen eigenen Block für den Dienstplan und liess die Seite
+	 * **Der Tränkeplan kam mit Story 3.1 dazu — und nicht von selbst.** Die Story
+	 * baute daneben einen eigenen Block für den Tränkeplan und liess die Seite
 	 * hier fehlen; sie ging darum ohne `<title>` in Betrieb, weil diese Schleife
 	 * die einzige Stelle ist, die den Titel überhaupt misst. Die Lehre steht in
 	 * der Liste selbst: **jede** gerenderte Seite gehört hier hinein, und der Ort
@@ -428,7 +428,7 @@ try {
 		{ pfad: '/mehr', titel: 'Mehr' },
 		{ pfad: '/monatsplan', titel: 'Monatsplan' },
 		{ pfad: '/aufgabe', titel: 'Aufgabe' },
-		{ pfad: '/dienstplan', titel: 'Dienstplan' },
+		{ pfad: '/traenkeplan', titel: 'Tränkeplan' },
 		{ pfad: '/einzelaufgabe', titel: 'Einzelaufgabe' },
 		{ pfad: '/einzelaufgaben', titel: 'Einzelaufgaben' },
 		{ pfad: '/wissen', titel: 'Wissen' },
@@ -899,7 +899,7 @@ try {
 	);
 
 	/*
-	 * Die Seite `/dienstplan` über HTTP — Story 3.1.
+	 * Die Seite `/traenkeplan` über HTTP — Story 3.1.
 	 *
 	 * Zwei Zusagen, die nur hier prüfbar sind, weil sie am ausgelieferten
 	 * Dokument hängen und nicht am Rückgabewert einer load:
@@ -911,15 +911,15 @@ try {
 	 *      ihrem Rückgabewert — aber erst hier steht, dass auch die Komponente
 	 *      keinen Namen aus einer anderen Quelle nachträgt.
 	 */
-	const planOhneRechte = await holen(port, '/dienstplan', { keks: mitgliedKeks });
+	const planOhneRechte = await holen(port, '/traenkeplan', { keks: mitgliedKeks });
 	const planOhneRechteHtml = await planOhneRechte.text();
-	const planAlsAdmin = await holen(port, '/dienstplan', { keks: adminKeks });
+	const planAlsAdmin = await holen(port, '/traenkeplan', { keks: adminKeks });
 	const planAlsAdminHtml = await planAlsAdmin.text();
 
-	pruefenGleich('/dienstplan gehört allen und antwortet mit 200', planOhneRechte.status, 200);
+	pruefenGleich('/traenkeplan gehört allen und antwortet mit 200', planOhneRechte.status, 200);
 	pruefen(
-		'/dienstplan trägt seinen Titel — die Gegenprobe gegen eine leere Antwort',
-		planOhneRechteHtml.includes('>Dienstplan<')
+		'/traenkeplan trägt seinen Titel — die Gegenprobe gegen eine leere Antwort',
+		planOhneRechteHtml.includes('>Tränkeplan<')
 	);
 	pruefen(
 		'und die Wochen stehen darin, mit Kalenderwoche',
@@ -1007,12 +1007,12 @@ try {
 		],
 	] as const;
 	pruefen(
-		'/dienstplan liefert der Adminperson das Besetzen-Formular aus — ohne JavaScript bedienbar',
+		'/traenkeplan liefert der Adminperson das Besetzen-Formular aus — ohne JavaScript bedienbar',
 		fehlendeTeile(planTeile).length === 0,
 		`fehlt: ${fehlendeTeile(planTeile).join(', ')} (${besetzenFormulare.length} Formular(e))`
 	);
 	pruefen(
-		'weder Hash noch Klartext-Token stehen im ausgelieferten Dienstplan',
+		'weder Hash noch Klartext-Token stehen im ausgelieferten Tränkeplan',
 		!saat.hashes.some((hash) => planAlsAdminHtml.includes(hash)) &&
 			!saat.klartexte.some((token) => planAlsAdminHtml.includes(token))
 	);
@@ -1026,7 +1026,7 @@ try {
 	 * Die Beschriftungen wiederholen sich je Zeile wortgleich — `Umbenennen`,
 	 * `Neuer Name`, `Namen speichern`, `Link neu ausstellen`,
 	 * `Einladung widerrufen` auf /verwaltung, `Besetzen`, `Zuständig`,
-	 * `Eintragen` auf /dienstplan. Wer die Seite **sieht**, liest die Kennung der
+	 * `Eintragen` auf /traenkeplan. Wer die Seite **sieht**, liest die Kennung der
 	 * Zeile mit; wer sie mit einer Elementliste durchgeht, las zwanzigmal
 	 * dasselbe Wort.
 	 *
@@ -1074,7 +1074,7 @@ try {
 				'widerrufen-',
 			],
 		],
-		['/dienstplan', planAlsAdminHtml, ['besetzen-griff-', 'auswahl-label-', 'eintragen-']],
+		['/traenkeplan', planAlsAdminHtml, ['besetzen-griff-', 'auswahl-label-', 'eintragen-']],
 	] as const) {
 		const zeilenVerweise = [...html.matchAll(/\baria-labelledby="([^"]+)"/g)]
 			.map((treffer) => treffer[1])
@@ -1109,7 +1109,7 @@ try {
 	/*
 	 * Und die zwei Griffe namentlich, weil sie die zwei sind, die die Einträge
 	 * nennen: der `<summary>`, der auf /verwaltung `Umbenennen` heisst und auf
-	 * /dienstplan `Besetzen`.
+	 * /traenkeplan `Besetzen`.
 	 */
 	pruefen(
 		'der Umbenennen-Griff zeigt auf sich und auf den Namen der Zeile',
@@ -1141,12 +1141,12 @@ try {
 			new RegExp(`<input\\b[^>]*\\bname="${feld}"[^>]*>`).exec(erstesFormular)?.[0] ?? ''
 		)?.[1] ?? '';
 	const erstesMitglied = /<option value="([0-9]+)"/.exec(erstesFormular)?.[1] ?? '';
-	const besetzt = await abschicken(port, '/dienstplan?/besetzen', adminKeks, {
+	const besetzt = await abschicken(port, '/traenkeplan?/besetzen', adminKeks, {
 		jahr: wertAus('jahr'),
 		woche: wertAus('woche'),
 		mitgliedId: erstesMitglied,
 	});
-	const nachBesetzen = await holen(port, '/dienstplan', { keks: mitgliedKeks });
+	const nachBesetzen = await holen(port, '/traenkeplan', { keks: mitgliedKeks });
 	const nachBesetzenHtml = await nachBesetzen.text();
 	/*
 	 * **Und die Vorbelegung der Auswahl — nur hier prüfbar.**
@@ -1158,7 +1158,7 @@ try {
 	 * Person steht vorgewählt" allein am Quelltext — und ohne JavaScript ist das
 	 * ausgelieferte `selected` das Einzige, was sie überhaupt einlöst.
 	 */
-	const nachBesetzenAdmin = await holen(port, '/dienstplan', { keks: adminKeks });
+	const nachBesetzenAdmin = await holen(port, '/traenkeplan', { keks: adminKeks });
 	const nachBesetzenAdminHtml = await nachBesetzenAdmin.text();
 	const besetzteZeile =
 		/<form\b[^>]*action="\?\/besetzen"[^>]*>([\s\S]*?)<\/form>/.exec(nachBesetzenAdminHtml)?.[1] ??
@@ -1208,7 +1208,7 @@ try {
 	 * landet und nicht etwa auf einer Fehlerseite, die die Existenz der Aktion
 	 * verriete.
 	 */
-	const besetzenOhneRechte = await abschicken(port, '/dienstplan?/besetzen', mitgliedKeks, {
+	const besetzenOhneRechte = await abschicken(port, '/traenkeplan?/besetzen', mitgliedKeks, {
 		jahr: wertAus('jahr'),
 		woche: wertAus('woche'),
 		mitgliedId: erstesMitglied,
@@ -1261,12 +1261,12 @@ try {
 			// Der Block ist als Ganzes ein Link auf den Plan — ein Dienst ist keine
 			// Aufgabe, es gibt keinen Knopf daran.
 			//
-			// `\.?\/dienstplan`, weil resolve() in der Ausgabe `./dienstplan`
-			// schreibt und nicht `/dienstplan`. Gemessen, nicht angenommen: die
+			// `\.?\/traenkeplan`, weil resolve() in der Ausgabe `./traenkeplan`
+			// schreibt und nicht `/traenkeplan`. Gemessen, nicht angenommen: die
 			// erste Fassung dieser Zeile suchte den absoluten Pfad und wurde rot,
 			// obwohl der Link stimmte. Genau dafür gibt es dieses Skript.
-			'als Link auf den Dienstplan',
-			/<a\b[^>]*\bclass="dienst[ "][^>]*\bhref="\.?\/dienstplan"/.test(startseiteMitDienstHtml),
+			'als Link auf den Tränkeplan',
+			/<a\b[^>]*\bclass="dienst[ "][^>]*\bhref="\.?\/traenkeplan"/.test(startseiteMitDienstHtml),
 		],
 		[
 			// Und kein Bedienelement darin: ein Dienst ist nicht abhakbar.
@@ -1416,7 +1416,7 @@ try {
 	 * **Ein abgewiesenes Besetzen, ohne JavaScript.**
 	 *
 	 * Dieselbe Zusage wie beim Umbenennen weiter oben, und aus der Review von
-	 * Story 3.1: für /dienstplan gab es sie nur als Regex über den Quelltext der
+	 * Story 3.1: für /traenkeplan gab es sie nur als Regex über den Quelltext der
 	 * Komponente und als Rückgabewert der action — beides sieht kein Dokument.
 	 * Eine Regression, in der der Satz nur noch in der Hydratationsnutzlast
 	 * landet oder in der mehr als eine Zeile aufgeht, wäre unsichtbar geblieben.
@@ -1426,7 +1426,7 @@ try {
 	 * Zeile landen kann. Der Datenstand bleibt unberührt.
 	 */
 	const abgewieseneWoche = `${wertAus('jahr')}${wertAus('woche').padStart(2, '0')}`;
-	const besetzenAbweisung = await abschicken(port, '/dienstplan?/besetzen', adminKeks, {
+	const besetzenAbweisung = await abschicken(port, '/traenkeplan?/besetzen', adminKeks, {
 		jahr: wertAus('jahr'),
 		woche: wertAus('woche'),
 		mitgliedId: '9999999',

@@ -7,7 +7,7 @@
 	import { wochendatum, wochenSchluessel } from '$lib/zeit';
 
 	/*
-		/dienstplan — die Wochen der nächsten drei Monate mit je einer Person.
+		/traenkeplan — die Wochen der nächsten drei Monate mit je einer Person.
 
 		Die Bauform ist die von /verwaltung: keyed {#each}, je Zeile ein
 		aufklappbares Formular in einem <details>, dessen `open` am Fehlschlag
@@ -159,11 +159,11 @@
 </script>
 
 <svelte:head>
-	<title>Dienstplan</title>
+	<title>Tränkeplan</title>
 </svelte:head>
 
 <div class="seite">
-	<h1 class="seitentitel">Dienstplan</h1>
+	<h1 class="seitentitel">Tränkeplan</h1>
 
 	<!--
 		Die zwei Live-Regionen des Seitenkopfs. Beide stehen **immer** im Markup und

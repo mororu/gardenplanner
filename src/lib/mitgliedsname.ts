@@ -66,7 +66,7 @@ export const NAME_ZU_LANG = `Der Name ist zu lang. Höchstens ${NAME_HOECHSTLAEN
  * ein Name aus lauter unsichtbaren Zeichen erscheint in der Liste als leere
  * Lücke, mit einem lebenden Einladungslink und ohne jede Aussage, wer das ist.
  * Seit Story 3.0.1 gibt es dafür ein Umbenennen; endgültig ist der Fehler damit
- * nicht mehr, aber er steht ab Story 3.1 im Dienstplan vor allen, drei Monate im
+ * nicht mehr, aber er steht ab Story 3.1 im Tränkeplan vor allen, drei Monate im
  * Voraus, bis ihn jemand bemerkt.
  */
 

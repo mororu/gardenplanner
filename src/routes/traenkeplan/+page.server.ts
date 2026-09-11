@@ -15,7 +15,7 @@ import { isoWocheVon, istWoche, wochenfenster, wochenSchluessel } from '../../li
 import { MITGLIED_NICHT_ANSPRECHBAR, WOCHE_NICHT_ANSPRECHBAR } from '../../lib/texte.ts';
 
 /*
- * /dienstplan — wer wann am Tränken ist, drei Monate im Voraus.
+ * /traenkeplan — wer wann am Tränken ist, drei Monate im Voraus.
  *
  * Die Importe stehen relativ und mit .ts-Endung, und die Typen kommen aus
  * @sveltejs/kit statt aus ./$types. Der Grund ist derselbe wie in
@@ -27,7 +27,7 @@ import { MITGLIED_NICHT_ANSPRECHBAR, WOCHE_NICHT_ANSPRECHBAR } from '../../lib/t
  * **Zwei Stufen, aber nur eine davon an der Seite.** Der Wächter in
  * src/hooks.server.ts hat einen Aufruf ohne gültige Sitzung schon mit 403
  * abgewiesen; **lesen** darf den Plan danach jedes aktive Mitglied, und das ist
- * der Zweck der Seite — ein Dienstplan, den nur die Verwaltung sieht, nimmt
+ * der Zweck der Seite — ein Tränkeplan, den nur die Verwaltung sieht, nimmt
  * niemandem die Nachfrage im Chat ab. Die zweite Stufe hängt allein an der
  * **action**: besetzen beginnt mit adminOderWeg. Es gibt darum bewusst kein
  * adminOderWeg in der load.

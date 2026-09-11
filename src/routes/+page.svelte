@@ -537,7 +537,7 @@
 		seit dem 2026-09-11 ein Überblicksband davor:
 
 		  Block 0 — das Band. **Keine eigene Aufgabenart**, sondern drei Zahlen über
-		            das, was die Blöcke darunter und /dienstplan ohnehin zeigen. AD-14
+		            das, was die Blöcke darunter und /traenkeplan ohnehin zeigen. AD-14
 		            lässt es ausdrücklich zu, solange es nie exklusiv informiert —
 		            jede Kachel verweist auf die Stelle, die vertieft.
 		  Block 1 — Diensthinweis: „Diese Woche bist du am Tränken", nur vorhanden,
@@ -595,7 +595,7 @@
 				</a>
 			{/if}
 			{#if data.ueberblick.unbesetzt > 0}
-				<a class="ueberblick__kachel" href={resolve('/dienstplan')}>
+				<a class="ueberblick__kachel" href={resolve('/traenkeplan')}>
 					<span class="ueberblick__zahl">{data.ueberblick.unbesetzt}</span>
 					<span class="ueberblick__wort">{ueberblickUnbesetzt(data.ueberblick.unbesetzt)}</span>
 				</a>
@@ -608,17 +608,17 @@
 		keinen leeren Rahmen. Ein Block, der „Diese Woche hast du keinen Dienst"
 		sagte, nähme jede Woche Platz weg, um nichts mitzuteilen.
 
-		Der ganze Block ist **ein** Link auf den Dienstplan und trägt darum keinen
+		Der ganze Block ist **ein** Link auf den Tränkeplan und trägt darum keinen
 		Knopf: ein Dienst ist keine Aufgabe, er ist nicht abhakbar und nicht
 		wegklickbar. Vertiefen darf die Unterseite, exklusiv informieren nicht —
 		der Satz hier sagt schon alles, was diese Woche zählt.
 
 		Die linke Kante in Akzentfarbe (3px, var(--border-marker)) ist dasselbe
-		Zeichen wie an der laufenden Woche auf /dienstplan: hier bist du gerade.
+		Zeichen wie an der laufenden Woche auf /traenkeplan: hier bist du gerade.
 	-->
 	{#if data.dienst !== null}
 		<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-		<a class="dienst" href={resolve('/dienstplan')}>
+		<a class="dienst" href={resolve('/traenkeplan')}>
 			<span class="dienst__satz">Diese Woche bist du am Tränken</span>
 			<span class="hinweis hinweis--ziffern">{data.dienst.datum}</span>
 		</a>
@@ -654,7 +654,7 @@
 							`Übernehmen`; wer die Liste sieht, liest den Titel mit, wer sie mit
 							einer Elementliste durchgeht, bekäme sonst dasselbe Wort ohne jede
 							Auskunft, worum es geht. Derselbe Handgriff wie an den
-							Zeilen-Aktionen auf /verwaltung und /dienstplan.
+							Zeilen-Aktionen auf /verwaltung und /traenkeplan.
 
 							`.zeile__text` bringt den Umbruch für getippten Text aus dem
 							geteilten Stilblatt mit.

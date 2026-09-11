@@ -244,7 +244,7 @@ export const actions = {
 	 * created_at bleiben unberührt, es ist ein UPDATE derselben Zeile. Bis Story
 	 * 3.0.1 war ein vertippter Name nur zu beheben, indem man den Zugang beendete
 	 * und die Person neu aufnahm — was ihr zugleich alle künftigen Dienstwochen
-	 * genommen hätte, sobald der Name ab Story 3.1 im Dienstplan vor allen steht.
+	 * genommen hätte, sobald der Name ab Story 3.1 im Tränkeplan vor allen steht.
 	 *
 	 * **Die eigene Zeile darf umbenannt werden**, anders als bei neuAusstellen
 	 * und widerrufen: ein Name ist kein Zugang. Ein Selbst-Umbenennen sperrt

@@ -101,3 +101,12 @@ tun ist.
 
 Oberfläche und Dokumente Deutsch in Schweizer Rechtschreibung, **ohne Eszett**,
 Du-Form. Domänenspalten der Datenbank deutsch, Infrastrukturspalten englisch.
+
+**Tränkeplan, nicht Dienstplan** (seit dem 2026-09-11). Die Seite heisst
+`/traenkeplan`, die Navigation, der Titel und die Kachel auf `/` nennen sie so,
+und Kommentare, die **diese Seite** meinen, ebenfalls. Die Grenze läuft an der
+Datenbank: die Tabelle bleibt `duty_weeks`, die Spalte `art` bleibt, und wo von
+der **Gattung** die Rede ist — „ein zweiter Dienstplan fände seine Wochen im
+Tränkeplan" —, bleibt das Wort Dienst richtig. Eine Migration allein für einen
+Spaltennamen ist den Preis nicht wert; das stand schon vor dieser Umbenennung
+in der ARCHITECTURE-SPINE und gilt unverändert.

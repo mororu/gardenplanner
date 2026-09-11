@@ -127,7 +127,7 @@
 			/*
 				Ein geglücktes Ändern leitet auf dieselbe Adresse mit `?geaendert`
 				weiter. Das Formular klappt dabei zu, und der Fokus hätte an ihm kein
-				Ziel mehr — er geht darum an die Rückmeldung, wie auf /dienstplan.
+				Ziel mehr — er geht darum an die Rückmeldung, wie auf /traenkeplan.
 			*/
 			meldungKasten?.focus();
 		};
@@ -170,7 +170,7 @@
 
 	<!--
 		Das Ändern. Dieselbe geteilte `.zeilenform` wie das Anlegen nebenan — vierte
-		Wurfstelle nach /verwaltung, /dienstplan und /wissen. Literales
+		Wurfstelle nach /verwaltung, /traenkeplan und /wissen. Literales
 		action="?/aendern" wegen Gate-Regel 11.
 
 		**Die Id steht in keinem versteckten Feld.** Sie kommt aus dem Pfad, den die

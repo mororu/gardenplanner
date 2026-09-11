@@ -9,12 +9,12 @@
 	/*
 		/wissen — die Blätter, alphabetisch, und das Formular für ein neues.
 
-		Die Bauform ist die von /dienstplan und /verwaltung: ein aufklappbares
+		Die Bauform ist die von /traenkeplan und /verwaltung: ein aufklappbares
 		<details> für das Formular, dessen `open` am Fehlschlag hängt, und eine
 		Live-Region, die immer im Markup steht. Der ausführliche Grund für jedes
 		dieser Stücke steht dort; hier stehen nur die Unterschiede.
 
-		**Ein einziges Formular und keines je Zeile.** /verwaltung und /dienstplan
+		**Ein einziges Formular und keines je Zeile.** /verwaltung und /traenkeplan
 		tragen ihres an jeder Zeile einer Liste und brauchen darum `zeile` in der
 		Antwort, um zu wissen, welches aufklappt. Hier steht es einmal unter der
 		Liste: das Anlegen gehört zu keinem Blatt, sondern zur Seite. `zeile` bleibt
@@ -131,7 +131,7 @@
 		B2: eine Region, die im selben Augenblick entsteht und ihren Text bekommt,
 		wird nicht verlässlich vorgelesen.
 
-		Nur eine, anders als auf /dienstplan: die Erfolgsmeldung steht auf dem
+		Nur eine, anders als auf /traenkeplan: die Erfolgsmeldung steht auf dem
 		angelegten Blatt, weil die action dorthin weiterleitet.
 	-->
 	<p class="fehler live" bind:this={fehlerKasten} role="alert" aria-live="assertive" tabindex="-1">
@@ -180,7 +180,7 @@
 		Das Anlegen. Ein <details> und keine eigene Seite: Nachschlagen und
 		Ergänzen sind dieselbe Bewegung, und <details> bringt das Auf und Zu ohne
 		JavaScript mit. Die Bauform ist die geteilte `.zeilenform` aus Epic 3 —
-		dritte Wurfstelle nach /verwaltung und /dienstplan.
+		dritte Wurfstelle nach /verwaltung und /traenkeplan.
 
 		Das <form> trägt ein **literales** action="?/anlegen": Gate-Regel 11 leitet
 		die Route aus dem Verzeichnis der Datei ab und hält den Namen gegen die

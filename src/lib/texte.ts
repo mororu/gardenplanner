@@ -108,7 +108,7 @@ export const AUFGABE_NICHT_ANSPRECHBAR =
 /**
  * Ein Wurf in einer action. **Acht** Wurfstellen, und gezählt werden
  * **Rückrufe**, nicht Seiten: je einer auf `/aufgabe`, `/monatsplan`,
- * `/verwaltung`, `/dienstplan` und `/einzelaufgabe`, und **drei** auf `/` — das
+ * `/verwaltung`, `/traenkeplan` und `/einzelaufgabe`, und **drei** auf `/` — das
  * Abhaken im Pool, das Bestätigen der Übernahme und der Ausfallweg des Knopfs
  * in der Zeile. Die Zahl stand bis Story 3.2
  * auf vier und stimmte seit Story 3.1 nicht mehr; sie zählte ausserdem Seiten,
@@ -159,7 +159,7 @@ export const VERSAND_FEHLGESCHLAGEN =
 
 /**
  * Die nicht ansprechbare Dienstwoche. **Zwei** Wurfstellen, beide in der action
- * `besetzen` in src/routes/dienstplan/+page.server.ts — die Formprüfung und die
+ * `besetzen` in src/routes/traenkeplan/+page.server.ts — die Formprüfung und die
  * Fensterschranke —, und beide werfen **denselben** Satz für vier Zustände:
  *
  *   1. jahr oder woche fehlt im Formular
@@ -302,7 +302,14 @@ export function ueberblickUeberfaellig(anzahl: number): string {
 /** Freie Einzelaufgaben. Ohne Beugung — die Wendung trägt Ein- und Mehrzahl. */
 export const UEBERBLICK_FREI = 'zum Übernehmen';
 
-/** Unbesetzte Dienstwochen im Fenster von /dienstplan. */
+/**
+ * Unbesetzte Wochen im Fenster des Tränkeplans.
+ *
+ * Die Kachel **nennt den Plan** und sagt nicht bloss „Wochen": auf dem Dashboard
+ * stehen drei Zahlen nebeneinander, und ohne das Wort wüsste niemand, welche
+ * Wochen gemeint sind. `unbesetzt` bleibt daneben stehen — es ist das Wort, das
+ * auch auf dem Plan selbst an einer Woche ohne Namen steht.
+ */
 export function ueberblickUnbesetzt(anzahl: number): string {
-	return anzahl === 1 ? 'Woche unbesetzt' : 'Wochen unbesetzt';
+	return anzahl === 1 ? 'Tränkewoche unbesetzt' : 'Tränkewochen unbesetzt';
 }
