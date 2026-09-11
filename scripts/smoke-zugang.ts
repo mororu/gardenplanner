@@ -7521,13 +7521,32 @@ try {
 	// Block 2 auf / und die eine Bestätigung, am Quelltext
 	// -----------------------------------------------------------------------
 	const startseiteCodeEinzel = seitenKomponenten[0][1];
+	/*
+	 * **Der Schnitt geht seit dem 2026-09-11 am Aufklapper entlang, nicht an einer
+	 * Bedingung.**
+	 *
+	 * Bis dahin hing der ganze Block an `{#if data.einzelaufgaben.length > 0}` und
+	 * fiel ohne freie Einzelaufgabe weg. Seit die zwei Wege — Ausschreiben und Alle
+	 * — im selben Aufklapper liegen, steht der Abschnitt **immer**: verschwände er,
+	 * verschwänden sie mit, und das war die Sackgasse, gegen die sie dort liegen.
+	 * Die Liste hat die Bedingung geerbt und hat jetzt ein {:else} mit einem Satz —
+	 * dieselbe Bauform wie der Pool seit Story 1.4.
+	 */
 	const einzelBlock =
-		/\{#if data\.einzelaufgaben\.length > 0\}[\s\S]*?\n\t\{\/if\}/.exec(
+		/<details open>\s*<summary class="abschnitt__griff">\s*<h2[^>]*id="einzel-marke"[\s\S]*?<\/details>/.exec(
 			startseiteCodeEinzel
 		)?.[0] ?? '';
 	const blockTeile = [
-		['der Block hängt an {#if data.einzelaufgaben.length > 0}', einzelBlock !== ''],
-		['und hat kein {:else} — er fehlt ganz oder gar nicht', !/\{:else\}/.test(einzelBlock)],
+		['der Abschnitt ist als Aufklapper zu finden', einzelBlock !== ''],
+		[
+			'die Liste hängt an der Zahl der freien Einzelaufgaben',
+			/\{#if data\.einzelaufgaben\.length === 0\}/.test(einzelBlock),
+		],
+		[
+			'und statt der Liste steht ein Satz, kein leerer Rahmen',
+			/\{:else\}/.test(einzelBlock) &&
+				/<p class="leer">Nichts ausgeschrieben\.<\/p>/.test(einzelBlock),
+		],
 		['er trägt den Wortlaut `noch niemand`', /noch niemand/.test(einzelBlock)],
 		['und den Knopf `Übernehmen`', />\s*Übernehmen\s*</.test(einzelBlock)],
 		[
@@ -7537,33 +7556,23 @@ try {
 			),
 		],
 		/*
-		 * **Die zwei Wege stehen ausserhalb dieses Blocks — das ist die Zusage.**
+		 * **Die zwei Wege liegen im Abschnitt — und der Abschnitt hängt an nichts.**
 		 *
-		 * Bis zum 2026-09-11 stand hier ein Fusslink `Alle Einzelaufgaben`
-		 * **innerhalb** des {#if}, und diese Zeile belegte ihn dort. Damit war eine
-		 * Sackgasse belegt statt verhindert: ohne freie Einzelaufgabe fiel der Block
-		 * weg und mit ihm der einzige Weg von / nach /einzelaufgaben.
-		 *
-		 * Die Bedingung ist darum umgedreht. Der Block darf die zwei Ziele **nicht**
-		 * enthalten, die Seite muss sie enthalten. Wer den Aufklapper wieder
-		 * hineinzieht, macht diese Zeile rot.
+		 * Diese Zusage hat sich zweimal gedreht und trägt darum beide Lehren: erst
+		 * belegte sie einen Fusslink **innerhalb** der Bedingung und damit die
+		 * Sackgasse selbst; dann verlangte sie die Wege **ausserhalb** des bedingten
+		 * Blocks. Jetzt gibt es keinen bedingten Block mehr, und die Zusage ist die
+		 * einfachste von allen: beide Ziele stehen im Abschnitt, und der Abschnitt
+		 * steht unbedingt.
 		 */
 		[
-			'die zwei Wege stehen nicht im bedingten Block',
-			!/href=\{resolve\('\/einzelaufgaben?'\)\}/.test(einzelBlock),
+			'beide Wege liegen im Abschnitt',
+			/href=\{resolve\('\/einzelaufgabe'\)\}/.test(einzelBlock) &&
+				/href=\{resolve\('\/einzelaufgaben'\)\}/.test(einzelBlock),
 		],
 		[
-			'sondern im Aufklapper darunter, der immer da ist',
-			/<details class="zeilenform einzel__wege">/.test(startseiteCodeEinzel) &&
-				/href=\{resolve\('\/einzelaufgabe'\)\}/.test(startseiteCodeEinzel) &&
-				/href=\{resolve\('\/einzelaufgaben'\)\}/.test(startseiteCodeEinzel),
-		],
-		[
-			'und der Aufklapper steht hinter dem Ende des bedingten Blocks',
-			startseiteCodeEinzel.indexOf('<details class="zeilenform einzel__wege">') >
-				startseiteCodeEinzel.indexOf('{#if data.einzelaufgaben.length > 0}') +
-					einzelBlock.length -
-					1,
+			'und der Abschnitt hängt an keiner Bedingung',
+			!/\{#if data\.einzelaufgaben\.length > 0\}/.test(startseiteCodeEinzel),
 		],
 		[
 			'das Zeichen im Knopf ist für Vorlesende verborgen',
@@ -7576,13 +7585,13 @@ try {
 		[
 			'er steht nach dem Diensthinweis und vor der Marke des Pools',
 			startseiteCodeEinzel.indexOf('{#if data.dienst !== null}') <
-				startseiteCodeEinzel.indexOf('{#if data.einzelaufgaben.length > 0}') &&
-				startseiteCodeEinzel.indexOf('{#if data.einzelaufgaben.length > 0}') <
+				startseiteCodeEinzel.indexOf('id="einzel-marke"') &&
+				startseiteCodeEinzel.indexOf('id="einzel-marke"') <
 					startseiteCodeEinzel.indexOf('id="offen-marke"'),
 		],
 	] as const;
 	pruefen(
-		'Block 2 auf / fehlt ganz oder gar nicht — und steht zwischen Dienst und Pool',
+		'Block 2 auf / steht unbedingt, die Liste darin bedingt — und zwischen Dienst und Pool',
 		fehlendeTeile(blockTeile).length === 0,
 		`fehlt: ${fehlendeTeile(blockTeile).join(', ')}`
 	);

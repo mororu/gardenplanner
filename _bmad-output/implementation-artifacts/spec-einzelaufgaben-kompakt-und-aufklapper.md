@@ -163,3 +163,24 @@ damit als einziges Element ausserhalb der Palette.
   das Markup eine Ebene tiefer rutschte und Prettier umbrach. Sie lesen jetzt über Zeilenumbrüche hinweg
   beziehungsweise auf die Kennung `id="offen-marke"` statt auf das ganze `<h2>`-Tag — eine zweite Klasse an der
   Marke hätte sie sonst erneut rot gemacht, ohne dass sich die Reihenfolge geändert hätte.
+
+- **Nachtrag vom 2026-09-11: die zwei Aufklapper werden einer.**
+  Auf der Seite hiessen zwei Dinge untereinander `Einzelaufgaben` — der Abschnitt mit der Liste und darunter der
+  Aufklapper mit den Handlungen. Für jede Person, die sie einzeln vorgelesen bekommt, waren sie
+  ununterscheidbar. Liste und Wege liegen jetzt im **selben** Aufklapper.
+
+  **Die Bedingung, unter der das trägt, ist `open`.** In einem zugeklappten Aufklapper läge die Liste mit, und
+  AD-14 ist genau dagegen geschrieben. Offen ausgeliefert steht sie da; wer sie wegklappt, klappt seine eigene
+  Ansicht weg, bis zum nächsten Laden.
+
+  **Eine alte Zusage ist dabei umgedreht worden, und das ist der Preis:** „Block 2 fehlt ganz oder gar nicht"
+  gilt nicht mehr. Der Abschnitt steht unbedingt, weil die zwei Wege in ihm liegen — verschwände er,
+  verschwänden sie mit, und das war die Sackgasse, gegen die sie dort liegen. Statt der Liste steht ein Satz,
+  `Nichts ausgeschrieben.`, dieselbe Bauform wie beim Pool seit Story 1.4. Zwei Wachen tragen die Umkehr: die
+  eine verlangte bis dahin, dass der Block **ganz** fehlt, die andere, dass die Wege **ausserhalb** stehen.
+  Beide sagen jetzt das Gegenteil, und beide nennen im Kommentar, was sie vorher sagten.
+
+- **Die Kacheln nennen ihren Gegenstand.** `offen` wurde zu `Aufgabe(n) offen`, `zum Übernehmen` zu
+  `Einzelaufgabe(n) zum Übernehmen` — beide mit Beugung, weil `1 Aufgaben offen` der Fehler ist, den niemand
+  bemerkt. Die zweite Kachel ist damit die längste der drei und bricht bei 375px über mehrere Zeilen; das ist
+  der bewusst genommene Preis für die Klarheit und steht als solcher im Kommentar.

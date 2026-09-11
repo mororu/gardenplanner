@@ -115,7 +115,7 @@ import {
  * Stellen, von denen eine niemand rot macht, ist schlechter als eine Zahl an
  * einer — die Schlussmeldung des Laufs nennt sie ohnehin bei jedem Durchgang.
  */
-const ERWARTETE_BEHAUPTUNGEN = 162;
+const ERWARTETE_BEHAUPTUNGEN = 161;
 
 /**
  * Ein Jahr in Sekunden — die Laufzeit aus src/lib/server/auth.ts.
@@ -1511,44 +1511,53 @@ try {
 	 * zu haben wäre.
 	 */
 	const leeresBlock2 = await (await holen(port, '/', { keks: mitgliedKeks })).text();
-	pruefen(
-		'ohne freie Einzelaufgabe fehlt Block 2 im ausgelieferten Dokument ganz',
-		!leeresBlock2.includes('Zum Übernehmen') &&
-			!leeresBlock2.includes('einzel-marke') &&
-			!leeresBlock2.includes('noch niemand'),
-		leeresBlock2.includes('Zum Übernehmen') ? 'die Marke steht da' : 'ein Rest steht da'
-	);
-
 	/*
-	 * **Und trotzdem kommt man von hier weiter — genau das war vorher nicht so.**
+	 * **Ohne eine einzige freie Einzelaufgabe: der Abschnitt steht, die Liste
+	 * nicht.**
 	 *
-	 * Bis zum 2026-09-11 stand der Link auf /einzelaufgaben **innerhalb** des
-	 * {#if} darüber. In genau diesem Zustand — nichts ausgeschrieben — fiel er mit
-	 * dem Block weg, und `/` hatte keinen Weg mehr dorthin; man musste über /mehr.
-	 * Eine Sackgasse in dem Moment, in dem jemand am ehesten etwas ausschreiben
-	 * will.
+	 * Diese Zeile behauptete bis zum 2026-09-11 das Gegenteil — der Block müsse
+	 * **ganz** fehlen, weil ein leerer Rahmen Platz nähme, um nichts zu sagen. Das
+	 * galt, solange der Block nur eine Liste war. Seit die zwei Wege
+	 * (Ausschreiben, Alle) in ihm liegen, verschwände mit ihm der einzige Weg von
+	 * `/` nach `/einzelaufgaben` — die Sackgasse, gegen die sie dort liegen.
 	 *
-	 * Gemessen wird am selben Dokument, das eine Zeile höher belegt, dass der Block
-	 * fehlt. Beides zusammen ist die Zusage: der Block darf verschwinden, die Wege
-	 * nicht.
+	 * Der Abschnitt macht es darum wie der Pool seit Story 1.4: Marke steht, und
+	 * statt der Liste ein Satz. Was **nicht** stehen darf, ist ein Rest der Liste:
+	 * keine Karte, kein `noch niemand`, kein Übernehmen-Knopf.
 	 */
-	const wegeTeile = [
+	const leerTeile = [
 		[
-			'der Aufklapper steht im Dokument',
-			/<details[^>]*\bclass="[^"]*\bzeilenform\b/.test(leeresBlock2),
+			'der Abschnitt steht mit seinem Titel',
+			/<h2[^>]*>\s*Einzelaufgaben zum Übernehmen\s*<\/h2>/.test(leeresBlock2),
 		],
-		['und nennt sich Einzelaufgaben', /<summary[^>]*>\s*Einzelaufgaben\s*</.test(leeresBlock2)],
-		['der Weg zum Ausschreiben', /<a\b[^>]*\bhref="\.?\/einzelaufgabe"/.test(leeresBlock2)],
+		[
+			// Svelte schreibt das Wahrheitsattribut als open="" aus, nicht als nacktes
+			// `open`. Gemessen am gebauten Baum, nicht angenommen.
+			'und wird offen ausgeliefert',
+			/<details\b[^>]*\bopen\b/.test(leeresBlock2),
+		],
+		[
+			'statt der Liste steht ein Satz',
+			/<p[^>]*\bclass="[^"]*\bleer\b[^"]*"[^>]*>\s*Nichts ausgeschrieben\.\s*<\/p>/.test(
+				leeresBlock2
+			),
+		],
+		['und kein Rest der Liste', !leeresBlock2.includes('noch niemand')],
+		['kein Übernehmen-Knopf ohne etwas zu übernehmen', !/id="uebernehmen-/.test(leeresBlock2)],
+		[
+			'der Weg zum Ausschreiben steht trotzdem da',
+			/<a\b[^>]*\bhref="\.?\/einzelaufgabe"/.test(leeresBlock2),
+		],
 		[
 			'und der Weg zu allen Einzelaufgaben',
 			/<a\b[^>]*\bhref="\.?\/einzelaufgaben"/.test(leeresBlock2),
 		],
 	] as const;
-	const wegeFehlt = wegeTeile.filter(([, erfuellt]) => !erfuellt).map(([name]) => name);
+	const leerFehlt = leerTeile.filter(([, erfuellt]) => !erfuellt).map(([name]) => name);
 	pruefen(
-		'ohne freie Einzelaufgabe führen von / trotzdem beide Wege weiter — keine Sackgasse',
-		wegeFehlt.length === 0,
-		`fehlt: ${wegeFehlt.join(', ')}`
+		'ohne freie Einzelaufgabe steht der Abschnitt mit Satz und beiden Wegen — keine Sackgasse',
+		leerFehlt.length === 0,
+		`fehlt: ${leerFehlt.join(', ')}`
 	);
 
 	const ausschreibenHtml = await (await holen(port, '/einzelaufgabe', { keks: adminKeks })).text();

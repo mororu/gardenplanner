@@ -292,15 +292,27 @@ export const EINZELAUFGABE_NICHT_ANSPRECHBAR =
  * in ihrer eigenen Schriftrolle und dem Wort in einer anderen — eine
  * Zeichenkette, die man nicht mehr getrennt setzen kann.
  */
-export const UEBERBLICK_OFFEN = 'offen';
+export function ueberblickOffen(anzahl: number): string {
+	return anzahl === 1 ? 'Aufgabe offen' : 'Aufgaben offen';
+}
 
 /** Der Zusatz unter `offen`, in --overdue. Immer mit Zahl, nie allein. */
 export function ueberblickUeberfaellig(anzahl: number): string {
 	return `${anzahl} überfällig`;
 }
 
-/** Freie Einzelaufgaben. Ohne Beugung — die Wendung trägt Ein- und Mehrzahl. */
-export const UEBERBLICK_FREI = 'zum Übernehmen';
+/**
+ * Freie Einzelaufgaben.
+ *
+ * **Die Kachel nennt die Art der Sache**, seit dem 2026-09-11: `zum Übernehmen`
+ * allein sagte nicht, was da zu übernehmen ist — neben zwei anderen Zahlen war
+ * es die einzige Kachel ohne Gegenstand. Sie ist damit die längste der drei; bei
+ * 375px bricht ihr Wort über mehrere Zeilen, und das ist der bewusst genommene
+ * Preis für die Klarheit.
+ */
+export function ueberblickFrei(anzahl: number): string {
+	return anzahl === 1 ? 'Einzelaufgabe zum Übernehmen' : 'Einzelaufgaben zum Übernehmen';
+}
 
 /**
  * Unbesetzte Wochen im Fenster des Tränkeplans.

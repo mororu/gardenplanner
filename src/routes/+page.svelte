@@ -9,10 +9,10 @@
 	import { datumLang } from '$lib/client/utils/date';
 	import {
 		EINZELAUFGABE_NICHT_ANSPRECHBAR,
-		UEBERBLICK_FREI,
-		UEBERBLICK_OFFEN,
 		UEBERNAHME_FOLGE,
 		VERSAND_FEHLGESCHLAGEN,
+		ueberblickFrei,
+		ueberblickOffen,
 		ueberblickUeberfaellig,
 		ueberblickUnbesetzt,
 	} from '$lib/texte';
@@ -579,7 +579,7 @@
 				<a class="ueberblick__kachel" href="#offen-marke">
 					<span class="ueberblick__zahl">{data.ueberblick.offen}</span>
 					<span class="ueberblick__wort">
-						{UEBERBLICK_OFFEN}
+						{ueberblickOffen(data.ueberblick.offen)}
 						{#if data.ueberblick.ueberfaellig > 0}
 							<span class="ueberblick__frist"
 								>{ueberblickUeberfaellig(data.ueberblick.ueberfaellig)}</span
@@ -591,7 +591,7 @@
 			{#if data.ueberblick.frei > 0}
 				<a class="ueberblick__kachel" href={resolve('/einzelaufgaben')}>
 					<span class="ueberblick__zahl">{data.ueberblick.frei}</span>
-					<span class="ueberblick__wort">{UEBERBLICK_FREI}</span>
+					<span class="ueberblick__wort">{ueberblickFrei(data.ueberblick.frei)}</span>
 				</a>
 			{/if}
 			{#if data.ueberblick.unbesetzt > 0}
@@ -635,8 +635,7 @@
 		findet es auf /einzelaufgaben. Der Fusslink führt dorthin — die Unterseite
 		vertieft, sie informiert nicht exklusiv.
 	-->
-	{#if data.einzelaufgaben.length > 0}
-		<!--
+	<!--
 			Der Titel nennt beides: **was** es ist und **was man damit tut**. `Zum
 			Übernehmen` allein sagte nicht, worum es sich handelt, `Einzelaufgaben`
 			allein nicht, dass hier etwas zu holen ist.
@@ -648,10 +647,13 @@
 		**nicht** gespeichert: beim nächsten Laden steht wieder alles offen, und
 		damit kann kein einmaliger Griff dauerhaft verbergen, dass etwas ansteht.
 		-->
-		<details open>
-			<summary class="abschnitt__griff">
-				<h2 class="marke marke--griff" id="einzel-marke">Einzelaufgaben zum Übernehmen</h2>
-			</summary>
+	<details open>
+		<summary class="abschnitt__griff">
+			<h2 class="marke marke--griff" id="einzel-marke">Einzelaufgaben zum Übernehmen</h2>
+		</summary>
+		{#if data.einzelaufgaben.length === 0}
+			<p class="leer">Nichts ausgeschrieben.</p>
+		{:else}
 			<ul class="liste liste--getrennt" aria-labelledby="einzel-marke">
 				{#each data.einzelaufgaben as aufgabe (aufgabe.id)}
 					{@const frageHier = frage !== null && frage.id === aufgabe.id}
@@ -821,30 +823,29 @@
 					</li>
 				{/each}
 			</ul>
-		</details>
-	{/if}
+		{/if}
 
-	<!--
-		**Der Aufklapper steht ausserhalb der Bedingung darüber, und das ist sein
-		ganzer Zweck.**
+		<!--
+				**Die zwei Wege stehen im selben Aufklapper wie die Liste.**
 
-		Bis zum 2026-09-11 stand hier ein Link `Alle Einzelaufgaben` **innerhalb**
-		des {#if}. War nichts ausgeschrieben, fiel Block 2 ganz weg — und mit ihm
-		der einzige Weg von `/` nach `/einzelaufgaben`; man musste über `/mehr`.
-		Eine Sackgasse genau in dem Zustand, in dem jemand am ehesten etwas
-		ausschreiben will.
+				Bis zum 2026-09-11 waren es zwei getrennte Dinge, und beide hiessen
+				`Einzelaufgaben` — ein Abschnitt mit der Liste und darunter ein zweiter
+				Aufklapper mit den Handlungen. Zwei gleich benannte Aufklapper
+				untereinander sind für jede Person, die sie einzeln vorgelesen bekommt,
+				ununterscheidbar.
 
-		`Einzelaufgabe ausschreiben` steht **auch** weiterhin auf `/mehr`. Zwei Wege
-		zum selben Ziel sind kein Widerspruch: `/mehr` ist das Inhaltsverzeichnis
-		der Anwendung, dieser Aufklapper ist der kurze Griff am Ort der Sache.
+				**Die Bedingung, unter der das trägt, ist `open` am Abschnitt darüber.**
+				In einem zugeklappten Aufklapper läge die Liste mit; AD-14 ist genau
+				dagegen geschrieben. Offen ausgeliefert steht sie da, und wer sie
+				wegklappt, klappt seine eigene Ansicht weg — bis zum nächsten Laden.
 
-		Ein `<details>` nach der Bauform von `/verwaltung` und `/traenkeplan` — es
-		klappt **ohne JavaScript** auf. Zugeklappt verbirgt es nur Handlungen, nie
-		den Zustand des Gartens: die freien Einzelaufgaben stehen darüber offen da,
-		und AD-14 ist genau dagegen geschrieben, sie wegzuklappen.
-	-->
-	<details class="zeilenform einzel__wege">
-		<summary class="zeilenform__griff">Einzelaufgaben</summary>
+				**Und der Abschnitt steht jetzt auch ohne eine einzige freie
+				Einzelaufgabe.** Das ist eine Umkehr der alten Zusage „fehlt ganz oder gar
+				nicht", und sie ist der Preis dafür, dass die zwei Wege hier drin liegen:
+				verschwände der Abschnitt, verschwänden sie mit — die Sackgasse von
+				vorher. Der Pool darüber macht es seit Story 1.4 genauso: Marke steht,
+				und statt der Liste ein Satz.
+			-->
 		<div class="knoepfe">
 			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
 			<a class="eintrag" href={resolve('/einzelaufgabe')}>Einzelaufgabe ausschreiben</a>
@@ -1475,13 +1476,5 @@
 		display: flex;
 		align-items: flex-start;
 		gap: var(--space-3);
-	}
-
-	/*
-		Der Aufklapper steht mit Abstand unter der Liste und nicht als Fuss der
-		letzten Karte — er gehört zum Block, nicht zu einer Zeile.
-	*/
-	.einzel__wege {
-		margin-block-start: var(--space-3);
 	}
 </style>
