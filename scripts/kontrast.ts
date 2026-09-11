@@ -204,7 +204,7 @@ export function gerundet(wert: number): number {
  * gewollte Reibung wie `ERWARTETE_BEHAUPTUNGEN`.
  */
 
-/** Die elf Paarungen der Tabelle „Kontrast, geprüft statt behauptet". */
+/** Die zwölf Paarungen der Tabelle „Kontrast, geprüft statt behauptet". */
 const DOKUMENTIERT = [
 	['Fliesstext auf Grund', 'ink', 'base', 14.74, 15.43],
 	['Nebentext auf Grund', 'ink2', 'base', 4.71, 6.9],
@@ -225,6 +225,14 @@ const DOKUMENTIERT = [
 	 * streicht, weil sie „doppelt" ist, entkoppelt Vorgabe und Tabelle.
 	 */
 	['Bedienelement-Umriss auf Grund', 'ink2', 'base', 4.71, 6.9],
+	/*
+	 * Die **engste** Paarung des Systems, und der Grund, warum --surface-open so
+	 * hell ist: der Nebentext steht auf der getönten Karte bei 4.57:1 und damit
+	 * nur knapp über der 4.5 aus NFR9. Eine Tönung eine Spur dunkler fällt durch —
+	 * #eaf0e7 ergibt 4.48, gerechnet mit genau dieser Datei. Wer den Wert anfasst,
+	 * rechnet zuerst diese Zeile.
+	 */
+	['Nebentext auf offener Karte', 'ink2', 'open', 4.57, 5.03],
 	/*
 	 * Die Haarlinie liegt **auf der Karte** — das ist nachgemessen und nicht
 	 * abgelesen: DESIGN.md nennt die zwei Zahlen 1.38 und 1.30 ohne den Grund
@@ -248,6 +256,7 @@ const HELL = {
 	ink: '#1c221b',
 	ink2: '#66705f',
 	hair: '#dcdcd2',
+	open: '#edf2ea',
 	accent: '#2f6b3f',
 	accentInk: '#ffffff',
 	overdue: '#9a5a12',
@@ -260,6 +269,7 @@ const DUNKEL = {
 	ink: '#e9ede4',
 	ink2: '#98a292',
 	hair: '#2c3529',
+	open: '#243324',
 	accent: '#7fbb8c',
 	accentInk: '#0e1410',
 	overdue: '#d99b4e',

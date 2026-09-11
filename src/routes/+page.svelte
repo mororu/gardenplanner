@@ -640,7 +640,14 @@
 		<ul class="liste liste--getrennt" aria-labelledby="einzel-marke">
 			{#each data.einzelaufgaben as aufgabe (aufgabe.id)}
 				{@const frageHier = frage !== null && frage.id === aufgabe.id}
-				<li class="karte">
+				<!--
+					`karte--offen` ohne Bedingung: dieser Block führt ausschliesslich freie
+					Einzelaufgaben (die load holt nur die), und eine Bedingung, die immer
+					wahr ist, behauptete eine Unterscheidung, die es hier nicht gibt.
+					Dieselbe Fläche wie auf /einzelaufgaben — derselbe Zustand, dieselbe
+					Farbe, sonst lernte man sie zweimal.
+				-->
+				<li class="karte karte--offen">
 					<div class="zeile__spalte">
 						<!--
 							Die Kennung dieser Zeile. Der Knopf darunter heisst in jeder Zeile

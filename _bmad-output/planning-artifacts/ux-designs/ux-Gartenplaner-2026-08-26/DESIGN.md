@@ -11,6 +11,7 @@ colors:
   ink-primary: '#1C221B'
   ink-secondary: '#66705F'
   hairline: '#DCDCD2'
+  surface-open: '#EDF2EA'
   accent: '#2F6B3F'
   accent-ink: '#FFFFFF'
   overdue: '#9A5A12'
@@ -21,6 +22,7 @@ colors:
   ink-primary-dark: '#E9EDE4'
   ink-secondary-dark: '#98A292'
   hairline-dark: '#2C3529'
+  surface-open-dark: '#243324'
   accent-dark: '#7FBB8C'
   accent-ink-dark: '#0E1410'
   overdue-dark: '#D99B4E'
@@ -121,6 +123,7 @@ components:
     font: '{typography.action}'
   card:
     background: '{colors.surface-raised}'
+    openBackground: '{colors.surface-open}'
     border: '1px solid {colors.hairline}'
     radius: '{rounded.md}'
     padding: '{spacing.3}'
@@ -182,6 +185,7 @@ Ein einziger chromatischer Ton für alles Handlungsfähige, einer für Überfäl
 | Unbesetzt auf Grund | 5.11:1 | 9.58:1 | 4.5 |
 | Kästchen-Umriss auf Karte | 6.37:1 | 7.43:1 | 3.0 |
 | Bedienelement-Umriss auf Grund | 4.71:1 | 6.90:1 | 3.0 |
+| Nebentext auf offener Karte | 4.57:1 | 5.03:1 | 4.5 |
 
 Die Haarlinie liegt bei 1.38:1 (hell) bzw. 1.30:1 (dunkel) und erfüllt 3:1 **nicht** — bewusst. Sie trägt ausschliesslich Trennlinien und Behälterkanten: Karten, den Dialog, die Linie über der Navigationsleiste und die Trennung zwischen Aufgabenzeilen. Die sind dekorativ und identifizieren kein Bedienelement; die Zeile bleibt ohne sie eindeutig lesbar.
 

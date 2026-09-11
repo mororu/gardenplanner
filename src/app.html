@@ -53,6 +53,34 @@
 				--hairline: #dcdcd2;
 				--accent: #2f6b3f;
 				--accent-ink: #ffffff;
+				/*
+				   Die Fläche einer Einzelaufgabe, die bisher niemand übernommen hat.
+
+				   Eine getönte Karte und kein Abzeichen: der Zustand gilt für die ganze
+				   Zeile und nicht für eine Ecke davon. Der Ton ist derselbe Grünstich wie
+				   der Akzent, aber ohne dessen Sättigung — DESIGN.md verbietet gesättigte
+				   Varianten des Akzents, und eine grün gefüllte Karte schriee.
+
+				   **Wie hell, ist nicht Geschmack, sondern gerechnet.** Die Grenze ist
+				   --ink-secondary: der Nebentext liegt auf der weissen Karte schon nur bei
+				   4.71:1, und jede dunklere Tönung drückt ihn unter die 4.5 aus NFR9.
+				   Gemessen mit der Kontrastrechnung des Projekts: #eaf0e7 ergibt 4.48 und
+				   fällt damit durch, #e6ede3 ergibt 4.34. Dieser Wert hält 4.57.
+
+				   Die Fläche hebt sich darum im Hellen nur um 1.14:1 von der Karte ab. Den
+				   Unterschied trägt der Farbton und nicht die Helligkeit — und die Aussage
+				   trägt ohnehin der Satz, der danebensteht. Farbe als einziger Träger
+				   eines Zustands ist in DESIGN.md ausdrücklich verboten.
+
+				   **Kein Wortlaut der Oberfläche in diesem Kommentar.** Diese Datei geht
+				   mitsamt ihren Kommentaren an jeden Besucher jeder Seite; eine hier
+				   zitierte Wendung steht damit auch dort, wo sie nicht hingehört, und
+				   lässt Wachen anschlagen, die ihr Fehlen belegen. Gemessen am
+				   2026-09-11, nicht vermutet.
+
+				   Gemessen hell: Fliesstext 14.29:1, Nebentext 4.57:1, Akzent 5.61:1.
+				*/
+				--surface-open: #edf2ea;
 				--overdue: #9a5a12;
 				/*
 				   Ringelblume, und nur für die unbesetzte Dienstwoche (Epic 3): eine
@@ -203,6 +231,12 @@
 					--hairline: #2c3529;
 					--accent: #7fbb8c;
 					--accent-ink: #0e1410;
+					/*
+					   Im Dunkeln ist mehr Luft: der Nebentext hält 5.03:1, und die Fläche
+					   hebt sich mit 1.25:1 von der Karte ab statt mit 1.14:1.
+					   Gemessen dunkel: Fliesstext 11.24:1, Nebentext 5.03:1, Akzent 5.97:1.
+					*/
+					--surface-open: #243324;
 					--overdue: #d99b4e;
 					/*
 					   Im Dunkeln trennen sich die zwei besser als im Hellen: 1.26:1

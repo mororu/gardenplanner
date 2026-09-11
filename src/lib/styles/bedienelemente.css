@@ -547,6 +547,25 @@ select.feld {
 }
 
 /*
+ * Die Karte einer Einzelaufgabe, die **noch niemand übernommen hat**.
+ *
+ * Nur die Fläche wechselt — kein Abzeichen, keine Kante, kein zweiter Rahmen:
+ * der Zustand gilt für die ganze Zeile, und ein Zeichen in einer Ecke behauptete
+ * etwas über einen Teil davon.
+ *
+ * **Die Farbe ist der Zusatz und nicht die Aussage.** `noch niemand` steht im
+ * Markup daneben, und DESIGN.md verbietet Farbe als einzigen Träger eines
+ * Zustands. Wer das Wort streicht und die Tönung behält, bricht die Regel —
+ * nicht diese Regel hier, aber die Seite, die sie benutzt.
+ *
+ * Warum die Tönung so hell ist, steht bei --surface-open in src/app.html: die
+ * Grenze ist der Nebentext, nicht der Geschmack.
+ */
+.karte--offen {
+	background-color: var(--surface-open);
+}
+
+/*
  * Ziffern in Tabellenstellung, für Nebentext, der aus Zahlen besteht: eine Liste
  * von Daten untereinander liest sich schlecht, wenn die Zahlen springen.
  * Modifikator und keine eigene Regel — die Schrift ist dieselbe wie bei

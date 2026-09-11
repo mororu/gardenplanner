@@ -48,7 +48,12 @@
 		<h2 class="marke" id="alle-marke">Alle Einzelaufgaben</h2>
 		<ul class="liste liste--getrennt" aria-labelledby="alle-marke">
 			{#each data.einzelaufgaben as aufgabe (aufgabe.id)}
-				<li class="karte karte--eng">
+				<!--
+					Die Fläche wechselt mit demselben Ausdruck, der weiter unten das Wort
+					wählt — eine Bedingung, nicht zwei. Zwei Ausdrücke für denselben
+					Zustand sind die Stelle, an der Farbe und Wort auseinanderlaufen.
+				-->
+				<li class="karte karte--eng" class:karte--offen={aufgabe.uebernehmer === null}>
 					<!--
 						`.zeile__text` bringt den Umbruch für getippten Text aus dem
 						geteilten Stilblatt mit: zweihundert Zeichen ohne Leerzeichen
@@ -63,6 +68,12 @@
 						Eine freie Einzelaufgabe wartet auf niemand Bestimmten und ist kein
 						Missstand — sie ist der Normalzustand direkt nach dem Ausschreiben.
 						Eine Warnfarbe daran hiesse, dass etwas schiefliegt.
+
+						**Seit dem 2026-09-11 trägt die Karte zusätzlich eine getönte Fläche**
+						(`--surface-open`). Das ändert an diesem Absatz nichts: die Tönung ist
+						auch keine Warnfarbe, sondern ein ruhiger Grünstich, und das Wort
+						bleibt der Träger. Die Fläche macht die freie Zeile in einer langen
+						Liste auffindbar, ohne sie anzuklagen.
 					-->
 					{#if aufgabe.uebernehmer === null}
 						<p class="hinweis">noch niemand</p>

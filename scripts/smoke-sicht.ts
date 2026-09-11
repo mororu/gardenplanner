@@ -1257,6 +1257,7 @@ try {
 		'--ink-primary',
 		'--ink-secondary',
 		'--hairline',
+		'--surface-open',
 		'--accent',
 		'--accent-ink',
 		'--overdue',
@@ -1621,6 +1622,23 @@ try {
 			`nicht gesehen: ${ungesehen.join(', ')}`
 		);
 	};
+
+	/*
+	 * **Ein Zustand, den der Sweep sonst nie zu sehen bekäme.**
+	 *
+	 * Die oben ausgeschriebene Einzelaufgabe ist inzwischen übernommen — der
+	 * Bestätigungspfad hat sie genommen. Damit stünde auf keiner Seite mehr eine
+	 * **freie** Karte, und `--surface-open` käme in keinem gemessenen Paar vor.
+	 *
+	 * Das ist nicht theoretisch: genau so wurde die Abdeckungszeile am 2026-09-11
+	 * rot, als die getönte Fläche dazukam. Sie ist dafür gebaut, und die Antwort
+	 * darauf ist, den Zustand **herzustellen** — nicht, das Token aus der Liste zu
+	 * nehmen. Dieselbe Lehre wie beim Diensthinweis eine Woche zuvor.
+	 */
+	einzelaufgabeAusschreiben(
+		'Hochbeet 4 neu aufschichten',
+		Math.floor(Date.now() / 1000) + 14 * 24 * 60 * 60
+	);
 
 	await kontrastSweep('light');
 	await kontrastSweep('dark');
