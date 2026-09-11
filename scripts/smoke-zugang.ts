@@ -219,7 +219,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 636;
+const ERWARTETE_BEHAUPTUNGEN = 643;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -5467,6 +5467,95 @@ try {
 		woche: String(woche.woche),
 		mitgliedId,
 	});
+
+	/*
+	 * **Eintragen und Austragen — die zwei Handlungen, die seit dem 2026-09-11
+	 * jedem Mitglied offenstehen, und ihre zwei Schranken.**
+	 *
+	 * Die Schranken stehen **nicht** in der Route: bei `eintragen` entscheidet die
+	 * Eindeutigkeit über (Art, Jahr, Woche), ob die Woche frei war; bei
+	 * `austragen` steht `member_id` in der where-Klausel des DELETE. Beides ist
+	 * hier ausgeführt gemessen und nicht am Quelltext gelesen — eine Textprüfung
+	 * über eine where-Klausel ist genau die schwache Schicht, gegen die dieses
+	 * Skript gebaut wurde.
+	 *
+	 * Gemessen wird an der **Zeilenzahl in der Datenbank**, nicht am Rückgabewert:
+	 * eine action, die abweist und trotzdem schriebe, käme sonst durch.
+	 */
+	const einAusFormular = (woche: { jahr: number; woche: number }) => ({
+		jahr: String(woche.jahr),
+		woche: String(woche.woche),
+	});
+	const eintragenAls = (wer: AngemeldetesMitglied | null, woche: { jahr: number; woche: number }) =>
+		routenausgang(() =>
+			traenkeplan.actions.eintragen?.(
+				alsMitglied('/traenkeplan', wer, einAusFormular(woche)).alsRequestEvent()
+			)
+		);
+	const austragenAls = (
+		wer: AngemeldetesMitglied | null,
+		woche: { jahr: number; woche: number },
+		bestaetigt: boolean
+	) =>
+		routenausgang(() =>
+			traenkeplan.actions.austragen?.(
+				alsMitglied(
+					'/traenkeplan',
+					wer,
+					bestaetigt ? { ...einAusFormular(woche), bestaetigt: '1' } : einAusFormular(woche)
+				).alsRequestEvent()
+			)
+		);
+
+	const einAusWoche = planFenster[3] ?? spaetere;
+	pruefenGleich('die Probewoche ist zu Beginn frei', dienstZeilen(einAusWoche).length, 0);
+	await eintragenAls(rasmusLocals, einAusWoche);
+	pruefenGleich(
+		'ein Mitglied ohne Adminrechte trägt sich selbst ein',
+		dienstZeilen(einAusWoche).length,
+		1
+	);
+	pruefenGleich(
+		'und zwar auf die eigene Id — nicht auf eine aus dem Formular',
+		dienstZeilen(einAusWoche)[0]?.memberId,
+		rasmus.id
+	);
+
+	/*
+	 * **Die Woche muss frei sein.** Ohne diese Schranke könnte jede Person jede
+	 * andere aus dem Plan werfen, und die Verbindlichkeit des Plans wäre dahin.
+	 */
+	await eintragenAls(tildeLocals, einAusWoche);
+	pruefenGleich(
+		'eine zweite Person überschreibt die besetzte Woche nicht',
+		dienstZeilen(einAusWoche)[0]?.memberId,
+		rasmus.id
+	);
+
+	/*
+	 * **Austragen gilt nur der eigenen Woche.** Gemessen mit einer zweiten, ganz
+	 * gewöhnlichen Person: die Schranke hängt an der Id und nicht an Rechten.
+	 */
+	await austragenAls(tildeLocals, einAusWoche, true);
+	pruefenGleich(
+		'eine fremde Person trägt die Woche nicht aus',
+		dienstZeilen(einAusWoche).length,
+		1
+	);
+
+	await austragenAls(rasmusLocals, einAusWoche, false);
+	pruefenGleich(
+		'der erste Versand ohne Bestätigung ändert nichts',
+		dienstZeilen(einAusWoche).length,
+		1
+	);
+
+	await austragenAls(rasmusLocals, einAusWoche, true);
+	pruefenGleich(
+		'erst der bestätigte Versand gibt die eigene Woche frei',
+		dienstZeilen(einAusWoche).length,
+		0
+	);
 
 	const vorDemVersuch = dienstZeilen(spaetere).length;
 	wegGeleitet(

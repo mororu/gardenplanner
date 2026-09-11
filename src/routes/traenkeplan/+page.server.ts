@@ -3,6 +3,8 @@ import type { Actions, RequestEvent, ServerLoadEvent } from '@sveltejs/kit';
 import { abweisen } from '../../lib/server/abweisen.ts';
 import { adminOderWeg } from '../../lib/server/adminschranke.ts';
 import {
+	dienstwocheAustragen,
+	dienstwocheEintragen,
 	dienstwocheBesetzen,
 	dienstwochenLesen,
 	type Dienstwoche,
@@ -84,6 +86,15 @@ export function load({ locals }: ServerLoadEvent): {
 	wochen: Dienstwoche[];
 	laufendeWoche: number;
 	istAdmin: boolean;
+	/**
+	 * Die eigene Mitglieds-Id, damit das Markup die eigene Zeile erkennt.
+	 *
+	 * Sie ist kein Geheimnis und keine Erweiterung der Angriffsfläche: `wochen`
+	 * trägt `mitgliedId` je Woche ohnehin, seit es diese Seite gibt. Was hier
+	 * dazukommt, ist allein der Vergleichspunkt — und die Berechtigung hängt
+	 * nicht an ihm, sondern an der `where`-Klausel des DELETE.
+	 */
+	eigeneId: number;
 	mitglieder: MitgliedFuerAuswahl[];
 } {
 	const mitglied = locals.mitglied;
@@ -103,6 +114,7 @@ export function load({ locals }: ServerLoadEvent): {
 		// einer Stelle, und das gilt auch für den Vergleich.
 		laufendeWoche: wochenSchluessel(isoWocheVon(jetztSekunden)),
 		istAdmin,
+		eigeneId: mitglied.id,
 		mitglieder: istAdmin ? aktiveMitgliederAuflisten() : [],
 	};
 }
@@ -194,6 +206,138 @@ export const actions = {
 			art: 'besetzt' as const,
 			meldung: 'Besetzt.',
 			name: besetzt.name,
+			woche,
+			zeile: schluessel,
+		};
+	},
+
+	/**
+	 * Gibt die **eigene** Woche wieder frei — in zwei Schritten, an einer action.
+	 *
+	 * **Warum überhaupt bestätigt wird.** Seit `eintragen` daneben steht, kommt man
+	 * aus eigener Kraft zurück — solange die Woche frei geblieben ist. Genau das
+	 * ist der Vorbehalt: wer sich austrägt, gibt die Woche frei, und die nächste
+	 * Person darf sie nehmen. Rückgängig ist die Handlung darum nicht durch
+	 * Wiederholen, sondern nur, wenn niemand zugegriffen hat. Sie ist dieselbe Bauform wie das Übernehmen
+	 * auf `/`: ein POST ohne `bestaetigt` ändert nichts und fragt, erst der zweite
+	 * schreibt. Ohne JavaScript ist die Antwort auf den ersten POST ein
+	 * vollständiges Dokument mit der Frage an der Zeile.
+	 *
+	 * **Kein adminOderWeg.** Diese Handlung gehört jedem Mitglied — aber nur für
+	 * die eigene Woche, und diese Schranke steht in der `where`-Klausel des DELETE
+	 * (`dienstwocheAustragen`). Eine Prüfung hier wäre die zweite Wahrheit darüber,
+	 * wem eine Woche gehört.
+	 *
+	 * **Dieselbe Fensterprüfung wie besetzen.** Ein POST braucht kein Formular;
+	 * ohne sie liesse sich eine Woche austragen, die die Seite gar nicht zeigt.
+	 *
+	 * Fehlende, unlesbare, kalendarisch unmögliche, fremde und schon unbesetzte
+	 * Woche fallen auf **einen** Satz. Wer an einer fremden Woche scheitert, erfährt
+	 * nicht einmal, dass es sie gibt.
+	 */
+	austragen: async ({ locals, request }: RequestEvent) => {
+		const mitglied = locals.mitglied;
+		// Unerreichbar: der Wächter hat vorher mit 403 abgewiesen. Die Prüfung steht
+		// hier, weil der Typ null zulässt — ohne Identität gibt es niemanden, der
+		// sich austrüge, und verändert wird nichts.
+		if (mitglied === null) {
+			return abweisen(WOCHE_NICHT_ANSPRECHBAR);
+		}
+
+		const formular = await request.formData();
+		const jahr = zahlLesen(formular.get('jahr'));
+		const woche = zahlLesen(formular.get('woche'));
+		if (jahr === null || woche === null || !istWoche({ jahr, woche })) {
+			return abweisen(WOCHE_NICHT_ANSPRECHBAR);
+		}
+		const schluessel = wochenSchluessel({ jahr, woche });
+		const jetztSekunden = Math.floor(Date.now() / 1000);
+		const imFenster = wochenfenster(jetztSekunden).some(
+			(eintrag) => wochenSchluessel(eintrag) === schluessel
+		);
+		if (!imFenster) {
+			return abweisen(WOCHE_NICHT_ANSPRECHBAR);
+		}
+
+		// Schritt 1: fragen. `has` und nicht ein Wertvergleich — das Feld ist eine
+		// Marke, kein Wert.
+		if (!formular.has('bestaetigt')) {
+			// Gelesen wird die **eigene** Woche: die Frage darf nur entstehen, wo auch
+			// geschrieben werden könnte. Der Vergleich steht hier und nicht in einer
+			// Abfrage, weil dienstwochenLesen ohnehin mitgliedId liefert.
+			const eigene = dienstwochenLesen([{ jahr, woche }]).find(
+				(eintrag) => eintrag.mitgliedId === mitglied.id
+			);
+			if (eigene === undefined) {
+				return abweisen(WOCHE_NICHT_ANSPRECHBAR);
+			}
+			return { art: 'fragenAustragen' as const, zeile: schluessel, woche: eigene.woche };
+		}
+
+		// Schritt 2: schreiben. Unbekannt, schon unbesetzt und fremd fallen hier
+		// zusammen — die Bedingung steht in der Abfrage.
+		const frei = dienstwocheAustragen({ jahr, woche }, mitglied.id);
+		if (frei === null) {
+			return abweisen(WOCHE_NICHT_ANSPRECHBAR);
+		}
+
+		return {
+			art: 'ausgetragen' as const,
+			meldung: `KW ${frei.woche} ist wieder unbesetzt.`,
+			zeile: schluessel,
+		};
+	},
+
+	/**
+	 * Trägt die **eigene** Person in eine **freie** Woche ein.
+	 *
+	 * **Kein adminOderWeg** — das ist der Unterschied zu `besetzen` daneben, und er
+	 * ist der Zweck dieser action: bis zum 2026-09-11 konnte sich niemand selbst
+	 * eintragen, und der Plan füllte sich nur, wenn die Verwaltung ihn füllte.
+	 *
+	 * **Zwei Schranken, und beide stehen tiefer als hier.** Die Person ist die
+	 * angemeldete (`locals.mitglied`), nicht eine aus dem Formular — ein Feld
+	 * `mitgliedId` gibt es hier bewusst nicht, sonst trüge eine Person eine andere
+	 * ein. Und die Woche muss **frei** sein; das entscheidet die Eindeutigkeit in
+	 * `dienstwocheEintragen` und nicht ein Select in dieser Route.
+	 *
+	 * Ohne Rückfrage: eintragen nimmt niemandem etwas weg, und wer sich vertut,
+	 * trägt sich mit der Handlung daneben wieder aus.
+	 *
+	 * Schon besetzt, unbekanntes oder beendetes Mitglied und das verlorene
+	 * Wettrennen fallen auf **einen** Satz.
+	 */
+	eintragen: async ({ locals, request }: RequestEvent) => {
+		const mitglied = locals.mitglied;
+		// Unerreichbar: der Wächter hat vorher mit 403 abgewiesen.
+		if (mitglied === null) {
+			return abweisen(WOCHE_NICHT_ANSPRECHBAR);
+		}
+
+		const formular = await request.formData();
+		const jahr = zahlLesen(formular.get('jahr'));
+		const woche = zahlLesen(formular.get('woche'));
+		if (jahr === null || woche === null || !istWoche({ jahr, woche })) {
+			return abweisen(WOCHE_NICHT_ANSPRECHBAR);
+		}
+		const schluessel = wochenSchluessel({ jahr, woche });
+		const jetztSekunden = Math.floor(Date.now() / 1000);
+		const imFenster = wochenfenster(jetztSekunden).some(
+			(eintrag) => wochenSchluessel(eintrag) === schluessel
+		);
+		if (!imFenster) {
+			return abweisen(WOCHE_NICHT_ANSPRECHBAR);
+		}
+
+		const eingetragen = dienstwocheEintragen({ jahr, woche }, mitglied.id);
+		if (eingetragen === null) {
+			return abweisen(WOCHE_NICHT_ANSPRECHBAR);
+		}
+
+		return {
+			art: 'besetzt' as const,
+			meldung: 'Eingetragen.',
+			name: eingetragen.name,
 			woche,
 			zeile: schluessel,
 		};

@@ -144,6 +144,87 @@ export function eigeneDienstwoche(
  * `createdAt` bleibt beim Ersetzen unberührt — die Woche ist dieselbe, nur die
  * zuständige Person wechselt.
  */
+/**
+ * Gibt die eigene Woche wieder frei — oder gibt null zurück, wenn es nichts
+ * freizugeben gab.
+ *
+ * **Die Berechtigung steht in der `where`-Klausel und nicht in der Route.**
+ * `member_id` ist Teil der Bedingung, nicht eine Prüfung davor: ein Vorab-Select
+ * hätte ein Fenster zwischen Prüfen und Löschen, und eine Prüfung in der Route
+ * wäre die zweite Wahrheit darüber, wem eine Woche gehört. Dieselbe Bauform wie
+ * `aufgabeAbhaken` in ./tasks.ts, wo „noch offen" ebenfalls in der Bedingung des
+ * UPDATE steht.
+ *
+ * Damit fallen drei Fälle auf dasselbe null zusammen, und das ist Absicht: die
+ * Woche gibt es nicht, sie ist schon unbesetzt, oder sie gehört jemand anderem.
+ * Wer sich an einer fremden Woche versucht, erfährt nicht einmal, dass es sie
+ * gibt.
+ *
+ * **Unbesetzt ist das Fehlen der Zeile**, nicht ein Wert darin — `member_id` ist
+ * nicht nullbar (AD-4). Darum DELETE und kein UPDATE.
+ */
+/**
+ * Trägt ein **aktives** Mitglied selbst in eine **freie** Woche ein — oder gibt
+ * null zurück, wenn die Woche schon besetzt ist oder das Mitglied es nicht sein
+ * darf.
+ *
+ * **Der Unterschied zu dienstwocheBesetzen ist die Freiheit der Woche, nicht die
+ * Person.** Besetzen gehört der Verwaltung und schreibt eine bestehende Zeile um
+ * — ein Tausch ist das Ersetzen des Namens. Selbst eintragen darf jedes
+ * Mitglied, aber nur dort, wo niemand steht: sonst könnte jede Person jede
+ * andere aus dem Plan werfen, und die Verbindlichkeit des Plans wäre dahin.
+ *
+ * Umgesetzt ist das mit `onConflictDoNothing` und nicht mit einem Select davor:
+ * die Eindeutigkeit über (Art, Jahr, Woche) entscheidet, und es gibt kein
+ * Fenster zwischen Prüfen und Schreiben, in dem zwei gleichzeitige Eintragungen
+ * beide durchkämen. Wer das Wettrennen verliert, bekommt null — dieselbe Antwort
+ * wie bei einer schon besetzten Woche, und das ist genau richtig.
+ *
+ * `is_active = 1` steht als Vorprüfung davor, aus demselben Grund und mit
+ * demselben benannten Preis wie bei dienstwocheBesetzen: ein INSERT hat keine
+ * where-Klausel, in die sie passte.
+ */
+export function dienstwocheEintragen(woche: Woche, mitgliedId: number): { name: string } | null {
+	const mitglied = datenbank()
+		.select({ name: members.name })
+		.from(members)
+		.where(and(eq(members.id, mitgliedId), eq(members.isActive, true)))
+		.get();
+	if (mitglied === undefined) return null;
+
+	const zeile = datenbank()
+		.insert(dutyWeeks)
+		.values({
+			art: DIENSTART_TRAENKEN,
+			isoJahr: woche.jahr,
+			isoWoche: woche.woche,
+			memberId: mitgliedId,
+		})
+		.onConflictDoNothing({
+			target: [dutyWeeks.art, dutyWeeks.isoJahr, dutyWeeks.isoWoche],
+		})
+		.returning({ id: dutyWeeks.id })
+		.get();
+
+	return zeile === undefined ? null : { name: mitglied.name };
+}
+
+export function dienstwocheAustragen(woche: Woche, mitgliedId: number): Woche | null {
+	const zeile = datenbank()
+		.delete(dutyWeeks)
+		.where(
+			and(
+				eq(dutyWeeks.art, DIENSTART_TRAENKEN),
+				eq(dutyWeeks.isoJahr, woche.jahr),
+				eq(dutyWeeks.isoWoche, woche.woche),
+				eq(dutyWeeks.memberId, mitgliedId)
+			)
+		)
+		.returning({ jahr: dutyWeeks.isoJahr, woche: dutyWeeks.isoWoche })
+		.get();
+	return zeile ?? null;
+}
+
 export function dienstwocheBesetzen(woche: Woche, mitgliedId: number): { name: string } | null {
 	const mitglied = datenbank()
 		.select({ name: members.name })

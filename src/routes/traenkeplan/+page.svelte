@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 	import { tick } from 'svelte';
@@ -39,8 +40,20 @@
 	const rueckmeldung = $derived(
 		form !== null && form.art === 'besetzt'
 			? `${form.meldung} ${form.name} ist für KW ${form.woche} eingetragen.`
-			: ''
+			: form !== null && form.art === 'ausgetragen'
+				? form.meldung
+				: ''
 	);
+
+	/*
+		**Welche Zeile gerade nach einer Bestätigung fragt — oder null.**
+
+		Der Wert kommt aus der Antwort des Servers und nicht aus einem Zustand im
+		Browser: die Frage ist eine Eigenschaft der action, nicht des Geräts, und
+		ohne JavaScript entsteht sie als vollständiges Dokument. Dieselbe Bauform
+		wie beim Übernehmen auf `/`.
+	*/
+	const frageWoche = $derived(form !== null && form.art === 'fragenAustragen' ? form.zeile : null);
 
 	/*
 		Ein Wurf in der action kommt als `result.type === 'error'` zurück. Der Satz
@@ -238,6 +251,87 @@
 						{eintrag.name ?? '— unbesetzt —'}
 					</p>
 				</div>
+
+				<!--
+					**Austragen steht nur an der eigenen Zeile** — an fremden entsteht gar
+					kein Markup, auch kein deaktivierter Knopf. Die Berechtigung hängt
+					trotzdem nicht daran: sie steht in der `where`-Klausel des DELETE, und
+					ein POST braucht keinen Knopf.
+
+					**Entweder der Knopf oder die Frage, nie beides.** Steht die Frage zu
+					dieser Zeile offen, ist der Knopf fort: er schickte dieselbe action
+					noch einmal und stellte damit nur dieselbe Frage.
+
+					Ein echtes Formular mit literalem action="?/austragen" — Gate-Regel 11
+					liest den Namen textuell. Ohne JavaScript läuft derselbe Weg: der erste
+					POST liefert die Frage als Dokument, der zweite schreibt.
+				-->
+				<!--
+					**Eintragen steht an jeder freien Woche, für jede Person.** Bis zum
+					2026-09-11 füllte sich der Plan nur, wenn die Verwaltung ihn füllte;
+					jetzt trägt sich ein, wer kann.
+
+					Ohne Rückfrage: es nimmt niemandem etwas weg, und wer sich vertut,
+					trägt sich mit dem Knopf daneben wieder aus. Die zwei Schranken stehen
+					tiefer — die Person ist die angemeldete, und die Woche muss frei sein;
+					das entscheidet die Eindeutigkeit in der Abfrage.
+				-->
+				{#if eintrag.name === null}
+					<form class="woche__austragen" method="POST" action="?/eintragen" use:enhance={versand}>
+						<input type="hidden" name="jahr" value={eintrag.jahr} />
+						<input type="hidden" name="woche" value={eintrag.woche} />
+						<button
+							class="button-quiet button-quiet--kompakt"
+							type="submit"
+							id="eintragen-{dieseWoche}"
+							aria-labelledby="eintragen-{dieseWoche} woche-{dieseWoche}"
+						>
+							Ich übernehme
+						</button>
+					</form>
+				{/if}
+
+				{#if eintrag.mitgliedId === data.eigeneId}
+					{#if frageWoche === dieseWoche}
+						<div class="woche__frage">
+							<p class="fliesstext" id="austragen-frage-{dieseWoche}">
+								KW {eintrag.woche} wieder freigeben? Wer will, darf sie dann nehmen.
+							</p>
+							<div class="knoepfe">
+								<!-- `Abbrechen` steht zuerst: die Reihenfolge im DOM ist die
+								     Fokusreihenfolge, und die zusagende Handlung soll nicht die
+								     erste sein. Ein Link und kein Knopf — er verwirft die Antwort
+								     der action, indem er die Seite neu holt. -->
+								<a class="button-quiet" href={resolve('/traenkeplan')}>Abbrechen</a>
+								<form method="POST" action="?/austragen" use:enhance={versand}>
+									<input type="hidden" name="jahr" value={eintrag.jahr} />
+									<input type="hidden" name="woche" value={eintrag.woche} />
+									<input type="hidden" name="bestaetigt" value="1" />
+									<button
+										class="button-quiet button-quiet--zerstoerend"
+										type="submit"
+										aria-describedby="austragen-frage-{dieseWoche}"
+									>
+										Austragen
+									</button>
+								</form>
+							</div>
+						</div>
+					{:else}
+						<form class="woche__austragen" method="POST" action="?/austragen" use:enhance={versand}>
+							<input type="hidden" name="jahr" value={eintrag.jahr} />
+							<input type="hidden" name="woche" value={eintrag.woche} />
+							<button
+								class="button-quiet button-quiet--kompakt"
+								type="submit"
+								id="austragen-{dieseWoche}"
+								aria-labelledby="austragen-{dieseWoche} woche-{dieseWoche}"
+							>
+								Austragen
+							</button>
+						</form>
+					{/if}
+				{/if}
 
 				{#if data.istAdmin}
 					<!--
