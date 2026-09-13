@@ -49,6 +49,21 @@
 			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
 			<a class="eintrag" href={resolve('/einzelaufgaben')}>Alle Einzelaufgaben</a>
 		</li>
+		<li>
+			<!--
+				`Wissen` steht seit dem 2026-09-13 hier und nicht mehr in der Leiste:
+				`Ernte` hat dort seinen Platz genommen. Der Massstab ist, wie oft man
+				hingeht — ein Blatt schlägt man ein paar Mal im Jahr nach, was reif ist,
+				sieht man in der Saison bei jedem Gang durch den Garten nach. Die
+				Begründung in ganzer Länge steht in $lib/components/NavBar.svelte.
+
+				Damit ist dies der **einzige** Weg zu den Blättern, und das ist der
+				Unterschied zu den zwei Einträgen darüber: `Alle Einzelaufgaben` hat in
+				Block 2 auf `/` einen zweiten, der nur manchmal da ist.
+			-->
+			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+			<a class="eintrag" href={resolve('/wissen')}>Wissen</a>
+		</li>
 		{#if data.istAdmin}
 			<li>
 				<!--

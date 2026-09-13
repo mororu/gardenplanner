@@ -3472,6 +3472,14 @@ try {
 	 * Wer einen dritten irgendwohin setzt oder zwei in denselben Aufklapper legt,
 	 * macht diese Zeile rot.
 	 */
+	/*
+	 * **Seit dem 2026-09-13 sind es drei Abschnitte**, nicht zwei: die Ernte ist
+	 * dazugekommen und trägt `+ Reifes eintragen`. Die Regel dahinter ist
+	 * dieselbe geblieben — kein Abschnitt trägt zwei, und keiner trägt keinen.
+	 * Der zweite Teil ist so wichtig wie der erste: ein Abschnitt ohne primäre
+	 * Handlung ist eine Liste, aus der heraus man nichts anfangen kann, und
+	 * genau das war die Ernte in ihrem ersten Entwurf.
+	 */
 	const abschnitte = startseitenCode.split('<details open>').slice(1);
 	const primaerJeAbschnitt = abschnitte.map(
 		(teil) =>
@@ -3479,9 +3487,9 @@ try {
 	);
 	pruefen(
 		`jeder Aufklapper auf / trägt genau einen button-primary (${primaerJeAbschnitt.join('/')})`,
-		primaerJeAbschnitt.length === 2 &&
+		primaerJeAbschnitt.length === 3 &&
 			primaerJeAbschnitt.every((zahl) => zahl === 1) &&
-			(startseitenCode.match(/class="button-primary"/g) ?? []).length === 2,
+			(startseitenCode.match(/class="button-primary"/g) ?? []).length === 3,
 		`je Abschnitt: ${primaerJeAbschnitt.join('/')}, insgesamt: ${
 			(startseitenCode.match(/class="button-primary"/g) ?? []).length
 		}`
@@ -3537,10 +3545,12 @@ try {
 		 * Verlust.
 		 */
 		[
-			`alle zehn Seitenkomponenten sind eingesammelt (gefunden: ${seitenPfade.length})`,
-			seitenPfade.length === 10,
+			`alle elf Seitenkomponenten sind eingesammelt (gefunden: ${seitenPfade.length})`,
+			seitenPfade.length === 11,
 		] as const,
-		['es gibt genau vier Meldungsregionen im Baum', meldungsTags.length === 4] as const,
+		// Vier bis zum 2026-09-13, fünf seit /ernte: die neue Seite trägt dieselbe
+		// höfliche Region wie /, /traenkeplan, /verwaltung und /wissen.
+		['es gibt genau fünf Meldungsregionen im Baum', meldungsTags.length === 5] as const,
 		...meldungsTags.map(
 			([name, tag]) =>
 				[
@@ -3627,7 +3637,10 @@ try {
 					{ hoeflich: 0, unterbrechend: 0, keineRegion: 0 }
 				)
 		),
-		JSON.stringify({ hoeflich: 4, unterbrechend: 15, keineRegion: 1 })
+		// +1 höflich und +4 unterbrechend seit dem 2026-09-13: /ernte bringt eine
+		// Rückmeldung, eine Fehlerregion oben und drei Feldmeldungen mit — Kultur,
+		// Ort und Status.
+		JSON.stringify({ hoeflich: 5, unterbrechend: 19, keineRegion: 1 })
 	);
 
 	const rueckmeldungRumpf = glatterRumpf(
@@ -7773,12 +7786,12 @@ try {
 	 */
 	const aufklappTeile = [
 		[
-			'es sind genau zwei Abschnitts-Aufklapper',
-			(startseiteCodeEinzel.match(/<details open>/g) ?? []).length === 2,
+			'es sind genau drei Abschnitts-Aufklapper',
+			(startseiteCodeEinzel.match(/<details open>/g) ?? []).length === 3,
 		],
 		[
-			'beide tragen einen Griff',
-			(startseiteCodeEinzel.match(/<summary class="abschnitt__griff">/g) ?? []).length === 2,
+			'alle drei tragen einen Griff',
+			(startseiteCodeEinzel.match(/<summary class="abschnitt__griff">/g) ?? []).length === 3,
 		],
 		[
 			'keiner wird zugeklappt ausgeliefert',
@@ -7788,21 +7801,21 @@ try {
 			// Der Griff trägt seit dem 2026-09-11 die Zahl statt eines Titels — die
 			// Zahl **ist** die Überschrift. Was er sagt, prüft die Griff-Wache weiter
 			// oben; hier steht nur, dass er da ist.
-			'beide Griffe tragen einen Satz mit Kennung',
-			(startseiteCodeEinzel.match(/<h2 class="griff__satz" id="[a-z-]+">/g) ?? []).length === 2,
+			'alle drei Griffe tragen einen Satz mit Kennung',
+			(startseiteCodeEinzel.match(/<h2 class="griff__satz" id="[a-z-]+">/g) ?? []).length === 3,
 		],
 		[
 			// Seit dem 2026-09-11 umgekehrt: die primären Knöpfe liegen **in** ihren
 			// Abschnitten. Der Preis — zugeklappt kein Erfassen — ist am Knopf
 			// ausgeschrieben; getragen wird er davon, dass der Zustand nirgends
 			// gespeichert ist.
-			'und beide primären Knöpfe liegen in ihren Abschnitten',
+			'und alle drei primären Knöpfe liegen in ihren Abschnitten',
 			startseiteCodeEinzel.lastIndexOf('class="button-primary"') <
 				startseiteCodeEinzel.lastIndexOf('</details>'),
 		],
 	] as const;
 	pruefen(
-		'beide Abschnitte auf / sind zuklappbar und werden offen ausgeliefert',
+		'alle drei Abschnitte auf / sind zuklappbar und werden offen ausgeliefert',
 		fehlendeTeile(aufklappTeile).length === 0,
 		`fehlt: ${fehlendeTeile(aufklappTeile).join(', ')}`
 	);

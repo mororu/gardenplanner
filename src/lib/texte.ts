@@ -352,3 +352,80 @@ export function zeileBald(anzahl: number): string {
 export function zeileUnbesetzt(anzahl: number): string {
 	return anzahl === 1 ? 'Tränkewoche unbesetzt' : 'Tränkewochen unbesetzt';
 }
+
+/**
+ * Die nicht mehr ansprechbare Erntezeile. **Drei Wurfstellen**, alle drei in
+ * den actions von src/routes/ernte/+page.server.ts: `umstufen`, und `abernten`
+ * in beiden Schritten.
+ *
+ * Ein Satz für vier Zustände:
+ *
+ *   1. id fehlt im Formular
+ *   2. id ist nicht numerisch
+ *   3. es gibt keine Zeile mit dieser Kennung
+ *   4. es gab sie, und jemand hat sie in der Zwischenzeit abgeerntet
+ *
+ * Jede Unterscheidung wäre ein Aufzählungskanal — und die vierte ist der
+ * häufige Fall, nicht der seltene: der Stand ist genau die Liste, die sich
+ * ändert, während jemand sie ansieht. Der Satz sagt darum, was zu tun ist,
+ * statt zu erklären, was war.
+ *
+ * **`Lade die Liste neu` und nicht `gibt es nicht mehr`.** Die zweite Fassung
+ * wäre in den Fällen 1 bis 3 eine Falschaussage — dort gab es sie nie —, und
+ * für Fall 4 hilft sie niemandem: was gesucht war, ist geerntet, und das steht
+ * nach dem Neuladen ohnehin da.
+ */
+export const ERNTEZEILE_NICHT_ANSPRECHBAR =
+	'Diese Zeile lässt sich nicht ansprechen. Lade die Liste neu.';
+
+/**
+ * Der Satz im Griff der Ernte auf `/`, wenn nichts gemeldet ist.
+ *
+ * Die Fassung nennt den **Grund** und nicht den Zustand: `Nichts reif` wäre
+ * eine Behauptung über den Garten, die diese Anwendung nicht aufstellen kann —
+ * im August ist immer etwas reif, es hat nur niemand eingetragen. `Nichts reif
+ * gemeldet` sagt, was stimmt, und wer es liest, weiss zugleich, was zu tun
+ * wäre.
+ *
+ * Dieselbe Fassung wie GRIFF_OFFEN_LEER und GRIFF_FREI_LEER darüber: ein
+ * ganzer Satz mit Punkt, weil an dieser Stelle keine Zahl davor steht.
+ */
+export const GRIFF_REIF_LEER = 'Nichts reif gemeldet.';
+
+/**
+ * Der Satz im Griff der Ernte, wenn nichts eilt.
+ *
+ * Die Zahl davor ist die Zahl **aller** gemeldeten Kulturen — sie steht in
+ * ihrer eigenen Schriftrolle daneben und gehört darum nicht in diesen Satz
+ * (dieselbe Hausregel wie bei griffOffen und griffFrei).
+ */
+export function griffReif(anzahl: number): string {
+	return anzahl === 1 ? 'Kultur ist reif' : 'Kulturen sind reif';
+}
+
+/**
+ * Der Satz im Griff der Ernte, wenn etwas eilt. Die Zahl davor ist dann die der
+ * **dringenden** Zeilen und nicht die aller.
+ *
+ * Das ist dieselbe Entscheidung wie an der Tränkeplan-Zeile darüber: von zwei
+ * Zahlen trägt die dringende die grosse Schrift. Wer `2 sofort ernten` liest,
+ * weiss, dass heute etwas ansteht — `5 Kulturen sind reif` verschwiege das
+ * hinter einer grösseren Zahl.
+ */
+export function griffSofort(anzahl: number): string {
+	return anzahl === 1 ? 'Kultur sofort ernten' : 'Kulturen sofort ernten';
+}
+
+/**
+ * Der Nachsatz daneben: was ausserdem reif ist, aber warten kann.
+ *
+ * Er trägt seine Zahl **im Text**, anders als die zwei darüber — wie zeileBald
+ * an der Tränkeplan-Zeile, und aus demselben Grund: es ist die zweite Zahl
+ * einer Zeile, die schon eine in grosser Schrift führt. Zwei grosse Zahlen
+ * nebeneinander sagten nicht mehr, welche die Lage beschreibt.
+ *
+ * Bei null steht der Satz gar nicht — die Komponente fragt vorher.
+ */
+export function griffWeitereReif(anzahl: number): string {
+	return anzahl === 1 ? 'eine weitere kann stehen' : `${anzahl} weitere können stehen`;
+}

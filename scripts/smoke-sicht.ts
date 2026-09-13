@@ -268,9 +268,22 @@ try {
 	 * Der Selbstreview dieses Skripts hat nachgemessen, dass die Bedingung heute
 	 * hält. Sie steht jetzt als Zeile da, statt vorausgesetzt zu werden.
 	 */
+	/*
+	 * **Die Poolliste wird benannt und nicht als erste genommen.**
+	 *
+	 * Bis zum 2026-09-13 stand hier `document.querySelector('.liste')` — die
+	 * erste `.liste` im Dokument, und das war der Pool, solange er die einzige
+	 * war. Mit der Ernte-Registerkarte darüber trägt `/` eine zweite, und die
+	 * Sonde mass plötzlich deren `li`, die keine `.zeile` sind. Sie wurde rot,
+	 * und sie hatte recht: die Prüfliste darunter zählt mit `nth-of-type` **im
+	 * Pool**, und welche Liste das ist, muss sie sagen statt zu raten.
+	 *
+	 * `aria-labelledby="offen-marke"` ist die Kennung, die der Pool ohnehin
+	 * trägt — sie verbindet ihn mit seinem Griff, und es gibt genau einen.
+	 */
 	const nurZeilen = await browser.auswerten<boolean>(`
-		const liste = document.querySelector('.liste');
-		if (liste === null) throw new Error('keine .liste im Dokument');
+		const liste = document.querySelector('.liste[aria-labelledby="offen-marke"]');
+		if (liste === null) throw new Error('keine Poolliste im Dokument');
 		return [...liste.querySelectorAll(':scope > li')].every((li) => li.classList.contains('zeile'));`);
 	pruefen(
 		'jedes li der Liste ist eine .zeile — damit zählt nth-of-type dasselbe wie die Klasse',
@@ -1223,11 +1236,28 @@ try {
 	 */
 	await browser.taste('Enter');
 	await browser.warten(DIALOG_LEER, 'ein Enter auf Abbrechen schliesst den Dialog und leert ihn');
+	/*
+	 * **Der Name wird an der Einzelaufgabe gesucht und nicht im ganzen Dokument.**
+	 *
+	 * Bis zum 2026-09-13 las diese Sonde `document.body.textContent` — tragfähig,
+	 * solange `Manu Mitglied` auf `/` nur dann vorkam, wenn jemand übernommen
+	 * hatte. Die Ernte-Registerkarte nennt seither an jeder Zeile, wer sie
+	 * eingetragen hat, und die Saat legt sie unter demselben Namen an: die Sonde
+	 * wurde rot, obwohl niemand etwas übernommen hatte.
+	 *
+	 * Sie war damit von Anfang an zu weit gefasst — gemeint ist „steht ein Name
+	 * an **dieser** Einzelaufgabe", und genau das misst sie jetzt, über die
+	 * Karte, in der ihr Knopf liegt. Die Saat auf einen zweiten Namen
+	 * umzustellen hätte die Zeile still wieder grün gemacht und die zu weite
+	 * Fassung stehen gelassen.
+	 */
 	const nachEnter = await browser.auswerten<{ offen: boolean; knopf: boolean; name: boolean }>(`
+		const knopf = document.querySelector(${JSON.stringify(uebernehmen)});
+		const karte = knopf === null ? null : knopf.closest('.karte');
 		return {
 			offen: document.querySelector('dialog.bestaetigung').open,
-			knopf: document.querySelector(${JSON.stringify(uebernehmen)}) !== null,
-			name: document.body.textContent.includes('Manu Mitglied'),
+			knopf: knopf !== null,
+			name: karte !== null && karte.textContent.includes('Manu Mitglied'),
 		};`);
 	pruefen(
 		'ein Enter direkt nach dem Öffnen sagt nichts zu — der Dialog schliesst, die Aufgabe bleibt frei',
@@ -1555,13 +1585,13 @@ try {
 		...new Set(seitenVerzeichnisse.flatMap((pfad) => pfad.match(/\[[^\]]+\]/g) ?? [])),
 	].sort();
 	pruefen(
-		`alle zehn Seiten sind aus dem Verzeichnisbaum abgeleitet (gefunden: ${seitenVerzeichnisse.length}), und jeder dynamische Abschnitt hat einen Wert`,
-		seitenVerzeichnisse.length === 10 &&
+		`alle elf Seiten sind aus dem Verzeichnisbaum abgeleitet (gefunden: ${seitenVerzeichnisse.length}), und jeder dynamische Abschnitt hat einen Wert`,
+		seitenVerzeichnisse.length === 11 &&
 			platzhalter.join(' ') === Object.keys(EINSETZUNGEN).sort().join(' '),
 		`Platzhalter im Baum: ${platzhalter.join(' ') || '(keine)'}, eingesetzt: ${Object.keys(EINSETZUNGEN).join(' ')}`
 	);
 	/*
-	 * Die Fehlerseite steht als elfte, über einen Pfad, den es nicht gibt. Sie
+	 * Die Fehlerseite steht als zwölfte, über einen Pfad, den es nicht gibt. Sie
 	 * ist keine `+page.svelte` und käme aus dem Verzeichnisbaum darum nie —
 	 * gestaltet ist sie trotzdem, und ihre Zusage („lesbarer Kontrast auch für
 	 * die Statuszeile", Spec 1.2) hat bis heute nichts gemessen.

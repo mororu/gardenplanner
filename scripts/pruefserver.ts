@@ -25,6 +25,7 @@ import type { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { aufraeumen, pruefen, zaehlerstand } from './pruefhelfer.ts';
 import { datenschichtStarten } from '../src/lib/server/db/index.ts';
+import { ernteEintragen } from '../src/lib/server/db/queries/harvests.ts';
 import { mitgliedAnlegen } from '../src/lib/server/db/queries/members.ts';
 import { aufgabenStapelAnlegen } from '../src/lib/server/db/queries/tasks.ts';
 import { tokenErzeugen, tokenHashen } from '../src/lib/server/token.ts';
@@ -216,7 +217,11 @@ export function saeen(): Saat {
 	const mitgliedHash = tokenHashen(mitgliedToken);
 
 	mitgliedAnlegen({ name: 'Vera Verwaltung', inviteTokenHash: adminHash, isAdmin: true });
-	mitgliedAnlegen({ name: 'Manu Mitglied', inviteTokenHash: mitgliedHash, isAdmin: false });
+	const manu = mitgliedAnlegen({
+		name: 'Manu Mitglied',
+		inviteTokenHash: mitgliedHash,
+		isAdmin: false,
+	});
 
 	/*
 	 * Eine überfällige Planaufgabe, ebenfalls über die echte Datenschicht.
@@ -239,6 +244,29 @@ export function saeen(): Saat {
 		[ueberfaelligText],
 		Math.floor(Date.now() / 1000) - ueberfaelligWochen * WOCHE_SEKUNDEN
 	);
+
+	/*
+	 * **Eine Erntezeile je Stufe**, und das ist keine Zierde.
+	 *
+	 * Ohne sie rendert /ernte drei Überschriften, die es gar nicht gibt: die
+	 * Abschnitte entstehen nur, wo Zeilen sind. Der Sichtlauf hätte dann die
+	 * Karten nie gesehen — und mit ihnen nicht die drei Kanten, die --danger,
+	 * --warn und --accent als Stufenfarbe tragen, nicht die kompakten Knöpfe an
+	 * der Zeile und nicht die Registerkarte auf `/`, die dieselben drei Farben
+	 * wiederholt. Genau diese Lücke ist die Klasse, für die Stufe C gebaut wurde:
+	 * eine Zusage über Gerendertes, die nichts rendert.
+	 *
+	 * Die erste trägt zusätzlich `laufend`, damit der Dauerernte-Vermerk und
+	 * sein Satz mindestens einmal im gemessenen Baum stehen; die zweite einen
+	 * Ort, die dritte keinen — so sind beide Formen der Kopfzeile abgedeckt.
+	 *
+	 * Angelegt über die echte Abfrageschicht wie die Saat darüber, nicht per
+	 * INSERT von Hand: eine Saat, die am Repository vorbeigeht, prüft eine
+	 * Datenlage, die die Anwendung so nie herstellt.
+	 */
+	ernteEintragen({ kultur: 'Zucchini', ort: 'Hochbeet 3', status: 'sofort', laufend: true }, manu);
+	ernteEintragen({ kultur: 'Kohlrabi', ort: 'Freiland', status: 'stehen', laufend: false }, manu);
+	ernteEintragen({ kultur: 'Kürbis', ort: null, status: 'wachsen', laufend: false }, manu);
 
 	return {
 		adminToken,

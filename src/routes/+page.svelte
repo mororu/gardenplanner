@@ -7,13 +7,18 @@
 	import { tick } from 'svelte';
 	import type { PageProps } from './$types';
 	import { datumLang } from '$lib/client/utils/date';
+	import { DAUERERNTE_WORT } from '$lib/ernte';
 	import {
 		EINZELAUFGABE_NICHT_ANSPRECHBAR,
 		UEBERNAHME_FOLGE,
 		VERSAND_FEHLGESCHLAGEN,
 		GRIFF_FREI_LEER,
 		GRIFF_OFFEN_LEER,
+		GRIFF_REIF_LEER,
 		griffFrei,
+		griffReif,
+		griffSofort,
+		griffWeitereReif,
 		griffOffen,
 		griffUeberfaellig,
 		zeileBald,
@@ -596,6 +601,113 @@
 			<span class="plan-zeile__pfeil" aria-hidden="true">→</span>
 		</a>
 	{/if}
+
+	<!--
+		Die Ernte. Sie steht zwischen Tränkeplan und Einzelaufgaben, weil sie
+		dazwischen gehört: der Tränkeplan sagt, wer dran ist, die Ernte, was heute
+		im Garten zu holen wäre, und die Einzelaufgaben, was jemand übernehmen
+		kann.
+
+		**Ein Aufklapper und keine Zeile mit Pfeil**, anders als der Tränkeplan
+		darüber: dort gibt es eine Zahl und dahinter eine Seite, hier stehen die
+		Zeilen selbst da. Der Griff zählt, die Liste nennt.
+
+		**Jede Zeile ist ein Griff nach /ernte, und keine trägt einen Knopf.**
+		Umgestuft und abgeerntet wird dort, wo die ganze Liste steht — zwei Orte
+		für dieselbe Handlung hiessen zwei Stände, die auseinanderlaufen, sobald
+		einer von beiden eine Zeile nicht kennt.
+
+		**Der ganze Stand und nicht nur das Dringende.** Ohne die gelben und
+		grünen Zeilen hätte die Farbe an dieser Stelle nichts zu unterscheiden,
+		und wer am Samstag in den Garten geht, will wissen, was es überhaupt gibt
+		— nicht nur, was brennt.
+	-->
+	<details open>
+		<summary class="abschnitt__griff">
+			<h2 class="griff__satz" id="ernte-marke">
+				{#if data.ueberblick.reif === 0}
+					<span class="kopfwort">{GRIFF_REIF_LEER}</span>
+				{:else if data.ueberblick.reifSofort === 0}
+					<span class="kopfzahl">{data.ueberblick.reif}</span>
+					<span class="kopfwort">{griffReif(data.ueberblick.reif)}</span>
+				{:else}
+					<span class="kopfzahl">{data.ueberblick.reifSofort}</span>
+					<span class="kopfwort">
+						{griffSofort(data.ueberblick.reifSofort)}
+						<!--
+							Der Nachsatz nennt, was ausserdem dasteht. Die Zahl ist die
+							Differenz und wird hier gerechnet und nicht in der load geführt:
+							eine dritte Zahl in `ueberblick`, die nichts ist als die Differenz
+							zweier anderer, wäre eine Wahrheit, die man pflegen müsste.
+						-->
+						{#if data.ueberblick.reif > data.ueberblick.reifSofort}
+							<span class="ernte-zeile__weitere"
+								>{griffWeitereReif(data.ueberblick.reif - data.ueberblick.reifSofort)}</span
+							>
+						{/if}
+					</span>
+				{/if}
+			</h2>
+		</summary>
+
+		{#if data.ernte.length > 0}
+			<ul class="liste liste--getrennt" aria-labelledby="ernte-marke">
+				{#each data.ernte as zeile (zeile.id)}
+					<li>
+						<!--
+							Die Farbe der Stufe als 3px-Kante — dieselbe Marke und dieselben
+							drei Token wie auf /ernte, damit dasselbe Zeichen an beiden Orten
+							dasselbe heisst. Das **Wort** steht auf /ernte in der Überschrift
+							des Abschnitts; hier trägt es der Griff darüber, solange etwas
+							dringend ist. Kein Zustand hängt allein an der Farbe.
+						-->
+						<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+						<a
+							class="ernte-zeile"
+							class:ernte-zeile--sofort={zeile.status === 'sofort'}
+							class:ernte-zeile--stehen={zeile.status === 'stehen'}
+							class:ernte-zeile--wachsen={zeile.status === 'wachsen'}
+							href={resolve('/ernte')}
+						>
+							<span class="zeile__spalte">
+								<span class="ernte-zeile__titel">
+									<span class="zeile__text"
+										>{zeile.kultur}{#if zeile.ort !== null}<span class="ernte-zeile__ort"
+												>, {zeile.ort}</span
+											>{/if}</span
+									>
+									{#if zeile.laufend}
+										<span class="marke">{DAUERERNTE_WORT}</span>
+									{/if}
+								</span>
+								<span class="hinweis hinweis--ziffern">
+									{zeile.name ?? 'unbekannt'} · {datumLang(zeile.createdAt)}
+								</span>
+							</span>
+							<span class="plan-zeile__pfeil" aria-hidden="true">→</span>
+						</a>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+
+		<!--
+			Die Haupthandlung dieses Abschnitts, in derselben Grammatik wie
+			`+ Einzelaufgabe` und `+ Aufgabe` darunter: je Aufklapper genau eine, und
+			sie steht ausserhalb des {#if} — auch wer nichts gemeldet sieht, soll
+			etwas melden können. Ohne sie wäre die Ernte der einzige Abschnitt auf
+			dieser Seite, aus dem heraus man nichts anfangen kann.
+
+			Der Parameter `?eintragen` öffnet den Griff auf /ernte: der Knopf
+			verspricht ein Formular, und eine Seite mit zugeklapptem Griff bräche die
+			Zusage. Die Begründung in ganzer Länge steht an `eintragenOffen` in
+			ernte/+page.server.ts.
+		-->
+		<div class="knoepfe">
+			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+			<a class="button-primary" href="{resolve('/ernte')}?eintragen">+ Reifes eintragen</a>
+		</div>
+	</details>
 
 	<!--
 		Block 2. **Ohne eine freie Einzelaufgabe fehlt er ganz** — wie Block 1 und
@@ -1227,6 +1339,85 @@
 		font-family: var(--section-font);
 		font-size: var(--section-size);
 		line-height: var(--section-line);
+	}
+
+	/*
+		Die Zeile der Ernte-Registerkarte. Sie ist ein **Griff** und keine Karte:
+		Kante, Fläche und Trefferfeld wie `.plan-zeile` darüber — dieselbe Aussage,
+		„das hier führt woandershin" —, aber zweizeilig, weil sie Kultur und Ort in
+		der ersten und Namen und Datum in der zweiten Zeile trägt.
+
+		Sie hat darum `align-items: center` und `.plan-zeile` nicht: dort stehen
+		Zahl und Wort auf einer Grundlinie, hier soll der Pfeil zwischen den zwei
+		Zeilen sitzen und nicht an der oberen kleben.
+	*/
+	.ernte-zeile {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		min-height: var(--touch);
+		padding: var(--space-2) var(--space-3);
+		border: var(--border-hairline) solid var(--ink-secondary);
+		border-radius: var(--radius-md);
+		background-color: var(--surface-raised);
+		color: var(--ink-primary);
+		text-decoration: none;
+	}
+
+	/*
+		Dieselben drei Token wie die Abschnitte auf /ernte: --danger für „sofort",
+		--warn für „kann stehen", --accent für „noch wachsen lassen", je als
+		3px-Marke. Dasselbe Zeichen an beiden Orten heisst dasselbe.
+
+		Das Wort dazu steht im Griff darüber, solange etwas dringend ist, und auf
+		/ernte in der Überschrift jedes Abschnitts. Kein Zustand hängt allein an
+		der Farbe.
+	*/
+	.ernte-zeile--sofort {
+		border-inline-start: var(--border-marker) solid var(--danger);
+	}
+
+	.ernte-zeile--stehen {
+		border-inline-start: var(--border-marker) solid var(--warn);
+	}
+
+	.ernte-zeile--wachsen {
+		border-inline-start: var(--border-marker) solid var(--accent);
+	}
+
+	/*
+		Kultur und der Dauerernte-Vermerk in einer Zeile, die bei Bedarf bricht.
+		`baseline`, damit die Marke auf der Schriftlinie der Kultur sitzt und nicht
+		in ihrer Mitte schwebt.
+	*/
+	.ernte-zeile__titel {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: var(--space-2);
+		min-width: 0;
+	}
+
+	/*
+		Der Ort neben der Kultur. Nebentext-Rolle und **ohne** eigenes
+		`line-height`: als Span in der Zeile der Kultur zerteilte das deren
+		Zeilenbox. Derselbe Handgriff und dieselbe Begründung wie beim ISO-Jahr im
+		Tränkeplan und beim Ort auf /ernte.
+	*/
+	.ernte-zeile__ort {
+		color: var(--ink-secondary);
+		font-family: var(--meta-font);
+		font-size: var(--meta-size);
+		font-weight: var(--meta-weight);
+	}
+
+	/*
+		Der Nachsatz im Griff — was ausserdem reif ist. Eigene Zeile wie
+		`.plan-zeile__bald`, aber in der gewöhnlichen Nebentextfarbe: er ist keine
+		Warnung, sondern eine Ergänzung. Die Warnung steht in der Zahl davor.
+	*/
+	.ernte-zeile__weitere {
+		display: block;
 	}
 
 	.dienst {

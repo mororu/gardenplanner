@@ -8,9 +8,10 @@ import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core
  * Drizzle. Zeitstempel sind Integer in Unix-Sekunden, nie ISO-Strings und nie
  * Date-Objekte.
  *
- * In diesem Stand gibt es fünf Tabellen: members aus Story 1.2, tasks aus
+ * In diesem Stand gibt es sechs Tabellen: members aus Story 1.2, tasks aus
  * Story 1.4 (seit Story 2.1 um due_at erweitert), duty_weeks aus Story 3.1,
- * signup_tasks aus Story 3.2 und sheets aus Story 4.1. Story 2.2 hat an tasks
+ * signup_tasks aus Story 3.2, sheets aus Story 4.1 und harvests vom
+ * 2026-09-13. Story 2.2 hat an tasks
  * **nichts** geändert: die Überfälligkeit wird gerechnet und nicht gespeichert,
  * und die Rechnung steht in src/lib/zeit.ts. Getrennte Tabellen ohne gemeinsame
  * Zuständigkeitsspalte, keine Basistabelle und keine Typspalte darüber (AD-3):
@@ -462,3 +463,112 @@ export const sheets = sqliteTable('sheets', {
 
 export type Sheet = typeof sheets.$inferSelect;
 export type NewSheet = typeof sheets.$inferInsert;
+
+/**
+ * Was gerade reif ist. **Ein Stand, kein Tagebuch.**
+ *
+ * Die Tabelle beantwortet genau eine Frage: was kann heute geerntet werden? Wer
+ * abgeerntet hat, **löscht** die Zeile — es gibt kein `abgeerntet_at`, keine
+ * Archivspalte und keine Ernte-Historie. Das ist die Entscheidung vom
+ * 2026-09-13 und keine Auslassung aus Eile: eine Zeile, die nach dem Abernten
+ * stehen bliebe, müsste aus jeder Ansicht gefiltert werden, und die erste
+ * Ansicht, die das vergisst, zeigt Gemüse an, das seit drei Wochen weg ist.
+ * Damit gibt es hier als einziger Stelle im Produkt ausserhalb der Verwaltung
+ * ein echtes DELETE — und darum fragt die action einmal nach.
+ *
+ * **Keine Mengen- und keine Einheitenspalte.** Wie viel geerntet wurde, ist die
+ * Frage eines Tagebuchs und nicht die dieses Stands. Eine Zahl hier zöge
+ * Summen, Summen zögen einen Zeitraum, und ein Zeitraum zöge genau die
+ * Historie, gegen die der Absatz darüber steht.
+ *
+ * **`member_id` ist notNull, anders als bei signup_tasks.** Dort heisst null
+ * „noch frei"; hier gibt es nichts zu übernehmen. Die Spalte sagt, **wer den
+ * Stand behauptet hat**, und der Name steht an der Zeile — nicht als
+ * Zuständigkeit, sondern als Herkunft: wer sieht, dass die Angabe von gestern
+ * ist und von wem, weiss, wen er fragen kann. Der Fremdschlüssel ist tragfähig,
+ * weil Zugang beenden deaktiviert statt löscht (dieselbe Begründung wie bei
+ * tasks.completed_by, duty_weeks.member_id und signup_tasks.member_id).
+ *
+ * Anders als bei signup_tasks fällt die Zeile eines ausgetretenen Mitglieds
+ * **nicht** auf „frei" zurück: eine Auskunft über ein Beet verliert ihre
+ * Gültigkeit nicht dadurch, dass die Person den Verein verlässt. Die Zeile
+ * bleibt stehen und trägt den Namen weiter, bis jemand sie aberntet.
+ *
+ * Die Spaltennamen folgen dem Entscheid vom 2026-08-30 (ARCHITECTURE-SPINE.md,
+ * *Consistency Conventions*): Domänenspalten deutsch, Infrastrukturspalten
+ * englisch.
+ */
+export const harvests = sqliteTable('harvests', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	/*
+	 * Was reif ist — ein Name, kein Satz. Geprüft über kulturPruefen in
+	 * src/lib/ernte.ts gegen ERNTE_HOECHSTLAENGE (60 Codepoints), und damit
+	 * kürzer gefasst als tasks.text und sheets.titel: `Cherrytomaten` ist die
+	 * lange Fassung dieses Feldes.
+	 *
+	 * Die Auswahl auf der Seite schlägt zwanzig Kulturen vor, aber gespeichert
+	 * wird **Text und kein Schlüssel**: wer etwas anbaut, das nicht auf der
+	 * Liste steht, schreibt es hin, und eine Fremdschlüsselspalte könnte das
+	 * nicht tragen. Eine Kulturtabelle für zwanzig Wörter wäre ausserdem eine
+	 * Pflegestelle mehr für eine Liste, die sich im Jahr einmal ändert.
+	 */
+	kultur: text('kultur').notNull(),
+	/*
+	 * Wo es steht — **nullbar, und das ist der Punkt.** Ein Beet anzugeben ist
+	 * freiwillig; leer wird als null gespeichert und nicht als leerer String,
+	 * damit „nicht angegeben" genau einen Wert hat und nicht zwei.
+	 *
+	 * Freitext und keine Beet-Tabelle: jeder Aufwand pro Beet ist bei 40+ Beeten
+	 * Ausschlusskriterium — dieselbe Regel, die tasks.text ohne Beet-Bezug lässt.
+	 */
+	ort: text('ort'),
+	/*
+	 * Die Dringlichkeitsstufe: `sofort`, `stehen` oder `wachsen`. Die Werte und
+	 * ihre Reihenfolge stehen in src/lib/ernte.ts (ERNTESTATUS), und von dort
+	 * kommt auch die Sortierung der Liste.
+	 *
+	 * **Kein CHECK in der Migration.** Welche Stufen es gibt, ist eine Auslegung
+	 * des Produkts und keine Eigenschaft der Daten — dieselbe Begründung, aus der
+	 * AUFGABE_HOECHSTLAENGE in TypeScript steht und nicht in SQL. Durchgesetzt
+	 * wird es in der action über istErntestatus; eine vierte Stufe kostet dann
+	 * eine Zeile und keine Migration.
+	 */
+	status: text('status').notNull(),
+	/*
+	 * Ob regelmässiges Pflücken den Ertrag erhöht — Bohnen, Zucchini, Gurken,
+	 * Erbsen, Cherrytomaten.
+	 *
+	 * **Eine eigene Spalte und keine vierte Stufe.** Der Entwurf hatte sie
+	 * zuerst als vierte Farbe neben rot, gelb und grün; das trug nicht, weil
+	 * beides zugleich gilt: eine Zucchini ist laufend zu ernten **und** heute
+	 * dringend. Zwei Aussagen, zwei Spalten.
+	 *
+	 * Sie steht auch nicht an der Kultur: nicht jede Bohnensorte will dasselbe,
+	 * und wer die Zeile schreibt, weiss es besser als eine Liste im Code.
+	 */
+	laufend: integer('laufend', { mode: 'boolean' }).notNull().default(false),
+	/* Wer den Stand behauptet hat. Siehe die Begründung an der Tabelle. */
+	memberId: integer('member_id')
+		.notNull()
+		.references(() => members.id),
+	/*
+	 * Wie bei members, tasks, duty_weeks, signup_tasks und sheets über
+	 * $defaultFn im Schema. Hier hat es zum ersten Mal einen **Leser in der
+	 * Oberfläche**: das Datum steht an der Zeile, weil eine Angabe von vorletzter
+	 * Woche anders wiegt als eine von heute.
+	 */
+	createdAt: integer('created_at')
+		.notNull()
+		.$defaultFn(() => Math.floor(Date.now() / 1000)),
+});
+
+/*
+ * **Kein Index**, aus demselben Grund wie bei tasks und signup_tasks: die Liste
+ * liest die ganze Tabelle und sortiert sie, und die Tabelle trägt zu jeder Zeit
+ * eine Handvoll Zeilen — was reif ist, ist im Garten sichtbar und wird
+ * abgeerntet. Ein Index auf status kostete Schreibarbeit an jeder Zeile und
+ * spart die Sortierung einer Speicherseite.
+ */
+
+export type Harvest = typeof harvests.$inferSelect;
+export type NewHarvest = typeof harvests.$inferInsert;

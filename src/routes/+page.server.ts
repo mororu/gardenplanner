@@ -13,6 +13,7 @@ import {
 	offeneAufgabenAuflisten,
 	type OffeneAufgabe,
 } from '../lib/server/db/queries/tasks.ts';
+import { erntestandLesen, type Erntezeile } from '../lib/server/db/queries/harvests.ts';
 import { AUFGABE_NICHT_ANSPRECHBAR, EINZELAUFGABE_NICHT_ANSPRECHBAR } from '../lib/texte.ts';
 import { wochendatum, wochenfenster } from '../lib/zeit.ts';
 
@@ -81,12 +82,12 @@ function abgelegtLesen(url: URL): number | null {
 }
 
 /**
- * Die vier Zahlen des Überblicksbands.
+ * Die Zahlen in den Griffen der Abschnitte.
  *
- * Alle vier sind **Summen ohne Person**: der Pool ist namenlos (AD-2), und
+ * Alle sind **Summen ohne Person**: der Pool ist namenlos (AD-2), und
  * `completed_by` verlässt die Datenschicht ohnehin nicht (AD-5). Zwei Mitglieder
- * sehen dieselben vier Zahlen — das ist dieselbe Zusage, die weiter unten für
- * die Aufgabenliste gilt, und sie gilt fürs Band mit.
+ * sehen dieselben Zahlen — das ist dieselbe Zusage, die weiter unten für die
+ * Aufgabenliste gilt, und sie gilt für die Griffe mit.
  */
 export type Ueberblick = {
 	offen: number;
@@ -103,6 +104,18 @@ export type Ueberblick = {
 	 * viel offen ist, die andere, wie dringend.
 	 */
 	unbesetztBald: number;
+	/**
+	 * Wie viele Zeilen der Ernte auf `sofort` stehen — und wie viele es
+	 * insgesamt sind.
+	 *
+	 * Zwei Zahlen aus demselben Grund wie `unbesetzt` und `unbesetztBald`
+	 * darüber: die eine sagt, wie viel da ist, die andere, wie dringend. Der
+	 * Griff nennt beide, weil ein `5 reif` über einer Liste, in der nichts
+	 * eilt, zum Aufstehen auffordert, und ein `2 sofort ernten` allein die drei
+	 * anderen verschweigt.
+	 */
+	reifSofort: number;
+	reif: number;
 };
 
 /**
@@ -197,6 +210,7 @@ const BALD_WOCHEN = 2;
 export function load({ locals, url }: ServerLoadEvent): {
 	aufgaben: OffeneAufgabe[];
 	einzelaufgaben: Einzelaufgabe[];
+	ernte: Erntezeile[];
 	ueberblick: Ueberblick;
 	dienst: { datum: string } | null;
 	abgelegt: number | null;
@@ -256,6 +270,20 @@ export function load({ locals, url }: ServerLoadEvent): {
 	 * sind darum „bald", und eine zweite Abfrage mit engerem Fenster wäre eine
 	 * zweite Wahrheit über denselben Kalender.
 	 */
+	/*
+	 * Der **ganze** Stand und nicht nur die dringenden Zeilen — dieselbe Abfrage
+	 * und dieselbe Ordnung wie auf /ernte, und das ist der Punkt: die
+	 * Registerkarte hier ist ein Ausschnitt derselben Liste, nicht eine zweite
+	 * Auswahl daneben. Eine eigene Abfrage mit `where status = 'sofort'` zeigte
+	 * an zwei Orten zwei verschiedene Stände, sobald jemand die Grenze
+	 * verschiebt.
+	 *
+	 * Was die Zeilen kosten, ist gemessen und nicht geschätzt: was reif ist,
+	 * wird abgeerntet, und die Tabelle trägt zu jeder Zeit eine Handvoll Zeilen.
+	 * Die Auslösebedingung für einen Ausschnitt ist benannt — eine Liste, die auf
+	 * der Startseite gescrollt werden muss.
+	 */
+	const ernte = erntestandLesen();
 	const wochen = dienstwochenLesen(wochenfenster(jetztSekunden));
 	const unbesetzteWochen = wochen.filter((woche) => woche.name === null);
 	const ueberblick: Ueberblick = {
@@ -267,11 +295,17 @@ export function load({ locals, url }: ServerLoadEvent): {
 		frei: einzelaufgaben.length,
 		unbesetzt: unbesetzteWochen.length,
 		unbesetztBald: wochen.slice(0, BALD_WOCHEN).filter((woche) => woche.name === null).length,
+		// Gezählt wird dieselbe Liste, die darunter gerendert wird — kein zweites
+		// SELECT mit COUNT. Ein Bestand, eine Uhr, eine Wahrheit; derselbe Grund
+		// wie bei `offen` und `ueberfaellig` oben.
+		reifSofort: ernte.filter((zeile) => zeile.status === 'sofort').length,
+		reif: ernte.length,
 	};
 
 	return {
 		aufgaben,
 		einzelaufgaben,
+		ernte,
 		ueberblick,
 		dienst: eigene === null ? null : { datum: wochendatum(eigene.woche) },
 		abgelegt: abgelegtLesen(url),

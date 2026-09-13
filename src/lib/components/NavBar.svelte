@@ -2,20 +2,29 @@
 	import { page } from '$app/state';
 
 	/*
-	 * Vier Ziele mit Wort statt Symbol. Alle vier sind seit Story 4.1 bebaut:
-	 * /mehr steht seit Story 1.3, /traenkeplan seit Story 3.1, /wissen seit
-	 * Story 4.1 — bis dahin führte es auf die Fehlerseite mit
-	 * `Diese Seite gibt es nicht.`
+	 * Vier Ziele mit Wort statt Symbol. Alle vier sind bebaut: /mehr steht seit
+	 * Story 1.3, /traenkeplan seit Story 3.1, /ernte seit dem 2026-09-13.
 	 *
-	 * Die Zahl der **Ziele** bleibt bei vier: Story 3.2 legt zwei Routen an und
-	 * Story 4.1 eine weitere unter einem bestehenden Ziel, aber keine davon ist
-	 * ein Ort, den man mehrmals in der Woche aufsucht. Eine fünfte Beschriftung
-	 * in einer Leiste, die bei 375px vier trägt, wäre der teurere Handel.
+	 * **Die Zahl der Ziele bleibt bei vier, und das ist die Regel, an der sich
+	 * jede neue Seite misst.** Eine fünfte Beschriftung in einer Leiste, die bei
+	 * 375px vier trägt, wäre der teurere Handel — daran hat sich nichts geändert.
+	 * Was sich geändert hat, ist die Besetzung: `Ernte` ist am 2026-09-13 an die
+	 * Stelle von `Wissen` getreten, und `Wissen` steht seither als Eintrag auf
+	 * /mehr.
 	 *
-	 * Die Einzelansicht eines Blatts braucht **keinen** Eintrag in `gehoertDazu`:
-	 * sie liegt unter dem Pfad ihres Ziels, und `trifft` unten vergleicht an der
-	 * Segmentgrenze. Die Liste nennt nur Routen, die zu einem Ziel gehören, ohne
-	 * unter dessen Pfad zu liegen.
+	 * Der Massstab dafür ist, **wie oft man hingeht**, und nicht, wie wichtig es
+	 * ist. Ein Wissensblatt schlägt man nach, wenn eine Frage aufkommt — ein paar
+	 * Mal im Jahr, und dann weiss man, wonach man sucht. Was reif ist, sieht man
+	 * in der Saison bei jedem Gang durch den Garten nach, und wer eine reife
+	 * Zucchini entdeckt, soll sie in zwei Griffen eintragen können. Genau diese
+	 * Unterscheidung trennt die Leiste von /mehr, seit es beides gibt.
+	 *
+	 * **`/wissen` steht darum in `gehoertDazu` von /mehr** — und /wissen/[id]
+	 * braucht dort **keinen** eigenen Eintrag: die Einzelansicht liegt unter dem
+	 * Pfad ihres früheren Ziels, und `trifft` unten vergleicht an der
+	 * Segmentgrenze, also markiert sie denselben Eintrag wie die Liste. Die Liste
+	 * nennt nur Routen, die zu einem Ziel gehören, ohne unter dessen Pfad zu
+	 * liegen.
 	 *
 	 * **`gehoertDazu` nennt die Routen, die zu einem Ziel gehören, ohne unter
 	 * dessen Pfad zu liegen.** Das ist keine Bequemlichkeit, sondern die Antwort
@@ -27,9 +36,15 @@
 	 *
 	 * Zugeordnet wird nach dem **Weg dorthin**, nicht nach dem Thema: /aufgabe
 	 * wird vom Knopf `+ Aufgabe` unter dem Pool erreicht und gehört darum zu `/`;
-	 * /monatsplan, /verwaltung, /einzelaufgabe und /einzelaufgaben stehen als
-	 * Einträge auf /mehr. Wer die Leiste liest, soll dort stehen sehen, woher er
-	 * kam.
+	 * /monatsplan, /verwaltung, /einzelaufgabe, /einzelaufgaben und /wissen
+	 * stehen als Einträge auf /mehr. Wer die Leiste liest, soll dort stehen
+	 * sehen, woher er kam.
+	 *
+	 * **Die Ernte-Zeilen auf `/` ändern daran nichts.** Die Startseite führt seit
+	 * dem 2026-09-13 je reifer Kultur eine Zeile, die nach /ernte geht — aber
+	 * /ernte ist ein eigenes Ziel und liegt nicht unter `/`. Es gibt darum
+	 * nichts einzutragen: die Leiste markiert `Ernte`, sobald man dort ist, egal
+	 * über welchen der zwei Wege.
 	 *
 	 * **Die Seite `/einzelaufgaben` hängt an `Mehr`**, obwohl Block 2 auf `/` auch
 	 * dorthin führt. Der Weg, der **immer** besteht, ist der Eintrag auf /mehr: der
@@ -53,11 +68,11 @@
 	const ziele = [
 		{ href: '/', beschriftung: 'Aufgaben', gehoertDazu: ['/aufgabe'] },
 		{ href: '/traenkeplan', beschriftung: 'Tränkeplan', gehoertDazu: [] },
-		{ href: '/wissen', beschriftung: 'Wissen', gehoertDazu: [] },
+		{ href: '/ernte', beschriftung: 'Ernte', gehoertDazu: [] },
 		{
 			href: '/mehr',
 			beschriftung: 'Mehr',
-			gehoertDazu: ['/monatsplan', '/verwaltung', '/einzelaufgabe', '/einzelaufgaben'],
+			gehoertDazu: ['/monatsplan', '/verwaltung', '/einzelaufgabe', '/einzelaufgaben', '/wissen'],
 		},
 	];
 

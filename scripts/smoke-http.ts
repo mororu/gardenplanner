@@ -1682,6 +1682,21 @@ try {
 	});
 	const gefragtHtml = await gefragtAntwort.text();
 	const nachFrageHtml = await (await holen(port, '/', { keks: mitgliedKeks })).text();
+	/**
+	 * Der Abschnitt der Einzelaufgaben aus einem ausgelieferten `/`-Dokument.
+	 *
+	 * Geschnitten an `aria-labelledby="einzel-marke"` — die Kennung, mit der die
+	 * Liste ohnehin auf ihren Griff zeigt, und es gibt genau eine. Findet sich
+	 * die Marke nicht, kommt eine leere Zeichenkette zurück: die Behauptung fällt
+	 * dann, statt still am ganzen Dokument grün zu werden.
+	 */
+	const einzelBlock = (html: string): string => {
+		const von = html.indexOf('aria-labelledby="einzel-marke"');
+		if (von < 0) return '';
+		const bis = html.indexOf('</ul>', von);
+		return bis < 0 ? '' : html.slice(von, bis);
+	};
+
 	const frageTeile = [
 		['die Id stand im ausgelieferten Formular', einzelId !== ''],
 		[
@@ -1719,10 +1734,22 @@ try {
 			uebernahmeFolge !== '' && gefragtHtml.includes(uebernahmeFolge),
 		],
 		[
-			// Die Gegenprobe: gefragt ist nicht zugesagt. Ohne sie bliebe die Zeile
-			// grün, wenn der erste POST schon schriebe.
+			/*
+			 * Die Gegenprobe: gefragt ist nicht zugesagt. Ohne sie bliebe die Zeile
+			 * grün, wenn der erste POST schon schriebe.
+			 *
+			 * **Gesucht wird im Block der Einzelaufgaben und nicht im ganzen
+			 * Dokument.** Bis zum 2026-09-13 las die Zeile das volle HTML — das
+			 * trug, solange `Manu Mitglied` auf `/` nur vorkam, wenn jemand
+			 * übernommen hatte. Die Ernte-Registerkarte nennt seither an jeder
+			 * Zeile die eintragende Person, und die geteilte Saat legt sie unter
+			 * demselben Namen an: die Zeile wurde rot, obwohl nichts geschrieben
+			 * war. Sie war von Anfang an zu weit gefasst — gemeint ist „an **dieser**
+			 * Einzelaufgabe steht kein Name".
+			 */
 			'und nichts ist geschrieben — die Aufgabe steht weiterhin als frei da',
-			nachFrageHtml.includes('noch niemand') && !nachFrageHtml.includes('Manu Mitglied'),
+			einzelBlock(nachFrageHtml).includes('noch niemand') &&
+				!einzelBlock(nachFrageHtml).includes('Manu Mitglied'),
 		],
 	] as const;
 	pruefen(
