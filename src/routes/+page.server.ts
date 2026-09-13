@@ -105,16 +105,20 @@ export type Ueberblick = {
 	 */
 	unbesetztBald: number;
 	/**
-	 * Wie viele Zeilen der Ernte auf `sofort` stehen — und wie viele es
-	 * insgesamt sind.
+	 * Wie viele Zeilen der Erntestand trägt.
 	 *
-	 * Zwei Zahlen aus demselben Grund wie `unbesetzt` und `unbesetztBald`
-	 * darüber: die eine sagt, wie viel da ist, die andere, wie dringend. Der
-	 * Griff nennt beide, weil ein `5 reif` über einer Liste, in der nichts
-	 * eilt, zum Aufstehen auffordert, und ein `2 sofort ernten` allein die drei
-	 * anderen verschweigt.
+	 * **Eine Zahl und nicht zwei.** Bis zum 2026-09-13 stand `reifSofort`
+	 * daneben, nach dem Muster von `unbesetzt` und `unbesetztBald` darüber: die
+	 * eine sagt, wie viel da ist, die andere, wie dringend. Für die Ernte trug
+	 * das nicht — die Kachel zeigt seither die Länge ihrer eigenen Liste, und
+	 * die Dringlichkeit steht als Wort an jeder Zeile, wo auch ihre Farbe
+	 * liegt. Eine zweite Zahl hätte damit keinen Leser mehr, und eine Zahl ohne
+	 * Leser ist eine Einladung.
+	 *
+	 * Der Unterschied zum Tränkeplan ist nicht Geschmack: dort sind die zwei
+	 * Zahlen die einzige Auskunft, weil seine Zeile **keine** Liste unter sich
+	 * hat. Hier steht die Liste da, und sie sagt es genauer.
 	 */
-	reifSofort: number;
 	reif: number;
 };
 
@@ -298,7 +302,6 @@ export function load({ locals, url }: ServerLoadEvent): {
 		// Gezählt wird dieselbe Liste, die darunter gerendert wird — kein zweites
 		// SELECT mit COUNT. Ein Bestand, eine Uhr, eine Wahrheit; derselbe Grund
 		// wie bei `offen` und `ueberfaellig` oben.
-		reifSofort: ernte.filter((zeile) => zeile.status === 'sofort').length,
 		reif: ernte.length,
 	};
 

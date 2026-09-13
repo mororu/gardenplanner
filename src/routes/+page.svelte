@@ -7,7 +7,7 @@
 	import { tick } from 'svelte';
 	import type { PageProps } from './$types';
 	import { datumLang } from '$lib/client/utils/date';
-	import { DAUERERNTE_WORT } from '$lib/ernte';
+	import { DAUERERNTE_WORT, ERNTETEXT } from '$lib/ernte';
 	import {
 		EINZELAUFGABE_NICHT_ANSPRECHBAR,
 		UEBERNAHME_FOLGE,
@@ -16,9 +16,6 @@
 		GRIFF_OFFEN_LEER,
 		GRIFF_REIF_LEER,
 		griffFrei,
-		griffReif,
-		griffSofort,
-		griffWeitereReif,
 		griffOffen,
 		griffUeberfaellig,
 		zeileBald,
@@ -624,28 +621,28 @@
 	-->
 	<details open>
 		<summary class="abschnitt__griff">
+			<!--
+				**Die Zahl zählt, was darunter steht** — Kachel und Liste sagen
+				dasselbe. Bis zum 2026-09-13 trug die Kachel zwei Zahlen und zwei
+				Sätze (`2 Kulturen sofort ernten, 3 weitere können stehen`); das war
+				genauer und schlechter: von den drei Kacheln dieser Seite war sie die
+				einzige, deren grosse Zahl nicht die Länge ihrer eigenen Liste war.
+
+				Das Wort ist darum ein einzelnes und kein Satz mit Mehrzahlform: `5
+				Ernten` heisst nicht „fünf Ernten sind fällig", sondern benennt den
+				Abschnitt und zählt ihn — wie `3 Aufgaben offen` daneben, nur dass hier
+				das Verb schon alles sagt.
+
+				Was dabei aus der Kachel fiel, ist die **Dringlichkeit**, und die steht
+				seither an jeder Zeile: die Farbe trug sie schon, jetzt trägt sie das
+				Wort daneben. Kein Zustand hängt allein an der Farbe.
+			-->
 			<h2 class="griff__satz" id="ernte-marke">
 				{#if data.ueberblick.reif === 0}
 					<span class="kopfwort">{GRIFF_REIF_LEER}</span>
-				{:else if data.ueberblick.reifSofort === 0}
-					<span class="kopfzahl">{data.ueberblick.reif}</span>
-					<span class="kopfwort">{griffReif(data.ueberblick.reif)}</span>
 				{:else}
-					<span class="kopfzahl">{data.ueberblick.reifSofort}</span>
-					<span class="kopfwort">
-						{griffSofort(data.ueberblick.reifSofort)}
-						<!--
-							Der Nachsatz nennt, was ausserdem dasteht. Die Zahl ist die
-							Differenz und wird hier gerechnet und nicht in der load geführt:
-							eine dritte Zahl in `ueberblick`, die nichts ist als die Differenz
-							zweier anderer, wäre eine Wahrheit, die man pflegen müsste.
-						-->
-						{#if data.ueberblick.reif > data.ueberblick.reifSofort}
-							<span class="ernte-zeile__weitere"
-								>{griffWeitereReif(data.ueberblick.reif - data.ueberblick.reifSofort)}</span
-							>
-						{/if}
-					</span>
+					<span class="kopfzahl">{data.ueberblick.reif}</span>
+					<span class="kopfwort">Ernten</span>
 				{/if}
 			</h2>
 		</summary>
@@ -676,6 +673,14 @@
 												>, {zeile.ort}</span
 											>{/if}</span
 									>
+									<!--
+										Das Wort der Stufe, seit die Kachel es nicht mehr trägt. Die
+										**kurze** Fassung wie an den Knöpfen auf /ernte — die Zeile
+										hat neben Kultur, Ort und Vermerk keinen Platz für einen
+										ganzen Satz, und die lange steht drüben in der Überschrift
+										des Abschnitts.
+									-->
+									<span class="marke">{ERNTETEXT[zeile.status].kurz}</span>
 									{#if zeile.laufend}
 										<span class="marke">{DAUERERNTE_WORT}</span>
 									{/if}
@@ -1415,15 +1420,6 @@
 		font-family: var(--meta-font);
 		font-size: var(--meta-size);
 		font-weight: var(--meta-weight);
-	}
-
-	/*
-		Der Nachsatz im Griff — was ausserdem reif ist. Eigene Zeile wie
-		`.plan-zeile__bald`, aber in der gewöhnlichen Nebentextfarbe: er ist keine
-		Warnung, sondern eine Ergänzung. Die Warnung steht in der Zahl davor.
-	*/
-	.ernte-zeile__weitere {
-		display: block;
 	}
 
 	.dienst {
