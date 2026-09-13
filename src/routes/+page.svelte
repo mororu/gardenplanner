@@ -692,20 +692,26 @@
 		{/if}
 
 		<!--
-			Die Haupthandlung dieses Abschnitts, in derselben Grammatik wie
-			`+ Einzelaufgabe` und `+ Aufgabe` darunter: je Aufklapper genau eine, und
-			sie steht ausserhalb des {#if} — auch wer nichts gemeldet sieht, soll
-			etwas melden können. Ohne sie wäre die Ernte der einzige Abschnitt auf
-			dieser Seite, aus dem heraus man nichts anfangen kann.
+			Die Haupthandlung dieses Abschnitts. Sie steht ausserhalb des {#if} — auch
+			wer nichts gemeldet sieht, soll losgehen können. Ohne sie wäre die Ernte
+			der einzige Abschnitt auf dieser Seite, aus dem heraus man nichts anfangen
+			kann.
 
-			Der Parameter `?eintragen` öffnet den Griff auf /ernte: der Knopf
-			verspricht ein Formular, und eine Seite mit zugeklapptem Griff bräche die
-			Zusage. Die Begründung in ganzer Länge steht an `eintragenOffen` in
-			ernte/+page.server.ts.
+			**`Ernten` und nicht `+ Reifes eintragen`.** Der Knopf bricht damit
+			bewusst die Form von `+ Einzelaufgabe` und `+ Aufgabe` darunter, und der
+			Grund ist, dass er etwas anderes tut: die zwei legen etwas an, dieser
+			führt dorthin, wo man **beides** kann — sehen, was reif ist, und
+			eintragen, was man gefunden hat. Ein `+` verspräche ein Formular, und die
+			Seite öffnet zuerst eine Liste.
+
+			Er trug bis zum 2026-09-13 `?eintragen` und klappte drüben den Griff auf.
+			Das war die Zusage der alten Beschriftung; mit `Ernten` gibt es sie nicht
+			mehr, und der Parameter ist mit ihr weg statt als tote Mechanik
+			stehenzubleiben.
 		-->
 		<div class="knoepfe">
 			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-			<a class="button-primary" href="{resolve('/ernte')}?eintragen">+ Reifes eintragen</a>
+			<a class="button-primary" href={resolve('/ernte')}>Ernten</a>
 		</div>
 	</details>
 

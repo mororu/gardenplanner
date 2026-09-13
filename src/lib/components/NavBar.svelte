@@ -35,10 +35,10 @@
 	 * Story 3.2 sind es fünf solche Seiten statt zwei.
 	 *
 	 * Zugeordnet wird nach dem **Weg dorthin**, nicht nach dem Thema: /aufgabe
-	 * wird vom Knopf `+ Aufgabe` unter dem Pool erreicht und gehört darum zu `/`;
-	 * /monatsplan, /verwaltung, /einzelaufgabe, /einzelaufgaben und /wissen
-	 * stehen als Einträge auf /mehr. Wer die Leiste liest, soll dort stehen
-	 * sehen, woher er kam.
+	 * wird vom Knopf `+ Aufgabe` unter dem Pool erreicht und /einzelaufgabe wie
+	 * /einzelaufgaben von den zwei Wegen unter Block 2 — alle drei gehören darum
+	 * zu `/`. /monatsplan, /verwaltung und /wissen stehen als Einträge auf /mehr.
+	 * Wer die Leiste liest, soll dort stehen sehen, woher er kam.
 	 *
 	 * **Die Ernte-Zeilen auf `/` ändern daran nichts.** Die Startseite führt seit
 	 * dem 2026-09-13 je reifer Kultur eine Zeile, die nach /ernte geht — aber
@@ -46,11 +46,18 @@
 	 * nichts einzutragen: die Leiste markiert `Ernte`, sobald man dort ist, egal
 	 * über welchen der zwei Wege.
 	 *
-	 * **Die Seite `/einzelaufgaben` hängt an `Mehr`**, obwohl Block 2 auf `/` auch
-	 * dorthin führt. Der Weg, der **immer** besteht, ist der Eintrag auf /mehr: der
-	 * Block auf `/` fehlt ganz, sobald keine Einzelaufgabe frei ist. Eine
-	 * Zuordnung an `/` hiesse, dass die Leiste je nach Datenlage etwas anderes
-	 * behauptet.
+	 * **Die zwei Seiten zur Einzelaufgabe hängen seit dem 2026-09-13 an `/`** und
+	 * nicht mehr an `Mehr` — eine Umkehr, und sie hat einen Grund, der zwei Tage
+	 * älter ist als sie. Bis dahin galt: der Weg, der **immer** besteht, ist der
+	 * Eintrag auf /mehr, denn Block 2 auf `/` fehlt ganz, sobald keine
+	 * Einzelaufgabe frei ist, und eine Zuordnung an `/` hiesse, dass die Leiste je
+	 * nach Datenlage etwas anderes behauptet.
+	 *
+	 * Seit dem 2026-09-11 fehlt der Block nicht mehr: er steht auch leer da, und
+	 * `+ Einzelaufgabe` und `Alle Einzelaufgaben` liegen ausserhalb seines {#if}.
+	 * Damit ist `/` der Weg, der immer besteht, die Einträge auf /mehr waren nur
+	 * noch der zweite — und sie sind fort. Die Zuordnung folgt dem Weg dorthin,
+	 * und der Weg hat sich geändert.
 	 *
 	 * **Die zwei neuen Pfade unterscheiden sich um einen Buchstaben** —
 	 * `/einzelaufgabe` und `/einzelaufgaben`. `trifft` unten vergleicht auf Gleichheit oder an der
@@ -66,14 +73,14 @@
 	 * hier ein — scripts/smoke-zugang.ts hält die Liste gegen die Routen im Baum.
 	 */
 	const ziele = [
-		{ href: '/', beschriftung: 'Aufgaben', gehoertDazu: ['/aufgabe'] },
+		{
+			href: '/',
+			beschriftung: 'Aufgaben',
+			gehoertDazu: ['/aufgabe', '/einzelaufgabe', '/einzelaufgaben'],
+		},
 		{ href: '/traenkeplan', beschriftung: 'Tränkeplan', gehoertDazu: [] },
 		{ href: '/ernte', beschriftung: 'Ernte', gehoertDazu: [] },
-		{
-			href: '/mehr',
-			beschriftung: 'Mehr',
-			gehoertDazu: ['/monatsplan', '/verwaltung', '/einzelaufgabe', '/einzelaufgaben', '/wissen'],
-		},
+		{ href: '/mehr', beschriftung: 'Mehr', gehoertDazu: ['/monatsplan', '/verwaltung', '/wissen'] },
 	];
 
 	type Ziel = (typeof ziele)[number];

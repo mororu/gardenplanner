@@ -88,7 +88,7 @@
 		Fokus spränge in etwas, das niemand sieht.
 	*/
 	const formularOffen = $derived(
-		data.eintragenOffen || fehlerAmKultur !== '' || fehlerAmOrt !== '' || fehlerAmStatus !== ''
+		fehlerAmKultur !== '' || fehlerAmOrt !== '' || fehlerAmStatus !== ''
 	);
 
 	/*

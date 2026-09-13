@@ -12,25 +12,27 @@
 <!--
 	Mehr — die seltenen Handlungen. Seit Story 2.1 steht darunter **immer**
 	mindestens ein Eintrag: `Monatsplan ablegen` gilt allen, denn die planende
-	Person wechselt monatlich und ist nicht die Adminperson. Seit Story 3.2 kommen
-	die zwei Einträge zur Einzelaufgabe dazu; `Verwaltung` steht für
-	Adminpersonen darunter.
+	Person wechselt monatlich und ist nicht die Adminperson. Seit dem 2026-09-13
+	steht `Wissen` darunter; `Verwaltung` steht für Adminpersonen zuunterst.
 
 	Damit ist die Liste nie mehr leer, und der frühere {:else}-Zweig mit
 	`Nichts zu verwalten.` ist weggefallen — ein toter Zweig, der beim nächsten
 	Lesen erklärt werden müsste.
 
-	**Zwei Einträge und nicht einer**, obwohl beide dieselbe Sache betreffen:
-	`Einzelaufgabe ausschreiben` ist eine Handlung, `Alle Einzelaufgaben` ist eine
-	Auskunft.
+	**Die zwei Einträge zur Einzelaufgabe sind am 2026-09-13 weggefallen**, und
+	das ist die Rücknahme einer Begründung, die nicht mehr stimmte. Sie standen
+	hier, weil dies der Weg sein sollte, der **immer** besteht: Block 2 auf der
+	Startseite führte auch dorthin, fehlte aber ganz, sobald keine Einzelaufgabe
+	frei war. Seit dem 2026-09-11 ist das nicht mehr so — der Abschnitt steht auch
+	leer da, und `+ Einzelaufgabe` und `Alle Einzelaufgaben` liegen ausserhalb
+	seines {#if}. Damit waren die Einträge hier nicht mehr der sichere Weg,
+	sondern der zweite, und ein Ziel an zwei Orten ist eine Frage mehr für jeden,
+	der es sucht.
 
-	Der zweite hiess bis zum Review vom 2026-08-30 `Übernommene Einzelaufgaben`
-	und versprach damit weniger, als die Seite hält: dort stehen **alle**, freie
-	wie übernommene, und genau das ist die Auskunft, die dort gesucht wird. Der
-	Eintrag trägt jetzt denselben Namen wie die Seite selbst und wie der Fusslink
-	aus Block 2 — ein Ziel, ein Name. Der zweite ist zugleich der Weg, der **immer** besteht —
-	Block 2 auf der Startseite führt auch dorthin, fehlt aber ganz, sobald nichts
-	frei ist. Ohne ihn wäre die Seite an manchen Tagen unerreichbar.
+	**Die Begründung ist stehengeblieben, nachdem ihre Voraussetzung fiel** — die
+	häufigste Fehlerklasse dieses Projekts, hier einmal nicht am Code, sondern am
+	Kommentar. Wer den nächsten Eintrag von hier nimmt, prüft zuerst, ob sein
+	anderer Weg wirklich **immer** da ist, und nicht bloss meistens.
 -->
 <div class="seite">
 	<h1 class="seitentitel">Mehr</h1>
@@ -40,14 +42,6 @@
 		<li>
 			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
 			<a class="eintrag" href={resolve('/monatsplan')}>Monatsplan ablegen</a>
-		</li>
-		<li>
-			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-			<a class="eintrag" href={resolve('/einzelaufgabe')}>Einzelaufgabe ausschreiben</a>
-		</li>
-		<li>
-			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-			<a class="eintrag" href={resolve('/einzelaufgaben')}>Alle Einzelaufgaben</a>
 		</li>
 		<li>
 			<!--

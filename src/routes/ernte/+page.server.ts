@@ -85,29 +85,14 @@ function textLesen(roh: unknown): string {
  * um 00:01 liest. Der Satz zur Dauerernte ist fest und wird nicht gerechnet
  * (siehe DAUERERNTE_SATZ in src/lib/ernte.ts).
  */
-export function load({ locals, url }: ServerLoadEvent): {
-	stand: Erntezeile[];
-	/**
-	 * Ob das Eintragen-Formular offen ausgeliefert wird.
-	 *
-	 * Der Knopf `+ Reifes eintragen` auf `/` führt hierher, und er verspricht ein
-	 * Formular. Käme die Seite mit zugeklapptem Griff, wäre die Zusage gebrochen:
-	 * wer ihn drückt, hat schon entschieden, dass er etwas einträgt.
-	 *
-	 * Ein Parameter ohne Wert, gelesen mit `has` — dieselbe Bauform wie
-	 * `?ausgeschrieben` auf `/`. Der Preis ist derselbe und ebenso abgenommen: die
-	 * Adresse trägt ihn sichtbar, und ein Neuladen klappt das Formular wieder auf.
-	 * Ein aufgeklapptes Formular hat keine Folgen.
-	 */
-	eintragenOffen: boolean;
-} {
+export function load({ locals }: ServerLoadEvent): { stand: Erntezeile[] } {
 	// Unerreichbar: der Wächter hat vorher mit 403 abgewiesen. Die Prüfung steht
 	// hier, weil der Typ null zulässt — und ein `!` machte diese Seite von einer
 	// Annahme über eine andere Datei abhängig.
 	if (locals.mitglied === null) {
 		redirect(303, '/');
 	}
-	return { stand: erntestandLesen(), eintragenOffen: url.searchParams.has('eintragen') };
+	return { stand: erntestandLesen() };
 }
 
 /*
