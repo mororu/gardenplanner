@@ -1,33 +1,26 @@
 ---
 name: Gemeinschaftsgarten
-description: Aufgabenliste für einen Gemeinschaftsgarten. Neutral, übersichtlich, anmächelig — Beetgrün auf warmem Off-White, keine Zählungen, keine Dekoration.
+description: Aufgabenliste für einen Gemeinschaftsgarten. Neutral, übersichtlich, anmächelig — Salbei auf warmem Leinen, ein einziges Erscheinungsbild, keine Zählungen, keine Dekoration.
 status: final
 created: '2026-08-26'
-updated: '2026-08-26'
+updated: '2026-09-13'
 experience: './EXPERIENCE.md'
 colors:
-  surface-base: '#F5F4EF'
-  surface-raised: '#FFFFFF'
-  ink-primary: '#1C221B'
-  ink-secondary: '#66705F'
-  hairline: '#DCDCD2'
-  surface-open: '#EDF2EA'
-  accent: '#2F6B3F'
-  accent-ink: '#FFFFFF'
-  overdue: '#9A5A12'
-  warn: '#A05300'
-  danger: '#A32E22'
-  surface-base-dark: '#12160F'
-  surface-raised-dark: '#1A2018'
-  ink-primary-dark: '#E9EDE4'
-  ink-secondary-dark: '#98A292'
-  hairline-dark: '#2C3529'
-  surface-open-dark: '#243324'
-  accent-dark: '#7FBB8C'
-  accent-ink-dark: '#0E1410'
-  overdue-dark: '#D99B4E'
-  warn-dark: '#FFA857'
-  danger-dark: '#E8877B'
+  surface-base: '#F6F2EA'
+  surface-raised: '#FFFDF8'
+  ink-primary: '#241F18'
+  ink-secondary: '#6B6153'
+  hairline: '#E5DCCC'
+  surface-open: '#EDF0E4'
+  surface-griff: '#EDE7DB'
+  accent: '#3F6B4A'
+  accent-ink: '#FFFDF8'
+  overdue: '#98481D'
+  warn: '#856500'
+  danger: '#A33427'
+  reif-sofort: '#C0392B'
+  reif-stehen: '#B87A00'
+  reif-wachsen: '#2F7D46'
 typography:
   display:
     fontFamily: "'Figtree', system-ui, sans-serif"
@@ -128,11 +121,25 @@ components:
     radius: '{rounded.md}'
     padding: '{spacing.3}'
   duty-banner:
+    background: '{colors.accent}'
+    color: '{colors.accent-ink}'
+    border: '1px solid {colors.accent}'
+    radius: '{rounded.md}'
+    padding: '{spacing.3} {spacing.4}'
+    font: '{typography.section}'
+    labelFont: '{typography.label}'
+  section:
     background: '{colors.surface-raised}'
-    borderLeft: '3px solid {colors.accent}'
     border: '1px solid {colors.ink-secondary}'
-    radius: '{rounded.sm}'
-    padding: '{spacing.3}'
+    radius: '{rounded.md}'
+    headBackground: '{colors.surface-griff}'
+    headMinHeight: '{spacing.touch}'
+    headPadding: '{spacing.2} {spacing.3}'
+    bodyPadding: '{spacing.3}'
+  harvest-marker:
+    borderLeft: '3px solid {colors.reif-sofort}'
+    borderLeftStanding: '3px solid {colors.reif-stehen}'
+    borderLeftGrowing: '3px solid {colors.reif-wachsen}'
   textarea-bulk:
     background: '{colors.surface-raised}'
     border: '1px solid {colors.ink-secondary}'
@@ -160,36 +167,51 @@ Die gewählte Richtung im Vergleich mit den vier verworfenen: [`mockups/farbvari
 
 ## Colors
 
-Ein einziger chromatischer Ton für alles Handlungsfähige, einer für Überfälligkeit, einer für eine Lücke, die jemand schliessen muss. Sonst Neutrale mit leichter Grünneigung — kein reines Grau, damit der Grund gewählt und nicht geerbt wirkt.
+Ein einziger chromatischer Ton für alles Handlungsfähige, einer für Überfälligkeit, einer für eine Lücke, die jemand schliessen muss, und drei für die Reifestufen der Ernte. Sonst Neutrale mit warmer Leinenneigung — kein reines Grau, damit der Grund gewählt und nicht geerbt wirkt.
 
-- **Beetgrün (`#2F6B3F` hell / `#7FBB8C` dunkel)** ist der einzige Akzent. Titelleiste, Umriss des Kästchens, Hauptaktion, aktives Navigationsziel, linke Kante des Diensthinweises. Er signalisiert *hier kann gehandelt werden* — nie Dekoration, nie ein Zustandsabzeichen.
-- **Off-White (`#F5F4EF`)** ist der Grund im Hellen, minim warm und grünlich abgetönt. Weisse Flächen (`#FFFFFF`) liegen darauf als Karten und Listen, sodass Struktur ohne Schatten entsteht.
-- **Waldschwarz (`#1C221B`)** ist Fliesstext und Überschrift. Kein reines Schwarz — der Grünstich hält es mit dem Akzent zusammen.
-- **Gedämpftes Blattgrau (`#66705F`)** trägt Nebeninformation: Termine, `(optional)`, inaktive Navigationsziele, erledigte Zeilen. Bei 4.71:1 auf dem Grund, also noch über dem Textboden.
-- **Lehmbraun (`#9A5A12` hell / `#D99B4E` dunkel)** ist ausschliesslich Überfälligkeit. Es ist absichtlich **kein Rot**: eine Aufgabe, die vier Wochen liegt, ist kein Fehler und keine Gefahr. Rot bleibt für Zerstörendes reserviert — im MVP nur das Widerrufen einer Einladung.
-- **Ringelblume (`#A05300` hell / `#FFA857` dunkel)** ist ausschliesslich die unbesetzte Dienstwoche — eine Lücke, die jemand schliessen muss, nicht ein Fehler und nicht eine Gefahr. Voll gesättigtes Orange, wo Lehmbraun gedämpft ist; das ist der ganze Unterschied zwischen den beiden, und er trägt nur, weil sie **nie auf derselben Seite vorkommen**: Überfälligkeit lebt auf der Aufgabenliste, Unbesetztheit im Dienstplan. Im Hellen sind die zwei nahezu ununterscheidbar (1.07:1 zueinander) — jedes Orange, das auf Weiss 4.5:1 erreicht, ist dunkel, und dunkles Orange **ist** Lehmbraun. Getragen wird die Aussage darum wie überall vom Wort `— unbesetzt —`, nie von der Farbe.
-- **Haarlinie (`#DCDCD2` hell / `#2C3529` dunkel)** trennt Listenzeilen auf der niedrigsten brauchbaren Stufe.
+> **Neu gesetzt am 2026-09-13, Palette „Leinen & Salbei".** Zugleich ist der dunkle Modus ersatzlos weggefallen: jedes Token hat genau einen Wert, und die Tabelle unten hat nur noch eine Spalte. Die Werte sind gerechnet und nicht gegriffen; `npm run kontrast:selftest` hält diese Tabelle gegen die Rechnung.
 
-**Der dunkle Modus ist gleichrangig gestaltet, keine Invertierung.** Der Akzent wird aufgehellt (`#7FBB8C`), damit er auf dunklem Grund trägt, und die Titelleistenschrift wird zu einem sehr dunklen Grün statt Weiss.
+- **Salbei (`#3F6B4A`)** ist der einzige Akzent. Titelleiste, Umriss des Kästchens, Hauptaktion, aktives Navigationsziel, Fläche des Diensthinweises. Er signalisiert *hier kann gehandelt werden* — nie Dekoration, nie ein Zustandsabzeichen. Entsättigter als das Beetgrün davor, weil er auf Leinen und nicht auf Off-White steht.
+- **Leinen (`#F6F2EA`)** ist der Grund, deutlich wärmer als das frühere Off-White. Die Karten darauf sind **nicht reinweiss** (`#FFFDF8`): ein reines Weiss schnitt gegen diesen Grund zu hart, und Struktur ohne Schatten braucht die Stufe, nicht den Sprung.
+- **Rindenschwarz (`#241F18`)** ist Fliesstext und Überschrift. Kein reines Schwarz — der warme Stich hält es mit dem Grund zusammen.
+- **Gedämpftes Rindengrau (`#6B6153`)** trägt Nebeninformation: Termine, `(optional)`, inaktive Navigationsziele, erledigte Zeilen. Bei 5.44:1 auf dem Grund, also mit Reserve über dem Textboden.
+- **Rostlehm (`#98481D`)** ist ausschliesslich Überfälligkeit. Es ist absichtlich **kein Rot**: eine Aufgabe, die vier Wochen liegt, ist kein Fehler und keine Gefahr. Rot bleibt für Zerstörendes reserviert — im MVP nur das Widerrufen einer Einladung.
+- **Gold (`#856500`)** ist ausschliesslich die unbesetzte Dienstwoche — eine Lücke, die jemand schliessen muss, nicht ein Fehler und nicht eine Gefahr. **Bis zum 2026-09-13 war es ein zweites dunkles Orange und von Rostlehm nahezu ununterscheidbar** (1.07:1 zueinander), und die Dokumentation nannte das ausdrücklich hingenommen. Jetzt trennt die zwei der Farbton: Rostlehm gegen Gold, 1.18:1 zueinander. Getragen wird die Aussage weiterhin vom Wort, nie von der Farbe.
+- **Die Ampel der Ernte (`#C0392B` / `#B87A00` / `#2F7D46`)** steht für *sofort ernten*, *kann noch stehen* und *noch wachsen lassen*. **Sie hat seit dem 2026-09-13 eigene Token**, und der Grund ist eine Rechnung: die drei Stufen erscheinen ausschliesslich als 3px-Kante, und eine Kante hält 3:1 statt der 4.5:1 für Text. Solange sie sich `{colors.danger}`, `{colors.warn}` und `{colors.accent}` liehen, waren sie an die strengere Schwelle gebunden und entsprechend gedämpft — *kann noch stehen* war auf drei Pixeln praktisch nicht zu sehen. Nebenbei hört damit auf, dass eine reife Zucchini sich die Farbe des Zerstörenden lieh.
+- **Abschnittskopf (`#EDE7DB`)** ist die Fläche unter dem Griff eines aufklappbaren Abschnitts — der dunklere Leinenton. Er kam am 2026-09-13 dazu, weil der Griff vorher aussah wie die Karten, die er überschreibt.
+- **Haarlinie (`#E5DCCC`)** trennt Listenzeilen auf der niedrigsten brauchbaren Stufe.
+
+**Es gibt nur ein Erscheinungsbild.** `color-scheme: light` sagt das auch dem Browser, damit Formularelemente und Scrollbalken nicht dem System folgen und einer hell gestalteten Seite dunkel gegenübertreten.
 
 ### Kontrast, geprüft statt behauptet
 
-| Paarung | Hell | Dunkel | Ziel |
-| --- | --- | --- | --- |
-| Fliesstext auf Grund | 14.74:1 | 15.43:1 | 4.5 |
-| Nebentext auf Grund | 4.71:1 | 6.90:1 | 4.5 |
-| Akzent als Text auf Weiss | 6.37:1 | 7.43:1 | 4.5 |
-| Titelleistenschrift auf Akzent | 6.37:1 | 8.34:1 | 4.5 |
-| Überfällig auf Karte | 5.46:1 | 6.92:1 | 4.5 |
-| Unbesetzt auf Karte | 5.63:1 | 8.70:1 | 4.5 |
-| Unbesetzt auf Grund | 5.11:1 | 9.58:1 | 4.5 |
-| Kästchen-Umriss auf Karte | 6.37:1 | 7.43:1 | 3.0 |
-| Bedienelement-Umriss auf Grund | 4.71:1 | 6.90:1 | 3.0 |
-| Nebentext auf offener Karte | 4.57:1 | 5.03:1 | 4.5 |
+| Paarung | Gemessen | Ziel |
+| --- | --- | --- |
+| Fliesstext auf Grund | 14.65:1 | 4.5 |
+| Nebentext auf Grund | 5.44:1 | 4.5 |
+| Akzent als Text auf Karte | 6.05:1 | 4.5 |
+| Titelleistenschrift auf Akzent | 6.05:1 | 4.5 |
+| Überfällig auf Karte | 6.30:1 | 4.5 |
+| Unbesetzt auf Karte | 5.35:1 | 4.5 |
+| Unbesetzt auf Grund | 4.87:1 | 4.5 |
+| Zerstörend auf Karte | 6.71:1 | 4.5 |
+| Zerstörend auf Grund | 6.11:1 | 4.5 |
+| Bedienelement-Umriss auf Grund | 5.44:1 | 3.0 |
+| Nebentext auf offener Karte | 5.26:1 | 4.5 |
+| Nebentext auf Abschnittskopf | 4.93:1 | 4.5 |
+| Ampel sofort an Karte | 5.35:1 | 3.0 |
+| Ampel sofort an Grund | 4.87:1 | 3.0 |
+| Ampel kann stehen an Karte | 3.55:1 | 3.0 |
+| Ampel kann stehen an Grund | 3.23:1 | 3.0 |
+| Ampel wachsen an Karte | 4.99:1 | 3.0 |
+| Ampel wachsen an Grund | 4.54:1 | 3.0 |
+| Haarlinie auf Karte | 1.34:1 | — |
 
-Die Haarlinie liegt bei 1.38:1 (hell) bzw. 1.30:1 (dunkel) und erfüllt 3:1 **nicht** — bewusst. Sie trägt ausschliesslich Trennlinien und Behälterkanten: Karten, den Dialog, die Linie über der Navigationsleiste und die Trennung zwischen Aufgabenzeilen. Die sind dekorativ und identifizieren kein Bedienelement; die Zeile bleibt ohne sie eindeutig lesbar.
+Die Ampel steht in **zwei** Zeilen je Stufe, weil ihre Kante zwischen zwei Flächen liegt: aussen der Grund der Seite, innen die Karte. Die engere der beiden Zahlen ist die, die zählt.
 
-**Jeder Umriss, der zu einem Bedienelement gehört, liegt über 3:1** — in `{colors.accent}` beim Kästchen der Aufgabenzeile und beim Fokusring (6.37:1 / 7.43:1), sonst in `{colors.ink-secondary}` (4.71:1 / 6.90:1): Textfeld, Auswahlfeld, mehrzeiliges Feld, `button-quiet`, der Eintrag auf `/mehr`, der Sprunglink und der Diensthinweis.
+Die Haarlinie erfüllt 3:1 **nicht** — bewusst. Sie trägt ausschliesslich Trennlinien und Behälterkanten: Karten, den Dialog und die Linie über der Navigationsleiste. Die sind dekorativ und identifizieren kein Bedienelement; die Zeile bleibt ohne sie eindeutig lesbar. Aus genau diesem Grund trägt der Griff eines Abschnitts **keine** Linie zu seinem Inhalt: er ist ein `<summary>`, also ein Bedienelement, und jede seiner Kanten hinge an der 3:1. Die Trennung leistet dort die Fläche (1.21:1 gegen die Karte).
+
+**Jeder Umriss, der zu einem Bedienelement gehört, liegt über 3:1** — in `{colors.accent}` beim Kästchen der Aufgabenzeile und beim Fokusring (6.05:1), sonst in `{colors.ink-secondary}` (5.44:1 auf dem Grund, 5.97:1 auf der Karte): Textfeld, Auswahlfeld, mehrzeiliges Feld, `button-quiet`, der Eintrag auf `/mehr`, der Sprunglink und der Behälter jedes Abschnitts. Der Diensthinweis fällt seit dem 2026-09-13 nicht mehr darunter: er ist eine gefüllte Akzentfläche, und was ihn identifiziert, ist die Fläche und nicht der Umriss.
 
 > **Richtiggestellt am 2026-09-11.** Bis dahin schrieb die Komponentenliste oben die Haarlinie für `button-quiet`, `duty-banner` und `textarea-bulk` vor, während dieser Absatz behauptete, jeder Bedienelement-Umriss nutze den Akzent. Beides zugleich ging nicht — ein R1-Widerspruch, gefunden nicht beim Lesen, sondern beim Rechnen im Kontrast-Sweep vom 2026-09-02. Aufgelöst mit Entscheid (a): die Kanten sind gehoben, dieser Absatz sagt jetzt, was der Baum tut. Die Wache in `scripts/smoke-sicht.ts` führt seither keine Ausnahme mehr.
 
@@ -232,15 +254,15 @@ Die Navigationsleiste trägt zusätzlich `padding-bottom: env(safe-area-inset-bo
 
 ## Elevation & Depth
 
-**Keine Schatten.** Tiefe entsteht ausschliesslich tonal: weisse Karten auf dem Off-White-Grund, getrennt durch die Haarlinie. Im Dunkeln liegt `surface-raised` eine Stufe heller als `surface-base` — dasselbe Prinzip, umgekehrte Richtung.
+**Keine Schatten.** Tiefe entsteht ausschliesslich tonal: helle Karten auf dem Leinengrund, getrennt durch die Haarlinie.
 
-Es gibt genau zwei Ebenen: Grund und Karte. Keine dritte. Kein `box-shadow`, kein `filter: drop-shadow`, keine Umrisse zur Vortäuschung von Höhe. Ein Garten hat keine Schlagschatten in der Bedienoberfläche.
+Es gibt zwei Ebenen — Grund und Karte — und seit dem 2026-09-13 **eine halbe dritte**: der Kopf eines Abschnitts liegt auf `surface-griff` und damit tonal zwischen den beiden. Er ist kein eigener Stapelplatz, sondern die Kopfzeile eines Behälters, der auf der Kartenebene steht. Keine weitere. Kein `box-shadow`, kein `filter: drop-shadow`, keine Umrisse zur Vortäuschung von Höhe. Ein Garten hat keine Schlagschatten in der Bedienoberfläche.
 
 ## Shapes
 
 Drei Radien, jeder mit einer Aufgabe:
 
-- `{rounded.sm}` 5px — Kästchen und der Diensthinweis. Fast eckig, weil ein Kästchen als Kästchen erkennbar bleiben soll.
+- `{rounded.sm}` 5px — das Kästchen. Fast eckig, weil ein Kästchen als Kästchen erkennbar bleiben soll. Der Diensthinweis trug diesen Radius bis zum 2026-09-13; seit er eine gefüllte Fläche ist und keine 3px-Kante mehr trägt, nimmt er `{rounded.md}` wie jede andere Fläche.
 - `{rounded.md}` 8px — Karten, Knöpfe, Textfelder. Der Standardwert; wenn unklar, dieser.
 - `{rounded.lg}` 12px — nur der äussere Rahmen einer ganzen Liste.
 
@@ -293,7 +315,7 @@ Das Textfeld der Massen-Eingabe. Mindestens 16em hoch, damit man beim Schreiben 
 - Zahlen in Knopftexte schreiben, wenn eine Menge betroffen ist.
 - Jede Farbaussage mit Text doppeln.
 - Jede neue Grösse aus der Rampe nehmen, jeden neuen Abstand aus der 4px-Skala.
-- Beide Modi gleichzeitig prüfen, nicht den dunklen nachträglich.
+- Jede neue Farbe rechnen, bevor sie gesetzt wird — und die Zeile in der Kontrasttabelle gleich mitschreiben.
 
 **Don't**
 

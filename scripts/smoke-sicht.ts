@@ -66,7 +66,7 @@ import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-t
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 74;
+const ERWARTETE_BEHAUPTUNGEN = 67;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -451,40 +451,30 @@ try {
 	);
 
 	// -----------------------------------------------------------------------
-	// Beide Erscheinungsbilder, gemessen statt angesehen
+	// Der Grund ist gemalt und nicht geerbt
 	// -----------------------------------------------------------------------
 	/*
-	 * „Geprüft in Hell **und** Dunkel" stand bis heute auf jeder Prüfliste und
-	 * wurde von keiner ausgeführten Behauptung gedeckt. Der Vergleich ist absichtlich
-	 * schwach — er sagt nicht, welche Farbe richtig ist, sondern dass der dunkle
-	 * Block überhaupt wirkt. Ein Kontrastwert wäre die nächste Stufe und braucht
-	 * eine Aussage darüber, welche Paare zusammen vorkommen; die steht nirgends in
-	 * maschinenlesbarer Form (Retro Epic 1, B-Befund zum Gate).
+	 * **Bis zum 2026-09-13 standen hier zwei Messungen**, eine je Schema, und die
+	 * zweite sagte: der dunkle Block wirkt wirklich. Mit dem dunklen Modus ist
+	 * sie weggefallen — es gibt kein zweites Schema mehr, dessen Wirkung man
+	 * belegen könnte.
+	 *
+	 * Was bleibt, ist die Hälfte, die weiterhin etwas behauptet: `body` trägt
+	 * eine **deckende** Fläche. Das ist nicht selbstverständlich und auch nicht
+	 * bloss Kosmetik — die Kontrastrechnung dieses Projekts gibt `null` zurück,
+	 * wenn kein Vorfahre einer Fläche deckend ist, und der ganze Sweep weiter
+	 * unten hinge dann an der Leinwand des Browsers statt an dieser Anwendung.
 	 */
 	const grundfarbe = () =>
 		browser!.auswerten<string>('return getComputedStyle(document.body).backgroundColor');
 
-	await browser.senden('Emulation.setEmulatedMedia', {
-		features: [{ name: 'prefers-color-scheme', value: 'light' }],
-	});
 	await browser.besuchen(`${adresse}/`);
-	const hell = await grundfarbe();
-
-	await browser.senden('Emulation.setEmulatedMedia', {
-		features: [{ name: 'prefers-color-scheme', value: 'dark' }],
-	});
-	await browser.besuchen(`${adresse}/`);
-	const dunkel = await grundfarbe();
+	const grund = await grundfarbe();
 
 	pruefen(
-		'die Seite hat im hellen Modus überhaupt eine Grundfarbe',
-		hell !== '' && hell !== 'rgba(0, 0, 0, 0)',
-		`gemessen: ${JSON.stringify(hell)}`
-	);
-	pruefen(
-		'und im dunklen eine andere — der Dunkel-Block wirkt wirklich',
-		dunkel !== hell && dunkel !== 'rgba(0, 0, 0, 0)',
-		`hell ${hell}, dunkel ${dunkel}`
+		'die Seite hat überhaupt eine deckende Grundfarbe',
+		grund !== '' && grund !== 'rgba(0, 0, 0, 0)' && !grund.startsWith('rgba'),
+		`gemessen: ${JSON.stringify(grund)}`
 	);
 
 	// -----------------------------------------------------------------------
@@ -945,17 +935,6 @@ try {
 
 	await browser.besuchen(`${adresse}/wissen`);
 
-	// Auch im dunklen Erscheinungsbild darf nichts waagerecht laufen.
-	await browser.senden('Emulation.setEmulatedMedia', {
-		features: [{ name: 'prefers-color-scheme', value: 'dark' }],
-	});
-	await browser.besuchen(`${adresse}/wissen`);
-	await breiteHalten('/wissen im dunklen Erscheinungsbild');
-
-	await browser.senden('Emulation.setEmulatedMedia', {
-		features: [{ name: 'prefers-color-scheme', value: 'light' }],
-	});
-
 	/*
 	 * **Die Absätze bleiben, wie sie getippt wurden.**
 	 *
@@ -1361,8 +1340,8 @@ try {
 	 * Gemessen wird über **jede** `+page.svelte` des Baums, eingesammelt aus dem
 	 * Verzeichnisbaum und nicht aus einer Liste (dieselbe Bauform wie die
 	 * Live-Region-Wache in `smoke` und Gate-Regel 14/15), dazu die Fehlerseite
-	 * über einen Pfad, den es nicht gibt. Jede Seite in beiden
-	 * Erscheinungsbildern.
+	 * über einen Pfad, den es nicht gibt. Seit dem 2026-09-13 jede Seite
+	 * **einmal** — es gibt nur noch ein Erscheinungsbild.
 	 *
 	 * **Was dieser Sweep nicht sieht, ausgeschrieben statt verschwiegen:**
 	 *   - Was nicht gerendert ist. Ein geschlossener `<dialog>` ist
@@ -1375,7 +1354,9 @@ try {
 	 *   - Zustände, die dieser Lauf nicht herstellt. Ein Zustand, dessen Farbe
 	 *     niemand hier sichtbar macht, fällt aus der Messung — genau darum ist
 	 *     die **Abdeckung eine eigene Behauptung** und nicht eine Hoffnung: alle
-	 *     zehn Farbtokens müssen in mindestens einem gemessenen Paar vorkommen.
+	 *     Farbtokens aus `TOKENS` müssen in mindestens einem gemessenen Paar
+	 *     vorkommen. Die Zahl steht dort und nicht hier — sie ist am 2026-09-13
+	 *     von elf auf fünfzehn gestiegen.
 	 *   - Den Fokusring. Er hängt an `:focus-visible`, und ein berechneter Stil
 	 *     zeigt ihn nur am fokussierten Element. Seine Farbe ist `--accent`, und
 	 *     die ist als Umriss des Kästchens ohnehin gemessen.
@@ -1387,11 +1368,15 @@ try {
 		'--ink-secondary',
 		'--hairline',
 		'--surface-open',
+		'--surface-griff',
 		'--accent',
 		'--accent-ink',
 		'--overdue',
 		'--warn',
 		'--danger',
+		'--reif-sofort',
+		'--reif-stehen',
+		'--reif-wachsen',
 	] as const;
 
 	/*
@@ -1603,11 +1588,14 @@ try {
 		'/gibtsnicht',
 	];
 
-	const kontrastSweep = async (modus: 'light' | 'dark') => {
-		await browser!.senden('Emulation.setEmulatedMedia', {
-			features: [{ name: 'prefers-color-scheme', value: modus }],
-		});
-		const wie = modus === 'light' ? 'im hellen Modus' : 'im dunklen Modus';
+	/*
+	 * **Ein Lauf statt zwei, seit dem 2026-09-13.** Der Sweep nahm bis dahin ein
+	 * Schema entgegen und lief einmal je Modus; mit dem Wegfall des dunklen
+	 * Modus gibt es nur noch eines zu messen. `wie` bleibt als Wortbaustein der
+	 * Meldungen erhalten, damit die Zeilen unverändert lesbar sind.
+	 */
+	const kontrastSweep = async () => {
+		const wie = 'auf der ganzen Seite';
 		const stumm: string[] = [];
 		const textBefunde: string[] = [];
 		const umrissBefunde: string[] = [];
@@ -1732,7 +1720,7 @@ try {
 		 * **Die Abdeckung ist eine eigene Behauptung.**
 		 *
 		 * Ein Sweep, der nichts findet, ist grün. Diese Zeile schliesst das aus:
-		 * jedes der zehn Farbtokens muss in mindestens einem gemessenen Paar
+		 * jedes Farbtoken aus TOKENS muss in mindestens einem gemessenen Paar
 		 * vorkommen — als Vordergrund oder als deckender Grund. Ein Zustand, den
 		 * dieser Lauf nicht herstellt (die überfällige Zeile, die unbesetzte
 		 * Dienstwoche, der zerstörende Knopf), fällt damit auf, statt still zu
@@ -1769,11 +1757,7 @@ try {
 		Math.floor(Date.now() / 1000) + 14 * 24 * 60 * 60
 	);
 
-	await kontrastSweep('light');
-	await kontrastSweep('dark');
-	await browser.senden('Emulation.setEmulatedMedia', {
-		features: [{ name: 'prefers-color-scheme', value: 'light' }],
-	});
+	await kontrastSweep();
 
 	// -----------------------------------------------------------------------
 	// Derselbe Dialog auf /verwaltung — der Rest von Zeile 5 der R5-Liste

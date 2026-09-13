@@ -61,7 +61,7 @@
 		/*
 		 * --ink-secondary und nicht --hairline: der Sprunglink ist ein
 		 * Bedienelement, und NFR9 verlangt 3:1 für seinen Umriss. Auf der
-		 * Haarlinie waren es 1.25:1 hell und 1.44:1 dunkel — gemessen im
+		 * Haarlinie wären es auf dieser Fläche 1.34:1 — gemessen im
 		 * Kontrast-Sweep vom 2026-09-02, gehoben mit Entscheid (a) am 2026-09-11.
 		 */
 		border: var(--border-hairline) solid var(--ink-secondary);

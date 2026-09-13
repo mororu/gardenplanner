@@ -472,30 +472,36 @@
 
 <style>
 	/*
-		Die drei Stufenfarben kommen aus **bestehenden** Token und bringen keine
-		neuen mit: --danger für „sofort", --warn für „kann stehen", --accent für
-		„noch wachsen lassen". Das ist nicht Sparsamkeit, sondern die Prüfkette —
-		jedes Farbtoken steht in der veröffentlichten Kontrasttabelle aus
-		DESIGN.md, und `kontrast:selftest` bricht, wenn eines dazukommt oder sich
-		ändert. Drei neue Farben für drei Kanten hätten die Tabelle umgeschrieben.
+		Die drei Stufenfarben haben seit dem 2026-09-13 **eigene** Token:
+		--reif-sofort, --reif-stehen, --reif-wachsen.
 
-		Sie passen auch der Bedeutung nach: --danger trägt im Produkt „das hier
-		zerstört etwas", und eine Zucchini, die drei Tage liegt, ist genau das.
-		--warn steht am unbesetzten Dienst, --accent an allem, was in Ordnung ist.
+		**Bis dahin liehen sie sich --danger, --warn und --accent**, und die
+		Begründung dafür stand hier: drei neue Farben hätten die veröffentlichte
+		Kontrasttabelle aus DESIGN.md umgeschrieben und `kontrast:selftest`
+		gebrochen. Das stimmt weiterhin — es ist nur nicht mehr der teurere
+		Handel. Die drei geliehenen Token sind Textfarben und an 4.5:1 gebunden;
+		diese Kanten halten als Umriss eines Bedienelements 3:1. An der strengeren
+		Schwelle war „kann noch stehen" auf der Breite von --border-marker
+		praktisch unsichtbar, und genau das hat Manuel am 2026-09-13 bemängelt.
 
-		Die Kante ist dieselbe 3px-Marke wie „diese Woche" im Tränkeplan und der
-		Diensthinweis auf / — derselbe Gedanke an drei Orten: hier ist etwas los.
+		Der Bedeutung nach passten sie ohnehin nur zwei von drei Mal: --danger
+		heisst im Produkt „das hier zerstört etwas", und eine reife Zucchini ist
+		das nicht. DESIGN.md reserviert Rot ausdrücklich für Zerstörendes.
+
+		Die Kante ist dieselbe Marke wie „diese Woche" im Tränkeplan — derselbe
+		Gedanke an zwei Orten: hier ist etwas los. Der Diensthinweis auf / trug sie
+		bis zum 2026-09-13 ebenfalls und ist seither eine gefüllte Fläche.
 	*/
 	.stufe--sofort .karte {
-		border-inline-start: var(--border-marker) solid var(--danger);
+		border-inline-start: var(--border-marker) solid var(--reif-sofort);
 	}
 
 	.stufe--stehen .karte {
-		border-inline-start: var(--border-marker) solid var(--warn);
+		border-inline-start: var(--border-marker) solid var(--reif-stehen);
 	}
 
 	.stufe--wachsen .karte {
-		border-inline-start: var(--border-marker) solid var(--accent);
+		border-inline-start: var(--border-marker) solid var(--reif-wachsen);
 	}
 
 	/*
@@ -503,15 +509,15 @@
 		der die Farbe der Stufe vor dem Absenden zu sehen ist.
 	*/
 	.stufenwahl__zeile.stufe--sofort {
-		border-inline-start: var(--border-marker) solid var(--danger);
+		border-inline-start: var(--border-marker) solid var(--reif-sofort);
 	}
 
 	.stufenwahl__zeile.stufe--stehen {
-		border-inline-start: var(--border-marker) solid var(--warn);
+		border-inline-start: var(--border-marker) solid var(--reif-stehen);
 	}
 
 	.stufenwahl__zeile.stufe--wachsen {
-		border-inline-start: var(--border-marker) solid var(--accent);
+		border-inline-start: var(--border-marker) solid var(--reif-wachsen);
 	}
 
 	/*

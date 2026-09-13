@@ -19,10 +19,13 @@
 		<link rel="icon" href="/favicon.ico" sizes="32x32" />
 		<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon-180.png" />
 
-		<!-- Unqualifiziert für Browser ohne media-Unterstützung, danach das Paar je Schema. -->
-		<meta name="theme-color" content="#2F6B3F" />
-		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#2F6B3F" />
-		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#7FBB8C" />
+		<!--
+			Eine einzige, unqualifizierte Zeile: seit dem Wegfall des dunklen Modus
+			gibt es kein zweites Schema mehr, dem ein Paar folgen müsste. Der Wert
+			ist --accent und muss es bleiben — Gate-Regel 5 hält Token, Meta und
+			Manifest zusammen.
+		-->
+		<meta name="theme-color" content="#3F6B4A" />
 
 		<meta name="mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
@@ -37,22 +40,44 @@
 			 * Werte gerechnet aus DESIGN.md, Grössen in rem bei 16px Wurzel, damit
 			 * die systemweite Vergrösserung greift.
 			 * Das Tor prüft beide Richtungen: kein Farb- oder Massliteral in einer
-			 * Komponente, kein benutztes Token ohne Deklaration hier, und kein
-			 * Farb-Token ohne Wert im Dunkel-Block.
+			 * Komponente und kein benutztes Token ohne Deklaration hier. Die dritte
+			 * Richtung — jedes Farb-Token braucht einen Wert im Dunkel-Block — ist
+			 * am 2026-09-13 mit dem dunklen Modus weggefallen (Gate-Regel 4).
 			 */
 			:root {
-				/* Beide Modi sind gestaltet, also darf der Browser beide annehmen —
-				   Formularelemente und Scrollbalken folgen damit dem Schema. */
-				color-scheme: light dark;
+				/* Es gibt nur noch einen gestalteten Modus, und der Browser soll
+				   auch nur diesen annehmen: Formularelemente und Scrollbalken folgen
+				   sonst dem System und stünden hell gestalteten Seiten dunkel
+				   gegenüber. */
+				color-scheme: light;
 
-				/* Farben — hell */
-				--surface-base: #f5f4ef;
-				--surface-raised: #ffffff;
-				--ink-primary: #1c221b;
-				--ink-secondary: #66705f;
-				--hairline: #dcdcd2;
-				--accent: #2f6b3f;
-				--accent-ink: #ffffff;
+				/*
+				   Farben. **Ein Token, ein Wert** — seit dem Wegfall des dunklen Modus
+				   gibt es kein zweites Schema mehr, in dem eine Farbe ein Gegenstück
+				   bräuchte. Die Palette heisst Leinen & Salbei: warmer Leinengrund,
+				   eine Karte, die nicht reinweiss ist, und ein entsättigtes Salbeigrün
+				   als einziger Akzent.
+
+				   Alle Werte sind gerechnet und nicht geschätzt; die Tabelle in
+				   DESIGN.md führt sie, und `npm run kontrast:selftest` hält jene
+				   Tabelle gegen die Rechnung.
+				*/
+				--surface-base: #f6f2ea;
+				--surface-raised: #fffdf8;
+				--ink-primary: #241f18;
+				--ink-secondary: #6b6153;
+				--hairline: #e5dccc;
+				--accent: #3f6b4a;
+				/*
+				   Die Schrift auf gefüllter Akzentfläche. Sie trägt denselben Wert wie
+				   --surface-raised, und das ist kein Versehen: die Karte ist das
+				   hellste Weiss dieser Palette, und genau dieses Weiss gehört auf das
+				   Grün. Zwei Token mit einem Wert bleiben zwei Token — das eine ist
+				   eine Fläche, das andere eine Schriftfarbe, und sie trennen sich,
+				   sobald eines von beiden sich bewegt.
+				   Gemessen: 6.05:1 auf --accent.
+				*/
+				--accent-ink: #fffdf8;
 				/*
 				   Die Fläche einer Einzelaufgabe, die bisher niemand übernommen hat.
 
@@ -62,12 +87,11 @@
 				   Varianten des Akzents, und eine grün gefüllte Karte schriee.
 
 				   **Wie hell, ist nicht Geschmack, sondern gerechnet.** Die Grenze ist
-				   --ink-secondary: der Nebentext liegt auf der weissen Karte schon nur bei
-				   4.71:1, und jede dunklere Tönung drückt ihn unter die 4.5 aus NFR9.
-				   Gemessen mit der Kontrastrechnung des Projekts: #eaf0e7 ergibt 4.48 und
-				   fällt damit durch, #e6ede3 ergibt 4.34. Dieser Wert hält 4.57.
+				   --ink-secondary: der Nebentext liegt auf der Karte bei 5.97:1, und
+				   jede dunklere Tönung drückt ihn Richtung der 4.5 aus NFR9. Gemessen
+				   mit der Kontrastrechnung des Projekts: dieser Wert hält 5.26.
 
-				   Die Fläche hebt sich darum im Hellen nur um 1.14:1 von der Karte ab. Den
+				   Die Fläche hebt sich darum nur um 1.14:1 von der Karte ab. Den
 				   Unterschied trägt der Farbton und nicht die Helligkeit — und die Aussage
 				   trägt ohnehin der Satz, der danebensteht. Farbe als einziger Träger
 				   eines Zustands ist in DESIGN.md ausdrücklich verboten.
@@ -76,47 +100,100 @@
 				   mitsamt ihren Kommentaren an jeden Besucher jeder Seite; eine hier
 				   zitierte Wendung steht damit auch dort, wo sie nicht hingehört, und
 				   lässt Wachen anschlagen, die ihr Fehlen belegen. Gemessen am
-				   2026-09-11, nicht vermutet.
+				   2026-09-13, nicht vermutet.
 
-				   Gemessen hell: Fliesstext 14.29:1, Nebentext 4.57:1, Akzent 5.61:1.
+				   Gemessen: Fliesstext 14.16:1, Nebentext 5.26:1, Akzent 5.33:1.
 				*/
-				--surface-open: #edf2ea;
-				--overdue: #9a5a12;
+				--surface-open: #edf0e4;
 				/*
-				   Ringelblume, und nur für die unbesetzte Dienstwoche (Epic 3): eine
-				   Lücke, die jemand schliessen muss — kein Fehler und keine Gefahr,
-				   darum nicht --danger, und kein Liegenbleiben, darum nicht --overdue.
+				   Der Kopf eines aufklappbaren Abschnitts.
 
-				   **Von --overdue kaum zu unterscheiden, und das ist gemessen und
-				   hingenommen:** die zwei liegen im Hellen bei 1.07:1 zueinander. Jedes
-				   Orange, das auf Weiss 4.5:1 erreicht, ist dunkel, und dunkles Orange
-				   ist Lehmbraun — der Unterschied ist die volle Sättigung, sonst nichts.
-				   **Diese Begründung galt bis zum 2026-09-11 und gilt nicht mehr.** Sie
-				   lautete: die beiden Zustände kommen nie auf derselben Seite vor,
-				   Überfälligkeit auf /, Unbesetztheit auf dem Plan. Seit die Startseite
-				   eine Zeile zum Plan trägt, die vor einer Lücke in den nächsten zwei
-				   Wochen warnt, stehen beide Töne auf / — der eine im Griff des Pools,
-				   der andere in jener Zeile.
+				   **Warum es dieses Token gibt.** Bis zum 2026-09-13 trug der Griff
+				   dieselbe Fläche und dieselbe Kante wie jede andere Karte der Seite —
+				   er sah damit aus wie ein Eintrag der Liste, die er überschreibt, und
+				   wo ein Abschnitt aufhörte, sagte allein der Abstand. Seither ist der
+				   Abschnitt ein Behälter: der Kopf sitzt auf dieser Fläche, der Inhalt
+				   darunter auf --surface-raised, beide in einem Rahmen.
 
-				   Was trägt, ist der Rest: die Wörter sind verschieden, sie stehen in
-				   verschiedenen Blöcken, und wie überall trägt das Wort die Aussage.
-				   Wer die zwei Brauntöne nicht auseinanderhält, liest `überfällig` und
-				   `unbesetzt`.
+				   Ein Leinenton und kein Grau: er ist die dunklere Schwester von
+				   --surface-base und hält damit denselben warmen Stich wie der Grund.
+				   Gegen die Karte sind es 1.21:1 — mehr als die 1.14:1, die
+				   --surface-open gegen dieselbe Karte hat, und das ist Absicht: hier
+				   trennt die Fläche zwei Schichten, dort färbt sie einen Zustand.
 
-				   Gemessen: 5.63:1 auf --surface-raised, 5.11:1 auf --surface-base.
+				   Gemessen: Fliesstext 13.28:1, Nebentext 4.93:1, Akzent 5.00:1.
 				*/
-				--warn: #a05300;
+				--surface-griff: #ede7db;
+				--overdue: #98481d;
+				/*
+				   Gold, und nur für die unbesetzte Dienstwoche (Epic 3): eine Lücke,
+				   die jemand schliessen muss — kein Fehler und keine Gefahr, darum
+				   nicht --danger, und kein Liegenbleiben, darum nicht --overdue.
+
+				   **Dieses Token trug bis zum 2026-09-13 zwei Aufgaben, und daran ist
+				   es fast zerbrochen.** Es färbte zugleich die Kante einer Erntestufe.
+				   Eine Textfarbe muss 4.5:1 halten, eine 3px-Kante nur 3:1 — und weil
+				   immer die strengere Anforderung gewann, blieb die Kante blass. Die
+				   Ampel hat seither eigene Token (--reif-*), und dieses hier hat wieder
+				   genau einen Zweck.
+
+				   **Von --overdue unterscheidet es der Farbton, nicht die Helligkeit:**
+				   die zwei liegen bei 1.18:1 zueinander, aber das eine ist Rostlehm und
+				   das andere Gold. Bis zum 2026-09-13 waren es 1.07:1 bei gleichem Ton,
+				   und der Tokenblock nannte das ausdrücklich hingenommen. Getragen wird
+				   die Aussage ohnehin vom Wort — die zwei Zustände stehen seit dem
+				   2026-09-11 beide auf der Startseite, in verschiedenen Blöcken und mit
+				   verschiedenen Wörtern.
+
+				   Gemessen: 5.35:1 auf --surface-raised, 4.87:1 auf --surface-base.
+				*/
+				--warn: #856500;
 				/*
 				   Rot, und nur für Zerstörendes: der Knopf `Einladung widerrufen`.
 				   Es gibt bewusst kein --danger-ink, weil der zerstörende Knopf
 				   durchsichtig bleibt — Text und Umriss tragen diesen Wert, es
 				   entsteht nie eine gefüllte rote Fläche, die eine eigene
 				   Schriftfarbe bräuchte.
-				   Gemessen: 7.07:1 auf --surface-raised, 6.42:1 auf
+
+				   **Seit dem 2026-09-13 ist das wieder wahr.** Bis dahin lieh sich eine
+				   Erntestufe dieses Token für ihre Kante, obwohl DESIGN.md Rot
+				   ausdrücklich für Zerstörendes reserviert. Eine reife Zucchini ist
+				   keine Gefahr; die Stufe hat jetzt --reif-sofort.
+
+				   Gemessen: 6.71:1 auf --surface-raised, 6.11:1 auf
 				   --surface-base. Damit liegt der Wert im Kontrastband des
-				   Akzents (6.37:1) und schreit nicht heraus.
+				   Akzents (6.05:1) und schreit nicht heraus.
 				 */
-				--danger: #a32e22;
+				--danger: #a33427;
+				/*
+				   Die Ampel der Ernte. Drei Token für drei Stufen, und der Grund für
+				   ihre Existenz ist eine Rechnung und keine Vorliebe:
+
+				   Diese drei Farben erscheinen **ausschliesslich** als Kante in der
+				   Breite von --border-marker — auf /ernte an der Karte, auf / an der
+				   Zeile. Eine Kante, die zu einem Bedienelement gehört, hält nach NFR9
+				   3:1; Text hielte 4.5:1. Solange die Stufen sich Textfarben liehen
+				   (--danger, --warn, --accent), waren sie an die strengere Schwelle
+				   gebunden und entsprechend gedämpft — die mittlere Stufe war auf drei
+				   Pixeln praktisch nicht zu sehen. Mit eigenen Token darf sie Bernstein
+				   sein statt Gold.
+
+				   **Das Wort trägt die Aussage weiterhin allein.** Neben jeder Kante
+				   steht die Stufe ausgeschrieben — auf /ernte in der Überschrift des
+				   Abschnitts, auf / in der Marke an der Zeile. Farbe als einziger
+				   Träger eines Zustands bleibt verboten, und diese drei Token ändern
+				   daran nichts; sie machen die Kante nur sichtbar für die, die sie
+				   sehen können.
+
+				   Gemessen gegen **beide** angrenzenden Flächen, weil die Kante
+				   zwischen Karte und Grund liegt:
+				     sofort  5.35:1 auf --surface-raised, 4.87:1 auf --surface-base
+				     stehen  3.55:1 auf --surface-raised, 3.23:1 auf --surface-base
+				     wachsen 4.99:1 auf --surface-raised, 4.54:1 auf --surface-base
+				*/
+				--reif-sofort: #c0392b;
+				--reif-stehen: #b87a00;
+				--reif-wachsen: #2f7d46;
 
 				/* Schriftfamilien — selbst gehostet, geladen aus dem eigenen Stilblatt */
 				--font-heading: 'Figtree Variable', 'Figtree', system-ui, sans-serif;
@@ -196,7 +273,7 @@
 				   Kästchen der Aufgabenzeile ist das nicht das Trefferfeld: das entsteht am
 				   Knopf darum herum und hält --touch. 18px und nicht 22px, weil das Zeichen
 				   neben Text in der meta-Rolle (13px) steht und nicht allein in einer Zeile.
-				   Kein Farbwert, also ohne Dunkel-Pendant — das Zeichen nimmt currentColor. */
+				   Das Zeichen nimmt currentColor. */
 				--zeichen: 1.125rem;
 				/* Mindesthöhe des Textfelds der Massen-Eingabe auf /monatsplan
 				   (DESIGN.md, components.textarea-bulk.minHeight): 16em, damit man
@@ -206,7 +283,7 @@
 				   wächst das Feld mit. Der Wert steht hier und nicht als 16em in
 				   der Komponente: Gate-Regel 1 liest nur px und rem, ein rohes em
 				   liefe an ihr vorbei, und die nächste Grösse brächte ihre eigene
-				   Zahl mit. Kein Farbwert, also ohne Dunkel-Pendant. */
+				   Zahl mit. */
 				--textarea-bulk-min-height: 16em;
 				/* Eigene Höhe der Navigationsleiste, nicht --touch: die Leiste ist ein
 				   Layoutmass, das der Inhalt unten freihalten muss. 48px, damit jedes
@@ -227,40 +304,9 @@
 				   140ms in der Komponente, weil sonst die nächste Animation ihre
 				   eigene Zahl mitbrächte; Gate-Regel 1 weist ein rohes ms/s in einer
 				   Bewegungs-Eigenschaft ab, damit diese Deklaration nicht umgehbar
-				   ist. Kein Farbwert, also ohne Dunkel-Pendant — Regel 4 verlangt
-				   eines nur für Farben.
+				   ist.
 				 */
 				--duration-quick: 140ms;
-			}
-
-			/* Der dunkle Modus ist gleichrangig gestaltet: eigene Werte, keine Invertierung,
-			   kein Filter. Nur die neun Farben wechseln, alle Masse bleiben gleich. */
-			@media (prefers-color-scheme: dark) {
-				:root {
-					--surface-base: #12160f;
-					--surface-raised: #1a2018;
-					--ink-primary: #e9ede4;
-					--ink-secondary: #98a292;
-					--hairline: #2c3529;
-					--accent: #7fbb8c;
-					--accent-ink: #0e1410;
-					/*
-					   Im Dunkeln ist mehr Luft: der Nebentext hält 5.03:1, und die Fläche
-					   hebt sich mit 1.25:1 von der Karte ab statt mit 1.14:1.
-					   Gemessen dunkel: Fliesstext 11.24:1, Nebentext 5.03:1, Akzent 5.97:1.
-					*/
-					--surface-open: #243324;
-					--overdue: #d99b4e;
-					/*
-					   Im Dunkeln trennen sich die zwei besser als im Hellen: 1.26:1
-					   zueinander, spürbar heller und satter als --overdue. Der Grund für
-					   das eigene Token bleibt trotzdem die Bedeutung und nicht der Abstand.
-					   Gemessen: 8.70:1 auf --surface-raised, 9.58:1 auf --surface-base
-					*/
-					--warn: #ffa857;
-					/* Gemessen: 6.48:1 auf --surface-raised, 7.13:1 auf --surface-base */
-					--danger: #e8877b;
-				}
 			}
 
 			*,

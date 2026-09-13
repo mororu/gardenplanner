@@ -189,10 +189,18 @@ export function gerundet(wert: number): number {
  *     4.54:1 — das steht in jeder Kontrasttabelle der Welt und stammt nicht aus
  *     diesem Projekt. Ohne diese drei Zeilen prüfte der Selbsttest die eigene
  *     Rechnung gegen die eigenen Zahlen.
- *   - **Die veröffentlichte Tabelle aus DESIGN.md**, zwanzig von Hand
- *     gerechnete Werte über zehn Paarungen in zwei Modi. Sie sind hier die
- *     Vorgabe, nicht das Ergebnis: stimmen sie, haben zwei voneinander
- *     unabhängige Rechnungen dasselbe herausbekommen.
+ *   - **Die veröffentlichte Tabelle aus DESIGN.md**, neunzehn von Hand
+ *     gerechnete Werte. Sie sind hier die Vorgabe, nicht das Ergebnis: stimmen
+ *     sie, haben zwei voneinander unabhängige Rechnungen dasselbe
+ *     herausbekommen. Seit dem 2026-09-13 ist es **eine** Spalte statt zwei —
+ *     der dunkle Modus ist weg, und mit ihm die Hälfte der Tabelle.
+ *
+ * Dazu kommt seit dem 2026-09-13 eine dritte Frage, die die zwei Quellen nicht
+ * beantworten: **hält der dokumentierte Wert auch seine Schwelle?** Die
+ * Tabellenprobe vergleicht Dokumentation gegen Rechnung und wäre grün, wenn
+ * jemand Token *und* Tabelle gemeinsam auf einen zu kleinen Wert zöge. Darum
+ * trägt jede Zeile ihre Schwelle mit — 4.5 für Text, 3.0 für den Umriss eines
+ * Bedienelements, 0 für die Haarlinie, die bewusst darunter liegt.
  *
  * **Was diese Tabelle nicht behauptet.** Die Hexwerte darin stammen aus
  * DESIGN.md und nicht aus `src/app.html`. Der Selbsttest sagt also, dass die
@@ -204,17 +212,32 @@ export function gerundet(wert: number): number {
  * gewollte Reibung wie `ERWARTETE_BEHAUPTUNGEN`.
  */
 
-/** Die zwölf Paarungen der Tabelle „Kontrast, geprüft statt behauptet". */
+/**
+ * Die neunzehn Paarungen der Tabelle „Kontrast, geprüft statt behauptet".
+ *
+ * Je Zeile: Name, Vordergrund, Grund, der **dokumentierte** Wert und die
+ * Schwelle, die er halten muss. Schwelle 0 heisst: diese Zeile hat keinen
+ * Boden — es gibt genau eine solche, und ihre Begründung steht an ihr.
+ */
 const DOKUMENTIERT = [
-	['Fliesstext auf Grund', 'ink', 'base', 14.74, 15.43],
-	['Nebentext auf Grund', 'ink2', 'base', 4.71, 6.9],
-	['Akzent als Text auf Karte', 'accent', 'raised', 6.37, 7.43],
-	['Titelleistenschrift auf Akzent', 'accentInk', 'accent', 6.37, 8.34],
-	['Überfällig auf Karte', 'overdue', 'raised', 5.46, 6.92],
-	['Unbesetzt auf Karte', 'warn', 'raised', 5.63, 8.7],
-	['Unbesetzt auf Grund', 'warn', 'base', 5.11, 9.58],
-	['Zerstörend auf Karte', 'danger', 'raised', 7.07, 6.48],
-	['Zerstörend auf Grund', 'danger', 'base', 6.42, 7.13],
+	['Fliesstext auf Grund', 'ink', 'base', 14.65, 4.5],
+	['Nebentext auf Grund', 'ink2', 'base', 5.44, 4.5],
+	['Akzent als Text auf Karte', 'accent', 'raised', 6.05, 4.5],
+	/*
+	 * **Zahlengleich mit der Zeile darüber, und aus einem härteren Grund als
+	 * Zufall:** seit der Palette vom 2026-09-13 trägt `--accent-ink` denselben
+	 * Wert wie `--surface-raised`, es ist also buchstäblich dasselbe Farbpaar,
+	 * einmal von vorn und einmal von hinten gelesen. Die Zeile bleibt trotzdem
+	 * stehen — sie bildet die Tabelle in DESIGN.md ab und nicht die Menge der
+	 * verschiedenen Farbpaare, und die zwei Rollen trennen sich in dem Moment,
+	 * in dem eines der beiden Token sich bewegt.
+	 */
+	['Titelleistenschrift auf Akzent', 'accentInk', 'accent', 6.05, 4.5],
+	['Überfällig auf Karte', 'overdue', 'raised', 6.3, 4.5],
+	['Unbesetzt auf Karte', 'warn', 'raised', 5.35, 4.5],
+	['Unbesetzt auf Grund', 'warn', 'base', 4.87, 4.5],
+	['Zerstörend auf Karte', 'danger', 'raised', 6.71, 4.5],
+	['Zerstörend auf Grund', 'danger', 'base', 6.11, 4.5],
 	/*
 	 * **Zahlengleich mit „Nebentext auf Grund", und trotzdem eine eigene Zeile.**
 	 * Seit Entscheid (a) vom 2026-09-11 trägt `--ink-secondary` zwei Rollen: den
@@ -224,57 +247,69 @@ const DOKUMENTIERT = [
 	 * Tabelle ab und nicht die Menge der verschiedenen Farbpaare. Wer die Zeile
 	 * streicht, weil sie „doppelt" ist, entkoppelt Vorgabe und Tabelle.
 	 */
-	['Bedienelement-Umriss auf Grund', 'ink2', 'base', 4.71, 6.9],
+	['Bedienelement-Umriss auf Grund', 'ink2', 'base', 5.44, 3],
 	/*
-	 * Die **engste** Paarung des Systems, und der Grund, warum --surface-open so
-	 * hell ist: der Nebentext steht auf der getönten Karte bei 4.57:1 und damit
-	 * nur knapp über der 4.5 aus NFR9. Eine Tönung eine Spur dunkler fällt durch —
-	 * #eaf0e7 ergibt 4.48, gerechnet mit genau dieser Datei. Wer den Wert anfasst,
-	 * rechnet zuerst diese Zeile.
+	 * Der Grund, warum --surface-open so hell ist: der Nebentext steht auf der
+	 * getönten Karte bei 5.26:1. Das ist mehr Luft als in der Palette bis zum
+	 * 2026-09-13 (dort 4.57:1), aber die Richtung bleibt dieselbe — eine Tönung
+	 * dunkler drückt genau diese Zeile, und wer den Wert anfasst, rechnet sie
+	 * zuerst.
 	 */
-	['Nebentext auf offener Karte', 'ink2', 'open', 4.57, 5.03],
+	['Nebentext auf offener Karte', 'ink2', 'open', 5.26, 4.5],
+	/*
+	 * Die engste Textpaarung des Systems seit dem 2026-09-13, und damit die
+	 * Zeile, die `--surface-griff` nach oben deckelt: dunkler getönt fällt der
+	 * Nebentext im Kopf eines Abschnitts unter die 4.5.
+	 */
+	['Nebentext auf Abschnittskopf', 'ink2', 'griff', 4.93, 4.5],
+	/*
+	 * Die Ampel der Ernte, sechs Zeilen. Sie steht **an beiden** Flächen,
+	 * weil die Kante zwischen Karte und Grund liegt: aussen der Grund der Seite,
+	 * innen die Karte. Schwelle 3.0 und nicht 4.5 — diese drei Farben sind nie
+	 * Text, sondern ausschliesslich der Umriss eines Bedienelements. Genau
+	 * dieser Unterschied ist der Grund, warum es die Token seit dem 2026-09-13
+	 * überhaupt gibt.
+	 */
+	['Ampel sofort an Karte', 'reifSofort', 'raised', 5.35, 3],
+	['Ampel sofort an Grund', 'reifSofort', 'base', 4.87, 3],
+	['Ampel kann stehen an Karte', 'reifStehen', 'raised', 3.55, 3],
+	['Ampel kann stehen an Grund', 'reifStehen', 'base', 3.23, 3],
+	['Ampel wachsen an Karte', 'reifWachsen', 'raised', 4.99, 3],
+	['Ampel wachsen an Grund', 'reifWachsen', 'base', 4.54, 3],
 	/*
 	 * Die Haarlinie liegt **auf der Karte** — das ist nachgemessen und nicht
-	 * abgelesen: DESIGN.md nennt die zwei Zahlen 1.38 und 1.30 ohne den Grund
-	 * dazu, und auf `--surface-base` ergeben dieselben Tokens 1.25 (hell) und
-	 * 1.44 (dunkel). Gemeint ist also die Linie in der Liste, und die liegt auf
-	 * der Karte.
+	 * abgelesen: auf `--surface-base` ergeben dieselben Tokens 1.22 statt 1.34.
+	 * Gemeint ist also die Linie in der Liste, und die liegt auf der Karte.
 	 *
 	 * **Seit dem 2026-09-11 ist das ihre einzige Rolle.** Vorher trug sie auch den
 	 * Umriss von fünf Bedienelementen und verfehlte dort die 3:1 aus NFR9;
-	 * Entscheid (a) hat die auf `--ink-secondary` gehoben. Die 1.38 bleibt damit
-	 * richtig und ist kein offener Befund mehr — eine Trennlinie muss die Schwelle
-	 * nicht erreichen.
+	 * Entscheid (a) hat die auf `--ink-secondary` gehoben. Die 1.34 ist damit
+	 * kein offener Befund — eine Trennlinie muss die Schwelle nicht erreichen,
+	 * und darum ist dies die einzige Zeile mit Schwelle 0.
 	 */
-	['Haarlinie auf Karte', 'hair', 'raised', 1.38, 1.3],
+	['Haarlinie auf Karte', 'hair', 'raised', 1.34, 0],
 ] as const;
 
-/** Die Tokenwerte, wie DESIGN.md sie ausschreibt. */
+/**
+ * Die Tokenwerte, wie DESIGN.md sie ausschreibt. Palette „Leinen & Salbei",
+ * seit dem 2026-09-13, und es gibt nur noch diese eine Spalte.
+ */
 const HELL = {
-	base: '#f5f4ef',
-	raised: '#ffffff',
-	ink: '#1c221b',
-	ink2: '#66705f',
-	hair: '#dcdcd2',
-	open: '#edf2ea',
-	accent: '#2f6b3f',
-	accentInk: '#ffffff',
-	overdue: '#9a5a12',
-	warn: '#a05300',
-	danger: '#a32e22',
-} as const;
-const DUNKEL = {
-	base: '#12160f',
-	raised: '#1a2018',
-	ink: '#e9ede4',
-	ink2: '#98a292',
-	hair: '#2c3529',
-	open: '#243324',
-	accent: '#7fbb8c',
-	accentInk: '#0e1410',
-	overdue: '#d99b4e',
-	warn: '#ffa857',
-	danger: '#e8877b',
+	base: '#f6f2ea',
+	raised: '#fffdf8',
+	ink: '#241f18',
+	ink2: '#6b6153',
+	hair: '#e5dccc',
+	open: '#edf0e4',
+	griff: '#ede7db',
+	accent: '#3f6b4a',
+	accentInk: '#fffdf8',
+	overdue: '#98481d',
+	warn: '#856500',
+	danger: '#a33427',
+	reifSofort: '#c0392b',
+	reifStehen: '#b87a00',
+	reifWachsen: '#2f7d46',
 } as const;
 
 /** Ein Hexwert als Farbe — nur für die Vorgaben dieses Selbsttests. */
@@ -291,7 +326,14 @@ function hex(wert: string): Farbe {
 if (process.argv.includes('--selftest')) {
 	const { pruefen, pruefenGleich, unerwarteterWurf, zaehlerstand } =
 		await import('./pruefhelfer.ts');
-	/** Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit. */
+	/*
+	 * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
+	 *
+	 * **Sie steht seit dem 2026-09-13 unverändert bei 23, und das ist kein
+	 * Versehen:** die Tabellenprobe lief bis dahin zweimal, einmal je Modus, und
+	 * läuft seit dem Wegfall des dunklen Modus einmal. An ihre Stelle ist die
+	 * Schwellenprobe getreten. Minus eins, plus eins.
+	 */
 	const ERWARTETE_BEHAUPTUNGEN = 23;
 
 	try {
@@ -312,26 +354,33 @@ if (process.argv.includes('--selftest')) {
 			4.54
 		);
 
-		// ----- Die veröffentlichte Tabelle, Modus für Modus -----
-		for (const [name, tokens, spalte] of [
-			['im hellen Modus', HELL, 3],
-			['im dunklen Modus', DUNKEL, 4],
-		] as const) {
-			const abweichungen = DOKUMENTIERT.filter(
-				(zeile) =>
-					gerundet(verhaeltnis(hex(tokens[zeile[1]]), hex(tokens[zeile[2]]))) !== zeile[spalte]
-			).map(
-				(zeile) =>
-					`${zeile[0]}: gerechnet ${gerundet(
-						verhaeltnis(hex(tokens[zeile[1]]), hex(tokens[zeile[2]]))
-					)}, dokumentiert ${zeile[spalte]}`
-			);
-			pruefen(
-				`alle ${DOKUMENTIERT.length} Paarungen aus DESIGN.md stimmen ${name}`,
-				abweichungen.length === 0,
-				abweichungen.join(' | ')
-			);
-		}
+		// ----- Die veröffentlichte Tabelle -----
+		const gerechnet = (zeile: (typeof DOKUMENTIERT)[number]) =>
+			gerundet(verhaeltnis(hex(HELL[zeile[1]]), hex(HELL[zeile[2]])));
+
+		const abweichungen = DOKUMENTIERT.filter((zeile) => gerechnet(zeile) !== zeile[3]).map(
+			(zeile) => `${zeile[0]}: gerechnet ${gerechnet(zeile)}, dokumentiert ${zeile[3]}`
+		);
+		pruefen(
+			`alle ${DOKUMENTIERT.length} Paarungen aus DESIGN.md sind richtig gerechnet`,
+			abweichungen.length === 0,
+			abweichungen.join(' | ')
+		);
+
+		/*
+		 * **Die zweite Frage an dieselbe Tabelle**, und sie ist nicht dieselbe wie
+		 * die erste: oben stimmen Dokumentation und Rechnung überein, hier hält
+		 * das Ergebnis seinen Boden. Ohne diese Probe bliebe der Selbsttest grün,
+		 * wenn jemand ein Token und die Tabellenzeile gemeinsam auf 2.9 zöge.
+		 */
+		const unterSchwelle = DOKUMENTIERT.filter((zeile) => zeile[4] > 0 && zeile[3] < zeile[4]).map(
+			(zeile) => `${zeile[0]}: ${zeile[3]} unter ${zeile[4]}`
+		);
+		pruefen(
+			'jede dokumentierte Paarung hält ihre Schwelle aus NFR9',
+			unterSchwelle.length === 0,
+			unterSchwelle.join(' | ')
+		);
 
 		// ----- Farben lesen -----
 		pruefenGleich(
@@ -427,7 +476,7 @@ if (process.argv.includes('--selftest')) {
 
 		pruefen(
 			'das Verhältnis ist symmetrisch — die Reihenfolge der beiden Farben ist gleichgültig',
-			verhaeltnis(hex('#2f6b3f'), hex('#ffffff')) === verhaeltnis(hex('#ffffff'), hex('#2f6b3f')),
+			verhaeltnis(hex('#3f6b4a'), hex('#fffdf8')) === verhaeltnis(hex('#fffdf8'), hex('#3f6b4a')),
 			'die beiden Richtungen ergaben verschiedene Werte'
 		);
 

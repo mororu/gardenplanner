@@ -26,8 +26,8 @@
  * 2026-09-02 zwei Verweise gefunden, die keine Farbregel hatten: `Startseite`
  * auf `/einzelaufgaben` und `Alle Blätter` auf `/wissen/[id]`, beide in einem
  * `.hinweis`-Absatz. Chrome färbt sie dann aus seinem Vorgabestilblatt —
- * `#0000EE` im Hellen, `#9E9EFF` im Dunkeln. Zwei Farben, die dieses Projekt
- * nie gewählt hat, für die es kein Token und kein Dunkel-Pendant gibt, und die
+ * `#0000EE`. Eine Farbe, die dieses Projekt nie gewählt hat, für die es kein
+ * Token gibt, und die
  * Gate-Regel 1 nicht sehen kann: sie verbietet ein Farb**literal** im
  * Quelltext und ist blind für eine Farbe, die aus **keiner** Deklaration kommt.
  *
@@ -90,12 +90,16 @@ a {
 /*
  * Nebenaktionen: durchsichtig, Text im Akzent, Umriss im Nebentext-Ton.
  *
- * Der Umriss lag bis zum 2026-09-11 auf --hairline und damit bei 1.38:1 hell
- * und 1.30:1 dunkel — NFR9 verlangt 3:1 für den Umriss eines Bedienelements.
- * Der Kontrast-Sweep vom 2026-09-02 hat das gemessen, und Entscheid (a) hebt
- * die Kante auf --ink-secondary: 4.71:1 hell, 6.90:1 dunkel, ein bestehendes
- * Token. **Nicht --accent**, obwohl der Text schon darin steht — ein grüner
- * Umriss machte aus jeder Nebenaktion optisch eine Hauptaktion.
+ * Der Umriss lag bis zum 2026-09-11 auf --hairline — NFR9 verlangt 3:1 für den
+ * Umriss eines Bedienelements, und die Haarlinie hält das nirgends. Der
+ * Kontrast-Sweep vom 2026-09-02 hat das gemessen, und Entscheid (a) hebt die
+ * Kante auf --ink-secondary, ein bestehendes Token. **Nicht --accent**, obwohl
+ * der Text schon darin steht — ein grüner Umriss machte aus jeder Nebenaktion
+ * optisch eine Hauptaktion.
+ *
+ * Dieser Knopf ist durchsichtig, seine Kante steht also auf dem Grund der
+ * Seite. Gemessen in der Palette vom 2026-09-13: --ink-secondary 5.44:1 auf
+ * --surface-base, --hairline dort 1.22:1.
  *
  * Der deaktivierte Zustand weiter unten bleibt auf der Haarlinie: WCAG 1.4.11
  * nimmt inaktive Bedienelemente aus, und der Sweep misst sie nicht
@@ -166,10 +170,10 @@ a {
  * **Die Kante ist die einzige Identifikation dieses Bedienelements**, und darum
  * liegt sie seit dem 2026-09-11 auf --ink-secondary statt auf --hairline. Ein
  * Textfeld trägt keinen eigenen Text, an dem man es erkennt, und seine Fläche
- * (--surface-raised) steht auf dem Grund bei 1.06:1. Auf der Haarlinie kam der
- * Umriss auf 1.25:1 hell und 1.44:1 dunkel; NFR9 verlangt 3:1, --ink-secondary
- * liefert 4.71:1 und 6.90:1. Gemessen im Kontrast-Sweep vom 2026-09-02,
- * entschieden als Weg (a).
+ * (--surface-raised) steht auf dem Grund bei 1.10:1. Auf der Haarlinie kam der
+ * Umriss auf 1.34:1; NFR9 verlangt 3:1, --ink-secondary liefert auf derselben
+ * Fläche 5.97:1. Gemessen im Kontrast-Sweep vom 2026-09-02, entschieden als
+ * Weg (a), nachgerechnet für die Palette vom 2026-09-13.
  */
 .feld {
 	display: block;
@@ -576,7 +580,7 @@ select.feld {
  *
  * Die Kante liegt auf --ink-secondary und nicht auf --hairline: der Eintrag ist
  * ein Bedienelement, und NFR9 verlangt für dessen Umriss 3:1. Auf der Haarlinie
- * waren es 1.25:1 hell und 1.44:1 dunkel — gemessen im Kontrast-Sweep vom
+ * wären es auf dieser Fläche 1.34:1 — gemessen im Kontrast-Sweep vom
  * 2026-09-02, gehoben mit Entscheid (a).
  */
 .eintrag {
@@ -684,21 +688,64 @@ select.feld {
  * dem `gap` der Seite bekamen: als Geschwister waren sie zwei Kinder von
  * `.seite`, im Aufklapper sind sie eines.
  *
- * **Seit dem 2026-09-11 eine Kachel**: Fläche, Kante und Radius wie am Eintrag
- * und an der Zeile zum Tränkeplan. Der Griff trägt seit dem Umbau die Zahl des
- * Abschnitts und ist damit die Überschrift **und** die Zusammenfassung — ein
- * blosser Textabsatz wurde dem nicht mehr gerecht. Die Kante liegt auf
- * `--ink-secondary` und nicht auf der Haarlinie: ein Griff ist ein Bedienelement
- * (NFR9, Entscheid (a)).
+ * **Seit dem 2026-09-11 eine Kachel**, seit dem 2026-09-13 der Kopf eines
+ * Behälters. Der Griff trägt seit dem Umbau die Zahl des Abschnitts und ist
+ * damit die Überschrift **und** die Zusammenfassung — ein blosser Textabsatz
+ * wurde dem nicht mehr gerecht.
+ *
+ * **Warum er seine eigene Kante verloren hat.** Als Kachel sah er aus wie der
+ * Eintrag und wie die Zeile zum Tränkeplan: gleiche Fläche, gleiche Kante,
+ * gleicher Radius — also wie eines der Dinge, die er überschreibt. Wo ein
+ * Abschnitt aufhörte, sagte allein der Abstand. Die Kante sitzt jetzt an
+ * `.abschnitt` darunter, und der Griff trägt statt ihrer eine eigene Fläche.
+ * Dass er ein Bedienelement ist (NFR9, Entscheid (a)), hält damit weiterhin
+ * die Kante des Behälters, in dem er das erste Kind ist.
+ *
+ * **Und er trägt auch unten keine Linie**, obwohl eine zwischen Kopf und Inhalt
+ * naheliegt. Der Grund ist gemessen und nicht gestalterisch: der Griff ist ein
+ * `<summary>` und damit ein Bedienelement, und der Kontrast-Sweep hält **jede**
+ * seiner Kanten gegen die 3:1 aus NFR9 — eine Haarlinie käme dort auf 1.34:1
+ * und wäre ein Verstoss. Auf --ink-secondary gehoben hielte sie die Schwelle,
+ * läge als durchgezogene dunkle Linie aber schwerer im Bild als der Behälter
+ * selbst. Die Trennung trägt die Fläche: --surface-griff steht bei 1.21:1 gegen
+ * die Karte darunter, mehr als --surface-open gegen dieselbe Karte hat.
  */
 .abschnitt__griff {
 	min-height: var(--touch);
 	padding: var(--space-2) var(--space-3);
-	margin-block-end: var(--space-2);
+	background-color: var(--surface-griff);
+	cursor: pointer;
+}
+
+/*
+ * Der Abschnitt als Behälter: Griff oben, Inhalt darunter, eine Kante um beide.
+ *
+ * Das `overflow: hidden` ist nicht Kosmetik, sondern das, was die getönte
+ * Fläche des Griffs in den Radius zwingt: ohne es stehen ihre zwei oberen
+ * Ecken quadratisch über der abgerundeten Kante des Behälters.
+ *
+ * Die Kante liegt auf `--ink-secondary` wie an jedem Bedienelement — das erste
+ * Kind ist ein `<summary>`, und der Behälter ist dessen sichtbarer Umriss.
+ */
+.abschnitt {
 	border: var(--border-hairline) solid var(--ink-secondary);
 	border-radius: var(--radius-md);
 	background-color: var(--surface-raised);
-	cursor: pointer;
+	overflow: hidden;
+}
+
+/*
+ * Der Inhalt eines Abschnitts. Der Innenabstand ersetzt den Aussenabstand, den
+ * der Griff bis zum 2026-09-13 nach unten trug: als Geschwister bekamen Griff
+ * und Liste ihren Abstand aus dem `gap` der Seite, im Aufklapper sind sie eines,
+ * und seit dem Umbau liegt die Liste **in** einem Behälter statt frei auf dem
+ * Grund.
+ */
+.abschnitt__inhalt {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	padding: var(--space-3);
 }
 
 /*

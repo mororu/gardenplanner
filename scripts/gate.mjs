@@ -14,7 +14,7 @@
  *   node scripts/gate.mjs [zielverzeichnis]   prüft ein Projekt (Vorgabe: dieses)
  *   node scripts/gate.mjs --selftest          prüft das Tor gegen die Fehlerproben
  *
- * Die siebzehn Regeln:
+ * Die sechzehn Regeln:
  *   1. In .svelte und .css unter src/ kein Farbliteral (Hex, rgb(), rgba(),
  *      hsl(), hsla(), oklch(), color() …, CSS-Farbname), kein rohes
  *      px/rem-Literal ausser 0 und **kein rohes ms/s-Literal ausser 0** im Wert
@@ -31,10 +31,13 @@
  *   2. Kein var() mit Fallback-Wert — der Fallback verdeckt genau Regel 3.
  *   3. Jedes in src/ benutzte var(--x) ist im :root-Block von app.html
  *      deklariert.
- *   4. Beide Richtungen: jedes Farb-Token aus :root hat einen Wert im
- *      Dunkel-Block, und kein Token existiert nur im Dunkel-Block.
- *   5. Die theme-color-Metas und die Farben im Manifest stimmen mit den
- *      zugehörigen Tokens überein.
+ *      (Die **4** ist am 2026-09-13 mit dem dunklen Modus weggefallen: sie
+ *      verlangte zu jedem Farb-Token einen Wert im Dunkel-Block. Die Nummer
+ *      bleibt frei — ein Nachrücken benannte sechzehn Regeln um, damit jede
+ *      Fehlerprobe, jede Fundstelle und jede Commit-Nachricht, die eine Nummer
+ *      nennt, still falsch würde.)
+ *   5. Es gibt genau eine theme-color-Zeile, sie trägt kein `media`, und sie
+ *      stimmt wie die Farben im Manifest mit den zugehörigen Tokens überein.
  *   6. Jeder Icon- und Manifest-Pfad aus app.html und aus dem Manifest
  *      existiert unter static/.
  *   7. Für jede .svelte-Datei liefert `eslint --print-config` mindestens so
@@ -137,7 +140,6 @@ import tsPlugin from 'typescript-eslint';
 
 const projektWurzel = fileURLToPath(new URL('..', import.meta.url));
 const probenWurzel = join(projektWurzel, 'scripts', 'gate-fixtures');
-const dunkelMarke = '@media (prefers-color-scheme: dark)';
 const geprüfteEndungen = ['.svelte', '.css', '.html', '.ts', '.js'];
 
 /**
@@ -355,20 +357,6 @@ const systemfarben = new Set(
 const systemfarbenErlaubt = new Set(['canvas', 'canvastext']);
 
 /**
- * Ein Token gilt als Farb-Token, wenn sein Wert im :root-Block eine Farbe ist.
- * Damit leitet Regel 4 ihre Menge aus den Werten ab und nicht aus einer im
- * Skript gepflegten Namensliste, die beim nächsten neuen Token veralten würde.
- * @param {string} wert
- */
-const istFarbwert = (wert) => {
-	const gekürzt = wert.trim().toLowerCase().replace(/;$/, '');
-	if (farbnamen.has(gekürzt)) return true;
-	if (systemfarben.has(gekürzt)) return true;
-	if (/^#[0-9a-f]{3,8}$/.test(gekürzt)) return true;
-	return /^(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color|color-mix)\s*\(/.test(gekürzt);
-};
-
-/**
  * Jeder Modul-Spezifizierer einer Datei mit seinem Versatz. Bewusst rein
  * textuell: das Tor darf keinen Parser für vier Dateiformen mitbringen, und ein
  * Import, der nur in einem Kommentar steht, ist vorher schon ausgeblendet.
@@ -535,8 +523,6 @@ const torPrüfen = (ziel) => {
 
 	/** @type {Map<string, string>} */
 	const hellTokens = new Map();
-	/** @type {Map<string, string>} */
-	const dunkelTokens = new Map();
 
 	/**
 	 * @param {string} innen
@@ -552,108 +538,39 @@ const torPrüfen = (ziel) => {
 	};
 
 	if (shellRoh !== null) {
-		// Der Dunkel-Block wird per Klammertiefe geschnitten. Ein fehlender,
-		// leerer, doppelter oder unbalancierter Block ist selbst eine Verletzung.
-		const markenStellen = [
-			...shellText.matchAll(/@media\s*\(\s*prefers-color-scheme:\s*dark\s*\)/g),
-		];
-		let dunkelVon = -1;
-		let dunkelBis = shellText.length;
-		let dunkelInnen = '';
-
-		if (markenStellen.length === 0) {
-			melden(4, shell, 1, `kein Block ${dunkelMarke} — der dunkle Modus hat keine Token-Werte`);
-		} else {
-			if (markenStellen.length > 1) {
-				melden(
-					4,
-					shell,
-					zeileVon(shellText, markenStellen[1].index ?? 0),
-					`${markenStellen.length} Blöcke ${dunkelMarke} — der Dunkel-Block muss eindeutig sein`
-				);
-			}
-			dunkelVon = markenStellen[0].index ?? 0;
-			const medienBlock = blockAb(shellText, dunkelVon);
-			if (medienBlock === null) {
-				melden(
-					4,
-					shell,
-					zeileVon(shellText, dunkelVon),
-					`der Block ${dunkelMarke} ist unbalanciert — die schliessende Klammer fehlt`
-				);
-			} else {
-				dunkelBis = medienBlock.bis;
-				const medienInnen = shellText.slice(medienBlock.innenVon, medienBlock.innenBis);
-				const rootVon = medienInnen.search(/:root\s*\{/);
-				const rootBlock = rootVon < 0 ? null : blockAb(medienInnen, rootVon);
-				if (rootBlock === null) {
-					melden(
-						4,
-						shell,
-						zeileVon(shellText, dunkelVon),
-						`im Block ${dunkelMarke} steht kein balancierter :root-Block`
-					);
-				} else {
-					dunkelInnen = medienInnen.slice(rootBlock.innenVon, rootBlock.innenBis);
-				}
-			}
-		}
-
-		// Der Hell-Block ist der eindeutige :root-Block ausserhalb des Dunkel-Blocks.
-		const hellText =
-			dunkelVon < 0
-				? shellText
-				: shellText.slice(0, dunkelVon) +
-					ausgeblendet(shellText.slice(dunkelVon, dunkelBis)) +
-					shellText.slice(dunkelBis);
-		const hellStellen = [...hellText.matchAll(/:root\s*\{/g)];
-		if (hellStellen.length === 0) {
+		/*
+		 * Der Token-Block ist der eindeutige :root-Block in app.html.
+		 *
+		 * **Bis zum 2026-09-13 war das die halbe Arbeit.** Damals gab es zwei
+		 * Blöcke — den hellen und den im Dunkel-Medienblock —, sie mussten
+		 * auseinandergeschnitten werden, und Regel 4 hielt beide Richtungen
+		 * zusammen: kein Farb-Token ohne dunklen Wert, kein Token nur im
+		 * Dunkel-Block. Mit dem dunklen Modus ist diese ganze Mechanik weggefallen;
+		 * was bleibt, ist die Eindeutigkeit, und die gehört zu Regel 3: ein
+		 * zweiter :root-Block überschriebe den ersten still.
+		 */
+		const rootStellen = [...shellText.matchAll(/:root\s*\{/g)];
+		if (rootStellen.length === 0) {
 			melden(3, shell, 1, 'kein :root-Block gefunden — der Gestaltungsrahmen fehlt');
 		} else {
-			if (hellStellen.length > 1) {
+			if (rootStellen.length > 1) {
 				melden(
 					3,
 					shell,
-					zeileVon(hellText, hellStellen[1].index ?? 0),
-					`${hellStellen.length} :root-Blöcke im hellen Teil — der Token-Block muss eindeutig sein`
+					zeileVon(shellText, rootStellen[1].index ?? 0),
+					`${rootStellen.length} :root-Blöcke — der Token-Block muss eindeutig sein`
 				);
 			}
-			const hellBlock = blockAb(hellText, hellStellen[0].index ?? 0);
-			if (hellBlock === null) {
+			const rootBlock = blockAb(shellText, rootStellen[0].index ?? 0);
+			if (rootBlock === null) {
 				melden(3, shell, 1, 'der :root-Block ist unbalanciert');
 			} else {
 				for (const [name, wert] of deklarationenAus(
-					hellText.slice(hellBlock.innenVon, hellBlock.innenBis)
+					shellText.slice(rootBlock.innenVon, rootBlock.innenBis)
 				)) {
 					hellTokens.set(name, wert);
 				}
 			}
-		}
-
-		for (const [name, wert] of deklarationenAus(dunkelInnen)) dunkelTokens.set(name, wert);
-
-		// ----- Regel 4, beide Richtungen -----
-		if (markenStellen.length > 0 && dunkelTokens.size === 0) {
-			melden(
-				4,
-				shell,
-				zeileVon(shellText, Math.max(dunkelVon, 0)),
-				`der Block ${dunkelMarke} deklariert kein einziges Token`
-			);
-		}
-		for (const [name, wert] of hellTokens) {
-			if (!istFarbwert(wert)) continue;
-			if (dunkelTokens.has(name)) continue;
-			melden(
-				4,
-				shell,
-				1,
-				`Farb-Token ${name} hat keinen Wert im Dunkel-Block — die Fläche bliebe im dunklen Modus unbemalt`
-			);
-		}
-		for (const name of dunkelTokens.keys()) {
-			if (hellTokens.has(name)) continue;
-			melden(4, shell, 1, `Token ${name} existiert nur im Dunkel-Block, nicht im :root-Block`);
 		}
 	}
 
@@ -985,64 +902,67 @@ const torPrüfen = (ziel) => {
 		}
 	}
 
-	/** @type {Map<string, string>} */
-	const themeFarben = new Map();
+	/*
+	 * Die theme-color-Zeilen. **Seit dem 2026-09-13 darf es genau eine geben, und
+	 * sie darf kein `media` tragen:** es gibt nur noch ein Schema, und eine
+	 * schemabezogene Zeile verspräche ein zweites, das niemand gestaltet hat.
+	 * Diese Richtung ist der Rest dessen, was vorher Regel 4 hielt — sie sitzt
+	 * hier, weil theme-color zu Regel 5 gehört und nicht zum Tokenblock.
+	 */
+	/** @type {string[]} */
+	const themeFarben = [];
 	for (const treffer of shellText.matchAll(/<meta\b[^>]*>/g)) {
 		const tag = treffer[0];
 		if (!/name=["']theme-color["']/.test(tag)) continue;
-		const inhalt = /content=["']([^"']*)["']/.exec(tag);
-		if (inhalt === null) {
-			melden(5, shell, zeileVon(shellText, treffer.index ?? 0), 'theme-color ohne content');
+		const zeile = zeileVon(shellText, treffer.index ?? 0);
+		const medien = /media=["']([^"']*)["']/.exec(tag);
+		if (medien !== null) {
+			melden(
+				5,
+				shell,
+				zeile,
+				`theme-color mit media="${medien[1]}" — es gibt nur ein Schema, die Zeile gilt unqualifiziert`
+			);
 			continue;
 		}
-		const medien = /media=["']([^"']*)["']/.exec(tag);
-		const schlüssel =
-			medien === null ? 'unqualifiziert' : /dark/.test(medien[1]) ? 'dunkel' : 'hell';
-		themeFarben.set(schlüssel, inhalt[1]);
+		const inhalt = /content=["']([^"']*)["']/.exec(tag);
+		if (inhalt === null) {
+			melden(5, shell, zeile, 'theme-color ohne content');
+			continue;
+		}
+		themeFarben.push(inhalt[1]);
+	}
+	if (themeFarben.length > 1) {
+		melden(5, shell, 1, `${themeFarben.length} unqualifizierte theme-color — es darf eine geben`);
 	}
 
-	/** @type {{ quelle: string, wert: unknown, token: string, block: 'hell' | 'dunkel' }[]} */
+	/** @type {{ quelle: string, wert: unknown, token: string }[]} */
 	const abgleich = [
 		{
-			quelle: 'src/app.html: theme-color (unqualifiziert)',
-			wert: themeFarben.get('unqualifiziert'),
+			quelle: 'src/app.html: theme-color',
+			wert: themeFarben[0],
 			token: '--accent',
-			block: 'hell',
-		},
-		{
-			quelle: 'src/app.html: theme-color (prefers-color-scheme: light)',
-			wert: themeFarben.get('hell'),
-			token: '--accent',
-			block: 'hell',
-		},
-		{
-			quelle: 'src/app.html: theme-color (prefers-color-scheme: dark)',
-			wert: themeFarben.get('dunkel'),
-			token: '--accent',
-			block: 'dunkel',
 		},
 		{
 			quelle: 'static/manifest.webmanifest: theme_color',
 			wert: manifest.theme_color,
 			token: '--accent',
-			block: 'hell',
 		},
 		{
 			quelle: 'static/manifest.webmanifest: background_color',
 			wert: manifest.background_color,
 			token: '--surface-base',
-			block: 'hell',
 		},
 	];
 
-	for (const { quelle: name, wert, token, block } of abgleich) {
-		const soll = block === 'hell' ? hellTokens.get(token) : dunkelTokens.get(token);
+	for (const { quelle: name, wert, token } of abgleich) {
+		const soll = hellTokens.get(token);
 		if (soll === undefined) {
-			melden(5, shell, 1, `${name} soll ${token} (${block}) spiegeln, das Token fehlt aber`);
+			melden(5, shell, 1, `${name} soll ${token} spiegeln, das Token fehlt aber`);
 			continue;
 		}
 		if (typeof wert !== 'string') {
-			melden(5, shell, 1, `${name} fehlt — der Wert soll ${token} (${block}) spiegeln`);
+			melden(5, shell, 1, `${name} fehlt — der Wert soll ${token} spiegeln`);
 			continue;
 		}
 		if (normalisierteFarbe(wert) === normalisierteFarbe(soll)) continue;
@@ -1050,7 +970,7 @@ const torPrüfen = (ziel) => {
 			5,
 			shell,
 			1,
-			`${name} ist ${wert}, ${token} (${block}) ist aber ${soll} — die beiden müssen übereinstimmen`
+			`${name} ist ${wert}, ${token} ist aber ${soll} — die beiden müssen übereinstimmen`
 		);
 	}
 
@@ -1943,7 +1863,7 @@ const berichten = (ergebnis, ziel) => {
 	}
 	console.log(
 		`gate (${wo}): ${ergebnis.dateien} Dateien und ${ergebnis.tokens} Tokens geprüft, ` +
-			`${ergebnis.hinweise.length} Hinweis(e), siebzehn Regeln erfüllt.`
+			`${ergebnis.hinweise.length} Hinweis(e), sechzehn Regeln erfüllt.`
 	);
 	return 0;
 };
@@ -2054,23 +1974,6 @@ const proben = [
 		begruendung: '1 Token nur im Kommentar erwähnt + 1 Token in einem Nicht-:root-Selektor',
 		art: 'Verstoss',
 		beschreibung: 'Token nur in einem Kommentar erwähnt und Token in einem Nicht-:root-Selektor',
-	},
-	{
-		regel: 4,
-		verzeichnis: 'regel-4a-farbe-nur-hell',
-		erwartet: 2,
-		begruendung: '2 Farb-Token des Hell-Blocks ohne Wert im Dunkel-Block',
-		art: 'Verstoss',
-		beschreibung: 'Farb-Token nur im Hell-Block, kein Wert im Dunkel-Block',
-	},
-	{
-		regel: 4,
-		verzeichnis: 'regel-4b-dunkel-block-kaputt',
-		erwartet: 5,
-		begruendung:
-			'1 unbalancierter Dunkel-Block + 4 Farb-Token, die dadurch keinen Dunkelwert haben',
-		art: 'Verstoss',
-		beschreibung: 'unbalancierter Dunkel-Block',
 	},
 	{
 		regel: 5,
@@ -2457,7 +2360,7 @@ const proben = [
 const selbsttest = () => {
 	let fehlt = 0;
 	console.log(
-		`gate --selftest: ${proben.length} Fehlerproben gegen die siebzehn Regeln ` +
+		`gate --selftest: ${proben.length} Fehlerproben gegen die sechzehn Regeln ` +
 			`(erwartet: ${erwarteteSvelteRegeln} svelte/*- und ${erwarteteTsRegeln} @typescript-eslint/*-Regeln je Komponente)\n`
 	);
 
@@ -2505,7 +2408,7 @@ const selbsttest = () => {
 	}
 	console.log(
 		`\ngate --selftest: alle ${proben.length} Fehlerproben in erwarteter Zahl gefunden, ` +
-			'jede der siebzehn Regeln beisst nachweislich.'
+			'jede der sechzehn Regeln beisst nachweislich.'
 	);
 	return 0;
 };

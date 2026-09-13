@@ -554,12 +554,25 @@
 		wegklickbar. Vertiefen darf die Unterseite, exklusiv informieren nicht —
 		der Satz hier sagt schon alles, was diese Woche zählt.
 
-		Die linke Kante in Akzentfarbe (3px, var(--border-marker)) ist dasselbe
-		Zeichen wie an der laufenden Woche auf /traenkeplan: hier bist du gerade.
+		**Seit dem 2026-09-13 eine gefüllte Akzentfläche** und keine Karte mit
+		Kante mehr. Der Grund ist ein Befund von Manuel: als weisse Karte mit
+		3px-Kante stand der Block in einer Reihe mit dem Tränkeplan darunter und
+		mit jeder anderen Karte der Seite — wer ihn überblättert, verpasst seinen
+		Dienst. Die Fläche trägt die Aussage jetzt selbst.
+
+		**Der Akzent bedeutet dabei unverändert *hier kann gehandelt werden*** und
+		nicht *Achtung*: der Block ist ein Link auf den Tränkeplan. Er ist die
+		einzige gefüllte Fläche oberhalb der Knöpfe, und das bleibt so — eine
+		zweite nähme ihm genau das, was ihn hier trägt.
+
+		Die Marke darüber ist kein Schmuck: DESIGN.md verbietet Farbe als einzigen
+		Träger eines Zustands, und ohne sie unterschiede sich dieser Block in
+		Graustufen allein durch seine Füllung von einem Knopf.
 	-->
 	{#if data.dienst !== null}
 		<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
 		<a class="dienst" href={resolve('/traenkeplan')}>
+			<span class="dienst__marke">Du bist dran</span>
 			<span class="dienst__satz">Diese Woche bist du am Tränken</span>
 			<span class="hinweis hinweis--ziffern">{data.dienst.datum}</span>
 		</a>
@@ -619,7 +632,7 @@
 		und wer am Samstag in den Garten geht, will wissen, was es überhaupt gibt
 		— nicht nur, was brennt.
 	-->
-	<details open>
+	<details class="abschnitt" open>
 		<summary class="abschnitt__griff">
 			<!--
 				**Die Zahl zählt, was darunter steht** — Kachel und Liste sagen
@@ -646,57 +659,57 @@
 				{/if}
 			</h2>
 		</summary>
-
-		{#if data.ernte.length > 0}
-			<ul class="liste liste--getrennt" aria-labelledby="ernte-marke">
-				{#each data.ernte as zeile (zeile.id)}
-					<li>
-						<!--
-							Die Farbe der Stufe als 3px-Kante — dieselbe Marke und dieselben
-							drei Token wie auf /ernte, damit dasselbe Zeichen an beiden Orten
-							dasselbe heisst. Das **Wort** steht auf /ernte in der Überschrift
-							des Abschnitts; hier trägt es der Griff darüber, solange etwas
-							dringend ist. Kein Zustand hängt allein an der Farbe.
+		<div class="abschnitt__inhalt">
+			{#if data.ernte.length > 0}
+				<ul class="liste liste--getrennt" aria-labelledby="ernte-marke">
+					{#each data.ernte as zeile (zeile.id)}
+						<li>
+							<!--
+							Die Farbe der Stufe als Marke — dieselbe Breite und dieselben drei
+							Token wie auf /ernte, damit dasselbe Zeichen an beiden Orten dasselbe
+							heisst. Das **Wort** steht auf /ernte in der Überschrift des
+							Abschnitts und hier in der Marke an der Zeile. Kein Zustand hängt
+							allein an der Farbe.
 						-->
-						<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-						<a
-							class="ernte-zeile"
-							class:ernte-zeile--sofort={zeile.status === 'sofort'}
-							class:ernte-zeile--stehen={zeile.status === 'stehen'}
-							class:ernte-zeile--wachsen={zeile.status === 'wachsen'}
-							href={resolve('/ernte')}
-						>
-							<span class="zeile__spalte">
-								<span class="ernte-zeile__titel">
-									<span class="zeile__text"
-										>{zeile.kultur}{#if zeile.ort !== null}<span class="ernte-zeile__ort"
-												>, {zeile.ort}</span
-											>{/if}</span
-									>
-									<!--
+							<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+							<a
+								class="ernte-zeile"
+								class:ernte-zeile--sofort={zeile.status === 'sofort'}
+								class:ernte-zeile--stehen={zeile.status === 'stehen'}
+								class:ernte-zeile--wachsen={zeile.status === 'wachsen'}
+								href={resolve('/ernte')}
+							>
+								<span class="zeile__spalte">
+									<span class="ernte-zeile__titel">
+										<span class="zeile__text"
+											>{zeile.kultur}{#if zeile.ort !== null}<span class="ernte-zeile__ort"
+													>, {zeile.ort}</span
+												>{/if}</span
+										>
+										<!--
 										Das Wort der Stufe, seit die Kachel es nicht mehr trägt. Die
 										**kurze** Fassung wie an den Knöpfen auf /ernte — die Zeile
 										hat neben Kultur, Ort und Vermerk keinen Platz für einen
 										ganzen Satz, und die lange steht drüben in der Überschrift
 										des Abschnitts.
 									-->
-									<span class="marke">{ERNTETEXT[zeile.status].kurz}</span>
-									{#if zeile.laufend}
-										<span class="marke">{DAUERERNTE_WORT}</span>
-									{/if}
+										<span class="marke">{ERNTETEXT[zeile.status].kurz}</span>
+										{#if zeile.laufend}
+											<span class="marke">{DAUERERNTE_WORT}</span>
+										{/if}
+									</span>
+									<span class="hinweis hinweis--ziffern">
+										{zeile.name ?? 'unbekannt'} · {datumLang(zeile.createdAt)}
+									</span>
 								</span>
-								<span class="hinweis hinweis--ziffern">
-									{zeile.name ?? 'unbekannt'} · {datumLang(zeile.createdAt)}
-								</span>
-							</span>
-							<span class="plan-zeile__pfeil" aria-hidden="true">→</span>
-						</a>
-					</li>
-				{/each}
-			</ul>
-		{/if}
+								<span class="plan-zeile__pfeil" aria-hidden="true">→</span>
+							</a>
+						</li>
+					{/each}
+				</ul>
+			{/if}
 
-		<!--
+			<!--
 			Die Haupthandlung dieses Abschnitts. Sie steht ausserhalb des {#if} — auch
 			wer nichts gemeldet sieht, soll losgehen können. Ohne sie wäre die Ernte
 			der einzige Abschnitt auf dieser Seite, aus dem heraus man nichts anfangen
@@ -714,9 +727,10 @@
 			mehr, und der Parameter ist mit ihr weg statt als tote Mechanik
 			stehenzubleiben.
 		-->
-		<div class="knoepfe">
-			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-			<a class="button-primary" href={resolve('/ernte')}>Ernten</a>
+			<div class="knoepfe">
+				<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+				<a class="button-primary" href={resolve('/ernte')}>Ernten</a>
+			</div>
 		</div>
 	</details>
 
@@ -743,7 +757,7 @@
 		**nicht** gespeichert: beim nächsten Laden steht wieder alles offen, und
 		damit kann kein einmaliger Griff dauerhaft verbergen, dass etwas ansteht.
 		-->
-	<details open>
+	<details class="abschnitt" open>
 		<summary class="abschnitt__griff">
 			<h2 class="griff__satz" id="einzel-marke">
 				{#if data.ueberblick.frei === 0}
@@ -754,19 +768,20 @@
 				{/if}
 			</h2>
 		</summary>
-		{#if data.einzelaufgaben.length > 0}
-			<ul class="liste liste--getrennt" aria-labelledby="einzel-marke">
-				{#each data.einzelaufgaben as aufgabe (aufgabe.id)}
-					{@const frageHier = frage !== null && frage.id === aufgabe.id}
-					<!--
+		<div class="abschnitt__inhalt">
+			{#if data.einzelaufgaben.length > 0}
+				<ul class="liste liste--getrennt" aria-labelledby="einzel-marke">
+					{#each data.einzelaufgaben as aufgabe (aufgabe.id)}
+						{@const frageHier = frage !== null && frage.id === aufgabe.id}
+						<!--
 					`karte--offen` ohne Bedingung: dieser Block führt ausschliesslich freie
 					Einzelaufgaben (die load holt nur die), und eine Bedingung, die immer
 					wahr ist, behauptete eine Unterscheidung, die es hier nicht gibt.
 					Dieselbe Fläche wie auf /einzelaufgaben — derselbe Zustand, dieselbe
 					Farbe, sonst lernte man sie zweimal.
 				-->
-					<li class="karte karte--offen">
-						<!--
+						<li class="karte karte--offen">
+							<!--
 						**Eine Reihe, nicht zwei Blöcke übereinander.** Der Knopf stand bis
 						zum 2026-09-11 über die volle Spaltenbreite unter dem Titel und
 						nahm auf dem Telefon — dem Hauptgerät dieser Anwendung — Höhe weg,
@@ -776,9 +791,9 @@
 						über drei Zeilen läuft, soll der Knopf oben bleiben und nicht in
 						die Mitte rutschen.
 					-->
-						<div class="einzel__reihe">
-							<div class="zeile__spalte">
-								<!--
+							<div class="einzel__reihe">
+								<div class="zeile__spalte">
+									<!--
 							Die Kennung dieser Zeile. Der Knopf darunter heisst in jeder Zeile
 							`Übernehmen`; wer die Liste sieht, liest den Titel mit, wer sie mit
 							einer Elementliste durchgeht, bekäme sonst dasselbe Wort ohne jede
@@ -788,11 +803,11 @@
 							`.zeile__text` bringt den Umbruch für getippten Text aus dem
 							geteilten Stilblatt mit.
 						-->
-								<p class="fliesstext zeile__text" id="einzel-titel-{aufgabe.id}">
-									{aufgabe.titel}
-								</p>
-								<p class="hinweis hinweis--ziffern">{datumLang(aufgabe.terminAt)}</p>
-								<!--
+									<p class="fliesstext zeile__text" id="einzel-titel-{aufgabe.id}">
+										{aufgabe.titel}
+									</p>
+									<p class="hinweis hinweis--ziffern">{datumLang(aufgabe.terminAt)}</p>
+									<!--
 							`noch niemand` steht hier als Wort und nicht als Ausdruck über
 							`aufgabe.uebernehmer`: die load reicht über
 							freieEinzelaufgabenLesen ausschliesslich **freie** Zeilen herein,
@@ -800,10 +815,10 @@
 							ein toter Zweig. Auf /einzelaufgaben, wo beide Zustände stehen,
 							verzweigt die Zeile wirklich.
 						-->
-								<p class="hinweis">noch niemand</p>
-							</div>
+									<p class="hinweis">noch niemand</p>
+								</div>
 
-							<!--
+								<!--
 						**Entweder der Knopf oder die Frage, nie beides.** Steht die Frage
 						zu dieser Zeile offen, ist der Knopf darüber fort: er schickte
 						dieselbe action ein zweites Mal ab und stellte damit nur dieselbe
@@ -822,22 +837,22 @@
 						öffnet den Dialog; **ohne** JavaScript läuft er nicht, der POST geht
 						durch, und der Server antwortet mit derselben Frage als Dokument.
 					-->
-							{#if !frageHier}
-								<form
-									class="einzel__form"
-									method="POST"
-									action="?/uebernehmen"
-									use:enhance={versandFragen(aufgabe)}
-								>
-									<input type="hidden" name="einzelaufgabeId" value={aufgabe.id} />
-									<button
-										class="button-quiet button-quiet--kompakt"
-										type="submit"
-										id="uebernehmen-{aufgabe.id}"
-										aria-labelledby="uebernehmen-{aufgabe.id} einzel-titel-{aufgabe.id}"
-										disabled={imFlug}
+								{#if !frageHier}
+									<form
+										class="einzel__form"
+										method="POST"
+										action="?/uebernehmen"
+										use:enhance={versandFragen(aufgabe)}
 									>
-										<!--
+										<input type="hidden" name="einzelaufgabeId" value={aufgabe.id} />
+										<button
+											class="button-quiet button-quiet--kompakt"
+											type="submit"
+											id="uebernehmen-{aufgabe.id}"
+											aria-labelledby="uebernehmen-{aufgabe.id} einzel-titel-{aufgabe.id}"
+											disabled={imFlug}
+										>
+											<!--
 									**Das Zeichen steht neben dem Wort, nicht an seiner Stelle.**
 									Ein Kopf mit Schultern, weil Übernehmen in diesem System genau
 									eines heisst: die Sache bekommt einen Namen (AD-4). Ein Häkchen
@@ -849,25 +864,25 @@
 									sonst hörte man die Handlung zweimal. `currentColor`, damit es
 									im deaktivierten Zustand mit der Schrift mitgeht.
 								-->
-										<svg
-											class="zeichen"
-											viewBox="0 0 24 24"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2"
-											stroke-linecap="round"
-											aria-hidden="true"
-										>
-											<circle cx="12" cy="8" r="4" />
-											<path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
-										</svg>
-										Übernehmen
-									</button>
-								</form>
-							{/if}
-						</div>
+											<svg
+												class="zeichen"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												aria-hidden="true"
+											>
+												<circle cx="12" cy="8" r="4" />
+												<path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+											</svg>
+											Übernehmen
+										</button>
+									</form>
+								{/if}
+							</div>
 
-						<!--
+							<!--
 						Die Bestätigung **ohne JavaScript**, an der Zeile, um die es geht.
 						Sie steht **ausserhalb** der Reihe: sie gehört nicht neben den Titel,
 						sondern unter die ganze Zeile — sie ist eine Frage an die Person, kein
@@ -887,9 +902,9 @@
 						die Fokusreihenfolge, und die zusagende Handlung soll nicht die
 						erste sein, die ein Enter trifft.
 					-->
-						{#if frageHier && frage !== null}
-							<div class="einzel__frage">
-								<!--
+							{#if frageHier && frage !== null}
+								<div class="einzel__frage">
+									<!--
 								**Derselbe Satz und dieselbe Folge wie im Dialog.** `uebernahmeSatz`
 								nennt, was übernommen wird; `UEBERNAHME_FOLGE` sagt, warum das
 								verbindlich ist. Der zweite Teil ist Substanz und keine Zierde —
@@ -902,31 +917,31 @@
 								Die Überschrift bleibt dem Dialog: sie benennt ein Fenster, nicht
 								den Vorgang. Hier trägt die Zeile selbst den Zusammenhang.
 							-->
-								<p class="fliesstext" id="einzel-frage-{aufgabe.id}">
-									{uebernahmeSatz(frage)}
-									{UEBERNAHME_FOLGE}
-								</p>
-								<form class="knoepfe" method="POST" action="?/uebernehmen">
-									<input type="hidden" name="einzelaufgabeId" value={frage.id} />
-									<input type="hidden" name="bestaetigt" value="1" />
-									<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-									<a class="button-quiet" href={resolve('/')}>Abbrechen</a>
-									<button
-										class="button-quiet"
-										type="submit"
-										aria-describedby="einzel-frage-{aufgabe.id}"
-									>
-										Übernehmen
-									</button>
-								</form>
-							</div>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		{/if}
+									<p class="fliesstext" id="einzel-frage-{aufgabe.id}">
+										{uebernahmeSatz(frage)}
+										{UEBERNAHME_FOLGE}
+									</p>
+									<form class="knoepfe" method="POST" action="?/uebernehmen">
+										<input type="hidden" name="einzelaufgabeId" value={frage.id} />
+										<input type="hidden" name="bestaetigt" value="1" />
+										<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+										<a class="button-quiet" href={resolve('/')}>Abbrechen</a>
+										<button
+											class="button-quiet"
+											type="submit"
+											aria-describedby="einzel-frage-{aufgabe.id}"
+										>
+											Übernehmen
+										</button>
+									</form>
+								</div>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
 
-		<!--
+			<!--
 				**Die zwei Wege stehen im selben Aufklapper wie die Liste.**
 
 				Bis zum 2026-09-11 waren es zwei getrennte Dinge, und beide hiessen
@@ -947,8 +962,8 @@
 				vorher. Der Pool darüber macht es seit Story 1.4 genauso: Marke steht,
 				und statt der Liste ein Satz.
 			-->
-		<div class="knoepfe">
-			<!--
+			<div class="knoepfe">
+				<!--
 				**Ein primärer Knopf je Abschnitt, nicht je Seite.**
 
 				DESIGN.md schrieb bis zum 2026-09-11 „höchstens einer pro Seite", und das
@@ -963,8 +978,9 @@
 				resolve() ist Pflicht für interne Ziele
 				(svelte/no-navigation-without-resolve).
 			-->
-			<a class="button-primary" href={resolve('/einzelaufgabe')}>+ Einzelaufgabe</a>
-			<a class="eintrag" href={resolve('/einzelaufgaben')}>Alle Einzelaufgaben</a>
+				<a class="button-primary" href={resolve('/einzelaufgabe')}>+ Einzelaufgabe</a>
+				<a class="eintrag" href={resolve('/einzelaufgaben')}>Alle Einzelaufgaben</a>
+			</div>
 		</div>
 	</details>
 
@@ -983,7 +999,7 @@
 		anzuzeigen, und muss auch dann erreichbar sein, wenn jemand die Liste
 		weggeklappt hat.
 	-->
-	<details open>
+	<details class="abschnitt" open>
 		<summary class="abschnitt__griff">
 			<h2 class="griff__satz" id="offen-marke">
 				{#if data.ueberblick.offen === 0}
@@ -999,11 +1015,12 @@
 				{/if}
 			</h2>
 		</summary>
-		{#if data.aufgaben.length > 0}
-			<ul class="liste" aria-labelledby="offen-marke">
-				{#each data.aufgaben as aufgabe (aufgabe.id)}
-					{@const istErledigt = erledigt.includes(aufgabe.id)}
-					<!--
+		<div class="abschnitt__inhalt">
+			{#if data.aufgaben.length > 0}
+				<ul class="liste" aria-labelledby="offen-marke">
+					{#each data.aufgaben as aufgabe (aufgabe.id)}
+						{@const istErledigt = erledigt.includes(aufgabe.id)}
+						<!--
 					Überfällig heisst zweierlei auf einmal (AD-8), und beide Konjunkte
 					stehen hier: `completed_at IS NULL` erfüllt schon die Abfrage — was in
 					`data.aufgaben` steht, ist offen —, und `wochenOffen !== null` ist die
@@ -1051,9 +1068,9 @@
 					der Anlage, die laut AD-8 die Ersatzfrist **ist**. Der Satz steht
 					wörtlich so in den Akzeptanzkriterien des Epics und in DESIGN.md.
 				-->
-					{@const istUeberfaellig = !istErledigt && aufgabe.wochenOffen !== null}
-					<li class="zeile" class:zeile--erledigt={istErledigt}>
-						<!--
+						{@const istUeberfaellig = !istErledigt && aufgabe.wochenOffen !== null}
+						<li class="zeile" class:zeile--erledigt={istErledigt}>
+							<!--
 						Zwei getrennte Formulare mit **literalem** action, bedingt
 						gerendert — nicht ein Formular mit wechselndem Ziel. Gate-Regel 11
 						liest action="?/name" textuell und vergleicht mit den actions der
@@ -1068,50 +1085,50 @@
 						liest „<Aufgabentext>, erledigen" mit der Rolle Kontrollkästchen,
 						und der Text bleibt ein toter <span>.
 					-->
-						{#if istErledigt}
-							<form
-								class="zeile__form"
-								method="POST"
-								action="?/wiederOeffnen"
-								use:enhance={versandFuer(aufgabe.id)}
-							>
-								<input type="hidden" name="aufgabeId" value={aufgabe.id} />
-								<span class="treffer">
-									<input
-										class="kaestchen"
-										type="checkbox"
-										checked
-										disabled={imFlug}
-										aria-labelledby="aufgabe-{aufgabe.id} verb-{aufgabe.id}"
-										onchange={abschicken}
-									/>
-									<span class="haken" aria-hidden="true"></span>
-								</span>
-								<span class="nur-vorgelesen" id="verb-{aufgabe.id}">, wieder öffnen</span>
-							</form>
-						{:else}
-							<form
-								class="zeile__form"
-								method="POST"
-								action="?/abhaken"
-								use:enhance={versandFuer(aufgabe.id)}
-							>
-								<input type="hidden" name="aufgabeId" value={aufgabe.id} />
-								<span class="treffer">
-									<input
-										class="kaestchen"
-										type="checkbox"
-										disabled={imFlug}
-										aria-labelledby="aufgabe-{aufgabe.id} verb-{aufgabe.id}"
-										aria-describedby={istUeberfaellig ? `frist-${aufgabe.id}` : undefined}
-										onchange={abschicken}
-									/>
-									<span class="haken" aria-hidden="true"></span>
-								</span>
-								<span class="nur-vorgelesen" id="verb-{aufgabe.id}">, erledigen</span>
-							</form>
-						{/if}
-						<!--
+							{#if istErledigt}
+								<form
+									class="zeile__form"
+									method="POST"
+									action="?/wiederOeffnen"
+									use:enhance={versandFuer(aufgabe.id)}
+								>
+									<input type="hidden" name="aufgabeId" value={aufgabe.id} />
+									<span class="treffer">
+										<input
+											class="kaestchen"
+											type="checkbox"
+											checked
+											disabled={imFlug}
+											aria-labelledby="aufgabe-{aufgabe.id} verb-{aufgabe.id}"
+											onchange={abschicken}
+										/>
+										<span class="haken" aria-hidden="true"></span>
+									</span>
+									<span class="nur-vorgelesen" id="verb-{aufgabe.id}">, wieder öffnen</span>
+								</form>
+							{:else}
+								<form
+									class="zeile__form"
+									method="POST"
+									action="?/abhaken"
+									use:enhance={versandFuer(aufgabe.id)}
+								>
+									<input type="hidden" name="aufgabeId" value={aufgabe.id} />
+									<span class="treffer">
+										<input
+											class="kaestchen"
+											type="checkbox"
+											disabled={imFlug}
+											aria-labelledby="aufgabe-{aufgabe.id} verb-{aufgabe.id}"
+											aria-describedby={istUeberfaellig ? `frist-${aufgabe.id}` : undefined}
+											onchange={abschicken}
+										/>
+										<span class="haken" aria-hidden="true"></span>
+									</span>
+									<span class="nur-vorgelesen" id="verb-{aufgabe.id}">, erledigen</span>
+								</form>
+							{/if}
+							<!--
 						Der Spaltencontainer ist keine Zierde, sondern die einzige Stelle,
 						an der die zweite Zeile **unter** dem Text landen kann: .zeile ist
 						ein Flexcontainer in Zeilenrichtung, und ein Geschwister von
@@ -1134,21 +1151,21 @@
 						nicht. Ein aria-describedby am wiederOeffnen-Kästchen zeigte damit
 						auf eine leere Kennung, und die Beschreibung fiele **ganz** aus.
 					-->
-						<div class="zeile__spalte">
-							<span class="zeile__aufgabe zeile__text" id="aufgabe-{aufgabe.id}"
-								>{aufgabe.text}</span
-							>
-							{#if istUeberfaellig}
-								<p class="zeile__frist" id="frist-{aufgabe.id}">
-									seit {aufgabe.wochenOffen} Wochen überfällig
-								</p>
-							{/if}
-						</div>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-		<!--
+							<div class="zeile__spalte">
+								<span class="zeile__aufgabe zeile__text" id="aufgabe-{aufgabe.id}"
+									>{aufgabe.text}</span
+								>
+								{#if istUeberfaellig}
+									<p class="zeile__frist" id="frist-{aufgabe.id}">
+										seit {aufgabe.wochenOffen} Wochen überfällig
+									</p>
+								{/if}
+							</div>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			<!--
 			Der Erfassen-Knopf steht **hinter** dem {#if} um die Liste und damit in
 			beiden Zuständen — auch wenn der Griff darüber `Nichts offen.` sagt. Das war
 			ein eigener Befund und bleibt es.
@@ -1164,7 +1181,8 @@
 			`/aufgabe` im ganzen Baum. Getragen wird das davon, dass der Zustand nirgends
 			gespeichert ist: jedes Laden stellt den offenen Abschnitt wieder her.
 		-->
-		<a class="button-primary" href={resolve('/aufgabe')}>+ Aufgabe</a>
+			<a class="button-primary" href={resolve('/aufgabe')}>+ Aufgabe</a>
+		</div>
 	</details>
 </div>
 
@@ -1326,18 +1344,17 @@
 	/*
 		Die Warnung, wenn in den nächsten zwei Wochen jemand fehlt.
 
-		`--warn` ist genau dafür da — der Kommentar an diesem Token nennt die
-		unbesetzte Dienstwoche als seinen einzigen Zweck. **Seine zweite Aussage
-		stimmt seit dem 2026-09-11 nicht mehr**: er begründete die Nähe zu
-		`--overdue` (1.07:1 im Hellen) damit, dass Überfälligkeit und
-		Unbesetztheit nie auf derselben Seite vorkommen. Seit die Zahlen in den
-		Griffen stehen, tun sie es — `· 2 überfällig` im Pool-Griff, diese Zeile
-		darüber. Der Tokenblock ist entsprechend richtiggestellt.
+		`--warn` ist genau dafür da, und **seit dem 2026-09-13 ausschliesslich**:
+		bis dahin färbte dasselbe Token auch die Kante einer Erntestufe, und weil
+		es hier Text ist, hielt es beide an 4.5:1 fest. Die Ampel hat jetzt eigene
+		Token, und dieses hier hat wieder einen Zweck.
 
-		Getragen wird das von dem, was dort schon stand: die Wörter sind
-		verschieden und sie stehen in verschiedenen Blöcken. Wer die zwei Brauntöne
-		nicht auseinanderhält, liest `überfällig` und `unbesetzt` — und die sagen
-		es ohne jede Farbe.
+		Überfälligkeit und Unbesetztheit stehen seit dem 2026-09-11 auf derselben
+		Seite — `· 2 überfällig` im Pool-Griff, diese Zeile darüber. Getragen wird
+		die Unterscheidung von dem, was schon immer trug: die Wörter sind
+		verschieden und sie stehen in verschiedenen Blöcken. Dazu kommt seit dem
+		2026-09-13 der Farbton, der es vorher nicht tat — Rostlehm gegen Gold
+		statt zweimal dasselbe dunkle Orange (1.18:1 zueinander statt 1.07:1).
 	*/
 	.plan-zeile__bald {
 		display: block;
@@ -1376,24 +1393,30 @@
 	}
 
 	/*
-		Dieselben drei Token wie die Abschnitte auf /ernte: --danger für „sofort",
-		--warn für „kann stehen", --accent für „noch wachsen lassen", je als
-		3px-Marke. Dasselbe Zeichen an beiden Orten heisst dasselbe.
+		Dieselben drei Token wie die Abschnitte auf /ernte, je als Marke in der
+		Breite von --border-marker. Dasselbe Zeichen an beiden Orten heisst
+		dasselbe.
 
-		Das Wort dazu steht im Griff darüber, solange etwas dringend ist, und auf
-		/ernte in der Überschrift jedes Abschnitts. Kein Zustand hängt allein an
-		der Farbe.
+		**Seit dem 2026-09-13 sind es eigene Token und keine geliehenen mehr.** Bis
+		dahin standen hier --danger, --warn und --accent — drei Textfarben, und
+		damit an 4.5:1 gebunden, wo eine Kante 3:1 hält. Die mittlere Stufe war auf
+		drei Pixeln praktisch nicht zu sehen; die Begründung steht im Tokenblock in
+		src/app.html. Nebenbei hört damit auf, dass eine reife Zucchini sich die
+		Farbe des Zerstörenden lieh.
+
+		Das Wort dazu steht an der Zeile selbst und auf /ernte in der Überschrift
+		jedes Abschnitts. Kein Zustand hängt allein an der Farbe.
 	*/
 	.ernte-zeile--sofort {
-		border-inline-start: var(--border-marker) solid var(--danger);
+		border-inline-start: var(--border-marker) solid var(--reif-sofort);
 	}
 
 	.ernte-zeile--stehen {
-		border-inline-start: var(--border-marker) solid var(--warn);
+		border-inline-start: var(--border-marker) solid var(--reif-stehen);
 	}
 
 	.ernte-zeile--wachsen {
-		border-inline-start: var(--border-marker) solid var(--accent);
+		border-inline-start: var(--border-marker) solid var(--reif-wachsen);
 	}
 
 	/*
@@ -1422,40 +1445,74 @@
 		font-weight: var(--meta-weight);
 	}
 
+	/*
+	 * Der Diensthinweis, gefüllt.
+	 *
+	 * **Die Kante ist kein Umriss mehr, sondern nur noch die Form der Füllung**,
+	 * und darum liegt sie auf --accent und nicht auf --ink-secondary. Der Grund,
+	 * aus dem sie bis zum 2026-09-13 auf --ink-secondary lag, ist damit
+	 * erledigt und nicht übergangen: NFR9 verlangt 3:1 für den Umriss eines
+	 * Bedienelements, **weil** der Umriss das Element identifiziert. Hier tut das
+	 * die Fläche — --accent-ink auf --accent hält 6.05:1, und der Block hebt sich
+	 * mit derselben Zahl vom Grund ab. Ein Umriss in einer dritten Farbe hätte
+	 * nichts mehr zu identifizieren.
+	 *
+	 * Die Kante steht trotzdem da: ohne sie verschöbe sich der Block gegenüber
+	 * jedem anderen Element um eine Haarlinie, und dieselbe Überlegung steht seit
+	 * Story 1.3 an .button-primary.
+	 *
+	 * --radius-md und nicht mehr --radius-sm: der fast eckige Radius war für die
+	 * gerade 3px-Kante da, und die gibt es hier nicht mehr.
+	 */
 	.dienst {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
 		min-height: var(--touch);
-		background-color: var(--surface-raised);
-		/*
-		 * --ink-secondary und nicht --hairline, seit dem 2026-09-11: der
-		 * Diensthinweis ist ein <a href> und damit ein Bedienelement, und NFR9
-		 * verlangt 3:1 für dessen Umriss. Auf der Haarlinie waren es 1.25:1 hell
-		 * und 1.44:1 dunkel.
-		 *
-		 * **Diese Kante hat der Kontrast-Sweep vom 2026-09-02 nicht gemessen**, und
-		 * das ist der Grund, warum sie in seiner Liste der vier fehlte: der
-		 * Sichtlauf stellt den Zustand „diese Woche habe ich Dienst" nicht her, der
-		 * Block wird also nie gerendert. Belegt am 2026-09-11: nachdem die vier
-		 * gemessenen Kanten gehoben waren, kam --hairline in keinem gemessenen Paar
-		 * mehr vor — hätte die Sonde diesen Block gesehen, wäre er dort gewesen.
-		 * Gehoben wird sie trotzdem, weil Entscheid (a) Bedienelemente meint und
-		 * nicht die Auswahl, die ein Lauf zufällig rendert.
-		 */
-		border: var(--border-hairline) solid var(--ink-secondary);
-		border-inline-start: var(--border-marker) solid var(--accent);
-		border-radius: var(--radius-sm);
-		padding: var(--space-3);
-		color: var(--ink-primary);
+		background-color: var(--accent);
+		border: var(--border-hairline) solid var(--accent);
+		border-radius: var(--radius-md);
+		padding: var(--space-3) var(--space-4);
+		color: var(--accent-ink);
 		text-decoration: none;
 	}
 
+	/*
+	 * Die Marke über dem Satz. Sie trägt die Rolle label wie jede andere Marke
+	 * der Anwendung, aber nicht deren Farbe: --ink-secondary wäre auf dem Grün
+	 * unlesbar. --accent-ink und keine abgeschwächte Fassung davon — die
+	 * Anwendung setzt nirgends `opacity` auf Text, und eine halbdurchsichtige
+	 * Schrift müsste der Kontrast-Sweep komponiert nachmessen. Die Stufung
+	 * zwischen Marke, Satz und Datum trägt die Schriftgrösse.
+	 */
+	.dienst__marke {
+		color: var(--accent-ink);
+		font-family: var(--label-font);
+		font-size: var(--label-size);
+		font-weight: var(--label-weight);
+		line-height: var(--label-line);
+		letter-spacing: var(--label-tracking);
+		text-transform: uppercase;
+	}
+
+	/*
+	 * Der Satz steht in der section-Rolle und nicht mehr in body: er ist auf der
+	 * gefüllten Fläche die Aussage und nicht ein Absatz darin.
+	 */
 	.dienst__satz {
-		font-family: var(--body-font);
-		font-size: var(--body-size);
-		font-weight: var(--body-weight);
-		line-height: var(--body-line);
+		font-family: var(--section-font);
+		font-size: var(--section-size);
+		font-weight: var(--section-weight);
+		line-height: var(--section-line);
+		letter-spacing: var(--section-tracking);
+	}
+
+	/*
+	 * Das Datum im gefüllten Block. `.hinweis` setzt --ink-secondary, und das ist
+	 * auf dem Grün unlesbar; die Schriftrolle (meta) bleibt, nur die Farbe kippt.
+	 */
+	.dienst .hinweis {
+		color: var(--accent-ink);
 	}
 
 	/*

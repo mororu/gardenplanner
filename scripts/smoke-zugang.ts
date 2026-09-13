@@ -3480,7 +3480,7 @@ try {
 	 * Handlung ist eine Liste, aus der heraus man nichts anfangen kann, und
 	 * genau das war die Ernte in ihrem ersten Entwurf.
 	 */
-	const abschnitte = startseitenCode.split('<details open>').slice(1);
+	const abschnitte = startseitenCode.split('<details class="abschnitt" open>').slice(1);
 	const primaerJeAbschnitt = abschnitte.map(
 		(teil) =>
 			(teil.slice(0, teil.indexOf('</details>')).match(/class="button-primary"/g) ?? []).length
@@ -7134,15 +7134,29 @@ try {
 			!/<button/.test(dienstBlock) && !/<input/.test(dienstBlock) && !/<form/.test(dienstBlock),
 		],
 		/*
-		 * Die 3px-Kante in der Akzentfarbe ist das Zeichen aus UX-DR9 und
-		 * zugleich der Grund, aus dem das Token --border-marker seit Story 1.1
-		 * deklariert und bis hierher unbenutzt im Baum stand.
+		 * **Die Fläche trägt die Aussage, seit dem 2026-09-13.** Bis dahin stand
+		 * hier die 3px-Kante in der Akzentfarbe aus UX-DR9; sie stellte den Block
+		 * in eine Reihe mit jeder anderen Karte der Seite, und genau das hat
+		 * Manuel bemängelt — wer ihn überblättert, verpasst seinen Dienst.
+		 *
+		 * --border-marker steht deshalb nicht mehr ohne Leser da: es trägt
+		 * weiterhin die laufende Woche im Tränkeplan und die drei Stufen der
+		 * Ernte.
 		 */
 		[
-			'die linke Kante misst --border-marker in der Akzentfarbe',
-			/\.dienst \{[^}]*border-inline-start: var\(--border-marker\) solid var\(--accent\)/.test(
+			'die Fläche ist in der Akzentfarbe gefüllt und schreibt in --accent-ink',
+			/\.dienst \{[\s\S]*?background-color: var\(--accent\);[\s\S]*?color: var\(--accent-ink\);/.test(
 				startseiteCodeDienst
 			),
+		],
+		/*
+		 * Und das Wort dazu. DESIGN.md verbietet Farbe als einzigen Träger eines
+		 * Zustands: ohne diese Marke unterschiede sich der Block in Graustufen
+		 * allein durch seine Füllung von einem Knopf.
+		 */
+		[
+			'und eine Marke sagt in Worten, was die Farbe sagt',
+			/<span class="dienst__marke">[^<]+<\/span>/.test(dienstBlock),
 		],
 		/*
 		 * Er steht **vor** dem Pool — Block 1 vor Block 3 aus AD-14. Der
@@ -7698,7 +7712,7 @@ try {
 	 * dieselbe Bauform wie der Pool seit Story 1.4.
 	 */
 	const einzelBlock =
-		/<details open>\s*<summary class="abschnitt__griff">\s*<h2[^>]*id="einzel-marke"[\s\S]*?<\/details>/.exec(
+		/<details class="abschnitt" open>\s*<summary class="abschnitt__griff">\s*<h2[^>]*id="einzel-marke"[\s\S]*?<\/details>/.exec(
 			startseiteCodeEinzel
 		)?.[0] ?? '';
 	const blockTeile = [
@@ -7787,15 +7801,24 @@ try {
 	const aufklappTeile = [
 		[
 			'es sind genau drei Abschnitts-Aufklapper',
-			(startseiteCodeEinzel.match(/<details open>/g) ?? []).length === 3,
+			(startseiteCodeEinzel.match(/<details class="abschnitt" open>/g) ?? []).length === 3,
 		],
 		[
 			'alle drei tragen einen Griff',
 			(startseiteCodeEinzel.match(/<summary class="abschnitt__griff">/g) ?? []).length === 3,
 		],
 		[
+			/*
+			 * Das `open` wird **irgendwo** im Tag gesucht und nicht direkt hinter
+			 * `<details`: seit dem 2026-09-13 steht davor eine Klasse. Das alte
+			 * Muster hing an der Reihenfolge der Attribute, und es wurde in dem
+			 * Moment still falsch — es fand jedes dieser Tags und meldete sie als
+			 * zugeklappt ausgeliefert, obwohl `open` daran steht.
+			 */
 			'keiner wird zugeklappt ausgeliefert',
-			!/<details(?! open>)[^>]*>\s*<summary class="abschnitt__griff">/.test(startseiteCodeEinzel),
+			!/<details(?![^>]*\sopen[\s>])[^>]*>\s*<summary class="abschnitt__griff">/.test(
+				startseiteCodeEinzel
+			),
 		],
 		[
 			// Der Griff trägt seit dem 2026-09-11 die Zahl statt eines Titels — die
