@@ -600,6 +600,24 @@
 	</svg>
 {/snippet}
 
+{#snippet zeichenKreis()}
+	<svg
+		class="zeichen"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		aria-hidden="true"
+	>
+		<path d="M4 9.5A7.5 7.5 0 0 1 17 5l2.5 2.5" />
+		<path d="M19.5 3.5v4h-4" />
+		<path d="M20 14.5A7.5 7.5 0 0 1 7 19l-2.5-2.5" />
+		<path d="M4.5 20.5v-4h4" />
+	</svg>
+{/snippet}
+
 {#snippet zeichenHaken()}
 	<svg
 		class="zeichen"
@@ -690,13 +708,26 @@
 		  Block 1 — Diensthinweis: „Diese Woche bist du am Tränken", nur vorhanden,
 		            wenn die betrachtende Person Dienst hat. Seit Story 3.1 gebaut,
 		            steht direkt unter diesem Kommentar.
-		  Block 2 — freie Einzelaufgaben zum Übernehmen. Seit Story 3.2 gebaut,
-		            steht zwischen dem Diensthinweis und der Marke `Offen`.
-		  Block 3 — der offene Pool. Diesen füllte Story 1.4.
+		  Block 2 — freie Einzelaufgaben zum Übernehmen, `Wer übernimmt`. Seit
+		            Story 3.2 gebaut.
+		  Block 3 — der offene Pool, `Zwischendurch`. Diesen füllte Story 1.4.
 
 		Die Reihenfolge stand schon, als zwei Drittel leer waren: sie ist eine
 		Entscheidung über die Aufmerksamkeit im Garten und keine Folge davon, in
 		welcher Reihenfolge die Stories gebaut wurden.
+
+		**Seit dem 2026-09-15 stehen die zwei letzten getauscht: Block 3 vor
+		Block 2.** Das weicht von der Reihenfolge in AD-14 ab, und zwar bewusst
+		(Entscheid Manuel). Der Grund liegt in dem, was die beiden verlangen: der
+		Pool ist der Vorrat an Arbeit, die jederzeit jemand mitnehmen kann, und
+		wer auf die Seite kommt, um etwas zu tun, findet ihn jetzt zuerst.
+		`Wer übernimmt` fragt dagegen nach einer Zusage auf einen Termin — die
+		schwerere Frage, und sie steht danach.
+
+		**Die Nummern sind Namen und keine Plätze.** Sie zeigen auf AD-14 und
+		bleiben darum, wie sie sind; würden sie mitwandern, zeigte jeder ältere
+		Kommentar und jede Wache, die von „Block 2" spricht, plötzlich woanders
+		hin.
 	-->
 
 	<!--
@@ -922,8 +953,21 @@
 										des Abschnitts.
 									-->
 										<span class="marke">{ERNTETEXT[zeile.status].kurz}</span>
+										<!--
+											**Das Kreiszeichen steht hinter der Stufe, nicht davor**
+											(Entscheid Manuel, 2026-09-15): die Stufe sagt, wie dringend es
+											ist, die Dauerernte, dass es wiederkommt. Das Zeichen gehört zur
+											zweiten Auskunft und macht sie beim Blättern auffindbar, ohne
+											dass man beide Wörter lesen muss.
+
+											`aria-hidden` wie bei jedem Zeichen dieser Seite — das Wort
+											steht daneben und trägt die Aussage allein.
+										-->
 										{#if zeile.laufend}
-											<span class="marke">{DAUERERNTE_WORT}</span>
+											<span class="marke marke--mit-zeichen">
+												{@render zeichenKreis()}
+												{DAUERERNTE_WORT}
+											</span>
 										{/if}
 									</span>
 									<span class="hinweis hinweis--ziffern">
@@ -966,293 +1010,8 @@
 	</details>
 
 	<!--
-		Block 2. **Ohne eine freie Einzelaufgabe fehlt er ganz** — wie Block 1 und
-		aus demselben Grund: eine Marke über einer leeren Liste nähme Platz weg, um
-		nichts mitzuteilen. Anders als Block 3, der `Nichts offen.` sagt: der Pool
-		ist der Gegenstand dieser Seite und darf nicht verschwinden.
-
-		Eine **übernommene** Einzelaufgabe steht hier nicht mehr. Sie trägt einen
-		Namen und ist damit geregelt; wer wissen will, wer was übernommen hat,
-		findet es auf /einzelaufgaben. Der Fusslink führt dorthin — die Unterseite
-		vertieft, sie informiert nicht exklusiv.
-	-->
-	<!--
-			Der Titel nennt beides: **was** es ist und **was man damit tut**. `Zum
-			Übernehmen` allein sagte nicht, worum es sich handelt, `Einzelaufgaben`
-			allein nicht, dass hier etwas zu holen ist.
-
-		**Offen geliefert, und das ist keine Kleinigkeit.** AD-14 verlangt, dass man
-		beim Öffnen der Seite sieht, was zu tun ist. Ein zugeklappter Abschnitt
-		bräche das — `open` hält die Zusage, und zugleich darf jede Person den
-		Abschnitt wegklappen, wenn sie ihn gerade nicht braucht. Der Zustand wird
-		**nicht** gespeichert: beim nächsten Laden steht wieder alles offen, und
-		damit kann kein einmaliger Griff dauerhaft verbergen, dass etwas ansteht.
-		-->
-	<details class="abschnitt" open>
-		<summary class="abschnitt__griff">
-			<h2 class="griff__satz" id="einzel-marke">
-				{@render zeichenPerson('griff__zeichen')}
-				{#if data.ueberblick.frei === 0}
-					<span class="kopfwort">{GRIFF_FREI_LEER}</span>
-				{:else}
-					<span class="griff__titel">{GRIFF_FREI}</span>
-					<span class="zaehler">{data.ueberblick.frei}</span>
-				{/if}
-			</h2>
-		</summary>
-		<div class="abschnitt__inhalt">
-			{#if data.einzelaufgaben.length > 0}
-				<ul class="liste liste--getrennt" aria-labelledby="einzel-marke">
-					{#each data.einzelaufgaben as aufgabe (aufgabe.id)}
-						{@const frageHier = frage !== null && frage.id === aufgabe.id}
-						{@const kasten = datumKasten(aufgabe.terminAt)}
-						<!--
-					`karte--offen` ohne Bedingung: dieser Block führt ausschliesslich freie
-					Einzelaufgaben (die load holt nur die), und eine Bedingung, die immer
-					wahr ist, behauptete eine Unterscheidung, die es hier nicht gibt.
-					Dieselbe Fläche wie auf /einzelaufgaben — derselbe Zustand, dieselbe
-					Farbe, sonst lernte man sie zweimal.
-				-->
-						<li class="karte karte--offen">
-							<!--
-						**Eine Reihe, nicht zwei Blöcke übereinander.** Der Knopf stand bis
-						zum 2026-09-11 über die volle Spaltenbreite unter dem Titel und
-						nahm auf dem Telefon — dem Hauptgerät dieser Anwendung — Höhe weg,
-						die die Liste braucht. Jetzt steht er daneben.
-
-						`align-items: flex-start`: bei einem langen Titel, der bei 375px
-						über drei Zeilen läuft, soll der Knopf oben bleiben und nicht in
-						die Mitte rutschen.
-					-->
-							<div class="einzel__reihe">
-								<!--
-									**Der Datumskasten steht vor dem Titel**, seit dem 2026-09-15: die
-									Zeilen dieses Abschnitts unterscheiden sich in erster Linie durch
-									ihren Termin, und eine Spalte gleich gesetzter Zahlen liest sich
-									schneller als ein Datum im Fliesstext.
-
-									`aria-hidden`, und das lange Datum steht daneben in
-									`.nur-vorgelesen`: `17` über `Sept.` ergibt vorgelesen
-									`siebzehn Sept Punkt`, und was den Kasten lesbar macht, ist seine
-									Anordnung — die hört niemand.
-
-									**Eckig und keine Pille.** DESIGN.md schliesst die vollständig
-									gerundete Form aus, sie signalisiert ein Abzeichen; das hier ist
-									ein Datum. `--radius-sm` ist der Radius, den dasselbe Dokument
-									„fast eckig" nennt.
-								-->
-								<p class="datumskasten" aria-hidden="true">
-									<span class="datumskasten__tag">{kasten.tag}</span>
-									<span class="datumskasten__monat">{kasten.monat}</span>
-								</p>
-								<div class="zeile__spalte">
-									<!--
-							Die Kennung dieser Zeile. Der Knopf darunter heisst in jeder Zeile
-							`Übernehmen`; wer die Liste sieht, liest den Titel mit, wer sie mit
-							einer Elementliste durchgeht, bekäme sonst dasselbe Wort ohne jede
-							Auskunft, worum es geht. Derselbe Handgriff wie an den
-							Zeilen-Aktionen auf /verwaltung und /traenkeplan.
-
-							`.zeile__text` bringt den Umbruch für getippten Text aus dem
-							geteilten Stilblatt mit.
-						-->
-									<p class="fliesstext zeile__text" id="einzel-titel-{aufgabe.id}">
-										{aufgabe.titel}
-									</p>
-									<!--
-							**Das Wort trägt die Dringlichkeit, die Farbe nur den einen Fall.**
-							Bis zum 2026-09-14 stand hier allein das Datum, in demselben Grau
-							für eine Aufgabe diese Woche wie für eine im Oktober. `diese Woche`
-							bleibt in der Nebentextfarbe — das Wort genügt; `überfällig`
-							bekommt --overdue, dasselbe Token und dieselbe Aussage wie am
-							Fristsatz der Poolzeile.
-
-							**Nicht --warn**, obwohl es naheläge: dessen Kommentar im Tokenblock
-							nennt die unbesetzte Dienstwoche als seinen einzigen Zweck, und
-							genau diese Doppelnutzung hat am 2026-09-13 die Ernte-Ampel
-							gekostet.
-						-->
-									<p class="hinweis" class:einzel__verstrichen={aufgabe.lage === 'verstrichen'}>
-										<!--
-											Das lange Datum nur für die Ansage: sichtbar steht es im Kasten
-											links, und zweimal dasselbe Datum in einer Zeile wäre Rauschen.
-										-->
-										<span class="nur-vorgelesen">{datumLang(aufgabe.terminAt)}</span>noch niemand{fristZusatz(
-											aufgabe.lage
-										)}
-									</p>
-									<!--
-							`noch niemand` steht als Wort und nicht als Ausdruck über
-							`aufgabe.uebernehmer`: die load reicht über
-							freieEinzelaufgabenLesen ausschliesslich **freie** Zeilen herein,
-							und eine Verzweigung über einen Wert, der hier immer null ist, wäre
-							ein toter Zweig. Auf /einzelaufgaben, wo beide Zustände stehen,
-							verzweigt die Zeile wirklich.
-
-							Es steht seit dem 2026-09-15 in derselben Zeile wie die Lage des
-							Termins: der Kasten links trägt das Datum, und zwei Hinweiszeilen
-							untereinander wären eine mehr, als die Zeile zu sagen hat.
-						-->
-								</div>
-
-								<!--
-						**Entweder der Knopf oder die Frage, nie beides.** Steht die Frage
-						zu dieser Zeile offen, ist der Knopf darüber fort: er schickte
-						dieselbe action ein zweites Mal ab und stellte damit nur dieselbe
-						Frage noch einmal. Zwei Knöpfe mit derselben Beschriftung in einer
-						Zeile, von denen einer bestätigt und der andere nachfragt, sind
-						ausserdem für jede Person, die sie einzeln vorgelesen bekommt,
-						ununterscheidbar.
-
-						Nach dem Hydrieren eines Frage-Dokuments gilt dasselbe: `form.art`
-						steht dann weiterhin auf `fragen`, und ohne diese Bedingung öffnete
-						ein Griff an den Knopf den Dialog **über** der schon sichtbaren
-						Frage — dieselbe Bestätigung zweimal.
-
-						Ein echtes Formular mit literalem action="?/uebernehmen" — Gate-Regel
-						11 liest den Namen textuell. Der Rückruf bricht den Versand ab und
-						öffnet den Dialog; **ohne** JavaScript läuft er nicht, der POST geht
-						durch, und der Server antwortet mit derselben Frage als Dokument.
-					-->
-								{#if !frageHier}
-									<form
-										class="einzel__form"
-										method="POST"
-										action="?/uebernehmen"
-										use:enhance={versandFragen(aufgabe)}
-									>
-										<input type="hidden" name="einzelaufgabeId" value={aufgabe.id} />
-										<button
-											class="button-quiet button-quiet--kompakt"
-											type="submit"
-											id="uebernehmen-{aufgabe.id}"
-											aria-labelledby="uebernehmen-{aufgabe.id} einzel-titel-{aufgabe.id}"
-											disabled={imFlug}
-										>
-											<!--
-									**Das Zeichen steht neben dem Wort, nicht an seiner Stelle.**
-									Ein Kopf mit Schultern, weil Übernehmen in diesem System genau
-									eines heisst: die Sache bekommt einen Namen (AD-4). Ein Häkchen
-									sagte `erledigt` und bedeutet im Kästchen der Aufgabenzeile
-									schon etwas anderes; ein `+` sagte `anlegen` und steht am
-									primären Knopf.
-
-									`aria-hidden`, weil das Wort daneben den Namen schon trägt —
-									sonst hörte man die Handlung zweimal. `currentColor`, damit es
-									im deaktivierten Zustand mit der Schrift mitgeht.
-								-->
-											{@render zeichenPerson('')}
-											{UEBERNEHMEN_KNOPF}
-										</button>
-									</form>
-								{/if}
-							</div>
-
-							<!--
-						Die Bestätigung **ohne JavaScript**, an der Zeile, um die es geht.
-						Sie steht **ausserhalb** der Reihe: sie gehört nicht neben den Titel,
-						sondern unter die ganze Zeile — sie ist eine Frage an die Person, kein
-						Bedienelement der Kopfzeile.
-						Mit JavaScript entsteht sie im Regelfall nie — der Rückruf oben bricht
-						den ersten Versand ab, und `form` wird dann nicht auf `fragen` gesetzt.
-						Die Ausnahme ist sein Ausfallweg: ist `dialog` nicht gebunden, läuft
-						der gewöhnliche POST, und dann steht diese Frage im Dokument. Genau so
-						soll es sein — sie ist dort die einzige Bestätigung, die es gibt.
-
-						Ohne use:enhance, denn sie ist der Weg für den Fall, in dem es kein
-						enhance gibt. `Abbrechen` ist ein Link auf `/` und kein Knopf: er
-						verwirft die Antwort der action, indem er die Seite neu holt, und tut
-						sonst nichts.
-
-						`Abbrechen` steht zuerst, wie im Dialog: die Reihenfolge im DOM ist
-						die Fokusreihenfolge, und die zusagende Handlung soll nicht die
-						erste sein, die ein Enter trifft.
-					-->
-							{#if frageHier && frage !== null}
-								<div class="einzel__frage">
-									<!--
-								**Derselbe Satz und dieselbe Folge wie im Dialog.** `uebernahmeSatz`
-								nennt, was übernommen wird; `UEBERNAHME_FOLGE` sagt, warum das
-								verbindlich ist. Der zweite Teil ist Substanz und keine Zierde —
-								er ist der Grund, warum diese eine Handlung im ganzen
-								Aufgabenbereich eine Bestätigung bekommt —, und darum steht er
-								auf **beiden** Wegen. Entschieden im Review vom 2026-08-30; die
-								Behauptung darüber hält fest, dass die zwei Wege denselben Text
-								tragen.
-
-								Die Überschrift bleibt dem Dialog: sie benennt ein Fenster, nicht
-								den Vorgang. Hier trägt die Zeile selbst den Zusammenhang.
-							-->
-									<p class="fliesstext" id="einzel-frage-{aufgabe.id}">
-										{uebernahmeSatz(frage)}
-										{UEBERNAHME_FOLGE}
-									</p>
-									<form class="knoepfe" method="POST" action="?/uebernehmen">
-										<input type="hidden" name="einzelaufgabeId" value={frage.id} />
-										<input type="hidden" name="bestaetigt" value="1" />
-										<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-										<a class="button-quiet" href={resolve('/')}>Abbrechen</a>
-										<button
-											class="button-quiet"
-											type="submit"
-											aria-describedby="einzel-frage-{aufgabe.id}"
-										>
-											{UEBERNEHMEN_KNOPF}
-										</button>
-									</form>
-								</div>
-							{/if}
-						</li>
-					{/each}
-				</ul>
-			{/if}
-
-			<!--
-				**Die zwei Wege stehen im selben Aufklapper wie die Liste.**
-
-				Bis zum 2026-09-11 waren es zwei getrennte Dinge, und beide hiessen
-				`Einzelaufgaben` — ein Abschnitt mit der Liste und darunter ein zweiter
-				Aufklapper mit den Handlungen. Zwei gleich benannte Aufklapper
-				untereinander sind für jede Person, die sie einzeln vorgelesen bekommt,
-				ununterscheidbar.
-
-				**Die Bedingung, unter der das trägt, ist `open` am Abschnitt darüber.**
-				In einem zugeklappten Aufklapper läge die Liste mit; AD-14 ist genau
-				dagegen geschrieben. Offen ausgeliefert steht sie da, und wer sie
-				wegklappt, klappt seine eigene Ansicht weg — bis zum nächsten Laden.
-
-				**Und der Abschnitt steht jetzt auch ohne eine einzige freie
-				Einzelaufgabe.** Das ist eine Umkehr der alten Zusage „fehlt ganz oder gar
-				nicht", und sie ist der Preis dafür, dass die zwei Wege hier drin liegen:
-				verschwände der Abschnitt, verschwänden sie mit — die Sackgasse von
-				vorher. Der Pool darüber macht es seit Story 1.4 genauso: Marke steht,
-				und statt der Liste ein Satz.
-			-->
-			<div class="knoepfe">
-				<!--
-				**Ein primärer Knopf je Abschnitt, nicht je Seite.**
-
-				DESIGN.md schrieb bis zum 2026-09-11 „höchstens einer pro Seite", und das
-				stimmte, solange `/` eine einzige Handlung trug. Seit die zwei Abschnitte
-				eigene Aufklapper sind, hat jeder seine eigene: hier ausschreiben, im Pool
-				erfassen. Sie stehen nie nebeneinander und konkurrieren darum nicht — was
-				die Regel meinte.
-
-				`+ Einzelaufgabe` und nicht `Einzelaufgabe ausschreiben`: dieselbe Form wie
-				`+ Aufgabe` im Abschnitt darunter, weil es dieselbe Art Handlung ist.
-
-				resolve() ist Pflicht für interne Ziele
-				(svelte/no-navigation-without-resolve).
-			-->
-				<a class="button-primary" href={resolve('/einzelaufgabe')}>+ Termin planen</a>
-				<a class="eintrag" href={resolve('/einzelaufgaben')}>Alle Termine</a>
-			</div>
-		</div>
-	</details>
-
-	<!--
-		Derselbe Aufklapper wie über den Einzelaufgaben — ein Abschnitt, zwei
-		Abschnitte, eine Bauform.
+		Derselbe Aufklapper wie über den Einzelaufgaben darunter — ein Abschnitt,
+		zwei Abschnitte, eine Bauform.
 
 		**Offen geliefert, und das ist keine Kleinigkeit.** AD-14 verlangt, dass man
 		beim Öffnen der Seite sieht, was zu tun ist. Ein zugeklappter Abschnitt
@@ -1560,6 +1319,291 @@
 			<a class="button-primary" href={resolve('/aufgabe')}>+ Aufgabe</a>
 		</div>
 	</details>
+
+	<!--
+		Block 2. **Ohne eine freie Einzelaufgabe fehlt er ganz** — wie Block 1 und
+		aus demselben Grund: eine Marke über einer leeren Liste nähme Platz weg, um
+		nichts mitzuteilen. Anders als Block 3, der `Nichts offen.` sagt: der Pool
+		ist der Gegenstand dieser Seite und darf nicht verschwinden.
+
+		Eine **übernommene** Einzelaufgabe steht hier nicht mehr. Sie trägt einen
+		Namen und ist damit geregelt; wer wissen will, wer was übernommen hat,
+		findet es auf /einzelaufgaben. Der Fusslink führt dorthin — die Unterseite
+		vertieft, sie informiert nicht exklusiv.
+	-->
+	<!--
+			Der Titel nennt beides: **was** es ist und **was man damit tut**. `Zum
+			Übernehmen` allein sagte nicht, worum es sich handelt, `Einzelaufgaben`
+			allein nicht, dass hier etwas zu holen ist.
+
+		**Offen geliefert, und das ist keine Kleinigkeit.** AD-14 verlangt, dass man
+		beim Öffnen der Seite sieht, was zu tun ist. Ein zugeklappter Abschnitt
+		bräche das — `open` hält die Zusage, und zugleich darf jede Person den
+		Abschnitt wegklappen, wenn sie ihn gerade nicht braucht. Der Zustand wird
+		**nicht** gespeichert: beim nächsten Laden steht wieder alles offen, und
+		damit kann kein einmaliger Griff dauerhaft verbergen, dass etwas ansteht.
+		-->
+	<details class="abschnitt" open>
+		<summary class="abschnitt__griff">
+			<h2 class="griff__satz" id="einzel-marke">
+				{@render zeichenPerson('griff__zeichen')}
+				{#if data.ueberblick.frei === 0}
+					<span class="kopfwort">{GRIFF_FREI_LEER}</span>
+				{:else}
+					<span class="griff__titel">{GRIFF_FREI}</span>
+					<span class="zaehler">{data.ueberblick.frei}</span>
+				{/if}
+			</h2>
+		</summary>
+		<div class="abschnitt__inhalt">
+			{#if data.einzelaufgaben.length > 0}
+				<ul class="liste liste--getrennt" aria-labelledby="einzel-marke">
+					{#each data.einzelaufgaben as aufgabe (aufgabe.id)}
+						{@const frageHier = frage !== null && frage.id === aufgabe.id}
+						{@const kasten = datumKasten(aufgabe.terminAt)}
+						<!--
+					`karte--offen` ohne Bedingung: dieser Block führt ausschliesslich freie
+					Einzelaufgaben (die load holt nur die), und eine Bedingung, die immer
+					wahr ist, behauptete eine Unterscheidung, die es hier nicht gibt.
+					Dieselbe Fläche wie auf /einzelaufgaben — derselbe Zustand, dieselbe
+					Farbe, sonst lernte man sie zweimal.
+				-->
+						<li class="karte karte--offen">
+							<!--
+						**Eine Reihe, nicht zwei Blöcke übereinander.** Der Knopf stand bis
+						zum 2026-09-11 über die volle Spaltenbreite unter dem Titel und
+						nahm auf dem Telefon — dem Hauptgerät dieser Anwendung — Höhe weg,
+						die die Liste braucht. Jetzt steht er daneben.
+
+						`align-items: flex-start`: bei einem langen Titel, der bei 375px
+						über drei Zeilen läuft, soll der Knopf oben bleiben und nicht in
+						die Mitte rutschen.
+					-->
+							<div class="einzel__reihe">
+								<!--
+									**Der Datumskasten steht vor dem Titel**, seit dem 2026-09-15: die
+									Zeilen dieses Abschnitts unterscheiden sich in erster Linie durch
+									ihren Termin, und eine Spalte gleich gesetzter Zahlen liest sich
+									schneller als ein Datum im Fliesstext.
+
+									`aria-hidden`, und das lange Datum steht daneben in
+									`.nur-vorgelesen`: `17` über `Sept.` ergibt vorgelesen
+									`siebzehn Sept Punkt`, und was den Kasten lesbar macht, ist seine
+									Anordnung — die hört niemand.
+
+									**Eckig und keine Pille.** DESIGN.md schliesst die vollständig
+									gerundete Form aus, sie signalisiert ein Abzeichen; das hier ist
+									ein Datum. `--radius-sm` ist der Radius, den dasselbe Dokument
+									„fast eckig" nennt.
+								-->
+								<p class="datumskasten" aria-hidden="true">
+									<span class="datumskasten__tag">{kasten.tag}</span>
+									<span class="datumskasten__monat">{kasten.monat}</span>
+								</p>
+								<div class="zeile__spalte">
+									<!--
+							Die Kennung dieser Zeile. Der Knopf darunter heisst in jeder Zeile
+							`Übernehmen`; wer die Liste sieht, liest den Titel mit, wer sie mit
+							einer Elementliste durchgeht, bekäme sonst dasselbe Wort ohne jede
+							Auskunft, worum es geht. Derselbe Handgriff wie an den
+							Zeilen-Aktionen auf /verwaltung und /traenkeplan.
+
+							`.zeile__text` bringt den Umbruch für getippten Text aus dem
+							geteilten Stilblatt mit.
+						-->
+									<p class="fliesstext zeile__text" id="einzel-titel-{aufgabe.id}">
+										{aufgabe.titel}
+									</p>
+									<!--
+							**Das Wort trägt die Dringlichkeit, die Farbe nur den einen Fall.**
+							Bis zum 2026-09-14 stand hier allein das Datum, in demselben Grau
+							für eine Aufgabe diese Woche wie für eine im Oktober. `diese Woche`
+							bleibt in der Nebentextfarbe — das Wort genügt; `überfällig`
+							bekommt --overdue, dasselbe Token und dieselbe Aussage wie am
+							Fristsatz der Poolzeile.
+
+							**Nicht --warn**, obwohl es naheläge: dessen Kommentar im Tokenblock
+							nennt die unbesetzte Dienstwoche als seinen einzigen Zweck, und
+							genau diese Doppelnutzung hat am 2026-09-13 die Ernte-Ampel
+							gekostet.
+						-->
+									<p class="hinweis" class:einzel__verstrichen={aufgabe.lage === 'verstrichen'}>
+										<!--
+											Das lange Datum nur für die Ansage: sichtbar steht es im Kasten
+											links, und zweimal dasselbe Datum in einer Zeile wäre Rauschen.
+										-->
+										<span class="nur-vorgelesen">{datumLang(aufgabe.terminAt)}</span>noch niemand{fristZusatz(
+											aufgabe.lage
+										)}
+									</p>
+									<!--
+							`noch niemand` steht als Wort und nicht als Ausdruck über
+							`aufgabe.uebernehmer`: die load reicht über
+							freieEinzelaufgabenLesen ausschliesslich **freie** Zeilen herein,
+							und eine Verzweigung über einen Wert, der hier immer null ist, wäre
+							ein toter Zweig. Auf /einzelaufgaben, wo beide Zustände stehen,
+							verzweigt die Zeile wirklich.
+
+							Es steht seit dem 2026-09-15 in derselben Zeile wie die Lage des
+							Termins: der Kasten links trägt das Datum, und zwei Hinweiszeilen
+							untereinander wären eine mehr, als die Zeile zu sagen hat.
+						-->
+								</div>
+
+								<!--
+						**Entweder der Knopf oder die Frage, nie beides.** Steht die Frage
+						zu dieser Zeile offen, ist der Knopf darüber fort: er schickte
+						dieselbe action ein zweites Mal ab und stellte damit nur dieselbe
+						Frage noch einmal. Zwei Knöpfe mit derselben Beschriftung in einer
+						Zeile, von denen einer bestätigt und der andere nachfragt, sind
+						ausserdem für jede Person, die sie einzeln vorgelesen bekommt,
+						ununterscheidbar.
+
+						Nach dem Hydrieren eines Frage-Dokuments gilt dasselbe: `form.art`
+						steht dann weiterhin auf `fragen`, und ohne diese Bedingung öffnete
+						ein Griff an den Knopf den Dialog **über** der schon sichtbaren
+						Frage — dieselbe Bestätigung zweimal.
+
+						Ein echtes Formular mit literalem action="?/uebernehmen" — Gate-Regel
+						11 liest den Namen textuell. Der Rückruf bricht den Versand ab und
+						öffnet den Dialog; **ohne** JavaScript läuft er nicht, der POST geht
+						durch, und der Server antwortet mit derselben Frage als Dokument.
+					-->
+								{#if !frageHier}
+									<form
+										class="einzel__form"
+										method="POST"
+										action="?/uebernehmen"
+										use:enhance={versandFragen(aufgabe)}
+									>
+										<input type="hidden" name="einzelaufgabeId" value={aufgabe.id} />
+										<button
+											class="button-quiet button-quiet--kompakt"
+											type="submit"
+											id="uebernehmen-{aufgabe.id}"
+											aria-labelledby="uebernehmen-{aufgabe.id} einzel-titel-{aufgabe.id}"
+											disabled={imFlug}
+										>
+											<!--
+									**Das Zeichen steht neben dem Wort, nicht an seiner Stelle.**
+									Ein Kopf mit Schultern, weil Übernehmen in diesem System genau
+									eines heisst: die Sache bekommt einen Namen (AD-4). Ein Häkchen
+									sagte `erledigt` und bedeutet im Kästchen der Aufgabenzeile
+									schon etwas anderes; ein `+` sagte `anlegen` und steht am
+									primären Knopf.
+
+									`aria-hidden`, weil das Wort daneben den Namen schon trägt —
+									sonst hörte man die Handlung zweimal. `currentColor`, damit es
+									im deaktivierten Zustand mit der Schrift mitgeht.
+								-->
+											{@render zeichenPerson('')}
+											{UEBERNEHMEN_KNOPF}
+										</button>
+									</form>
+								{/if}
+							</div>
+
+							<!--
+						Die Bestätigung **ohne JavaScript**, an der Zeile, um die es geht.
+						Sie steht **ausserhalb** der Reihe: sie gehört nicht neben den Titel,
+						sondern unter die ganze Zeile — sie ist eine Frage an die Person, kein
+						Bedienelement der Kopfzeile.
+						Mit JavaScript entsteht sie im Regelfall nie — der Rückruf oben bricht
+						den ersten Versand ab, und `form` wird dann nicht auf `fragen` gesetzt.
+						Die Ausnahme ist sein Ausfallweg: ist `dialog` nicht gebunden, läuft
+						der gewöhnliche POST, und dann steht diese Frage im Dokument. Genau so
+						soll es sein — sie ist dort die einzige Bestätigung, die es gibt.
+
+						Ohne use:enhance, denn sie ist der Weg für den Fall, in dem es kein
+						enhance gibt. `Abbrechen` ist ein Link auf `/` und kein Knopf: er
+						verwirft die Antwort der action, indem er die Seite neu holt, und tut
+						sonst nichts.
+
+						`Abbrechen` steht zuerst, wie im Dialog: die Reihenfolge im DOM ist
+						die Fokusreihenfolge, und die zusagende Handlung soll nicht die
+						erste sein, die ein Enter trifft.
+					-->
+							{#if frageHier && frage !== null}
+								<div class="einzel__frage">
+									<!--
+								**Derselbe Satz und dieselbe Folge wie im Dialog.** `uebernahmeSatz`
+								nennt, was übernommen wird; `UEBERNAHME_FOLGE` sagt, warum das
+								verbindlich ist. Der zweite Teil ist Substanz und keine Zierde —
+								er ist der Grund, warum diese eine Handlung im ganzen
+								Aufgabenbereich eine Bestätigung bekommt —, und darum steht er
+								auf **beiden** Wegen. Entschieden im Review vom 2026-08-30; die
+								Behauptung darüber hält fest, dass die zwei Wege denselben Text
+								tragen.
+
+								Die Überschrift bleibt dem Dialog: sie benennt ein Fenster, nicht
+								den Vorgang. Hier trägt die Zeile selbst den Zusammenhang.
+							-->
+									<p class="fliesstext" id="einzel-frage-{aufgabe.id}">
+										{uebernahmeSatz(frage)}
+										{UEBERNAHME_FOLGE}
+									</p>
+									<form class="knoepfe" method="POST" action="?/uebernehmen">
+										<input type="hidden" name="einzelaufgabeId" value={frage.id} />
+										<input type="hidden" name="bestaetigt" value="1" />
+										<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+										<a class="button-quiet" href={resolve('/')}>Abbrechen</a>
+										<button
+											class="button-quiet"
+											type="submit"
+											aria-describedby="einzel-frage-{aufgabe.id}"
+										>
+											{UEBERNEHMEN_KNOPF}
+										</button>
+									</form>
+								</div>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+
+			<!--
+				**Die zwei Wege stehen im selben Aufklapper wie die Liste.**
+
+				Bis zum 2026-09-11 waren es zwei getrennte Dinge, und beide hiessen
+				`Einzelaufgaben` — ein Abschnitt mit der Liste und darunter ein zweiter
+				Aufklapper mit den Handlungen. Zwei gleich benannte Aufklapper
+				untereinander sind für jede Person, die sie einzeln vorgelesen bekommt,
+				ununterscheidbar.
+
+				**Die Bedingung, unter der das trägt, ist `open` am Abschnitt darüber.**
+				In einem zugeklappten Aufklapper läge die Liste mit; AD-14 ist genau
+				dagegen geschrieben. Offen ausgeliefert steht sie da, und wer sie
+				wegklappt, klappt seine eigene Ansicht weg — bis zum nächsten Laden.
+
+				**Und der Abschnitt steht jetzt auch ohne eine einzige freie
+				Einzelaufgabe.** Das ist eine Umkehr der alten Zusage „fehlt ganz oder gar
+				nicht", und sie ist der Preis dafür, dass die zwei Wege hier drin liegen:
+				verschwände der Abschnitt, verschwänden sie mit — die Sackgasse von
+				vorher. Der Pool darüber macht es seit Story 1.4 genauso: Marke steht,
+				und statt der Liste ein Satz.
+			-->
+			<div class="knoepfe">
+				<!--
+				**Ein primärer Knopf je Abschnitt, nicht je Seite.**
+
+				DESIGN.md schrieb bis zum 2026-09-11 „höchstens einer pro Seite", und das
+				stimmte, solange `/` eine einzige Handlung trug. Seit die zwei Abschnitte
+				eigene Aufklapper sind, hat jeder seine eigene: hier ausschreiben, im Pool
+				erfassen. Sie stehen nie nebeneinander und konkurrieren darum nicht — was
+				die Regel meinte.
+
+				`+ Einzelaufgabe` und nicht `Einzelaufgabe ausschreiben`: dieselbe Form wie
+				`+ Aufgabe` im Abschnitt darunter, weil es dieselbe Art Handlung ist.
+
+				resolve() ist Pflicht für interne Ziele
+				(svelte/no-navigation-without-resolve).
+			-->
+				<a class="button-primary" href={resolve('/einzelaufgabe')}>+ Termin planen</a>
+				<a class="eintrag" href={resolve('/einzelaufgaben')}>Alle Termine</a>
+			</div>
+		</div>
+	</details>
 </div>
 
 <!--
@@ -1779,7 +1823,28 @@
 		Die Farbe ist `--ink-secondary` und nicht die des Titels: das Zeichen ist
 		die schwächere der zwei Auskünfte. Was der Abschnitt ist, sagt das Wort.
 	*/
+	/*
+		Eine Marke mit Zeichen davor.
+
+		**Ausgerichtet über die Achse und nicht über einen Versatz.** Der erste
+		Entwurf setzte `vertical-align: -0.15em` — eine Zahl, die aus keiner Rampe
+		kommt, und genau die Sorte, vor der der Tokenblock bei
+		`--textarea-bulk-min-height` warnt: Gate-Regel 1 liest ein rohes em nicht,
+		und was keine Wache hat, wächst. `align-items: center` braucht keine Zahl
+		und hält auch dann, wenn jemand die Schriftgrösse der Marke ändert.
+
+		Das `display` steht an einer eigenen Klasse und nicht an `.marke` im
+		geteilten Blatt: dort trüge es jede Marke des Baums, auch die ohne Zeichen.
+	*/
+	.marke--mit-zeichen {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+	}
+
 	.griff__zeichen {
+		inline-size: var(--zeichen-gross);
+		block-size: var(--zeichen-gross);
 		vertical-align: middle;
 		color: var(--ink-secondary);
 	}
@@ -1794,21 +1859,19 @@
 	}
 
 	/*
-		Der Zähler daneben.
+		Der Zähler daneben — **eine blosse Zahl, kein Kasten**.
 
-		**Eckig und keine Pille**, aus demselben Grund wie der Datumskasten:
-		DESIGN.md schliesst die vollständig gerundete Form aus, weil sie ein
-		Abzeichen signalisiert. Entscheid Manuel, 2026-09-15.
+		Er war einen Tag lang ein eckiger, heller Kasten wie das Datum an einer
+		Zeile darunter. Das war zu viel: der Datumskasten trägt die Aussage seiner
+		Zeile, dieser Zähler ergänzt eine Überschrift, die ohne ihn vollständig
+		ist. Zwei Kästen derselben Form für zwei verschieden wichtige Dinge liessen
+		den einen wie den anderen aussehen. Entscheid Manuel, 2026-09-15.
 
-		Fläche und Kante wie an einer Karte — der Kasten steht auf der getönten
-		Fläche des Griffs und muss sich von ihr abheben, ohne zu leuchten.
+		Nebentextfarbe und nicht Tintenfarbe, aus demselben Grund wie beim Zeichen
+		davor: was der Abschnitt ist, sagt das Wort.
 	*/
 	.zaehler {
-		padding: 0 var(--space-2);
-		border: var(--border-hairline) solid var(--hairline);
-		border-radius: var(--radius-sm);
-		background-color: var(--surface-raised);
-		color: var(--ink-primary);
+		color: var(--ink-secondary);
 		font-family: var(--meta-font);
 		font-size: var(--meta-size);
 		font-weight: var(--meta-weight);

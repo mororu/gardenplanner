@@ -8185,19 +8185,29 @@ try {
 					(startseiteCodeEinzel.match(/<svg\b[\s\S]{0,400}?aria-hidden="true"/g) ?? []).length,
 		],
 		/*
-		 * Block 1 vor Block 2 vor Block 3 — die Reihenfolge aus AD-14, gemessen an
-		 * den drei Marken statt behauptet.
+		 * Block 1 vor Block 3 vor Block 2, gemessen an den drei Marken statt
+		 * behauptet.
+		 *
+		 * **Die zwei letzten stehen seit dem 2026-09-15 getauscht** und weichen
+		 * damit von der Reihenfolge in AD-14 ab: der Pool `Zwischendurch` steht vor
+		 * `Wer übernimmt`. Entscheid Manuel — wer auf die Seite kommt, um etwas zu
+		 * tun, findet den Vorrat zuerst, die Zusage auf einen Termin danach. Die
+		 * Begründung steht bei den Blöcken in `+page.svelte`.
+		 *
+		 * Was die Wache trägt, ist unverändert: dass der Diensthinweis oben bleibt
+		 * und die zwei Abschnitte in **einer** festgelegten Reihenfolge stehen. Ein
+		 * Tausch aus Versehen fällt hier weiterhin auf.
 		 */
 		[
-			'er steht nach dem Diensthinweis und vor der Marke des Pools',
+			'er steht nach dem Diensthinweis und nach der Marke des Pools',
 			startseiteCodeEinzel.indexOf('{#if data.dienst !== null}') <
-				startseiteCodeEinzel.indexOf('id="einzel-marke"') &&
-				startseiteCodeEinzel.indexOf('id="einzel-marke"') <
-					startseiteCodeEinzel.indexOf('id="offen-marke"'),
+				startseiteCodeEinzel.indexOf('id="offen-marke"') &&
+				startseiteCodeEinzel.indexOf('id="offen-marke"') <
+					startseiteCodeEinzel.indexOf('id="einzel-marke"'),
 		],
 	] as const;
 	pruefen(
-		'Block 2 auf / steht unbedingt, die Liste darin bedingt — und zwischen Dienst und Pool',
+		'Block 2 auf / steht unbedingt, die Liste darin bedingt — und nach Dienst und Pool',
 		fehlendeTeile(blockTeile).length === 0,
 		`fehlt: ${fehlendeTeile(blockTeile).join(', ')}`
 	);

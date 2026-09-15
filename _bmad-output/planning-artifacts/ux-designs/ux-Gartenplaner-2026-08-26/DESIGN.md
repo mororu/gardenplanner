@@ -3,7 +3,7 @@ name: Gemeinschaftsgarten
 description: Aufgabenliste für einen Gemeinschaftsgarten. Neutral, übersichtlich, anmächelig — Salbei auf warmem Leinen, ein einziges Erscheinungsbild, keine Zählungen, keine Dekoration.
 status: final
 created: '2026-08-26'
-updated: '2026-09-13'
+updated: '2026-09-15'
 experience: './EXPERIENCE.md'
 colors:
   surface-base: '#F6F2EA'
@@ -136,6 +136,10 @@ components:
     headMinHeight: '{spacing.touch}'
     headPadding: '{spacing.2} {spacing.3}'
     bodyPadding: '{spacing.3}'
+    headIconSize: 22px
+    headTitleFont: '{typography.section}'
+    headCountFont: '{typography.meta}'
+    headCountColor: '{colors.ink-secondary}'
   harvest-marker:
     borderLeft: '3px solid {colors.reif-sofort}'
     borderLeftStanding: '3px solid {colors.reif-stehen}'
@@ -305,6 +309,18 @@ Für Nebenaktionen: durchsichtig, Text `{colors.accent}`, Umriss `{colors.ink-se
 ### `duty-banner`
 
 Nur vorhanden, wenn die betrachtende Person in dieser Woche Dienst hat. Karte mit 3px linker Kante in `{colors.accent}`. Das Wort `Diese Woche` in `{colors.accent}` und 600, der Rest normal. Kein Kästchen, kein Schliessen-Kreuz — ein Dienst ist keine Aufgabe und lässt sich nicht wegtippen.
+
+### `section`
+
+Der aufklappbare Abschnitt: Griff oben, Inhalt darunter, **eine** Kante um beide in `{colors.ink-secondary}` — das erste Kind ist ein `<summary>`, also ein Bedienelement, und die Kante des Behälters ist dessen sichtbarer Umriss. Der Griff trägt keine eigene Kante und auch keine Linie zu seinem Inhalt; die Trennung leistet seine Fläche.
+
+Im Griff stehen drei Dinge nebeneinander: **Zeichen, Titel, Zahl.**
+
+- Das **Zeichen** ist 22px gross, dieselbe Zahl wie das Kästchen einer Aufgabe (`{components.task-box.size}`), und steht damit neben 20px-Schrift statt neben 13px.
+- Der **Titel** in `{typography.section}`. Er sagt, was der Abschnitt ist; ein Zeichen ohne Wort gäbe es hier so wenig wie in der Navigation.
+- Die **Zahl** in `{typography.meta}` und `{colors.ink-secondary}`, als blosse Zahl und **ohne Kasten**. Sie war einen Tag lang ein eckiger heller Kasten wie das Datum an einer Zeile darunter — zwei Kästen derselben Form für zwei verschieden wichtige Dinge liessen den einen wie den anderen aussehen. Der Datumskasten trägt die Aussage seiner Zeile, diese Zahl ergänzt eine Überschrift, die ohne sie vollständig ist.
+
+Abschnitte werden **offen** ausgeliefert und der Zustand nirgends gespeichert: ein einmaliger Griff darf nicht dauerhaft verbergen, dass etwas ansteht.
 
 ### `textarea-bulk`
 

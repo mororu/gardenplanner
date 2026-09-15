@@ -279,6 +279,18 @@
 				   calc((var(--touch) - var(--task-box)) / -2) zieht das Trefferfeld
 				   über die Zeile hinaus, ohne die Zeilenhöhe aufzublähen. */
 				--task-box: 1.375rem;
+				/*
+				   Die Grösse eines Zeichens, das eine Überschrift begleitet, 22px.
+
+				   Grösser als --zeichen daneben, und der Grund ist die Nachbarschaft:
+				   dieses steht neben einem Wort in der section-Rolle (20px), jenes neben
+				   einem in der meta-Rolle (13px). Ein Zeichen, das in beiden Fällen gleich
+				   gross wäre, sähe an einer der zwei Stellen falsch aus — hier zu klein.
+
+				   Kein Trefferfeld: das Zeichen sitzt im Griff, und der hält --touch
+				   selbst. Entscheid Manuel, 2026-09-15.
+				*/
+				--zeichen-gross: 1.375rem;
 				/* Die **sichtbare** Grösse eines Zeichens neben einem Wort, 18px. Wie beim
 				   Kästchen der Aufgabenzeile ist das nicht das Trefferfeld: das entsteht am
 				   Knopf darum herum und hält --touch. 18px und nicht 22px, weil das Zeichen
