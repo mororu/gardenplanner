@@ -31,7 +31,7 @@ import { fristfenster, istImFristfenster, tagesendeInUnixSekunden } from '../../
 
 /** Der Text für den fehlenden Titel. Eine Wurfstelle. */
 const TITEL_FEHLT =
-	'Ohne Titel entsteht keine Einzelaufgabe. Schreib in einem Satz, worum es geht.';
+	'Ohne Titel entsteht keine terminierte Aufgabe. Schreib in einem Satz, worum es geht.';
 
 /**
  * Der Text für die Überlänge. Eine Wurfstelle.
@@ -58,7 +58,7 @@ const TITEL_ZU_LANG = `Das ist zu lang für einen Titel. Höchstens ${AUFGABE_HO
  * einem Jahr in jede Richtung — ist dieselbe und teilt sich darum FRIST_AUSSERHALB;
  * die Auslegung des leeren Felds ist es nicht.
  */
-const TERMIN_FEHLT = 'Wähle einen Termin, bis zu dem die Einzelaufgabe erledigt sein soll.';
+const TERMIN_FEHLT = 'Wähle einen Termin, bis zu dem die terminierte Aufgabe erledigt sein soll.';
 
 /**
  * Der Titel, wie er in die Datenbank geht — oder null, wenn er nicht taugt.

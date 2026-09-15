@@ -132,3 +132,38 @@ export function zeilenErkennen(text: string): string[] {
 		.map((zeile) => aufgabentextFalten(zeile))
 		.filter((zeile) => zeile !== '');
 }
+
+/** Der Satz für einen leeren Aufgabentext. */
+export const AUFGABE_TEXT_FEHLT =
+	'Ohne Text entsteht keine Aufgabe. Schreib in einem Satz, was zu tun ist.';
+
+/** Der Satz für die Überlänge, mit der Grenze von nebenan. */
+export const AUFGABE_TEXT_ZU_LANG = `Das ist zu lang für eine Aufgabe. Höchstens ${AUFGABE_HOECHSTLAENGE} Zeichen.`;
+
+/**
+ * Der Aufgabentext, wie er in die Datenbank geht — oder der Satz, warum nicht.
+ *
+ * Gefaltet wird mit aufgabentextFalten darüber: erst die Nullbreiten-Zeichen
+ * weg, dann Leerraum zusammenziehen, dann trimmen. Gespeichert wird die
+ * **gefaltete** Fassung: `  Beet   25   jäten  ` wird zu `Beet 25 jäten`.
+ *
+ * **Diese Funktion stand bis zum 2026-09-13 in /aufgabe**, mit der Begründung,
+ * die Faltung sei geteilt und die *Deutung* — welche zwei Sätze daraus werden —
+ * sei die Auslegung jener einen Seite. Das stimmte, solange es eine Seite war.
+ * Seit die Startseite den Text einer offenen Aufgabe ändern lässt, machen
+ * **zwei** Seiten dieselben zwei Sätze aus derselben Faltung, und zwei Kopien
+ * wären eine zweite Wahrheit über dieselbe Regel. Dieselbe Bewegung wie bei
+ * AUFGABE_HOECHSTLAENGE eine Story zuvor, aus demselben Grund.
+ *
+ * **Der Monatsplan bleibt aussen vor, und das ist keine Nachlässigkeit:** dort
+ * geht es um die Zahl der zu langen Zeilen eines Stapels und nicht um das eine
+ * Feld. Die Faltung teilt jene Seite weiterhin, die Sätze nicht.
+ */
+export function aufgabentextPruefen(eingabe: string): { text: string } | { fehler: string } {
+	const text = aufgabentextFalten(eingabe);
+	if (text === '') return { fehler: AUFGABE_TEXT_FEHLT };
+	// Nach Codepoints gezählt, nicht nach UTF-16-Einheiten: ein Emoji im Text
+	// ist kein zweites Zeichen. [...text] zerlegt in Codepoints.
+	if ([...text].length > AUFGABE_HOECHSTLAENGE) return { fehler: AUFGABE_TEXT_ZU_LANG };
+	return { text };
+}

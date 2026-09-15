@@ -66,7 +66,7 @@ import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-t
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 67;
+const ERWARTETE_BEHAUPTUNGEN = 68;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -1475,7 +1475,10 @@ try {
 				kanten.push(['outline', s.outlineColor]);
 			}
 			for (const [name, farbe] of kanten) {
-				funde.push({ art: 'umriss', wo: pfad(el) + ' ' + name, text: '', vordergrund: farbe,
+				const marke = el.dataset.stufe !== undefined && name === 'border-left';
+				funde.push({ art: marke ? 'zustandsmarke' : 'umriss',
+					wo: pfad(el) + ' ' + name, text: marke ? el.dataset.stufe : '',
+					vordergrund: farbe,
 					stapel: g.stapel, bild: g.bild, durchscheinend: g.durchscheinend,
 					groesse: 0, gewicht: 0 });
 			}
@@ -1507,8 +1510,11 @@ try {
 				const stil = s['border' + seite + 'Style'];
 				if (parseFloat(s['border' + seite + 'Width']) <= 0) continue;
 				if (stil === 'none' || stil === 'hidden') continue;
-				funde.push({ art: 'trennlinie', wo: pfad(el) + ' border-' + seite.toLowerCase(),
-					text: '', vordergrund: s['border' + seite + 'Color'],
+				const marke = el.dataset.stufe !== undefined && seite === 'Left';
+				funde.push({ art: marke ? 'zustandsmarke' : 'trennlinie',
+					wo: pfad(el) + ' border-' + seite.toLowerCase(),
+					text: marke ? el.dataset.stufe : '',
+					vordergrund: s['border' + seite + 'Color'],
 					stapel: g.stapel, bild: g.bild, durchscheinend: g.durchscheinend,
 					groesse: 0, gewicht: 0 });
 			}
@@ -1532,7 +1538,7 @@ try {
 		return { funde, tokens, ort: location.pathname };`;
 
 	type Fund = {
-		art: 'text' | 'umriss' | 'trennlinie';
+		art: 'text' | 'umriss' | 'trennlinie' | 'zustandsmarke';
 		wo: string;
 		text: string;
 		vordergrund: string;
@@ -1600,6 +1606,8 @@ try {
 		const textBefunde: string[] = [];
 		const umrissBefunde: string[] = [];
 		const fremdeFarben: string[] = [];
+		const markenBefunde: string[] = [];
+		const markenGesehen: string[] = [];
 		const gesehen = new Set<string>();
 		let paare = 0;
 		let tokenwerte: Record<string, string> = {};
@@ -1609,6 +1617,17 @@ try {
 			const messung = await browser!.auswerten<Messung>(MESSKOPF);
 			tokenwerte = messung.tokens;
 			const tokenmenge = new Set(Object.values(messung.tokens));
+			/*
+			 * Die drei Farben, die als Zustandsmarke durchgehen — **abgeleitet aus
+			 * dem Tokenblock über ihr Namenspräfix** und nicht hier aufgezählt. Eine
+			 * Liste von Hand wäre genau die Stelle, an der eine vierte Ampelfarbe
+			 * später still an der Prüfung vorbeiliefe.
+			 */
+			const ampel = new Set(
+				Object.entries(messung.tokens)
+					.filter(([name]) => name.startsWith('--reif-'))
+					.map(([, farbe]) => farbe)
+			);
 			const textFunde = messung.funde.filter((fund) => fund.art === 'text').length;
 			if (messung.ort !== route || textFunde === 0) {
 				stumm.push(`${route} -> gelandet auf ${messung.ort}, ${textFunde} Textfund(e)`);
@@ -1664,6 +1683,34 @@ try {
 					continue;
 				}
 				paare += 1;
+				/*
+				 * **Die Zustandsmarke — gemessen, gedruckt, und nicht an den 3:1
+				 * gehalten.** Seit dem 2026-09-13, und das ist die einzige Ausnahme
+				 * dieser Zeile; die vorige (`--hairline`) war am 2026-09-11
+				 * ersatzlos gefallen, weil sie einen Befund verdeckte statt einen
+				 * Unterschied zu benennen. Diese hier benennt einen:
+				 *
+				 * NFR9 und WCAG 1.4.11 verlangen Kontrast für das, was zum Erkennen
+				 * **nötig** ist. Was diese Zeile ist, sagt ihr Wort; dass sie ein
+				 * Bedienelement ist, sagt ihr eigener Umriss in --ink-secondary, und
+				 * der wird zwei Zeilen weiter oben weiterhin gegen 3:1 gehalten. Der
+				 * Streifen ist die dritte Auskunft über dieselbe Sache, und er darf
+				 * darum so gelb sein, wie er auf diesem Grund sein kann.
+				 *
+				 * **Die Ausnahme bezahlt sich mit zwei Wachen.** Hier: nur die drei
+				 * --reif-Token kommen hinein, jede andere Farbe an einem
+				 * [data-stufe] fällt auf. Und im Zugangslauf: jede Stufe behält ihr
+				 * Wort neben dem Streifen. Fällt das Wort, fällt die Begründung.
+				 */
+				if (fund.art === 'zustandsmarke') {
+					markenGesehen.push(fund.text);
+					if (!ampel.has(fund.vordergrund)) {
+						markenBefunde.push(
+							`${route} ${fund.wo} (${fund.text}): ${fund.vordergrund} ist kein --reif-Token, gemessen ${wert}`
+						);
+					}
+					continue;
+				}
 				// Dekor: gezählt und auf Farbherkunft geprüft, nicht an NFR9 gehalten.
 				if (fund.art === 'trennlinie') continue;
 				if (wert < 3) umrissBefunde.push(`${route} ${fund.wo}: ${wert} < 3`);
@@ -1733,6 +1780,20 @@ try {
 		const ungesehen = Object.entries(tokenwerte)
 			.filter(([, wert]) => !gesehen.has(wert))
 			.map(([name, wert]) => `${name} (${wert})`);
+		/*
+		 * **Die Gegenrechnung zur Ausnahme zwei Bildschirme weiter oben.** Die
+		 * Zustandsmarke ist von den 3:1 befreit; damit diese Befreiung nicht zum
+		 * Loch wird, darf ausser den drei --reif-Token nichts hindurch — und es
+		 * muss überhaupt welche geben. Eine Ausnahme, die auf null Funden sitzt,
+		 * ist eine Ausnahme, die niemand mehr prüft.
+		 */
+		pruefen(
+			`${wie} trägt jede der ${markenGesehen.length} Zustandsmarken eine Farbe aus --reif-* (${[...new Set(markenGesehen)].sort().join('/')})`,
+			markenBefunde.length === 0 && markenGesehen.length > 0,
+			markenGesehen.length === 0
+				? 'keine einzige Zustandsmarke gerendert — die Ausnahme sitzt auf nichts'
+				: [...new Set(markenBefunde)].join(' | ')
+		);
 		pruefen(
 			`${wie} kommt jedes der ${TOKENS.length} Farbtokens in mindestens einem gemessenen Paar vor`,
 			ungesehen.length === 0,

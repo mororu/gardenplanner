@@ -166,33 +166,43 @@
 				 */
 				--danger: #a33427;
 				/*
-				   Die Ampel der Ernte. Drei Token für drei Stufen, und der Grund für
-				   ihre Existenz ist eine Rechnung und keine Vorliebe:
+				   Die Ampel der Ernte. Drei Token für drei Stufen.
 
-				   Diese drei Farben erscheinen **ausschliesslich** als Kante in der
-				   Breite von --border-marker — auf /ernte an der Karte, auf / an der
-				   Zeile. Eine Kante, die zu einem Bedienelement gehört, hält nach NFR9
-				   3:1; Text hielte 4.5:1. Solange die Stufen sich Textfarben liehen
-				   (--danger, --warn, --accent), waren sie an die strengere Schwelle
-				   gebunden und entsprechend gedämpft — die mittlere Stufe war auf drei
-				   Pixeln praktisch nicht zu sehen. Mit eigenen Token darf sie Bernstein
-				   sein statt Gold.
+				   **Sie erscheinen ausschliesslich als Kante in der Breite von
+				   --border-marker** — auf /ernte an der Karte, auf / an der Zeile. Neben
+				   jeder Kante steht die Stufe ausgeschrieben: auf /ernte in der
+				   Überschrift des Abschnitts, auf / in der Marke an der Zeile. Farbe ist
+				   hier nie der einzige Träger, und das ist nicht Schmuck, sondern die
+				   Bedingung, unter der die mittlere Stufe so hell sein darf, wie sie ist.
 
-				   **Das Wort trägt die Aussage weiterhin allein.** Neben jeder Kante
-				   steht die Stufe ausgeschrieben — auf /ernte in der Überschrift des
-				   Abschnitts, auf / in der Marke an der Zeile. Farbe als einziger
-				   Träger eines Zustands bleibt verboten, und diese drei Token ändern
-				   daran nichts; sie machen die Kante nur sichtbar für die, die sie
-				   sehen können.
+				   **--reif-stehen hält die 3:1 aus NFR9 nicht, und das ist entschieden
+				   und nicht übersehen** (2026-09-13, auf Manuels Ansage: der Balken soll
+				   viel kräftiger gelb sein). Gerechnet: ein Gelb, das 3:1 gegen diese
+				   Karte hält, ist bei #b87a00 zu Ende, und das liest sich als Braun —
+				   #c08400 fällt schon durch. Ein kräftiges Gelb und die Schwelle sind auf
+				   diesem Grund nicht zusammen zu haben.
 
-				   Gemessen gegen **beide** angrenzenden Flächen, weil die Kante
-				   zwischen Karte und Grund liegt:
+				   Getragen wird die Ausnahme davon, dass WCAG 1.4.11 Kontrast für das
+				   verlangt, was zum Erkennen **nötig** ist. Was diese Zeile ist, sagt ihr
+				   Wort; was sie zu einem Bedienelement macht, sagt ihr eigener Umriss in
+				   --ink-secondary bei 5.97:1. Der Streifen ist die dritte Auskunft über
+				   dieselbe Sache.
+
+				   **Die Ausnahme ist benannt und bewacht, nicht still.** Der Sichtlauf
+				   kennt seit dem 2026-09-13 die Art `zustandsmarke`, misst sie weiter,
+				   druckt ihren Wert und lässt nur diese drei Token hinein; und der
+				   Zugangslauf prüft, dass jede der drei Stufen ihr Wort neben dem
+				   Streifen behält. Fällt das Wort weg, fällt die Begründung, und der
+				   Lauf wird rot.
+
+				   Gemessen gegen beide angrenzenden Flächen, weil die Kante zwischen
+				   Karte und Grund liegt:
 				     sofort  5.35:1 auf --surface-raised, 4.87:1 auf --surface-base
-				     stehen  3.55:1 auf --surface-raised, 3.23:1 auf --surface-base
+				     stehen  1.57:1 auf --surface-raised, 1.43:1 auf --surface-base
 				     wachsen 4.99:1 auf --surface-raised, 4.54:1 auf --surface-base
 				*/
 				--reif-sofort: #c0392b;
-				--reif-stehen: #b87a00;
+				--reif-stehen: #ffc400;
 				--reif-wachsen: #2f7d46;
 
 				/* Schriftfamilien — selbst gehostet, geladen aus dem eigenen Stilblatt */
@@ -289,6 +299,21 @@
 				   Layoutmass, das der Inhalt unten freihalten muss. 48px, damit jedes
 				   Ziel über dem 44px-Boden liegt. */
 				--navbar-height: 3rem;
+
+				/*
+				   Die Kantenlänge des Kastens, in dem nur Vorgelesenes steht.
+
+				   **1px und nicht 0.** Ein Kasten ohne Ausdehnung fällt bei einem Teil
+				   der Vorleseprogramme aus dem Zugänglichkeitsbaum, und damit fiele der
+				   Text, der die Klasse trägt — er ist dort die halbe Beschriftung des
+				   Kästchens in der Aufgabenzeile.
+
+				   Ein eigenes Token und nicht --border-hairline, obwohl beide 1px sind:
+				   das eine ist die Breite einer Linie, das andere die Grösse eines
+				   Kastens. Zwei Zwecke an einem Token sind die Falle, in die --warn am
+				   2026-09-13 gelaufen ist.
+				*/
+				--verborgen: 0.0625rem;
 
 				/* Kantenbreiten — 1px Haarlinie, 2px Zustandskante, 3px Diensthinweis */
 				--border-hairline: 0.0625rem;

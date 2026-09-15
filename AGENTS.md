@@ -102,6 +102,17 @@ tun ist.
 Oberfläche und Dokumente Deutsch in Schweizer Rechtschreibung, **ohne Eszett**,
 Du-Form. Domänenspalten der Datenbank deutsch, Infrastrukturspalten englisch.
 
+**Terminierte Aufgabe, nicht Einzelaufgabe** (seit dem 2026-09-14). Die
+Oberfläche nennt sie so: Seitentitel, Griff auf `/`, die zwei Knöpfe, der
+Bestätigungsdialog und die Fehlersätze. **Die Grenze läuft am Quelltext**, und
+zwar bewusst an derselben Stelle wie beim Tränkeplan: die Routen bleiben
+`/einzelaufgabe` und `/einzelaufgaben`, die Tabelle bleibt `signup_tasks`, die
+Funktionen behalten ihre Namen (`einzelaufgabeAusschreiben`,
+`freieEinzelaufgabenLesen`), und der Typ heisst weiter `Einzelaufgabe`. Eine
+Umbenennung über den ganzen Baum kostete jede Fundstelle, jede Prüfzeile und
+jede Commit-Nachricht, die einen dieser Namen nennt — für null Gewinn an der
+Oberfläche.
+
 **Tränkeplan, nicht Dienstplan** (seit dem 2026-09-11). Die Seite heisst
 `/traenkeplan`, die Navigation, der Titel und die Kachel auf `/` nennen sie so,
 und Kommentare, die **diese Seite** meinen, ebenfalls. Die Grenze läuft an der

@@ -263,19 +263,28 @@ const DOKUMENTIERT = [
 	 */
 	['Nebentext auf Abschnittskopf', 'ink2', 'griff', 4.93, 4.5],
 	/*
-	 * Die Ampel der Ernte, sechs Zeilen. Sie steht **an beiden** Flächen,
-	 * weil die Kante zwischen Karte und Grund liegt: aussen der Grund der Seite,
-	 * innen die Karte. Schwelle 3.0 und nicht 4.5 — diese drei Farben sind nie
-	 * Text, sondern ausschliesslich der Umriss eines Bedienelements. Genau
-	 * dieser Unterschied ist der Grund, warum es die Token seit dem 2026-09-13
-	 * überhaupt gibt.
+	 * Die Ampel der Ernte, sechs Zeilen. Sie steht **an beiden** Flächen, weil
+	 * die Kante zwischen Karte und Grund liegt: aussen der Grund der Seite,
+	 * innen die Karte.
+	 *
+	 * **Schwelle 0, seit dem 2026-09-13 — und das ist die zweite und letzte
+	 * Zeilengruppe ohne Boden.** Bis dahin stand hier 3.0, und die drei Farben
+	 * waren danach ausgesucht. Dann sollte die mittlere Stufe kräftig gelb
+	 * werden, und das geht auf diesem Grund nicht zusammen: ein Gelb, das 3:1
+	 * gegen diese Karte hält, ist bei #b87a00 zu Ende und liest sich als Braun.
+	 *
+	 * Die Zahlen stehen trotzdem hier, und zwar alle sechs. Ohne Boden heisst
+	 * nicht ungemessen: wer eine der drei Farben anfasst, sieht an dieser Zeile,
+	 * was er getan hat, und die Tabellenprobe oben bricht wie bei jeder anderen.
+	 * Was hier nicht mehr steht, ist ein Versprechen, das die Farbe nicht halten
+	 * kann — die Stufe trägt ihr Wort daneben, und `smoke` prüft genau das.
 	 */
-	['Ampel sofort an Karte', 'reifSofort', 'raised', 5.35, 3],
-	['Ampel sofort an Grund', 'reifSofort', 'base', 4.87, 3],
-	['Ampel kann stehen an Karte', 'reifStehen', 'raised', 3.55, 3],
-	['Ampel kann stehen an Grund', 'reifStehen', 'base', 3.23, 3],
-	['Ampel wachsen an Karte', 'reifWachsen', 'raised', 4.99, 3],
-	['Ampel wachsen an Grund', 'reifWachsen', 'base', 4.54, 3],
+	['Ampel sofort an Karte', 'reifSofort', 'raised', 5.35, 0],
+	['Ampel sofort an Grund', 'reifSofort', 'base', 4.87, 0],
+	['Ampel kann stehen an Karte', 'reifStehen', 'raised', 1.57, 0],
+	['Ampel kann stehen an Grund', 'reifStehen', 'base', 1.43, 0],
+	['Ampel wachsen an Karte', 'reifWachsen', 'raised', 4.99, 0],
+	['Ampel wachsen an Grund', 'reifWachsen', 'base', 4.54, 0],
 	/*
 	 * Die Haarlinie liegt **auf der Karte** — das ist nachgemessen und nicht
 	 * abgelesen: auf `--surface-base` ergeben dieselben Tokens 1.22 statt 1.34.
@@ -284,8 +293,7 @@ const DOKUMENTIERT = [
 	 * **Seit dem 2026-09-11 ist das ihre einzige Rolle.** Vorher trug sie auch den
 	 * Umriss von fünf Bedienelementen und verfehlte dort die 3:1 aus NFR9;
 	 * Entscheid (a) hat die auf `--ink-secondary` gehoben. Die 1.34 ist damit
-	 * kein offener Befund — eine Trennlinie muss die Schwelle nicht erreichen,
-	 * und darum ist dies die einzige Zeile mit Schwelle 0.
+	 * kein offener Befund — eine Trennlinie muss die Schwelle nicht erreichen.
 	 */
 	['Haarlinie auf Karte', 'hair', 'raised', 1.34, 0],
 ] as const;
@@ -308,7 +316,7 @@ const HELL = {
 	warn: '#856500',
 	danger: '#a33427',
 	reifSofort: '#c0392b',
-	reifStehen: '#b87a00',
+	reifStehen: '#ffc400',
 	reifWachsen: '#2f7d46',
 } as const;
 

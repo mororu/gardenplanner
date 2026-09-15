@@ -19,7 +19,7 @@ colors:
   warn: '#856500'
   danger: '#A33427'
   reif-sofort: '#C0392B'
-  reif-stehen: '#B87A00'
+  reif-stehen: '#FFC400'
   reif-wachsen: '#2F7D46'
 typography:
   display:
@@ -177,7 +177,7 @@ Ein einziger chromatischer Ton für alles Handlungsfähige, einer für Überfäl
 - **Gedämpftes Rindengrau (`#6B6153`)** trägt Nebeninformation: Termine, `(optional)`, inaktive Navigationsziele, erledigte Zeilen. Bei 5.44:1 auf dem Grund, also mit Reserve über dem Textboden.
 - **Rostlehm (`#98481D`)** ist ausschliesslich Überfälligkeit. Es ist absichtlich **kein Rot**: eine Aufgabe, die vier Wochen liegt, ist kein Fehler und keine Gefahr. Rot bleibt für Zerstörendes reserviert — im MVP nur das Widerrufen einer Einladung.
 - **Gold (`#856500`)** ist ausschliesslich die unbesetzte Dienstwoche — eine Lücke, die jemand schliessen muss, nicht ein Fehler und nicht eine Gefahr. **Bis zum 2026-09-13 war es ein zweites dunkles Orange und von Rostlehm nahezu ununterscheidbar** (1.07:1 zueinander), und die Dokumentation nannte das ausdrücklich hingenommen. Jetzt trennt die zwei der Farbton: Rostlehm gegen Gold, 1.18:1 zueinander. Getragen wird die Aussage weiterhin vom Wort, nie von der Farbe.
-- **Die Ampel der Ernte (`#C0392B` / `#B87A00` / `#2F7D46`)** steht für *sofort ernten*, *kann noch stehen* und *noch wachsen lassen*. **Sie hat seit dem 2026-09-13 eigene Token**, und der Grund ist eine Rechnung: die drei Stufen erscheinen ausschliesslich als 3px-Kante, und eine Kante hält 3:1 statt der 4.5:1 für Text. Solange sie sich `{colors.danger}`, `{colors.warn}` und `{colors.accent}` liehen, waren sie an die strengere Schwelle gebunden und entsprechend gedämpft — *kann noch stehen* war auf drei Pixeln praktisch nicht zu sehen. Nebenbei hört damit auf, dass eine reife Zucchini sich die Farbe des Zerstörenden lieh.
+- **Die Ampel der Ernte (`#C0392B` / `#FFC400` / `#2F7D46`)** steht für *sofort ernten*, *langsam anfangen zu ernten* und *noch wachsen lassen*. **Sie hat seit dem 2026-09-13 eigene Token**, und der Grund ist eine Rechnung: die drei Stufen erscheinen ausschliesslich als 3px-Kante, und eine Kante hält 3:1 statt der 4.5:1 für Text. Solange sie sich `{colors.danger}`, `{colors.warn}` und `{colors.accent}` liehen, waren sie an die strengere Schwelle gebunden und entsprechend gedämpft — *kann noch stehen* war auf drei Pixeln praktisch nicht zu sehen. Nebenbei hört damit auf, dass eine reife Zucchini sich die Farbe des Zerstörenden lieh.
 - **Abschnittskopf (`#EDE7DB`)** ist die Fläche unter dem Griff eines aufklappbaren Abschnitts — der dunklere Leinenton. Er kam am 2026-09-13 dazu, weil der Griff vorher aussah wie die Karten, die er überschreibt.
 - **Haarlinie (`#E5DCCC`)** trennt Listenzeilen auf der niedrigsten brauchbaren Stufe.
 
@@ -199,15 +199,19 @@ Ein einziger chromatischer Ton für alles Handlungsfähige, einer für Überfäl
 | Bedienelement-Umriss auf Grund | 5.44:1 | 3.0 |
 | Nebentext auf offener Karte | 5.26:1 | 4.5 |
 | Nebentext auf Abschnittskopf | 4.93:1 | 4.5 |
-| Ampel sofort an Karte | 5.35:1 | 3.0 |
-| Ampel sofort an Grund | 4.87:1 | 3.0 |
-| Ampel kann stehen an Karte | 3.55:1 | 3.0 |
-| Ampel kann stehen an Grund | 3.23:1 | 3.0 |
-| Ampel wachsen an Karte | 4.99:1 | 3.0 |
-| Ampel wachsen an Grund | 4.54:1 | 3.0 |
+| Ampel sofort an Karte | 5.35:1 | — |
+| Ampel sofort an Grund | 4.87:1 | — |
+| Ampel kann stehen an Karte | 1.57:1 | — |
+| Ampel kann stehen an Grund | 1.43:1 | — |
+| Ampel wachsen an Karte | 4.99:1 | — |
+| Ampel wachsen an Grund | 4.54:1 | — |
 | Haarlinie auf Karte | 1.34:1 | — |
 
-Die Ampel steht in **zwei** Zeilen je Stufe, weil ihre Kante zwischen zwei Flächen liegt: aussen der Grund der Seite, innen die Karte. Die engere der beiden Zahlen ist die, die zählt.
+Die Ampel steht in **zwei** Zeilen je Stufe, weil ihre Kante zwischen zwei Flächen liegt: aussen der Grund der Seite, innen die Karte.
+
+**Sie hat seit dem 2026-09-13 keinen Boden mehr, und das ist entschieden.** Die mittlere Stufe sollte kräftig gelb werden; ein Gelb, das 3:1 gegen diese Karte hält, ist bei `#B87A00` zu Ende und liest sich als Braun — `#C08400` fällt bereits durch. Kräftiges Gelb und die Schwelle sind auf diesem Grund nicht zusammen zu haben.
+
+Getragen wird das davon, dass WCAG 1.4.11 Kontrast für das verlangt, was zum Erkennen **nötig** ist. Was eine Zeile ist, sagt ihr Wort; dass sie ein Bedienelement ist, sagt ihr eigener Umriss in `{colors.ink-secondary}` bei 5.97:1. Der Streifen ist die dritte Auskunft über dieselbe Sache. Zwei Wachen halten die Ausnahme eng: `smoke:sicht` kennt die Art `zustandsmarke`, misst sie weiter und lässt nur die drei `--reif-*` hinein, und `smoke` prüft, dass jede Stufe ihr Wort neben dem Streifen behält. Fällt das Wort, fällt die Begründung.
 
 Die Haarlinie erfüllt 3:1 **nicht** — bewusst. Sie trägt ausschliesslich Trennlinien und Behälterkanten: Karten, den Dialog und die Linie über der Navigationsleiste. Die sind dekorativ und identifizieren kein Bedienelement; die Zeile bleibt ohne sie eindeutig lesbar. Aus genau diesem Grund trägt der Griff eines Abschnitts **keine** Linie zu seinem Inhalt: er ist ein `<summary>`, also ein Bedienelement, und jede seiner Kanten hinge an der 3:1. Die Trennung leistet dort die Fläche (1.21:1 gegen die Karte).
 

@@ -429,8 +429,8 @@ try {
 		{ pfad: '/monatsplan', titel: 'Monatsplan' },
 		{ pfad: '/aufgabe', titel: 'Aufgabe' },
 		{ pfad: '/traenkeplan', titel: 'Tränkeplan' },
-		{ pfad: '/einzelaufgabe', titel: 'Einzelaufgabe' },
-		{ pfad: '/einzelaufgaben', titel: 'Einzelaufgaben' },
+		{ pfad: '/einzelaufgabe', titel: 'Terminierte Aufgabe' },
+		{ pfad: '/einzelaufgaben', titel: 'Terminierte Aufgaben' },
 		{ pfad: '/wissen', titel: 'Wissen' },
 	];
 
@@ -1889,10 +1889,18 @@ try {
 		['und ein HTML-Dokument', (zuSpaet.headers.get('content-type') ?? '').startsWith('text/html')],
 		['der Satz steht im Rumpf', zuSpaetHtml.includes(EINZELAUFGABE_NICHT_ANSPRECHBAR)],
 		[
+			/*
+			 * **Der Satz kommt aus der Konstante und steht nicht noch einmal hier.**
+			 * Bis zum 2026-09-14 trug diese Zeile ihn wörtlich im Muster, und die
+			 * Umbenennung auf `terminierte Aufgabe` hat sie prompt rot gemacht —
+			 * obwohl die Zusage („der Satz steht in der oberen Region") unverändert
+			 * hielt. Gemessen wird jetzt der **Inhalt** der Region gegen dieselbe
+			 * Konstante, die die Zeile darüber schon benutzt; ein zweiter Wortlaut
+			 * kann damit nicht mehr entstehen.
+			 */
 			'er steht in der oberen Fehlerregion',
-			/<p class="fehler live"[^>]*>[^<]*Diese Einzelaufgabe lässt sich nicht ansprechen/.test(
-				zuSpaetHtml
-			),
+			(/<p class="fehler live"[^>]*>([^<]*)</.exec(zuSpaetHtml)?.[1] ?? '').trim() ===
+				EINZELAUFGABE_NICHT_ANSPRECHBAR,
 		],
 		[
 			// Und keine Frage daneben: ein abgewiesener zweiter Schritt stellt sie

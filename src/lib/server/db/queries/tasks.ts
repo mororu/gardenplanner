@@ -308,3 +308,78 @@ export function aufgabeWiederOeffnen(id: number): NurSichtbar | null {
 		.get();
 	return zeile ?? null;
 }
+
+/**
+ * Ändert den Text einer **offenen** Aufgabe und gibt die getroffene Zeile
+ * zurück, oder null.
+ *
+ * **Nur solange sie offen ist**, und das ist dieselbe Vorbedingung wie beim
+ * Abhaken, aus einem anderen Grund: eine abgehakte Aufgabe ist Historie. FR14
+ * sagt zu, dass die abgehakten Aufgaben einer ausgetretenen Person stehen
+ * bleiben; sie im Nachhinein umzuschreiben nähme dieser Zusage ihren Inhalt.
+ * Wer den Text einer erledigten Zeile ändern will, öffnet sie wieder — dann ist
+ * sie offen, und dann darf er.
+ *
+ * **`bekannterText` ist kein Beiwerk.** Er steht in der where-Klausel wie der
+ * bekannte Name bei mitgliedUmbenennen, und er schliesst dasselbe Fenster: zwei
+ * Leute sehen dieselbe Zeile, beide tippen, und ohne diese Bedingung gewönne
+ * stillschweigend der zweite Versand. Mit ihr bekommt der zweite null und damit
+ * einen Satz statt eines lautlos überschriebenen Textes.
+ *
+ * Der Text kommt **fertig geprüft** herein — gefaltet, nicht leer, innerhalb der
+ * Längengrenze. Die Prüfkette steht in der Route, aus demselben Grund wie bei
+ * aufgabeAnlegen: eine zweite Prüfstelle wäre eine zweite Wahrheit über
+ * dieselbe Regel.
+ *
+ * Das null ist wie überall in dieser Datei mehrdeutig — nicht vorhanden,
+ * abgehakt, oder der Text hat sich inzwischen bewegt. Die Route macht daraus
+ * einen Satz und keine Auskunft darüber, welcher der drei Fälle eintrat: alle
+ * drei enden in derselben Handlung, nämlich die Liste neu zu laden.
+ */
+export function aufgabeAendern(
+	id: number,
+	text: string,
+	bekannterText: string
+): NurSichtbar | null {
+	const zeile = datenbank()
+		.update(tasks)
+		.set({ text })
+		.where(and(eq(tasks.id, id), isNull(tasks.completedAt), eq(tasks.text, bekannterText)))
+		.returning(sichtbareSpalten)
+		.get();
+	return zeile ?? null;
+}
+
+/**
+ * Entfernt eine **offene** Aufgabe und gibt die getroffene Zeile zurück, oder
+ * null.
+ *
+ * **Hart gelöscht, und das ist entschieden und nicht übersehen** (2026-09-13).
+ * Die Alternative wäre ein `deleted_at` gewesen — eine Migration, eine dritte
+ * Bedingung in jeder Abfrage dieser Datei und genau jenes Statusfeld neben
+ * completed_at, das der Kommentar an der Spalte im Schema ausdrücklich
+ * ausschliesst. Offen und erledigt unterscheidet eine Spalte; ein drittes
+ * „entfernt" machte aus der einen Wahrheit zwei.
+ *
+ * Getragen wird der harte Schnitt von der Vorbedingung: **nur Offenes geht
+ * fort.** Eine abgehakte Zeile trägt completed_by, und damit die Historie, die
+ * FR14 zusagt — die ist unerreichbar für diese Funktion. Was hier gelöscht
+ * wird, hat nie jemand erledigt und hinterlässt darum auch nichts.
+ *
+ * `bekannterText` wie bei aufgabeAendern darüber, und hier wiegt er schwerer:
+ * ohne ihn entfernte ein zweiter Versand eine Zeile, deren Text sich inzwischen
+ * geändert hat — also eine andere Aufgabe als die, die jemand wegnehmen wollte.
+ *
+ * `returning(sichtbareSpalten)` auch beim DELETE, wie jede Funktion dieser
+ * Datei. Der Rückgabewert ist hier wirklich in Gebrauch: die Route nennt den
+ * entfernten Text in ihrer Rückmeldung, damit ein Fehlgriff sichtbar wird,
+ * solange er noch frisch ist.
+ */
+export function aufgabeEntfernen(id: number, bekannterText: string): NurSichtbar | null {
+	const zeile = datenbank()
+		.delete(tasks)
+		.where(and(eq(tasks.id, id), isNull(tasks.completedAt), eq(tasks.text, bekannterText)))
+		.returning(sichtbareSpalten)
+		.get();
+	return zeile ?? null;
+}

@@ -1,21 +1,32 @@
 import type { Actions, RequestEvent, ServerLoadEvent } from '@sveltejs/kit';
 import { abweisen } from '../lib/server/abweisen.ts';
 import { dienstwochenLesen, eigeneDienstwoche } from '../lib/server/db/queries/duty-weeks.ts';
+import { aufgabentextPruefen } from '../lib/aufgabentext.ts';
 import {
 	einzelaufgabeUebernehmen,
+	eigeneEinzelaufgabenLesen,
 	freieEinzelaufgabeLesen,
 	freieEinzelaufgabenLesen,
 	type Einzelaufgabe,
 } from '../lib/server/db/queries/signup-tasks.ts';
 import {
 	aufgabeAbhaken,
+	aufgabeAendern,
+	aufgabeEntfernen,
 	aufgabeWiederOeffnen,
 	offeneAufgabenAuflisten,
 	type OffeneAufgabe,
 } from '../lib/server/db/queries/tasks.ts';
 import { erntestandLesen, type Erntezeile } from '../lib/server/db/queries/harvests.ts';
+import { SICHTBARE_ERNTESTATUS } from '../lib/ernte.ts';
 import { AUFGABE_NICHT_ANSPRECHBAR, EINZELAUFGABE_NICHT_ANSPRECHBAR } from '../lib/texte.ts';
-import { wochendatum, wochenfenster } from '../lib/zeit.ts';
+import {
+	fristlage,
+	montagDerWoche,
+	wochendatum,
+	wochenfenster,
+	type Fristlage,
+} from '../lib/zeit.ts';
 
 /*
  * / — die Kernschleife: sehen, was offen ist, und mit einem Griff abhaken.
@@ -211,9 +222,20 @@ const BALD_WOCHEN = 2;
  * Einzelaufgabe, und die zwei Verben stehen für zwei Verbindlichkeiten. Ein
  * gemeinsamer Parameter hiesse `Abgelegt.` über etwas, das niemand abgelegt hat.
  */
+/**
+ * Eine Einzelaufgabe mit der Lage ihres Termins.
+ *
+ * Der Typ steht hier und nicht im Repository: die Lage ist keine Eigenschaft
+ * der Zeile, sondern ihres Verhältnisses zu **jetzt** — und `jetzt` kennt die
+ * Route, nicht die Datenschicht. Dieselbe Trennung wie bei `wochenOffen`, das
+ * ebenfalls erst mit einem Bezugszeitpunkt entsteht.
+ */
+type MitLage = Einzelaufgabe & { lage: Fristlage };
+
 export function load({ locals, url }: ServerLoadEvent): {
 	aufgaben: OffeneAufgabe[];
-	einzelaufgaben: Einzelaufgabe[];
+	einzelaufgaben: MitLage[];
+	zusagen: MitLage[];
 	ernte: Erntezeile[];
 	ueberblick: Ueberblick;
 	dienst: { datum: string } | null;
@@ -267,7 +289,17 @@ export function load({ locals, url }: ServerLoadEvent): {
 	 * und ein stilles Verschwinden wäre die schlechtere Antwort auf etwas, das
 	 * niemand übernommen hat.
 	 */
-	const einzelaufgaben = freieEinzelaufgabenLesen();
+	/*
+	 * Die Lage wird **hier** gerechnet und nicht in der Komponente: dieselbe
+	 * Bauform wie `wochenOffen` an der Poolaufgabe. Die Uhr des Servers ist die
+	 * eine Uhr; eine Komponente, die `Date.now()` läse, zeigte nach Mitternacht
+	 * etwas anderes als die Zahl, die neben ihr steht.
+	 */
+	const mitLage = (zeile: Einzelaufgabe): MitLage => ({
+		...zeile,
+		lage: fristlage(zeile.terminAt, jetztSekunden),
+	});
+	const einzelaufgaben = freieEinzelaufgabenLesen().map(mitLage);
 	/*
 	 * Einmal gelesen, zweimal gezählt: `wochenfenster` gibt die Wochen in
 	 * Reihenfolge zurück, die laufende zuerst. Die ersten BALD_WOCHEN Einträge
@@ -287,8 +319,33 @@ export function load({ locals, url }: ServerLoadEvent): {
 	 * Die Auslösebedingung für einen Ausschnitt ist benannt — eine Liste, die auf
 	 * der Startseite gescrollt werden muss.
 	 */
-	const ernte = erntestandLesen();
+	/*
+	 * **Nur die angebotenen Stufen** — seit dem 2026-09-14 zwei von drei. Eine
+	 * Zeile auf `wachsen` ist ausdrücklich nichts zu tun, und die Startseite
+	 * beantwortet die Frage, was ansteht; sie mitzuzählen machte die Zahl über
+	 * dem Abschnitt grösser, ohne dass mehr zu tun wäre.
+	 *
+	 * Gefiltert wird **hier** und nicht in der Abfrage: /ernte zeigt weiterhin
+	 * alle Stufen, damit eine Zeile, die noch auf `wachsen` steht, erreichbar
+	 * bleibt und weggestuft werden kann. Zwei Abfragen für zwei Ausschnitte wären
+	 * zwei Stände, die auseinanderlaufen.
+	 */
+	const ernte = erntestandLesen().filter((zeile) =>
+		(SICHTBARE_ERNTESTATUS as readonly string[]).includes(zeile.status)
+	);
 	const wochen = dienstwochenLesen(wochenfenster(jetztSekunden));
+	/*
+	 * **Die Grenze für die eigenen Zusagen kommt aus demselben Wochenfenster.**
+	 * `wochen[1]` ist die Woche nach der laufenden, ihr Montag ist die obere
+	 * Schranke: was davor fällig ist, ist diese Woche dran oder schon vorbei.
+	 * Eine eigene Wochenrechnung daneben wäre eine zweite Wahrheit über denselben
+	 * Kalender — dieselbe Begründung wie eine Zeile weiter oben bei `bald`.
+	 */
+	const fenster = wochenfenster(jetztSekunden);
+	const zusagen =
+		mitglied === null
+			? []
+			: eigeneEinzelaufgabenLesen(mitglied.id, montagDerWoche(fenster[1])).map(mitLage);
 	const unbesetzteWochen = wochen.filter((woche) => woche.name === null);
 	const ueberblick: Ueberblick = {
 		offen: aufgaben.length,
@@ -308,6 +365,7 @@ export function load({ locals, url }: ServerLoadEvent): {
 	return {
 		aufgaben,
 		einzelaufgaben,
+		zusagen,
 		ernte,
 		ueberblick,
 		dienst: eigene === null ? null : { datum: wochendatum(eigene.woche) },
@@ -395,6 +453,100 @@ export const actions = {
 		return {
 			art: 'wiederGeoeffnet' as const,
 			meldung: 'Wieder offen.',
+			aufgabeId: aufgabe.id,
+			text: aufgabe.text,
+		};
+	},
+
+	/**
+	 * Ändert den Text einer offenen Aufgabe.
+	 *
+	 * **Nur offene, und die Vorbedingung steht wie überall in der where-Klausel**
+	 * (aufgabeAendern). Eine abgehakte Zeile ist Historie; wer sie umschreiben
+	 * will, öffnet sie erst wieder.
+	 *
+	 * `bekannterText` geht mit und steht ebenfalls in der where-Klausel — dieselbe
+	 * Bauform wie `bekannterName` auf /verwaltung. Er schliesst das Fenster
+	 * zwischen dem Anzeigen der Zeile und dem Versand: zwei Leute mit derselben
+	 * Liste im Browser, beide tippen, und ohne ihn gewönne lautlos der zweite.
+	 *
+	 * Die Prüfung des Texts ist dieselbe wie auf /aufgabe, weil es dieselbe Regel
+	 * ist — sie liegt seit dem 2026-09-13 geteilt in ../lib/aufgabentext.ts.
+	 *
+	 * `zeile` geht in die Abweisung mit: ohne sie stünde der Satz am richtigen
+	 * Feldtyp, aber an keiner bestimmten Zeile — und ohne JavaScript könnte die
+	 * Seite ihn nirgends anbringen. Derselbe Grund wie beim Umbenennen.
+	 */
+	aendern: async ({ request }: RequestEvent) => {
+		const formular = await request.formData();
+		const id = idLesen(formular.get('aufgabeId'));
+		if (id === null) {
+			return abweisen(AUFGABE_NICHT_ANSPRECHBAR);
+		}
+
+		const roh = formular.get('text');
+		// Fehlendes Feld und Datei-Upload fallen auf dieselbe leere Eingabe.
+		const getippt = typeof roh === 'string' ? roh : '';
+		const geprueft = aufgabentextPruefen(getippt);
+		if ('fehler' in geprueft) {
+			return abweisen(geprueft.fehler, 'text', getippt, id);
+		}
+
+		const rohBekannt = formular.get('bekannterText');
+		const aufgabe = aufgabeAendern(
+			id,
+			geprueft.text,
+			typeof rohBekannt === 'string' ? rohBekannt : ''
+		);
+		// Unbekannt, inzwischen abgehakt und inzwischen fremd geändert fallen hier
+		// zusammen: alle drei enden in derselben Handlung, nämlich neu zu laden.
+		if (aufgabe === null) {
+			return abweisen(AUFGABE_NICHT_ANSPRECHBAR);
+		}
+
+		return {
+			art: 'geaendert' as const,
+			meldung: 'Geändert.',
+			aufgabeId: aufgabe.id,
+			text: aufgabe.text,
+		};
+	},
+
+	/**
+	 * Entfernt eine offene Aufgabe — endgültig.
+	 *
+	 * **Es gibt keinen Rückweg**, und das ist der Preis des harten Löschens
+	 * (Begründung an aufgabeEntfernen). Getragen wird er von zwei Dingen: es geht
+	 * nur, was **offen** ist — also nie eine Zeile, an der Historie hängt —, und
+	 * die Rückmeldung nennt den entfernten Text, damit ein Fehlgriff sichtbar ist,
+	 * solange er noch frisch ist. Wer daneben griff, tippt ihn neu; das kostet
+	 * einen Satz und keine Wiederherstellung.
+	 *
+	 * **Ohne Bestätigungsdialog, und das ist eine Entscheidung.** Der eine
+	 * wiederverwendete Dialog steht am Widerrufen einer Einladung und am
+	 * Übernehmen einer Einzelaufgabe — beides Handlungen, die **andere** betreffen.
+	 * Diese betrifft eine Zeile, die vor einem steht, und sie liegt bereits hinter
+	 * einem aufgeklappten Formular: der überlegte Schritt ist das Aufklappen. Ein
+	 * dritter wäre eine Rückfrage auf eine Rückfrage. Der Knopf trägt dafür die
+	 * zerstörende Form (Rot in Text und Umriss), die DESIGN.md genau dafür
+	 * vorsieht.
+	 */
+	entfernen: async ({ request }: RequestEvent) => {
+		const formular = await request.formData();
+		const id = idLesen(formular.get('aufgabeId'));
+		if (id === null) {
+			return abweisen(AUFGABE_NICHT_ANSPRECHBAR);
+		}
+
+		const rohBekannt = formular.get('bekannterText');
+		const aufgabe = aufgabeEntfernen(id, typeof rohBekannt === 'string' ? rohBekannt : '');
+		if (aufgabe === null) {
+			return abweisen(AUFGABE_NICHT_ANSPRECHBAR);
+		}
+
+		return {
+			art: 'entfernt' as const,
+			meldung: `Entfernt: ${aufgabe.text}`,
 			aufgabeId: aufgabe.id,
 			text: aufgabe.text,
 		};

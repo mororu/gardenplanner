@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, RequestEvent } from '@sveltejs/kit';
-import { AUFGABE_HOECHSTLAENGE, aufgabentextFalten } from '../../lib/aufgabentext.ts';
+import { aufgabentextPruefen } from '../../lib/aufgabentext.ts';
 import { abweisen } from '../../lib/server/abweisen.ts';
 import { aufgabeAnlegen } from '../../lib/server/db/queries/tasks.ts';
 
@@ -27,47 +27,15 @@ import { aufgabeAnlegen } from '../../lib/server/db/queries/tasks.ts';
  * dynamisches action={…} würde Gate-Regel 11 blind machen.
  */
 
-/** Der Text für den einen Fall, den nur diese Seite kennt. Eine Wurfstelle. */
-const TEXT_FEHLT = 'Ohne Text entsteht keine Aufgabe. Schreib in einem Satz, was zu tun ist.';
-
-/**
- * Der Text für die Überlänge. Eine Wurfstelle.
+/*
+ * Die Prüfung und ihre zwei Sätze liegen seit dem 2026-09-13 in
+ * ../../lib/aufgabentext.ts und nicht mehr hier.
  *
- * Die Grenze selbst steht nicht mehr hier, sondern als AUFGABE_HOECHSTLAENGE in
- * ../../lib/aufgabentext.ts. Der Kommentar an dieser Stelle begründete die
- * lokale Konstante bis Story 2.1 mit „genau eine Wurfstelle"; seit /monatsplan
- * dieselbe Grenze für jede Zeile seines Stapels wirft, sind es **zwei
- * Wurfstellen, darum geteilt**. Eine zweite Zahl in der zweiten Route wäre eine
- * zweite Wahrheit über dieselbe Regel — und der Zähler auf /monatsplan
- * verspräche eine Zahl, die der Server nicht einlöst.
- *
- * Der Satz bleibt lokal: er nennt ein Feld und ist die Auslegung dieser Seite.
- * scripts/smoke-zugang.ts hält das `maxlength` im Markup gegen die Konstante im
- * geteilten Modul.
+ * Sie standen hier, solange diese Seite die einzige war, die aus der geteilten
+ * Faltung diese zwei Sätze machte. Seit die Startseite den Text einer offenen
+ * Aufgabe ändern lässt, sind es zwei Leser — und zwei Kopien wären eine zweite
+ * Wahrheit über dieselbe Regel. Die Begründung steht am neuen Ort.
  */
-const TEXT_ZU_LANG = `Das ist zu lang für eine Aufgabe. Höchstens ${AUFGABE_HOECHSTLAENGE} Zeichen.`;
-
-/**
- * Der Aufgabentext, wie er in die Datenbank geht — oder null, wenn er nicht
- * taugt.
- *
- * Gefaltet wird in aufgabentextFalten in ../../lib/aufgabentext.ts: erst die
- * Nullbreiten-Zeichen weg, dann Leerraum zusammenziehen, dann trimmen.
- * Gespeichert wird die **gefaltete** Fassung: `  Beet   25   jäten  ` wird zu
- * `Beet 25 jäten`.
- *
- * Was hier bleibt, ist die **Deutung**: leer und zu lang ergeben die zwei Sätze
- * dieser Seite. Auf /monatsplan macht dieselbe Faltung andere Sätze — dort geht
- * es um die Zahl der zu langen Zeilen eines Stapels, nicht um das eine Feld.
- */
-function textPruefen(eingabe: string): { text: string } | { fehler: string } {
-	const text = aufgabentextFalten(eingabe);
-	if (text === '') return { fehler: TEXT_FEHLT };
-	// Nach Codepoints gezählt, nicht nach UTF-16-Einheiten: ein Emoji im Text
-	// ist kein zweites Zeichen. [...text] zerlegt in Codepoints.
-	if ([...text].length > AUFGABE_HOECHSTLAENGE) return { fehler: TEXT_ZU_LANG };
-	return { text };
-}
 
 /*
  * Wie diese Seite abweist — die Funktion selbst steht in
@@ -126,7 +94,7 @@ export const actions = {
 		// dieselbe leere Eingabe zusammen — und damit auf denselben Satz wie ein
 		// leeres Feld. Jede Unterscheidung wäre eine Auskunft ohne Handlung.
 		const getippt = typeof roh === 'string' ? roh : '';
-		const geprueft = textPruefen(getippt);
+		const geprueft = aufgabentextPruefen(getippt);
 		if ('fehler' in geprueft) {
 			return abweisen(geprueft.fehler, 'text', getippt);
 		}

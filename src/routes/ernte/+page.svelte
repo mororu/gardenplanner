@@ -8,6 +8,7 @@
 		DAUERERNTE_SATZ,
 		DAUERERNTE_WORT,
 		ERNTESTATUS,
+		SICHTBARE_ERNTESTATUS,
 		ERNTETEXT,
 		ERNTE_HOECHSTLAENGE,
 		KULTUREN,
@@ -39,7 +40,15 @@
 	const zeilenVon = (stufe: Erntestatus) => data.stand.filter((zeile) => zeile.status === stufe);
 
 	/** Die zwei **anderen** Stufen — die, in die eine Zeile wandern kann. */
-	const andereStufen = (stufe: Erntestatus) => ERNTESTATUS.filter((andere) => andere !== stufe);
+	/*
+	 * Wohin eine Zeile umgestuft werden kann: die **angebotenen** Stufen ausser
+	 * der eigenen. Seit dem 2026-09-14 ist das nicht mehr dasselbe wie „alle
+	 * ausser der eigenen" — `wachsen` ist verborgen (siehe SICHTBARE_ERNTESTATUS
+	 * in $lib/ernte). Eine Zeile, die noch dort steht, kann damit **heraus**, aber
+	 * keine mehr hinein.
+	 */
+	const andereStufen = (stufe: Erntestatus) =>
+		SICHTBARE_ERNTESTATUS.filter((andere) => andere !== stufe);
 
 	/*
 		Die Rückmeldung eines geglückten Eintragens, Umstufens oder Aberntens.
@@ -283,16 +292,28 @@
 			-->
 			<fieldset class="stufenwahl">
 				<legend class="feld__beschriftung">Wie dringend</legend>
-				{#each ERNTESTATUS as stufe (stufe)}
+				{#each SICHTBARE_ERNTESTATUS as stufe (stufe)}
+					<!--
+						data-stufe sagt dem Sichtlauf, dass die Kante links eine
+						Zustandsmarke ist und nicht der Umriss dieses Bedienelements —
+						siehe den Tokenblock in src/app.html.
+					-->
+					<!--
+						Nur die zwei angebotenen Klassen: die Schleife läuft über
+						SICHTBARE_ERNTESTATUS, und ein `stufe === 'wachsen'` wäre ein
+						Vergleich, der nie zutrifft — svelte-check meldet ihn als solchen.
+						Die Kartenliste weiter unten läuft weiterhin über alle drei und
+						behält ihre dritte Klasse.
+					-->
 					<label
 						class="stufenwahl__zeile"
 						class:stufe--sofort={stufe === 'sofort'}
 						class:stufe--stehen={stufe === 'stehen'}
-						class:stufe--wachsen={stufe === 'wachsen'}
+						data-stufe={stufe}
 					>
 						<input
 							type="radio"
-							id={stufe === ERNTESTATUS[0] ? 'neu-status' : undefined}
+							id={stufe === SICHTBARE_ERNTESTATUS[0] ? 'neu-status' : undefined}
 							name="status"
 							value={stufe}
 							required
@@ -363,7 +384,7 @@
 			>
 				{#each zeilen as eintrag (eintrag.id)}
 					{@const fragtHier = frage !== null && frage.zeile === eintrag.id}
-					<li class="karte">
+					<li class="karte" data-stufe={stufe}>
 						<!--
 								Die Farbe der Stufe liegt als Kante an der Karte und kommt aus
 								dem Abschnitt darüber. Das **Wort** steht in der Überschrift —
@@ -516,9 +537,13 @@
 		border-inline-start: var(--border-marker) solid var(--reif-stehen);
 	}
 
-	.stufenwahl__zeile.stufe--wachsen {
-		border-inline-start: var(--border-marker) solid var(--reif-wachsen);
-	}
+	/*
+	 * Die dritte Zeile der Stufenwahl gibt es seit dem 2026-09-14 nicht mehr —
+	 * `wachsen` ist verborgen (SICHTBARE_ERNTESTATUS in $lib/ernte). Die Regel
+	 * dazu ist mitgegangen statt stehenzubleiben: svelte-check meldet einen
+	 * Selektor ohne Markup, und eine Regel, die auf nichts zeigt, behauptet eine
+	 * Oberfläche, die es nicht gibt. Sie kommt mit der Stufe zurück.
+	 */
 
 	/*
 		Der Ort in der Zeile der Kultur: Nebentext-Rolle, weil er eine Frage

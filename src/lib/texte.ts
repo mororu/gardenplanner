@@ -1,3 +1,4 @@
+import type { Fristlage } from './zeit.ts';
 /*
  * Die Sätze, die an mehr als einer Stelle stehen müssen.
  *
@@ -277,7 +278,7 @@ export const UEBERNAHME_FOLGE = 'Dein Name steht danach für alle daneben.';
  * wie Fall 6 aus der Sicht der lesenden Person, und darum derselbe Satz.
  */
 export const EINZELAUFGABE_NICHT_ANSPRECHBAR =
-	'Diese Einzelaufgabe lässt sich nicht ansprechen. Lade die Liste neu.';
+	'Diese terminierte Aufgabe lässt sich nicht ansprechen. Lade die Liste neu.';
 
 /**
  * Die Sätze in den Griffen der zwei Abschnitte auf `/` — und in der Zeile zum
@@ -322,7 +323,7 @@ export const GRIFF_OFFEN_LEER = 'Nichts offen.';
  * dafür).
  */
 export function griffFrei(anzahl: number): string {
-	return anzahl === 1 ? 'Einzelaufgabe offen' : 'Einzelaufgaben offen';
+	return anzahl === 1 ? 'terminierte Aufgabe offen' : 'terminierte Aufgaben offen';
 }
 
 /** Keine Einzelaufgabe ausgeschrieben. */
@@ -391,3 +392,38 @@ export const ERNTEZEILE_NICHT_ANSPRECHBAR =
  * ganzer Satz mit Punkt, weil an dieser Stelle keine Zahl davor steht.
  */
 export const GRIFF_REIF_LEER = 'Nichts reif gemeldet.';
+
+/**
+ * Die zwei Wörter an einem Termin — und die Lage, die sie benennen, steht in
+ * `fristlage` in ./zeit.ts.
+ *
+ * `spaeter` bekommt bewusst kein Wort: dort sagt das Datum alles, und ein
+ * `später` daneben wäre Rauschen an jeder Zeile, die nicht drängt.
+ */
+const FRIST_WORT: Record<'verstrichen' | 'dieseWoche', string> = {
+	verstrichen: 'überfällig',
+	dieseWoche: 'diese Woche',
+};
+
+/**
+ * Was hinter dem Datum steht — mitsamt seinem Trennzeichen, oder nichts.
+ *
+ * **Das Trennzeichen steht hier und nicht im Markup**, und das hat einen
+ * gemessenen Grund: Svelte schneidet den Leerraum am Anfang eines `{#if}` weg,
+ * und ein ` · ` dort wurde am 2026-09-14 zu `2026· überfällig` — im Quelltext
+ * unsichtbar, im gerenderten Baum sofort. Ein `{' · '}` wäre der nächste Griff
+ * gewesen und fällt bei eslint durch (svelte/no-useless-mustaches). Damit ist
+ * die Zeichensetzung eine Eigenschaft dieses Moduls, wie der Wortlaut daneben.
+ */
+export function fristZusatz(lage: Fristlage): string {
+	return lage === 'spaeter' ? '' : ` · ${FRIST_WORT[lage]}`;
+}
+
+/**
+ * Die Überschrift der Kachel mit den eigenen Zusagen auf der Startseite.
+ *
+ * Sie hiess bis zum 2026-09-14 `Du hast zugesagt` und stand an **jeder** Zeile.
+ * Bei zwei Zusagen stand sie zweimal da und sagte beim zweiten Mal nichts mehr —
+ * die Kachel trägt sie seither einmal, und darunter stehen die Punkte.
+ */
+export const MEINE_MARKE = 'Meine Aufgaben';

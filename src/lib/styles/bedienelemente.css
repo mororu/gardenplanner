@@ -822,9 +822,24 @@ select.feld {
  * `white` in `white-space` als Farbe — gemessen, nicht vermutet. Die Zeile
  * bräuchte es hier ohnehin nicht: das Element ist aus dem Fluss genommen und
  * weggeschnitten, ein Umbruch darin ist folgenlos.
+ *
+ * **Die Grösse steht hier seit dem 2026-09-15, und sie fehlte.** `position:
+ * absolute` nimmt das Element aus dem Fluss, aber nicht aus der Scrollbreite:
+ * es behält seine Textbreite und schiebt das Dokument, wenn es am rechten Rand
+ * steht. Gemessen an jenem Tag: das verborgene `Ändern` im Griff der
+ * Aufgabenzeile reichte bis 384px, das Dokument wurde 385px breit, und
+ * `smoke:sicht` meldete einen Viewport von 385 statt 375.
+ *
+ * Solange die Klasse nur mitten in einer Zeile stand, fiel das nie auf — der
+ * Fehler lag die ganze Zeit hier und wartete auf die erste Fundstelle am Rand.
+ * Ein Pixel mit `overflow: hidden` kann keine Breite mehr erzeugen; der
+ * Zugänglichkeitsbaum sieht den Text unverändert.
  */
 .nur-vorgelesen {
 	position: absolute;
+	inline-size: var(--verborgen);
+	block-size: var(--verborgen);
+	overflow: hidden;
 	clip-path: inset(50%);
 }
 

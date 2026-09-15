@@ -7,9 +7,12 @@
 	import { tick } from 'svelte';
 	import type { PageProps } from './$types';
 	import { datumLang } from '$lib/client/utils/date';
+	import { AUFGABE_HOECHSTLAENGE } from '$lib/aufgabentext';
 	import { DAUERERNTE_WORT, ERNTETEXT } from '$lib/ernte';
 	import {
 		EINZELAUFGABE_NICHT_ANSPRECHBAR,
+		fristZusatz,
+		MEINE_MARKE,
 		UEBERNAHME_FOLGE,
 		VERSAND_FEHLGESCHLAGEN,
 		GRIFF_FREI_LEER,
@@ -115,8 +118,16 @@
 			if (data.abgelegt === null) return '';
 			return data.abgelegt === 1 ? 'Abgelegt.' : `${data.abgelegt} Aufgaben abgelegt.`;
 		}
-		if (form.art === 'abgehakt' || form.art === 'wiederGeoeffnet') {
+		if (form.art === 'abgehakt' || form.art === 'wiederGeoeffnet' || form.art === 'geaendert') {
 			return `${form.meldung} ${form.text}`;
+		}
+		/*
+			Beim Entfernen trägt die Meldung den Text schon in sich — und das ist der
+			Zweck: es gibt keinen Rückweg, und was fort ist, soll wenigstens noch
+			einmal dastehen, solange der Griff frisch ist.
+		*/
+		if (form.art === 'entfernt') {
+			return form.meldung;
 		}
 		// Der Titel steht im Satz, wie der Aufgabentext beim Abhaken: die Region
 		// sagt an, **was** gerade geschehen ist, nicht nur **dass**.
@@ -155,7 +166,7 @@
 			? versandFehler
 			: frage !== null && frageZeile === undefined
 				? EINZELAUFGABE_NICHT_ANSPRECHBAR
-				: form !== null && form.art === 'fehler'
+				: form !== null && form.art === 'fehler' && form.feld === null
 					? form.meldung
 					: ''
 	);
@@ -307,6 +318,51 @@
 				}
 				const gewechselt = zustandUebernehmen(result, id);
 				if (!gewechselt) kaestchenNachZustand(formElement, id);
+			};
+		};
+	}
+
+	/**
+	 * Der Versand der zwei Zeilenformulare (Ändern, Entfernen).
+	 *
+	 * **Ein eigener Rückruf und nicht versandFuer**, aus einem Grund, der an
+	 * genau einer Stelle sitzt: jener fährt mit `invalidateAll: false`, damit die
+	 * abgehakte Zeile an ihrem Platz stehen bleibt. Hier ist das Gegenteil
+	 * richtig — ein geänderter Text und eine entfernte Zeile sollen sofort für
+	 * alle stimmen, und dafür muss die Liste neu geladen werden. `reset: false`
+	 * bleibt: nach einer Abweisung steht das Getippte sonst nicht mehr im Feld.
+	 *
+	 * Der Wurf wird abgefangen wie überall (Gate-Regel 17): ein `result.type ===
+	 * 'error'` gereicht an update() ersetzte die Seite durch die Fehlergrenze.
+	 */
+	function versandZeile(): SubmitFunction {
+		return ({ cancel, formElement }) => {
+			if (imFlug) {
+				cancel();
+				return;
+			}
+			imFlug = true;
+			versandFehler = '';
+			return async ({ update, result }) => {
+				try {
+					if (result.type === 'error') {
+						versandFehler = VERSAND_FEHLGESCHLAGEN;
+					} else {
+						await update({ reset: false });
+					}
+				} finally {
+					imFlug = false;
+				}
+				/*
+					Geglückt: das Formular klappt zu. Es bleibt offen, wenn der Server
+					abgewiesen hat — dort steht der Satz am Feld, und ein zugeklapptes
+					Formular verstecke ihn. Das `open` im Markup deckt nur den Weg ohne
+					JavaScript ab: ein von Hand aufgeklapptes <details> hat seinen Wert
+					im DOM und nicht in dem Ausdruck, den Svelte verfolgt.
+				*/
+				if (versandFehler === '' && form?.art !== 'fehler') {
+					formElement.closest('details')?.removeAttribute('open');
+				}
 			};
 		};
 	}
@@ -498,7 +554,22 @@
 </svelte:head>
 
 <div class="seite">
-	<h1 class="seitentitel">Aufgaben</h1>
+	<!--
+		**Der Seitentitel steht da und ist nicht zu sehen** (2026-09-13, auf
+		Manuels Ansage: im Dashboard soll er zuoberst weg).
+
+		Sichtbar hat er hier nichts mehr zu sagen: die Titelleiste nennt den Ort,
+		die Navigationsleiste markiert das aktive Ziel, und die drei Abschnitte
+		tragen ihre eigenen Überschriften. Ein Wort, das alle drei wiederholt,
+		kostet nur Höhe.
+
+		**Ersatzlos streichen wäre trotzdem falsch gewesen.** Diese Seite hätte dann
+		kein h1 mehr, ihre Gliederung begänne bei h2, und wer sie über die
+		Überschriftenliste eines Screenreaders ansteuert, landete in einem Abschnitt
+		statt auf der Seite. `.nur-vorgelesen` löst genau das: fort aus dem Bild, da
+		für die Ansage.
+	-->
+	<h1 class="nur-vorgelesen">Aufgaben</h1>
 
 	<!--
 		Die zwei Live-Regionen stehen **immer** im Markup, auch leer: ein Element,
@@ -575,6 +646,61 @@
 			<span class="dienst__marke">Du bist dran</span>
 			<span class="dienst__satz">Diese Woche bist du am Tränken</span>
 			<span class="hinweis hinweis--ziffern">{data.dienst.datum}</span>
+		</a>
+	{/if}
+
+	<!--
+		**Was ich selbst zugesagt habe, und zwar für diese Woche.**
+
+		Bis zum 2026-09-14 verliess eine übernommene Einzelaufgabe diese Seite
+		ganz: sie trägt einen Namen, damit ist sie geregelt, und `/` beantwortet
+		die Frage `was ist noch offen`. Das stimmt — nur beantwortet dieselbe
+		Seite seit dem Diensthinweis noch eine zweite Frage, nämlich `was habe ich
+		diese Woche zu tun`. Für den Tränkedienst gab es eine Zeile, für die
+		eigene Zusage nichts; wer am Montag übernahm, sah es ab Dienstag nirgends.
+
+		**Keine gefüllte Fläche.** Die gehört dem Diensthinweis darüber und ihm
+		allein — eine zweite nähme ihm genau das, was ihn dort trägt. Was die zwei
+		verbindet, ist die Kante links in Akzentfarbe: dasselbe Zeichen wie an der
+		laufenden Woche im Tränkeplan, `hier bist du gerade`.
+
+		Bei null Zusagen fehlt der Block ganz, wie der Diensthinweis darüber. Ein
+		`Du hast nichts zugesagt` nähme jede Woche Platz, um nichts mitzuteilen.
+	-->
+	{#if data.zusagen.length > 0}
+		<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+		<a class="meine" href={resolve('/einzelaufgaben')}>
+			<span class="meine__kopf">
+				<h2 class="marke">{MEINE_MARKE}</h2>
+				<span class="plan-zeile__pfeil" aria-hidden="true">→</span>
+			</span>
+			<!--
+				**Eine Kachel und Punkte darunter**, nicht eine Karte je Zusage. Bis zum
+				2026-09-14 trug jede Zeile ihre eigene Marke; bei zwei Zusagen stand
+				dieselbe Überschrift zweimal da und sagte beim zweiten Mal nichts mehr.
+
+				Ein echtes Aufzählungszeichen und nicht die sonst übliche `.liste` ohne
+				Marker: hier sind es Punkte unter einer Überschrift und keine Zeilen mit
+				eigenen Bedienelementen. Die Punkte sind das, was sie vorgeben zu sein.
+			-->
+			<ul class="meine__punkte">
+				{#each data.zusagen as zusage (zusage.id)}
+					<li>
+						<span class="zeile__text">{zusage.titel}</span>
+						<span
+							class="hinweis hinweis--ziffern"
+							class:einzel__verstrichen={zusage.lage === 'verstrichen'}
+						>
+							<!--
+								Zusatz und Trennzeichen kommen als **ein** Ausdruck aus $lib/texte:
+								ein ` · ` im Markup verlöre sein führendes Leerzeichen an den
+								Blockanfang. Die Begründung steht dort.
+							-->
+							{datumLang(zusage.terminAt)}{fristZusatz(zusage.lage)}
+						</span>
+					</li>
+				{/each}
+			</ul>
 		</a>
 	{/if}
 
@@ -677,6 +803,7 @@
 								class:ernte-zeile--sofort={zeile.status === 'sofort'}
 								class:ernte-zeile--stehen={zeile.status === 'stehen'}
 								class:ernte-zeile--wachsen={zeile.status === 'wachsen'}
+								data-stufe={zeile.status}
 								href={resolve('/ernte')}
 							>
 								<span class="zeile__spalte">
@@ -715,12 +842,15 @@
 			der einzige Abschnitt auf dieser Seite, aus dem heraus man nichts anfangen
 			kann.
 
-			**`Ernten` und nicht `+ Reifes eintragen`.** Der Knopf bricht damit
-			bewusst die Form von `+ Einzelaufgabe` und `+ Aufgabe` darunter, und der
-			Grund ist, dass er etwas anderes tut: die zwei legen etwas an, dieser
-			führt dorthin, wo man **beides** kann — sehen, was reif ist, und
-			eintragen, was man gefunden hat. Ein `+` verspräche ein Formular, und die
-			Seite öffnet zuerst eine Liste.
+			**Seit dem 2026-09-13 mit `+`, und das kehrt eine frühere Entscheidung
+			um.** Hier stand `Ernten` ohne Zeichen, mit der Begründung: die zwei
+			Knöpfe darunter legen etwas an, dieser führt dorthin, wo man **beides**
+			kann — sehen, was reif ist, und eintragen, was man gefunden hat; ein `+`
+			verspräche ein Formular, und die Seite öffnet zuerst eine Liste.
+
+			Manuel hat den Knopf trotzdem als den zum Hinzufügen gelesen, und das ist
+			die Auskunft, die zählt: er steht unter einer Liste und ist grün wie die
+			zwei anderen, die anlegen. Die Form der drei ist jetzt dieselbe.
 
 			Er trug bis zum 2026-09-13 `?eintragen` und klappte drüben den Griff auf.
 			Das war die Zusage der alten Beschriftung; mit `Ernten` gibt es sie nicht
@@ -729,7 +859,7 @@
 		-->
 			<div class="knoepfe">
 				<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-				<a class="button-primary" href={resolve('/ernte')}>Ernten</a>
+				<a class="button-primary" href={resolve('/ernte')}>+ Ernten</a>
 			</div>
 		</div>
 	</details>
@@ -806,7 +936,25 @@
 									<p class="fliesstext zeile__text" id="einzel-titel-{aufgabe.id}">
 										{aufgabe.titel}
 									</p>
-									<p class="hinweis hinweis--ziffern">{datumLang(aufgabe.terminAt)}</p>
+									<!--
+							**Das Wort trägt die Dringlichkeit, die Farbe nur den einen Fall.**
+							Bis zum 2026-09-14 stand hier allein das Datum, in demselben Grau
+							für eine Aufgabe diese Woche wie für eine im Oktober. `diese Woche`
+							bleibt in der Nebentextfarbe — das Wort genügt; `überfällig`
+							bekommt --overdue, dasselbe Token und dieselbe Aussage wie am
+							Fristsatz der Poolzeile.
+
+							**Nicht --warn**, obwohl es naheläge: dessen Kommentar im Tokenblock
+							nennt die unbesetzte Dienstwoche als seinen einzigen Zweck, und
+							genau diese Doppelnutzung hat am 2026-09-13 die Ernte-Ampel
+							gekostet.
+						-->
+									<p
+										class="hinweis hinweis--ziffern"
+										class:einzel__verstrichen={aufgabe.lage === 'verstrichen'}
+									>
+										{datumLang(aufgabe.terminAt)}{fristZusatz(aufgabe.lage)}
+									</p>
 									<!--
 							`noch niemand` steht hier als Wort und nicht als Ausdruck über
 							`aufgabe.uebernehmer`: die load reicht über
@@ -978,8 +1126,8 @@
 				resolve() ist Pflicht für interne Ziele
 				(svelte/no-navigation-without-resolve).
 			-->
-				<a class="button-primary" href={resolve('/einzelaufgabe')}>+ Einzelaufgabe</a>
-				<a class="eintrag" href={resolve('/einzelaufgaben')}>Alle Einzelaufgaben</a>
+				<a class="button-primary" href={resolve('/einzelaufgabe')}>+ Terminierte Aufgabe</a>
+				<a class="eintrag" href={resolve('/einzelaufgaben')}>Alle terminierten Aufgaben</a>
 			</div>
 		</div>
 	</details>
@@ -1161,6 +1309,117 @@
 									</p>
 								{/if}
 							</div>
+							<!--
+						Ändern und Entfernen, und **nur an einer offenen Zeile**. Eine
+						abgehakte ist Historie (FR14); die Vorbedingung steht ohnehin in der
+						where-Klausel beider Abfragen, aber ein Griff, der immer abwiese,
+						wäre ein Versprechen ohne Deckung.
+
+						`open={fehlerHier}` deckt den Weg **ohne JavaScript** ab: die Antwort
+						auf einen abgewiesenen POST ist ein frisches Dokument, und ohne
+						dieses Attribut stünde der Satz in einem zugeklappten Aufklapper.
+						Dieselbe Bauform wie das Umbenennen auf /verwaltung.
+
+						**Zwei Formulare und nicht eines mit zwei Knöpfen.** Gate-Regel 11
+						liest `action="?/name"` textuell; ein `formaction` am zweiten Knopf
+						wäre für sie unsichtbar, und ein dynamisches action={…} ebenso.
+					-->
+							{#if !istErledigt}
+								{@const fehlerHier =
+									form !== null &&
+									form.art === 'fehler' &&
+									form.feld === 'text' &&
+									form.zeile === aufgabe.id}
+								<details class="aendern" open={fehlerHier}>
+									<!--
+										**Ein Zeichen statt des Wortes**, auf Manuels Entscheid vom
+										2026-09-15: `Ändern` kostete 59px Zeilenbreite, und die fehlten
+										dem Aufgabentext — gemessen brachen drei von fünf Zeilen dadurch
+										um, die Liste wuchs um 27 Prozent.
+
+										**Der Einwand ist benannt und nicht übergangen.** DESIGN.md
+										begründet `Keine Symbole ohne Text` damit, dass bei zwanzig Leuten
+										mit sehr unterschiedlicher Vertrautheit ein Wort verlässlicher ist
+										als ein Piktogramm; der Satz steht dort für die Navigationsleiste,
+										das Argument gilt hier genauso. Getragen wird die Ausnahme davon,
+										dass das Wort **nicht weg ist**, sondern nur nicht gemalt wird:
+										`.nur-vorgelesen` hält es für Screenreader und für die
+										Tastaturausgabe, und das Dreieck des Aufklappers sagt weiterhin,
+										dass sich hier etwas öffnet.
+
+										Derselbe Zeichensatz wie am Übernehmen-Knopf: 24er-Raster, Strich
+										in currentColor, keine Füllung, `aria-hidden` — das Zeichen ist
+										Schmuck über einem Wort, das danebensteht.
+									-->
+									<summary class="aendern__griff">
+										<svg
+											class="zeichen"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											aria-hidden="true"
+										>
+											<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Z" />
+											<path d="M14.5 5.5l4 4" />
+										</svg>
+										<span class="nur-vorgelesen">Ändern</span>
+									</summary>
+									<div class="aendern__formulare">
+										<form method="POST" action="?/aendern" use:enhance={versandZeile()}>
+											<input type="hidden" name="aufgabeId" value={aufgabe.id} />
+											<!--
+											Der bekannte Text geht mit und steht in der where-Klausel:
+											zwei Leute mit derselben Liste im Browser, beide tippen — ohne
+											ihn gewönne lautlos der zweite Versand.
+										-->
+											<input type="hidden" name="bekannterText" value={aufgabe.text} />
+											<label class="feld__beschriftung" for="text-{aufgabe.id}">
+												Text der Aufgabe
+											</label>
+											<input
+												class="feld"
+												id="text-{aufgabe.id}"
+												name="text"
+												type="text"
+												maxlength={AUFGABE_HOECHSTLAENGE}
+												value={fehlerHier ? form.eingabe : aufgabe.text}
+												aria-invalid={fehlerHier ? 'true' : undefined}
+												aria-describedby={fehlerHier ? `text-fehler-${aufgabe.id}` : undefined}
+											/>
+											{#if fehlerHier}
+												<p class="fehler hinweis--am-feld" id="text-fehler-{aufgabe.id}">
+													{form.meldung}
+												</p>
+											{/if}
+											<div class="knoepfe">
+												<button class="button-primary" type="submit" disabled={imFlug}>
+													Speichern
+												</button>
+											</div>
+										</form>
+										<!--
+										Endgültig, und ohne Rückfrage: der überlegte Schritt ist das
+										Aufklappen. Der Knopf trägt dafür die zerstörende Form, die
+										DESIGN.md genau dafür vorsieht — Rot in Text und Umriss, nie
+										als Fläche.
+									-->
+										<form method="POST" action="?/entfernen" use:enhance={versandZeile()}>
+											<input type="hidden" name="aufgabeId" value={aufgabe.id} />
+											<input type="hidden" name="bekannterText" value={aufgabe.text} />
+											<button
+												class="button-quiet button-quiet--zerstoerend"
+												type="submit"
+												disabled={imFlug}
+											>
+												Entfernen
+											</button>
+										</form>
+									</div>
+								</details>
+							{/if}
 						</li>
 					{/each}
 				</ul>
@@ -1208,7 +1467,7 @@
 		bedingt.
 	-->
 	{#if zuUebernehmen !== null}
-		<h2 class="abschnittstitel" id="uebernahme-titel">Einzelaufgabe übernehmen?</h2>
+		<h2 class="abschnittstitel" id="uebernahme-titel">Terminierte Aufgabe übernehmen?</h2>
 		<p class="bestaetigung__text" id="uebernahme-text">
 			{uebernahmeSatz(zuUebernehmen)}
 			{UEBERNAHME_FOLGE}
@@ -1281,6 +1540,94 @@
 	 * Geteilt und nicht kopiert: zwei gleiche Regelkörper an zwei Orten sind das,
 	 * worauf Gate-Regel 14 anschlägt.
 	 */
+	/*
+		Die eigene Zusage. Fläche, Kante und Radius wie an der Ernte-Zeile — das
+		ist die Form für `das hier führt woandershin`, und sie führt auf
+		/einzelaufgaben, wo die übernommenen Zeilen mit ihren Namen stehen.
+
+		Die 3px-Kante links in Akzentfarbe ist dasselbe Zeichen wie an der
+		laufenden Woche im Tränkeplan: hier bist du gerade. Der Diensthinweis trug
+		sie bis zum 2026-09-13 ebenfalls und ist seither eine gefüllte Fläche —
+		die beiden stehen damit untereinander, ohne sich zu gleichen.
+	*/
+	/*
+		Die Kachel mit den eigenen Zusagen. Fläche, Kante und Radius wie an der
+		Ernte-Zeile — die Form für `das hier führt woandershin`, und sie führt auf
+		/einzelaufgaben, wo die übernommenen Zeilen mit ihren Namen stehen.
+
+		Die 3px-Kante links in Akzentfarbe ist dasselbe Zeichen wie an der
+		laufenden Woche im Tränkeplan: hier bist du gerade. Der Diensthinweis trug
+		sie bis zum 2026-09-13 ebenfalls und ist seither eine gefüllte Fläche —
+		die beiden stehen damit untereinander, ohne sich zu gleichen.
+	*/
+	.meine {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding: var(--space-3);
+		border: var(--border-hairline) solid var(--ink-secondary);
+		border-inline-start: var(--border-marker) solid var(--accent);
+		border-radius: var(--radius-md);
+		background-color: var(--surface-raised);
+		color: var(--ink-primary);
+		text-decoration: none;
+	}
+
+	/* Überschrift links, Pfeil rechts — der Pfeil sagt, dass die Kachel führt. */
+	.meine__kopf {
+		display: flex;
+		align-items: baseline;
+		gap: var(--space-2);
+	}
+
+	.meine__kopf .plan-zeile__pfeil {
+		margin-inline-start: auto;
+	}
+
+	/*
+		Die Punkte. Der Innenabstand macht Platz für das Aufzählungszeichen —
+		`list-style-position: inside` zöge die zweite Zeile eines langen Titels
+		unter den Punkt statt unter den Text.
+	*/
+	.meine__punkte {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		margin: 0;
+		padding-inline-start: var(--space-4);
+		list-style: disc;
+	}
+
+	/*
+		**Kein `display` am `<li>`** — und das ist hier keine Formsache, sondern
+		die ganze Zeile: ein `display: flex` ersetzt `list-item`, und mit ihm
+		verschwindet das Aufzählungszeichen. Gesehen am gerenderten Baum am
+		2026-09-14; im Quelltext sieht die Regel aus wie jede andere.
+
+		Gestapelt wird darum an den zwei Kindern, nicht am Listenpunkt selbst.
+	*/
+	.meine__punkte li {
+		min-width: 0;
+	}
+
+	.meine__punkte .zeile__text {
+		display: block;
+	}
+
+	.meine__punkte .hinweis {
+		display: block;
+		margin-block-start: var(--space-1);
+	}
+
+	/*
+		Der verstrichene Termin — dasselbe Token und dieselbe Aussage wie am
+		Fristsatz der Poolzeile. Nur die Farbe wechselt; die Schriftrolle bleibt
+		die des Hinweises, an dem sie hängt.
+	*/
+	.einzel__verstrichen {
+		color: var(--overdue);
+	}
+
 	.kopfzahl {
 		font-family: var(--section-font);
 		font-size: var(--section-size);
@@ -1522,13 +1869,113 @@
 		flex-start und nicht center: ein zweizeiliger Aufgabentext soll oben am
 		Kästchen beginnen und nicht um dessen Mitte herum stehen.
 	*/
+	/*
+		`flex-wrap` seit dem 2026-09-13: der Ändern-Aufklapper sitzt rechts in der
+		Zeile und nimmt aufgeklappt die volle Breite, indem er auf eine eigene
+		Zeile umbricht. Ohne das Umbrechen stünde das Formular in der schmalen
+		Spalte, die der Griff belegt.
+	*/
 	.zeile {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: flex-start;
 		gap: var(--space-3);
 		min-height: var(--touch);
 		padding: var(--space-3) 0;
 		border-top: var(--border-hairline) solid var(--hairline);
+	}
+
+	/*
+		**Die Spalte nimmt den freien Platz.** Ohne das steht der Griff mit seiner
+		vollen Breite in der Umbruchrechnung, und die Zeile bricht ihn auf eine
+		eigene Zeile um — je nach Länge des Aufgabentexts, also unvorhersehbar.
+
+		Die Basis ist null und nicht `auto`: über den Umbruch entscheidet der
+		Browser an den Basisgrössen, bevor er freien Platz verteilt. Mit `auto`
+		wäre die Basis die Textbreite, und damit hinge es wieder an der Länge.
+
+		**Der Preis ist gemessen und benannt** (2026-09-14): der Griff belegt 59px
+		der Zeilenbreite, und ein langer Aufgabentext bricht dadurch eine Zeile
+		früher um — `Wege zwischen den Beeten jäten` wird bei 390px zweizeilig.
+		Die Alternative war ein Griff auf eigener Zeile, und der kostete dieselbe
+		Höhe bei **jeder** Zeile statt nur bei den langen.
+
+		Die Regel steht am Kind von `.zeile` und nicht an `.zeile__spalte` selbst:
+		dieselbe Klasse trägt die Spalte in der Ernte-Zeile, und dort schiebt
+		bereits der Pfeil mit `margin-inline-start: auto`.
+	*/
+	.zeile > .zeile__spalte {
+		flex: 1 1 0;
+	}
+
+	/*
+		**Im Änderungsmodus bleiben nur Feld und Handlung stehen.**
+
+		Kästchen, Aufgabentext und Fristsatz treten zurück, sobald das Formular
+		offen ist: was dann zählt, ist der Text im Feld, und der steht zweimal da,
+		wenn die Zeile daneben stehenbleibt. Der Griff bleibt sichtbar — er ist der
+		einzige Weg zurück, und ein Formular ohne Ausgang wäre eine Falle.
+
+		**`:has()` und kein Zustand in der Komponente**, weil das Aufklappen ohne
+		JavaScript funktionieren muss: das `open` eines `<details>` steht im DOM
+		und nicht in einem Svelte-Ausdruck. Die Alternative wäre, das `<details>
+		` im Markup vor die Zeile zu ziehen und mit `~` zu arbeiten — dann läse ein
+		Screenreader `Ändern` vor dem Aufgabentext. `:has()` kostet Safari unter
+		15.4 und Firefox unter 121; beide sind älter als dieses Projekt.
+	*/
+	.zeile:has(.aendern[open]) > .zeile__form,
+	.zeile:has(.aendern[open]) > .zeile__spalte {
+		display: none;
+	}
+
+	.aendern {
+		margin-inline-start: auto;
+	}
+
+	.aendern[open] {
+		flex-basis: 100%;
+	}
+
+	/*
+		Der Griff.
+
+		**Kein `display`** — Gate-Regel 15 verbietet es an der Klasse eines
+		`<summary>`, und das Dreieck aus der Vorgabe `list-item` ist die einzige
+		Anzeige, dass sich hier etwas aufklappt.
+
+		**Die negativen Aussenabstände sind der Punkt.** Das Trefferfeld hält
+		`--touch`, ohne die Zeile höher zu machen: die 44px ziehen sich über die
+		12px Polsterung der Zeile hinaus, oben wie unten. Dieselbe Rechnung und
+		dieselbe Begründung wie bei `.treffer` am Kästchen — nur dass dort die
+		Differenz zweier Masse steht und hier die Polsterung der Zeile.
+
+		Gemessen am 2026-09-14 im gerenderten Baum: der Griff ist 44px hoch, die
+		einzeilige Aufgabenzeile bleibt bei 48px.
+	*/
+	.aendern__griff {
+		min-height: var(--touch);
+		margin-block: calc(var(--space-3) * -1);
+		/*
+			Seitlicher Innenabstand seit dem 2026-09-15: der Griff trägt nur noch
+			ein Zeichen, und ohne ihn bliebe das Trefferfeld schmaler als die 44px
+			aus NFR5. Die Höhe besorgt der Abstand oben und unten wie zuvor.
+		*/
+		padding-block: var(--space-3);
+		padding-inline: var(--space-2);
+		color: var(--accent);
+		font-family: var(--meta-font);
+		font-size: var(--meta-size);
+		font-weight: var(--meta-weight);
+		line-height: var(--meta-line);
+		cursor: pointer;
+		list-style-position: inside;
+	}
+
+	.aendern__formulare {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		padding-block-start: var(--space-3);
 	}
 
 	.zeile:first-child {

@@ -110,6 +110,10 @@ import {
 	eigeneDienstwoche,
 } from '../src/lib/server/db/queries/duty-weeks.ts';
 import {
+	aufgabeAbhaken,
+	aufgabeAendern,
+	aufgabeAnlegen,
+	aufgabeEntfernen,
 	aufgabenStapelAnlegen,
 	offeneAufgabenAuflisten,
 } from '../src/lib/server/db/queries/tasks.ts';
@@ -121,6 +125,7 @@ import {
  * nicht der Oberfläche.
  */
 import {
+	eigeneEinzelaufgabenLesen,
 	einzelaufgabeAusschreiben,
 	einzelaufgabeUebernehmen,
 	einzelaufgabenLesen,
@@ -145,6 +150,7 @@ import {
 	istWoche,
 	monatsendeAlsFeldwert,
 	montagDerWoche,
+	fristlage,
 	tagesendeInUnixSekunden,
 	UEBERFAELLIG_SEKUNDEN,
 	WOCHE_SEKUNDEN,
@@ -219,7 +225,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 643;
+const ERWARTETE_BEHAUPTUNGEN = 649;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -2967,9 +2973,23 @@ try {
 		/update\(\{\s*reset:\s*false,\s*invalidateAll:\s*false\s*\}\)/.test(startseitenCode),
 		'die Zusage „die Zeile bleibt stehen" hängt an diesem Argument'
 	);
+	/*
+	 * **Die Zusage ist nicht „kein <label>", sondern „der Aufgabentext bleibt
+	 * toter Text".** Bis zum 2026-09-13 fielen die beiden zusammen, weil die Seite
+	 * überhaupt kein Feld hatte; seit das Ändern-Formular in der Zeile steht, hat
+	 * sie eines, und ein Feld ohne Beschriftung wäre der schlechtere Tausch.
+	 *
+	 * Gefährlich ist die **umschliessende** Form: ein <label> ohne `for` schaltet
+	 * das Bedienelement in seinem Inneren, und damit wäre der Aufgabentext
+	 * antippbar — im Beet der Weg zur versehentlich erledigten Aufgabe. Ebenso ein
+	 * `for`, das auf ein Kästchen zeigt. Beides ist hier abgewiesen; ein `for` auf
+	 * das Textfeld der eigenen Zeile ist es nicht.
+	 */
 	pruefen(
-		'und die Startseite trägt kein <label> — der Aufgabentext bleibt toter Text',
-		!/<label\b/.test(startseitenCode)
+		'kein umschliessendes <label> auf der Startseite — der Aufgabentext bleibt toter Text',
+		!/<label(?![^>]*\bfor=)/.test(startseitenCode) &&
+			!/<label[^>]*\bfor="aufgabe-/.test(startseitenCode),
+		'ein <label> ohne for oder eines auf den Aufgabentext machte ihn antippbar'
 	);
 
 	// =======================================================================
@@ -3427,11 +3447,63 @@ try {
 	 */
 	// Seit dem 2026-09-11 hängt die Liste an `> 0` statt an `=== 0`: der leere
 	// Zustand steht nicht mehr als Satz im Rumpf, sondern im Griff darüber.
-	const poolVon = startseitenCode.indexOf('{#if data.aufgaben.length > 0}');
+	/*
+	 * **Der Baum ohne die Zeilenformulare.** Die zwei Behauptungen unten sind
+	 * Aussagen über die **Abschnitte**: einer trägt genau eine primäre Handlung,
+	 * und der Erfassen-Knopf steht in beiden Zuständen des Pools. Das Ändern-
+	 * Formular in einer Zeile bringt seit dem 2026-09-13 einen eigenen
+	 * button-primary (`Speichern`) und ein eigenes <details> mit — beides gehört
+	 * zu einer Zeile und nicht zu einem Abschnitt, und beides liess die zwei
+	 * Zeilen rot werden, ohne dass an ihrer Zusage etwas gebrochen wäre.
+	 *
+	 * Das <details> war dabei das Heimtückischere: der Schnitt je Abschnitt geht
+	 * bis zum ersten `</details>`, und das war plötzlich das der Zeile — die
+	 * Zählung je Abschnitt stimmte weiter, die Gesamtzahl nicht mehr.
+	 *
+	 * **Der herausgeschnittene Bereich bleibt nicht unbewacht:** die Behauptung
+	 * direkt danach sagt, was in ihm stehen muss.
+	 */
+	const ohneZeilenformulare = startseitenCode.replace(
+		/<details class="aendern"[\s\S]*?<\/details>/g,
+		' '
+	);
+	const zeilenformulare =
+		startseitenCode.match(/<details class="aendern"[\s\S]*?<\/details>/g) ?? [];
+	const zeilenTeile = [
+		['es gibt genau ein Zeilenformular im Markup', zeilenformulare.length === 1],
+		[
+			'es trägt genau einen primären Knopf — Speichern',
+			(zeilenformulare[0]?.match(/class="button-primary"/g) ?? []).length === 1,
+		],
+		[
+			'und genau einen zerstörenden — Entfernen',
+			(zeilenformulare[0]?.match(/button-quiet--zerstoerend/g) ?? []).length === 1,
+		],
+		[
+			'beide Formulare tragen ein literales action, das Gate-Regel 11 lesen kann',
+			/action="\?\/aendern"/.test(zeilenformulare[0] ?? '') &&
+				/action="\?\/entfernen"/.test(zeilenformulare[0] ?? ''),
+		],
+		[
+			'und beide schicken den bekannten Text mit — sonst gewänne lautlos der zweite Versand',
+			(zeilenformulare[0]?.match(/name="bekannterText"/g) ?? []).length === 2,
+		],
+		[
+			'es steht nur an einer offenen Zeile',
+			/\{#if !istErledigt\}\s*\{@const fehlerHier/.test(startseitenCode),
+		],
+	] as const;
+	pruefen(
+		'das Zeilenformular trägt Ändern und Entfernen — und nur an einer offenen Zeile',
+		fehlendeTeile(zeilenTeile).length === 0,
+		`fehlt: ${fehlendeTeile(zeilenTeile).join(', ')}`
+	);
+
+	const poolVon = ohneZeilenformulare.indexOf('{#if data.aufgaben.length > 0}');
 	let poolBis = -1;
-	for (let tiefe = 0, i = poolVon; poolVon >= 0 && i < startseitenCode.length;) {
-		const auf = startseitenCode.indexOf('{#if', i);
-		const zu = startseitenCode.indexOf('{/if}', i);
+	for (let tiefe = 0, i = poolVon; poolVon >= 0 && i < ohneZeilenformulare.length;) {
+		const auf = ohneZeilenformulare.indexOf('{#if', i);
+		const zu = ohneZeilenformulare.indexOf('{/if}', i);
 		if (zu < 0) break;
 		if (auf >= 0 && auf < zu) {
 			tiefe += 1;
@@ -3445,8 +3517,8 @@ try {
 			break;
 		}
 	}
-	const imPool = poolVon < 0 || poolBis < 0 ? '' : startseitenCode.slice(poolVon, poolBis);
-	const nachPool = poolBis < 0 ? '' : startseitenCode.slice(poolBis);
+	const imPool = poolVon < 0 || poolBis < 0 ? '' : ohneZeilenformulare.slice(poolVon, poolBis);
+	const nachPool = poolBis < 0 ? '' : ohneZeilenformulare.slice(poolBis);
 	pruefen(
 		'der Erfassen-Knopf steht hinter dem {#if} des Pools und damit in beiden Zuständen',
 		poolVon >= 0 &&
@@ -3480,7 +3552,7 @@ try {
 	 * Handlung ist eine Liste, aus der heraus man nichts anfangen kann, und
 	 * genau das war die Ernte in ihrem ersten Entwurf.
 	 */
-	const abschnitte = startseitenCode.split('<details class="abschnitt" open>').slice(1);
+	const abschnitte = ohneZeilenformulare.split('<details class="abschnitt" open>').slice(1);
 	const primaerJeAbschnitt = abschnitte.map(
 		(teil) =>
 			(teil.slice(0, teil.indexOf('</details>')).match(/class="button-primary"/g) ?? []).length
@@ -3489,9 +3561,9 @@ try {
 		`jeder Aufklapper auf / trägt genau einen button-primary (${primaerJeAbschnitt.join('/')})`,
 		primaerJeAbschnitt.length === 3 &&
 			primaerJeAbschnitt.every((zahl) => zahl === 1) &&
-			(startseitenCode.match(/class="button-primary"/g) ?? []).length === 3,
+			(ohneZeilenformulare.match(/class="button-primary"/g) ?? []).length === 3,
 		`je Abschnitt: ${primaerJeAbschnitt.join('/')}, insgesamt: ${
-			(startseitenCode.match(/class="button-primary"/g) ?? []).length
+			(ohneZeilenformulare.match(/class="button-primary"/g) ?? []).length
 		}`
 	);
 
@@ -4972,6 +5044,74 @@ try {
 	);
 
 	/*
+	 * **Ändern und Entfernen — und die zwei Vorbedingungen, die sie tragen.**
+	 *
+	 * Beide Funktionen schreiben mit einer where-Klausel, in der `completed_at IS
+	 * NULL` und der bekannte Text stehen, also **im selben Statement** wie das
+	 * Schreiben. Die Behauptungen hier messen genau das und nicht die Route: eine
+	 * Prüfung als Select davor liesse jede dieser Zeilen grün und hätte trotzdem
+	 * ein Fenster zwischen Lesen und Schreiben.
+	 *
+	 * Die dritte Zeile ist die wichtigste des Blocks. Hart gelöscht wird nur, was
+	 * offen ist — eine abgehakte Zeile trägt completed_by und damit die Historie,
+	 * die FR14 einer ausgetretenen Person zusagt. Ginge sie fort, wäre jene Zusage
+	 * ein Satz ohne Deckung.
+	 */
+	const zumAendern = aufgabeAnlegen('Gurkenhaus lüften');
+	const zumEntfernen = aufgabeAnlegen('Doppelt erfasst, Beet 9');
+	const abgehakteZeile = aufgabeAnlegen('Schon erledigt, Beet 3');
+	aufgabeAbhaken(abgehakteZeile.id, nico.id);
+
+	const poolGeaendert = aufgabeAendern(
+		zumAendern.id,
+		'Gurkenhaus morgens lüften',
+		'Gurkenhaus lüften'
+	);
+	const veraltet = aufgabeAendern(zumAendern.id, 'Noch einmal anders', 'Gurkenhaus lüften');
+	const poolAendernTeile = [
+		['der erste Versuch trifft die Zeile', poolGeaendert?.text === 'Gurkenhaus morgens lüften'],
+		['der zweite mit demselben bekannten Text trifft keine — er ist veraltet', veraltet === null],
+		[
+			'und die Zeile trägt weiterhin, was der erste geschrieben hat',
+			offeneAufgabenAuflisten(jetztFest).find((zeile) => zeile.id === zumAendern.id)?.text ===
+				'Gurkenhaus morgens lüften',
+		],
+		[
+			'eine abgehakte Zeile lässt sich nicht ändern — sie ist Historie',
+			aufgabeAendern(abgehakteZeile.id, 'Umgeschrieben', 'Schon erledigt, Beet 3') === null,
+		],
+	] as const;
+	pruefen(
+		'Ändern trifft nur die offene Zeile mit dem bekannten Text',
+		fehlendeTeile(poolAendernTeile).length === 0,
+		`fehlt: ${fehlendeTeile(poolAendernTeile).join(', ')}`
+	);
+
+	const entferntFalsch = aufgabeEntfernen(zumEntfernen.id, 'Ein anderer Text');
+	const poolEntfernt = aufgabeEntfernen(zumEntfernen.id, 'Doppelt erfasst, Beet 9');
+	const poolEntfernenTeile = [
+		['ein falscher bekannter Text trifft keine Zeile', entferntFalsch === null],
+		['der richtige entfernt sie und gibt sie zurück', poolEntfernt?.id === zumEntfernen.id],
+		[
+			'und sie steht danach in keiner Liste mehr',
+			!offeneAufgabenAuflisten(jetztFest).some((zeile) => zeile.id === zumEntfernen.id),
+		],
+		[
+			'eine abgehakte Zeile geht nicht fort — FR14 sagt ihre Historie zu',
+			aufgabeEntfernen(abgehakteZeile.id, 'Schon erledigt, Beet 3') === null,
+		],
+		[
+			'ein zweites Entfernen derselben Zeile trifft nichts mehr',
+			aufgabeEntfernen(zumEntfernen.id, 'Doppelt erfasst, Beet 9') === null,
+		],
+	] as const;
+	pruefen(
+		'Entfernen nimmt nur die offene Zeile mit dem bekannten Text — und endgültig',
+		fehlendeTeile(poolEntfernenTeile).length === 0,
+		`fehlt: ${fehlendeTeile(poolEntfernenTeile).join(', ')}`
+	);
+
+	/*
 	 * **Die Sortierung reagiert nicht auf Überfälligkeit.** Die sieben Ids laufen
 	 * in der Einfügereihenfolge aufsteigend, ihre created_at aber in einer ganz
 	 * anderen — und die zwei Zeilen ohne Zahl (anSchwelle, planVorFrist) stehen
@@ -5762,9 +5902,24 @@ try {
 	};
 
 	/** Der geglättete Rumpf einer CSS-Regel, oder '' — kein irreführendes -1. */
+	/*
+	 * **Der Selektor wird am Regelanfang gesucht, nicht irgendwo im Text.**
+	 *
+	 * Das `indexOf` allein fand am 2026-09-14 die falsche Regel: neben
+	 * `.zeile__spalte` steht seither `.zeile > .zeile__spalte`, und weil jene
+	 * weiter oben im Blatt liegt, las diese Hilfsfunktion deren Rumpf und meldete
+	 * die Spalte als kaputt. Ein Zeichen vor dem Selektor entscheidet — ein
+	 * Zeilenumbruch oder ein Komma beginnt eine Regel, ein Leerzeichen oder ein
+	 * `>` setzt einen Selektor fort.
+	 */
 	const regelRumpf = (quelle: string, selektor: string): string => {
-		const stelle = quelle.indexOf(`${selektor} {`);
-		return stelle < 0 ? '' : glatterRumpf(quelle, stelle);
+		const muster = new RegExp(
+			`(^|[\n,])\\s*${selektor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{`,
+			'm'
+		);
+		const treffer = muster.exec(quelle);
+		if (treffer === null) return '';
+		return glatterRumpf(quelle, treffer.index + treffer[0].length - 1);
 	};
 
 	/*
@@ -7178,6 +7333,64 @@ try {
 		`fehlt: ${fehlendeTeile(hinweisTeile).join(', ')}`
 	);
 
+	/*
+	 * **Das Wort neben dem Streifen — und warum das hier eine eigene Wache ist.**
+	 *
+	 * Seit dem 2026-09-13 ist `--reif-stehen` ein kräftiges Gelb und hält die
+	 * 3:1 aus NFR9 nicht mehr (1.57:1 auf der Karte). Der Sichtlauf lässt diese
+	 * Kante als `zustandsmarke` durch, und die Begründung dafür steht am
+	 * Tokenblock: Kontrast verlangt WCAG 1.4.11 für das, was zum Erkennen
+	 * **nötig** ist, und nötig ist hier nichts an der Farbe — die Stufe steht
+	 * daneben als Wort.
+	 *
+	 * **Genau dieses Wort ist damit tragend geworden.** Fiele es weg, trüge die
+	 * Farbe den Zustand allein, und die Ausnahme im Sichtlauf verlöre still ihren
+	 * Grund — ohne dass dort etwas rot würde, denn er misst Farben und liest
+	 * keine Sätze. Diese Zeile ist die andere Hälfte.
+	 *
+	 * Jeder der drei Träger von `data-stufe` wird einzeln nachgesehen: die Zeile
+	 * auf `/`, die Karte auf `/ernte` (ihr Wort steht in der Überschrift, an die
+	 * ihre Liste über aria-labelledby gebunden ist) und die Zeile der
+	 * Stufenwahl.
+	 */
+	const ernteCode = readFileSync(join(wurzel, 'src', 'routes', 'ernte', '+page.svelte'), 'utf8');
+	const stufenTeile = [
+		[
+			'die Zeile auf / trägt die Stufe als Marke neben der Kultur',
+			/<span class="marke">\{ERNTETEXT\[zeile\.status\]\.kurz\}<\/span>/.test(startseiteCodeDienst),
+		],
+		[
+			'und sie ist derselbe Knoten, der die Kante trägt',
+			/class:ernte-zeile--wachsen=\{zeile\.status === 'wachsen'\}\s*data-stufe=\{zeile\.status\}/.test(
+				startseiteCodeDienst
+			),
+		],
+		[
+			'der Abschnitt auf /ernte trägt die Stufe als Überschrift',
+			/<h2 class="abschnittstitel" id="stufe-\{stufe\}">\{ERNTETEXT\[stufe\]\.titel\}<\/h2>/.test(
+				ernteCode
+			),
+		],
+		[
+			'und die Liste der Karten hängt über aria-labelledby daran',
+			/aria-labelledby="stufe-\{stufe\}"/.test(ernteCode),
+		],
+		[
+			'die Zeile der Stufenwahl trägt die Stufe als Text',
+			/<span class="zeile__text">\{ERNTETEXT\[stufe\]\.titel\}<\/span>/.test(ernteCode),
+		],
+		[
+			'und alle drei Träger der Kante sind als data-stufe ausgewiesen',
+			(ernteCode.match(/data-stufe=\{stufe\}/g) ?? []).length === 2 &&
+				(startseiteCodeDienst.match(/data-stufe=\{zeile\.status\}/g) ?? []).length === 1,
+		],
+	] as const;
+	pruefen(
+		'jede Erntestufe steht als Wort neben ihrer Kante — die Farbe trägt sie nie allein',
+		fehlendeTeile(stufenTeile).length === 0,
+		`fehlt: ${fehlendeTeile(stufenTeile).join(', ')}`
+	);
+
 	// =======================================================================
 	// /einzelaufgabe, /einzelaufgaben und Block 2 auf / — Story 3.2.
 	//
@@ -7252,6 +7465,103 @@ try {
 			(zeile) => Object.keys(zeile).sort().join(',') === 'id,terminAt,titel,uebernehmer'
 		),
 		JSON.stringify(einzelaufgabenLesen()[0] ?? null)
+	);
+
+	/*
+	 * **Die Lage eines Termins — und die Reihenfolge der zwei Fragen.**
+	 *
+	 * `fristlage` rechnet über ISO-Wochen und nicht über Zeitstempel; geprüft
+	 * wird darum mit festen UTC-Zeitpunkten, die dieses Skript selbst rechnet und
+	 * nicht aus dem Modul holt. Der 16. September 2026 ist ein Mittwoch.
+	 *
+	 * **Die vierte Zeile ist die eigentliche.** Ein Termin, der am Dienstag
+	 * derselben Woche ablief, ist `verstrichen` und nicht `dieseWoche` — beides
+	 * ist wahr, nur verlangt das erste etwas. Wer die Zweige tauscht, bekommt
+	 * eine Oberfläche, die bis Sonntag `diese Woche` sagt und erst am Montag
+	 * `überfällig`, also genau dann laut wird, wenn es zu spät ist.
+	 *
+	 * **Vorgeführt am 2026-09-14, und das Ergebnis stellt eine Annahme richtig:**
+	 * beim Tausch fallen **zwei** Zeilen, die erste und die vierte — nicht nur
+	 * die vierte, wie hier zuerst stand. Die erste fällt allerdings aus einem
+	 * Zufall der Saat: ihr `gestern` liegt in derselben ISO-Woche wie `jetzt`.
+	 * Läge es eine Woche zurück, bliebe sie grün, und die vierte wäre die
+	 * einzige. Sie ist die Zeile, die den Tausch **von der Konstruktion her**
+	 * fängt, und darum steht sie da.
+	 */
+	const mittwoch = Math.floor(Date.UTC(2026, 8, 16, 12) / 1000);
+	const lagen = [
+		[
+			'gestern ist verstrichen',
+			fristlage(Math.floor(Date.UTC(2026, 8, 15, 12) / 1000), mittwoch),
+			'verstrichen',
+		],
+		[
+			'übermorgen in derselben Woche ist diese Woche',
+			fristlage(Math.floor(Date.UTC(2026, 8, 18, 12) / 1000), mittwoch),
+			'dieseWoche',
+		],
+		[
+			'der Montag darauf ist später',
+			fristlage(Math.floor(Date.UTC(2026, 8, 21, 12) / 1000), mittwoch),
+			'spaeter',
+		],
+		[
+			'und der Dienstag derselben Woche ist verstrichen, nicht diese Woche',
+			fristlage(Math.floor(Date.UTC(2026, 8, 15, 23) / 1000), mittwoch),
+			'verstrichen',
+		],
+	] as const;
+	pruefen(
+		'fristlage trennt verstrichen, diese Woche und später — und verstrichen gewinnt',
+		lagen.every(([, ist, soll]) => ist === soll),
+		lagen.map(([was, ist, soll]) => `${was}: ${ist} statt ${soll}`).join(' | ')
+	);
+
+	/*
+	 * **Die eigenen Zusagen — was die Startseite seit dem 2026-09-14 zeigt.**
+	 *
+	 * Die Abfrage nimmt eine Grenze von aussen und vergleicht zwei Zahlen; sie
+	 * kennt weder Woche noch Zeitzone. Geprüft wird darum genau das: meine
+	 * Zeilen vor der Grenze, fremde nie, spätere nicht — und die überfällige
+	 * ausdrücklich **mit**, weil eine abgelaufene Zusage der dringendere Fall ist
+	 * und nicht der erledigte.
+	 */
+	const meinAbgelaufen = einzelaufgabeAusschreiben(
+		'Zaun am Nordrand nachspannen',
+		jetztFest - 2 * TAG_SEKUNDEN
+	);
+	const meinBald = einzelaufgabeAusschreiben(
+		'Setzlinge bei Rita abholen',
+		jetztFest + 2 * TAG_SEKUNDEN
+	);
+	const meinSpaeter = einzelaufgabeAusschreiben(
+		'Laub am Kompost rechen',
+		jetztFest + 40 * TAG_SEKUNDEN
+	);
+	const fremdBald = einzelaufgabeAusschreiben(
+		'Gartentor am Nordeingang ölen',
+		jetztFest + 2 * TAG_SEKUNDEN
+	);
+	for (const zeile of [meinAbgelaufen, meinBald, meinSpaeter]) {
+		einzelaufgabeUebernehmen(zeile.id, { id: nico.id, name: nico.name });
+	}
+	einzelaufgabeUebernehmen(fremdBald.id, { id: vera.id, name: vera.name });
+
+	const meine = eigeneEinzelaufgabenLesen(nico.id, jetztFest + 7 * TAG_SEKUNDEN);
+	const meineIds = meine.map((zeile) => zeile.id);
+	const zusageTeile = [
+		[
+			'die abgelaufene und die baldige stehen drin, in dieser Reihenfolge',
+			meineIds.join(' | ') === `${meinAbgelaufen.id} | ${meinBald.id}`,
+		],
+		['die spätere nicht — sie liegt hinter der Grenze', !meineIds.includes(meinSpaeter.id)],
+		['die fremde nicht, obwohl sie vor der Grenze liegt', !meineIds.includes(fremdBald.id)],
+		['und eine freie Zeile auch nicht — sie hat niemanden', !meineIds.includes(frueherTermin.id)],
+	] as const;
+	pruefen(
+		'eigeneEinzelaufgabenLesen gibt meine Zusagen vor der Grenze — und nur die',
+		fehlendeTeile(zusageTeile).length === 0,
+		`fehlt: ${fehlendeTeile(zusageTeile).join(', ')} — gelesen: ${JSON.stringify(meineIds)}`
 	);
 
 	/*

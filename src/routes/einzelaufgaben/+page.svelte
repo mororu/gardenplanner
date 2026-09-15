@@ -7,7 +7,7 @@
 </script>
 
 <svelte:head>
-	<title>Einzelaufgaben</title>
+	<title>Terminierte Aufgaben</title>
 </svelte:head>
 
 <!--
@@ -20,7 +20,7 @@
 	sie handelt nicht.
 -->
 <div class="seite">
-	<h1 class="seitentitel">Einzelaufgaben</h1>
+	<h1 class="seitentitel">Terminierte Aufgaben</h1>
 
 	<!--
 		Der Satz nennt den Weg zur Handlung **und ist er**: übernommen wird auf der
@@ -45,7 +45,7 @@
 			`Zum Übernehmen` auf `/`; die Marke steht sichtbar da und ist keine
 			verborgene Beschriftung.
 		-->
-		<h2 class="marke" id="alle-marke">Alle Einzelaufgaben</h2>
+		<h2 class="marke" id="alle-marke">Alle terminierten Aufgaben</h2>
 		<ul class="liste liste--getrennt" aria-labelledby="alle-marke">
 			{#each data.einzelaufgaben as aufgabe (aufgabe.id)}
 				<!--

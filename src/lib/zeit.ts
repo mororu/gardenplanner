@@ -643,3 +643,36 @@ export function istImFristfenster(faelligAmSekunden: number, jetztSekunden: numb
 	const abstand = Math.abs(tageszahlInZone(faelligAmSekunden) - tageszahlInZone(jetztSekunden));
 	return abstand <= FRIST_FENSTER_TAGE;
 }
+
+/**
+ * Wo ein Termin gegenüber dem heutigen Tag liegt — die drei Lagen, die die
+ * Oberfläche unterscheidet.
+ *
+ * `verstrichen` heisst: der Termin ist vorbei. `dieseWoche`: er fällt in
+ * dieselbe ISO-Woche wie jetzt. `spaeter`: alles andere.
+ */
+export type Fristlage = 'verstrichen' | 'dieseWoche' | 'spaeter';
+
+/**
+ * Die Lage eines Termins, gerechnet über **ISO-Wochen** und nicht über
+ * Zeitstempel.
+ *
+ * **Warum der Umweg über die Woche.** `termin_at` ist ein Tagesende in
+ * Europe/Zurich; die Wochengrenze wäre als Zeitstempel ein Sonntagabend, und
+ * der verschiebt sich mit der Sommerzeit. Zwei Wochenschlüssel zu vergleichen
+ * umgeht das vollständig — die Rechnung von ISO-Woche zu Kalendertag steht
+ * einmal in diesem Modul und ist dort geprüft.
+ *
+ * **Die Reihenfolge der zwei Fragen ist die Aussage.** Ein Termin, der am
+ * Dienstag dieser Woche ablief, ist `verstrichen` und nicht `dieseWoche`:
+ * beides ist wahr, aber nur das erste verlangt etwas. Wer die Zweige tauscht,
+ * bekommt eine Oberfläche, die bis Sonntag `diese Woche` sagt und erst am
+ * Montag `überfällig` — also genau dann laut wird, wenn es zu spät ist.
+ */
+export function fristlage(terminSekunden: number, jetztSekunden: number): Fristlage {
+	if (terminSekunden < jetztSekunden) return 'verstrichen';
+	return wochenSchluessel(isoWocheVon(terminSekunden)) ===
+		wochenSchluessel(isoWocheVon(jetztSekunden))
+		? 'dieseWoche'
+		: 'spaeter';
+}

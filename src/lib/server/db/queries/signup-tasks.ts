@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lt, or } from 'drizzle-orm';
 import { datenbank } from '../index.ts';
 import { members, signupTasks, type NewSignupTask } from '../schema.ts';
 
@@ -261,4 +261,41 @@ export function einzelaufgabeUebernehmen(
 		})
 		.get();
 	return zeile === undefined ? null : { ...zeile, uebernehmer: mitglied.name };
+}
+
+/**
+ * Die Einzelaufgaben, die **diese Person** übernommen hat und deren Termin vor
+ * `vorSekunden` liegt — also die Zusagen, die jetzt gelten.
+ *
+ * **Warum es diese Abfrage gibt.** Eine übernommene Einzelaufgabe verlässt die
+ * Startseite: sie trägt einen Namen, damit ist sie geregelt, und `/` beantwortet
+ * die Frage „was ist noch offen". Das stimmt — beantwortet aber nicht die
+ * zweite Frage, die dieselbe Seite beantwortet, seit es den Diensthinweis gibt:
+ * **was habe ich diese Woche zu tun.** Wer am Montag etwas übernimmt, sah es ab
+ * Dienstag nirgends mehr. Der Tränkedienst hatte seine Zeile, die eigene Zusage
+ * nicht.
+ *
+ * `vorSekunden` ist die Grenze und kommt von aussen — die Route rechnet sie aus
+ * dem Wochenfenster, das sie ohnehin schon hat. Diese Funktion kennt weder
+ * Woche noch Zeitzone; sie vergleicht zwei Zahlen. Ein Termin, der schon
+ * verstrichen ist, fällt damit ausdrücklich **mit** hinein: eine Zusage, deren
+ * Frist abgelaufen ist, ist der dringendere Fall und nicht der erledigte.
+ *
+ * Kein `frei()` und kein Aktiv-Zustand in der where-Klausel: gefragt ist nach
+ * den Zeilen **einer bestimmten** Person, und wer diese Seite sieht, hat eine
+ * gültige Sitzung. Der leftJoin trägt den Namen wie in jeder Abfrage dieser
+ * Datei — hier ist es der eigene, und die Zeile zeigt ihn nicht.
+ */
+export function eigeneEinzelaufgabenLesen(
+	mitgliedId: number,
+	vorSekunden: number
+): Einzelaufgabe[] {
+	return datenbank()
+		.select(anzeigeSpalten)
+		.from(signupTasks)
+		.leftJoin(members, eq(members.id, signupTasks.memberId))
+		.where(and(eq(signupTasks.memberId, mitgliedId), lt(signupTasks.terminAt, vorSekunden)))
+		.orderBy(...ordnung)
+		.all()
+		.map(alsEinzelaufgabe);
 }

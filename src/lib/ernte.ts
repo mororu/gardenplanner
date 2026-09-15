@@ -40,6 +40,26 @@ import { aufgabentextFalten } from './aufgabentext.ts';
  */
 export const ERNTESTATUS = ['sofort', 'stehen', 'wachsen'] as const;
 
+/**
+ * Die Stufen, die die Oberfläche **anbietet** — seit dem 2026-09-14 zwei von
+ * drei.
+ *
+ * `wachsen` ist verborgen und nicht entfernt, und der Unterschied ist die
+ * ganze Absicht: die Spalte, der Rang in der Sortierung, das Farbtoken und die
+ * Umstufung bleiben, wie sie sind. Was wegfällt, ist die **Wahl**: neu
+ * eintragen und umstufen führen nur noch nach `sofort` oder `stehen`.
+ *
+ * **Bestehende Zeilen bleiben darum erreichbar.** Die Abschnitte auf /ernte
+ * entstehen ohnehin nur, wenn sie Zeilen haben — eine Zeile, die noch auf
+ * `wachsen` steht, steht dort weiterhin und lässt sich von dort wegstufen. Sie
+ * wird nur nicht mehr auf der Startseite gezählt und nicht mehr neu erzeugt.
+ * Ohne diese Eigenschaft wäre das Verbergen eine Falle: Daten, die man sieht,
+ * aber nicht mehr anfassen kann — oder schlimmer, die man nicht mehr sieht.
+ *
+ * Zurückgenommen wird das, indem `wachsen` hier wieder dazukommt. Eine Stelle.
+ */
+export const SICHTBARE_ERNTESTATUS = ['sofort', 'stehen'] as const;
+
 export type Erntestatus = (typeof ERNTESTATUS)[number];
 
 /**
@@ -61,10 +81,18 @@ export const ERNTETEXT: Record<Erntestatus, { titel: string; satz: string; kurz:
 		satz: 'Optimal reif oder kurz vor überreif. Liegenlassen kostet Qualität — Zucchini über zwanzig Zentimeter, dicke Bohnen, Salat, der zu schiessen beginnt.',
 		kurz: 'Sofort ernten',
 	},
+	/*
+	 * **Umbenannt am 2026-09-13.** Die Stufe hiess `Kann noch stehen`, und das
+	 * las sich als Erlaubnis zu warten — gemeint ist der Anfang der Ernte, nicht
+	 * ihr Aufschub. Der kurze Wortlaut ist nicht die Kurzform desselben Satzes,
+	 * sondern so kurz, wie die Marke an einer Zeile sein muss: dort steht er
+	 * neben Kultur und Ort in Grossbuchstaben, und `Langsam anfangen zu ernten`
+	 * bräche die Zeile bei 375px.
+	 */
 	stehen: {
-		titel: 'Kann noch stehen',
+		titel: 'Langsam anfangen zu ernten',
 		satz: 'Schon geniessbar, wächst aber ohne Qualitätsverlust weiter. Ernten nach Bedarf.',
-		kurz: 'Kann stehen',
+		kurz: 'Langsam ernten',
 	},
 	wachsen: {
 		titel: 'Noch wachsen lassen',
