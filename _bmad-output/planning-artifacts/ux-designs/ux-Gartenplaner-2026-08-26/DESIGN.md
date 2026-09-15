@@ -137,6 +137,7 @@ components:
     headPadding: '{spacing.2} {spacing.3}'
     bodyPadding: '{spacing.3}'
     headIconSize: 22px
+    headIconColor: '{colors.ink-primary}'
     headTitleFont: '{typography.section}'
     headCountFont: '{typography.meta}'
     headCountColor: '{colors.ink-secondary}'
@@ -316,7 +317,7 @@ Der aufklappbare Abschnitt: Griff oben, Inhalt darunter, **eine** Kante um beide
 
 Im Griff stehen drei Dinge nebeneinander: **Zeichen, Titel, Zahl.**
 
-- Das **Zeichen** ist 22px gross, dieselbe Zahl wie das Kästchen einer Aufgabe (`{components.task-box.size}`), und steht damit neben 20px-Schrift statt neben 13px.
+- Das **Zeichen** ist 22px gross, dieselbe Zahl wie das Kästchen einer Aufgabe (`{components.task-box.size}`), und steht damit neben 20px-Schrift statt neben 13px. Es ist in `{colors.ink-primary}` — genauer: es hat gar keine Farbe und erbt sie, denn ein SVG malt hier in `currentColor`. Aus derselben Quelle nimmt das Aufklapp-Dreieck des `<summary>` seine Farbe; Zeichen und Dreieck können darum nicht auseinanderlaufen. Bis zum 2026-09-15 war das Zeichen `{colors.ink-secondary}` und stand heller neben einem schwarzen Dreieck (Entscheid Manuel).
 - Der **Titel** in `{typography.section}`. Er sagt, was der Abschnitt ist; ein Zeichen ohne Wort gäbe es hier so wenig wie in der Navigation.
 - Die **Zahl** in `{typography.meta}` und `{colors.ink-secondary}`, als blosse Zahl und **ohne Kasten**. Sie war einen Tag lang ein eckiger heller Kasten wie das Datum an einer Zeile darunter — zwei Kästen derselben Form für zwei verschieden wichtige Dinge liessen den einen wie den anderen aussehen. Der Datumskasten trägt die Aussage seiner Zeile, diese Zahl ergänzt eine Überschrift, die ohne sie vollständig ist.
 

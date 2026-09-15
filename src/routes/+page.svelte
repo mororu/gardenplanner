@@ -1842,11 +1842,25 @@
 		gap: var(--space-1);
 	}
 
+	/*
+		Das Zeichen im Griff eines Abschnitts.
+
+		**Keine Farbe.** `.zeichen` im geteilten Blatt malt in `currentColor`, und
+		das ist im Griff die geerbte Tintenfarbe aus `body` — dieselbe Quelle, aus
+		der auch das Aufklapp-Dreieck des `<summary>` seine Farbe nimmt, denn ein
+		`::marker` ohne eigene Regel malt in der Farbe seines Elements. Zeichen und
+		Dreieck stehen damit nicht nur zufällig gleich, sondern können gar nicht
+		auseinanderlaufen. Eine zweite Regel für das Dreieck wäre eine zweite
+		Wahrheit über dieselbe Farbe.
+
+		Bis zum 2026-09-15 stand hier `--ink-secondary`: das Zeichen war heller als
+		das Dreieck daneben und heller als das Wort dahinter. Entscheid Manuel —
+		beide schwarz.
+	*/
 	.griff__zeichen {
 		inline-size: var(--zeichen-gross);
 		block-size: var(--zeichen-gross);
 		vertical-align: middle;
-		color: var(--ink-secondary);
 	}
 
 	.griff__titel {
