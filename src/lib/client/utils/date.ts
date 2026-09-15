@@ -42,3 +42,29 @@ const LANGES_DATUM = new Intl.DateTimeFormat('de-CH', {
 export function datumLang(unixSekunden: number): string {
 	return LANGES_DATUM.format(new Date(unixSekunden * 1000));
 }
+
+/*
+ * Der Tag und der Monat getrennt — für den Datumskasten an einer Zeile.
+ *
+ * **Zwei Felder und keine Zeichenkette**, weil die zwei im Kasten
+ * untereinander stehen und verschieden gesetzt sind: die Zahl gross, der Monat
+ * klein. Eine fertige Zeichenkette müsste die Komponente wieder zerlegen, und
+ * die Zerlegung wäre eine zweite Datumsrechnung neben dieser hier.
+ *
+ * `Intl` mit derselben Zone wie das lange Datum darüber — ein Datum, das im
+ * Kasten anders ausfiele als im Satz daneben, wäre schlimmer als gar keiner.
+ */
+const KURZES_DATUM = new Intl.DateTimeFormat('de-CH', {
+	day: 'numeric',
+	month: 'short',
+	timeZone: ZEITZONE,
+});
+
+/** Tag und Monat eines Termins, getrennt für den Datumskasten. */
+export function datumKasten(unixSekunden: number): { tag: string; monat: string } {
+	const teile = KURZES_DATUM.formatToParts(new Date(unixSekunden * 1000));
+	return {
+		tag: teile.find((teil) => teil.type === 'day')?.value ?? '',
+		monat: teile.find((teil) => teil.type === 'month')?.value ?? '',
+	};
+}

@@ -5964,15 +5964,24 @@ try {
 	 * bekommen: sie ist ein Zusatz im Griff des Pools und kann ohne offene Aufgaben
 	 * nicht vorkommen.
 	 */
+	/*
+	 * **Die Klasse heisst seit dem 2026-09-15 `zaehler` und nicht mehr
+	 * `kopfzahl`**, und die Zusage dieser Zeilen ist davon unberührt: die Zahl
+	 * steht im Griff. Was sich geändert hat, ist ihre Grösse — die Überschrift ist
+	 * seither der Titel (`Wer übernimmt`, `Zwischendurch`), und die Zahl steht
+	 * kleiner in einem eckigen Kasten daneben. AD-14 verlangt, dass ein
+	 * zugeklappter Abschnitt seine Lage nicht verbirgt, nicht dass die Zahl gross
+	 * ist.
+	 */
 	const griffTeile = [
 		['es gibt kein Überblicksband mehr', !/ueberblick__|class="ueberblick"/.test(startseitenCode)],
 		[
-			'der Griff der Einzelaufgaben trägt die Zahl',
-			/<span class="kopfzahl">\{data\.ueberblick\.frei\}<\/span>/.test(startseitenCode),
+			'der Griff der Termine trägt die Zahl',
+			/<span class="zaehler">\{data\.ueberblick\.frei\}<\/span>/.test(startseitenCode),
 		],
 		[
 			'der Griff des Pools trägt die Zahl',
-			/<span class="kopfzahl">\{data\.ueberblick\.offen\}<\/span>/.test(startseitenCode),
+			/<span class="zaehler">\{data\.ueberblick\.offen\}<\/span>/.test(startseitenCode),
 		],
 		[
 			'beide Griffe tragen bei null einen Satz statt einer Zahl',

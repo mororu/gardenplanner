@@ -6,7 +6,7 @@
 	import { resolve } from '$app/paths';
 	import { tick } from 'svelte';
 	import type { PageProps } from './$types';
-	import { datumLang } from '$lib/client/utils/date';
+	import { datumKasten, datumLang } from '$lib/client/utils/date';
 	import { AUFGABE_HOECHSTLAENGE } from '$lib/aufgabentext';
 	import { DAUERERNTE_WORT, ERNTETEXT } from '$lib/ernte';
 	import {
@@ -781,8 +781,8 @@
 				{#if data.ueberblick.reif === 0}
 					<span class="kopfwort">{GRIFF_REIF_LEER}</span>
 				{:else}
-					<span class="kopfzahl">{data.ueberblick.reif}</span>
-					<span class="kopfwort">Ernten</span>
+					<span class="griff__titel">Ernten</span>
+					<span class="zaehler">{data.ueberblick.reif}</span>
 				{/if}
 			</h2>
 		</summary>
@@ -894,8 +894,8 @@
 				{#if data.ueberblick.frei === 0}
 					<span class="kopfwort">{GRIFF_FREI_LEER}</span>
 				{:else}
-					<span class="kopfzahl">{data.ueberblick.frei}</span>
-					<span class="kopfwort">{GRIFF_FREI}</span>
+					<span class="griff__titel">{GRIFF_FREI}</span>
+					<span class="zaehler">{data.ueberblick.frei}</span>
 				{/if}
 			</h2>
 		</summary>
@@ -904,6 +904,7 @@
 				<ul class="liste liste--getrennt" aria-labelledby="einzel-marke">
 					{#each data.einzelaufgaben as aufgabe (aufgabe.id)}
 						{@const frageHier = frage !== null && frage.id === aufgabe.id}
+						{@const kasten = datumKasten(aufgabe.terminAt)}
 						<!--
 					`karte--offen` ohne Bedingung: dieser Block führt ausschliesslich freie
 					Einzelaufgaben (die load holt nur die), und eine Bedingung, die immer
@@ -923,6 +924,26 @@
 						die Mitte rutschen.
 					-->
 							<div class="einzel__reihe">
+								<!--
+									**Der Datumskasten steht vor dem Titel**, seit dem 2026-09-15: die
+									Zeilen dieses Abschnitts unterscheiden sich in erster Linie durch
+									ihren Termin, und eine Spalte gleich gesetzter Zahlen liest sich
+									schneller als ein Datum im Fliesstext.
+
+									`aria-hidden`, und das lange Datum steht daneben in
+									`.nur-vorgelesen`: `17` über `Sept.` ergibt vorgelesen
+									`siebzehn Sept Punkt`, und was den Kasten lesbar macht, ist seine
+									Anordnung — die hört niemand.
+
+									**Eckig und keine Pille.** DESIGN.md schliesst die vollständig
+									gerundete Form aus, sie signalisiert ein Abzeichen; das hier ist
+									ein Datum. `--radius-sm` ist der Radius, den dasselbe Dokument
+									„fast eckig" nennt.
+								-->
+								<p class="datumskasten" aria-hidden="true">
+									<span class="datumskasten__tag">{kasten.tag}</span>
+									<span class="datumskasten__monat">{kasten.monat}</span>
+								</p>
 								<div class="zeile__spalte">
 									<!--
 							Die Kennung dieser Zeile. Der Knopf darunter heisst in jeder Zeile
@@ -950,21 +971,27 @@
 							genau diese Doppelnutzung hat am 2026-09-13 die Ernte-Ampel
 							gekostet.
 						-->
-									<p
-										class="hinweis hinweis--ziffern"
-										class:einzel__verstrichen={aufgabe.lage === 'verstrichen'}
-									>
-										{datumLang(aufgabe.terminAt)}{fristZusatz(aufgabe.lage)}
+									<p class="hinweis" class:einzel__verstrichen={aufgabe.lage === 'verstrichen'}>
+										<!--
+											Das lange Datum nur für die Ansage: sichtbar steht es im Kasten
+											links, und zweimal dasselbe Datum in einer Zeile wäre Rauschen.
+										-->
+										<span class="nur-vorgelesen">{datumLang(aufgabe.terminAt)}</span>noch niemand{fristZusatz(
+											aufgabe.lage
+										)}
 									</p>
 									<!--
-							`noch niemand` steht hier als Wort und nicht als Ausdruck über
+							`noch niemand` steht als Wort und nicht als Ausdruck über
 							`aufgabe.uebernehmer`: die load reicht über
 							freieEinzelaufgabenLesen ausschliesslich **freie** Zeilen herein,
 							und eine Verzweigung über einen Wert, der hier immer null ist, wäre
 							ein toter Zweig. Auf /einzelaufgaben, wo beide Zustände stehen,
 							verzweigt die Zeile wirklich.
+
+							Es steht seit dem 2026-09-15 in derselben Zeile wie die Lage des
+							Termins: der Kasten links trägt das Datum, und zwei Hinweiszeilen
+							untereinander wären eine mehr, als die Zeile zu sagen hat.
 						-->
-									<p class="hinweis">noch niemand</p>
 								</div>
 
 								<!--
@@ -1154,13 +1181,11 @@
 				{#if data.ueberblick.offen === 0}
 					<span class="kopfwort">{GRIFF_OFFEN_LEER}</span>
 				{:else}
-					<span class="kopfzahl">{data.ueberblick.offen}</span>
-					<span class="kopfwort">
-						{GRIFF_OFFEN}
-						{#if data.ueberblick.ueberfaellig > 0}
-							<span class="kopffrist">{griffUeberfaellig(data.ueberblick.ueberfaellig)}</span>
-						{/if}
-					</span>
+					<span class="griff__titel">{GRIFF_OFFEN}</span>
+					<span class="zaehler">{data.ueberblick.offen}</span>
+					{#if data.ueberblick.ueberfaellig > 0}
+						<span class="kopffrist">{griffUeberfaellig(data.ueberblick.ueberfaellig)}</span>
+					{/if}
 				{/if}
 			</h2>
 		</summary>
@@ -1629,6 +1654,52 @@
 		color: var(--overdue);
 	}
 
+	/*
+		Die Überschrift eines Abschnittsgriffs — der Titel, nicht die Zahl.
+
+		**Das kehrt die Entscheidung vom 2026-09-11 um**, und zwar bewusst. Damals
+		wurde die Zahl zur Überschrift, weil die Griffe vorher zwei Überschriften
+		für dieselbe Sache trugen. Seit die Abschnitte nach ihrer Frage heissen
+		(`Wer übernimmt`, `Zwischendurch`), trägt der Titel die Aussage und die
+		Zahl den Umfang — `2 Wer übernimmt` liest sich als Satz falsch, und eine
+		Zahl in Überschriftgrösse vor einer Frage betont das Falsche.
+
+		Was von jener Entscheidung bleibt, ist ihr eigentlicher Gewinn und er ist
+		unberührt: **ein zugeklappter Abschnitt verbirgt seinen Inhalt, nicht seine
+		Lage.** Die Zahl steht weiterhin im Griff, nur kleiner und in einem Kasten.
+	*/
+	.griff__titel {
+		color: var(--ink-primary);
+		font-family: var(--section-font);
+		font-size: var(--section-size);
+		font-weight: var(--section-weight);
+		line-height: var(--section-line);
+		letter-spacing: var(--section-tracking);
+	}
+
+	/*
+		Der Zähler daneben.
+
+		**Eckig und keine Pille**, aus demselben Grund wie der Datumskasten:
+		DESIGN.md schliesst die vollständig gerundete Form aus, weil sie ein
+		Abzeichen signalisiert. Entscheid Manuel, 2026-09-15.
+
+		Fläche und Kante wie an einer Karte — der Kasten steht auf der getönten
+		Fläche des Griffs und muss sich von ihr abheben, ohne zu leuchten.
+	*/
+	.zaehler {
+		padding: 0 var(--space-2);
+		border: var(--border-hairline) solid var(--hairline);
+		border-radius: var(--radius-sm);
+		background-color: var(--surface-raised);
+		color: var(--ink-primary);
+		font-family: var(--meta-font);
+		font-size: var(--meta-size);
+		font-weight: var(--meta-weight);
+		line-height: var(--meta-line);
+		font-variant-numeric: tabular-nums;
+	}
+
 	.kopfzahl {
 		font-family: var(--section-font);
 		font-size: var(--section-size);
@@ -1652,8 +1723,22 @@
 	 * Zeile — dieselbe Sache, dieselbe Farbe. Kein eigener Umbruch mehr: er steht
 	 * hinter dem Wort statt darunter, und genau das spart die dritte Zeile.
 	 */
+	/*
+		Der Zusatz zur Überfälligkeit im Griff.
+
+		**Die Schriftrolle steht seit dem 2026-09-15 hier** und nicht mehr in der
+		Umgebung: bis dahin lag dieses Element in `.kopfwort` und erbte dessen
+		meta-Rolle. Mit dem Umbau auf Titel und Zähler ist es ein direktes Kind der
+		Überschrift geworden und erbte deren Grösse — der Satz stand in
+		Überschriftgrösse und brach über zwei Zeilen um. Gesehen am gerenderten
+		Baum, nicht im Quelltext.
+	*/
 	.kopffrist {
 		color: var(--overdue);
+		font-family: var(--meta-font);
+		font-size: var(--meta-size);
+		font-weight: var(--meta-weight);
+		line-height: var(--meta-line);
 	}
 
 	/*
@@ -2178,7 +2263,22 @@
 		aller Zeilen untereinander auf einer Linie. Neben einem kurzen Titel klebend
 		sprängen sie von Zeile zu Zeile.
 	*/
+	/*
+		Das Formular um den Zusage-Knopf.
+
+		**`flex: none` seit dem 2026-09-15**, und der Grund ist gemessen: die
+		Vorgabe `0 1 auto` liess das Formular nachgeben, sobald der Datumskasten
+		links dazukam — es schrumpfte auf 82px, und der Knopf darin brach `Ich
+		mach's` auf zwei Zeilen um. Der Knopf selbst steht längst auf `flex: 0 0
+		auto`; das half nichts, weil nicht er nachgab, sondern seine Hülle.
+
+		**Kein `white-space: nowrap` am Knopf** als Gegenmittel: Gate-Regel 1 sucht
+		CSS-Farbnamen als ganze Wörter und liest das `white` darin als Farbe. Das
+		steht so an `.nur-vorgelesen` im geteilten Blatt und gilt hier genauso —
+		die Ursache zu beheben ist ohnehin das Richtige.
+	*/
 	.einzel__form {
+		flex: none;
 		margin: 0;
 		margin-inline-start: auto;
 	}
@@ -2212,6 +2312,61 @@
 		sein durfte, gilt dort weiter: er führt weiter, er tut nichts, und der eine
 		primäre Knopf der Seite ist `+ Aufgabe` unter dem Pool.
 	*/
+	/*
+		Der Datumskasten.
+
+		**Eckig und keine Pille** (--radius-sm, der Radius, den DESIGN.md „fast
+		eckig" nennt): eine vollständig gerundete Form signalisiert dort ein
+		Abzeichen, und beides gibt es in diesem Entwurf nicht. Entscheid Manuel,
+		2026-09-15.
+
+		Fläche und Kante wie an einer Karte, damit der Kasten auf der getönten
+		Fläche der freien Zeile als eigener Gegenstand liest und nicht als Loch.
+		`flex: none`, sonst zöge ihn ein langer Titel schmal.
+
+		Die Breite ist nicht gesetzt: zwei- und einstellige Tage ergeben
+		verschieden breite Kästen, und das ist der ehrlichere Zustand — eine feste
+		Breite wäre eine Zahl, die aus keiner Rampe kommt.
+	*/
+	.datumskasten {
+		display: flex;
+		flex: none;
+		flex-direction: column;
+		align-items: center;
+		margin: 0;
+		padding: var(--space-1) var(--space-2);
+		border: var(--border-hairline) solid var(--hairline);
+		border-radius: var(--radius-sm);
+		background-color: var(--surface-raised);
+	}
+
+	.datumskasten__tag {
+		color: var(--ink-primary);
+		font-family: var(--section-font);
+		font-size: var(--section-size);
+		font-weight: var(--section-weight);
+		line-height: var(--section-line);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.datumskasten__monat {
+		color: var(--ink-secondary);
+		font-family: var(--meta-font);
+		font-size: var(--meta-size);
+		font-weight: var(--meta-weight);
+		line-height: var(--meta-line);
+	}
+
+	/*
+		Ein verstrichener Termin faerbt den Tag mit — dieselbe Farbe und dieselbe
+		Aussage wie das Wort `überfällig` daneben. Der Monat bleibt Nebentext: der
+		Kasten soll die Aufmerksamkeit an einer Stelle halten und nicht als Ganzes
+		leuchten.
+	*/
+	.einzel__reihe:has(.einzel__verstrichen) .datumskasten__tag {
+		color: var(--overdue);
+	}
+
 	.einzel__reihe {
 		display: flex;
 		align-items: center;

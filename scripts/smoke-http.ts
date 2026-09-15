@@ -591,16 +591,18 @@ try {
 	const fristZeilen = wieViele(startseiteHtml, klasse('p', 'zeile__frist'));
 	/*
 	 * **Der Griff des Pools wird ausgeschnitten, nicht der erste im Dokument.**
-	 * `kopfzahl` steht auch in der Zeile zum Tränkeplan, und die kommt weiter oben
-	 * — der erste Treffer im Dokument war darum die Zahl der unbesetzten Wochen.
-	 * Gemessen am 2026-09-11: „Zeilen 1, Griff 13".
+	 * Die Zahl eines Griffs steht in `zaehler`, die Zahl der Zeile zum Tränkeplan
+	 * in `kopfzahl` — bis zum 2026-09-15 trugen beide dieselbe Klasse, und der
+	 * erste Treffer im Dokument war darum die Zahl der unbesetzten Wochen.
+	 * Gemessen am 2026-09-11: „Zeilen 1, Griff 13". Der Schnitt über die Kennung
+	 * bleibt trotzdem: er hängt nicht daran, dass die zwei Klassen heute
+	 * verschieden heissen.
 	 */
 	const griffVon = (html: string, kennung: string): string =>
 		(new RegExp(`<h2[^>]*\\bid="${kennung}"[\\s\\S]*?<\\/h2>`).exec(html) ?? [''])[0];
+	const ZAEHLER_MUSTER = /<span[^>]*\bclass="[^"]*\bzaehler\b[^"]*"[^>]*>([0-9]+)</;
 	const griffZahl = (html: string, kennung: string): number | null => {
-		const treffer = /<span[^>]*\bclass="[^"]*\bkopfzahl\b[^"]*"[^>]*>([0-9]+)</.exec(
-			griffVon(html, kennung)
-		);
+		const treffer = ZAEHLER_MUSTER.exec(griffVon(html, kennung));
 		return treffer === null ? null : Number(treffer[1]);
 	};
 	const griffTeile = [
@@ -1301,9 +1303,7 @@ try {
 	const zeilenHier = (
 		startseiteMitDienstHtml.match(/<li\b[^>]*\bclass="[^"]*\bzeile\b[^"]*"/g) ?? []
 	).length;
-	const griffHier = /<span[^>]*\bclass="[^"]*\bkopfzahl\b[^"]*"[^>]*>([0-9]+)</.exec(
-		griffVon(startseiteMitDienstHtml, 'offen-marke')
-	);
+	const griffHier = ZAEHLER_MUSTER.exec(griffVon(startseiteMitDienstHtml, 'offen-marke'));
 	pruefen(
 		`auch im zweiten Datenstand nennt ein Griff die Zahl der Zeilen (${zeilenHier})`,
 		zeilenHier > 0 && griffHier !== null && Number(griffHier[1]) === zeilenHier,
