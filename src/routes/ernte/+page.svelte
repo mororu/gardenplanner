@@ -300,12 +300,12 @@
 				<li>
 					<div class="karte">
 						<!--
-							Dieselbe Marke wie auf der Startseite: schwarzes Zeichen, Wort in
-							Grossbuchstaben daneben. Dort ist das Wort seit dem 2026-09-16
-							`.nur-vorgelesen` und nur das Zeichen gemalt — hier steht beides,
-							und das ist der Zweck der Zeile.
+							Dieselbe Form wie an der Karte darunter: schwarzes Zeichen, Wort in
+							Kleinbuchstaben daneben. Auf der Startseite ist das Wort
+							`.nur-vorgelesen` und nur das Zeichen gemalt — hier steht beides, und
+							das ist der Zweck der Zeile.
 						-->
-						<p class="marke marke--mit-zeichen"><ZeichenKreis />{DAUERERNTE_WORT}</p>
+						<p class="zeile__text zeichenwort"><ZeichenKreis />{DAUERERNTE_WORT}</p>
 						<p class="hinweis">
 							Regelmässiges Pflücken erhöht den Ertrag — Bohnen, Zucchini, Gurken, Erbsen,
 							Cherrytomaten. {DAUERERNTE_SATZ}
@@ -522,14 +522,32 @@
 								darum mit aria-labelledby auf sich selbst und dann hierher:
 								`Abgeerntet Zucchini, Hochbeet 3`.
 							-->
-						<p class="zeile__text" id="ernte-{eintrag.id}">
-							{eintrag.kultur}{#if eintrag.ort !== null}<span class="ernte__ort"
-									>, {eintrag.ort}</span
-								>{/if}
-						</p>
+						<!--
+							**Der Vermerk steht neben der Kultur und nicht darunter** (Entscheid
+							Manuel, 2026-09-16), und in Kleinbuchstaben statt als Marke: als
+							eigene Zeile in Grossbuchstaben las er sich wie eine zweite
+							Überschrift der Karte, und das ist er nicht — er ergänzt den Namen.
+
+							**Er steht ausserhalb des `<p id="ernte-…">`**, obwohl er in dieselbe
+							Zeile gehört. Auf diese Kennung zeigen die Knöpfe der Karte mit
+							aria-labelledby; stünde er darin, hiesse der Knopf `Abgeerntet
+							Zucchini, Hochbeet 3 Laufend ernten` — der Vermerk ist für die
+							Handlung ohne Belang. Die Zeile hält `.titelzeile` zusammen.
+						-->
+						<div class="titelzeile">
+							<p class="zeile__text" id="ernte-{eintrag.id}">
+								{eintrag.kultur}{#if eintrag.ort !== null}<span class="ernte__ort"
+										>, {eintrag.ort}</span
+									>{/if}
+							</p>
+							{#if eintrag.laufend}
+								<span class="zeichenwort"
+									><ZeichenKreis /><span class="hinweis">{DAUERERNTE_WORT}</span></span
+								>
+							{/if}
+						</div>
 
 						{#if eintrag.laufend}
-							<p class="marke">{DAUERERNTE_WORT}</p>
 							<p class="hinweis">{DAUERERNTE_SATZ}</p>
 						{/if}
 

@@ -924,7 +924,7 @@
 								href={resolve('/ernte')}
 							>
 								<span class="zeile__spalte">
-									<span class="ernte-zeile__titel">
+									<span class="titelzeile">
 										<span class="zeile__text"
 											>{zeile.kultur}{#if zeile.ort !== null}<span class="ernte-zeile__ort"
 													>, {zeile.ort}</span
@@ -949,7 +949,7 @@
 											steht daneben und trägt die Aussage allein.
 										-->
 										{#if zeile.laufend}
-											<span class="marke marke--mit-zeichen">
+											<span class="zeichenwort">
 												<ZeichenKreis />
 												<span class="nur-vorgelesen">{DAUERERNTE_WORT}</span>
 											</span>
@@ -2024,19 +2024,6 @@
 
 	.ernte-zeile--wachsen {
 		border-inline-start: var(--border-marker) solid var(--reif-wachsen);
-	}
-
-	/*
-		Kultur und der Dauerernte-Vermerk in einer Zeile, die bei Bedarf bricht.
-		`baseline`, damit die Marke auf der Schriftlinie der Kultur sitzt und nicht
-		in ihrer Mitte schwebt.
-	*/
-	.ernte-zeile__titel {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: baseline;
-		gap: var(--space-2);
-		min-width: 0;
 	}
 
 	/*

@@ -680,7 +680,14 @@ select.feld {
 }
 
 /*
- * Eine Marke mit Zeichen davor.
+ * Ein Zeichen und sein Wort nebeneinander.
+
+ * **Hiess bis zum 2026-09-16 `.marke--mit-zeichen`.** Der Name stimmte, solange
+ * sie nur an einer Marke stand — 12px, Grossbuchstaben. Seit `Laufend ernten`
+ * auf /ernte in Kleinbuchstaben neben der Kultur steht (Entscheid Manuel), trägt
+ * dieselbe Regel drei verschiedene Schriftrollen, und ein Modifikator von
+ * `.marke` wäre dort eine Behauptung über die Schrift, die nicht mehr gilt. Die
+ * Klasse ordnet an; was für eine Schrift danebensteht, sagt die Klasse am Wort.
  *
  * **Ausgerichtet über die Achse und nicht über einen Versatz.** Der erste
  * Entwurf setzte `vertical-align: -0.15em` — eine Zahl, die aus keiner Rampe
@@ -699,14 +706,14 @@ select.feld {
  * `/` stand die zweite Regel eine Stunde lang wirkungslos da — svelte-check hat
  * sie als unbenutzten Selektor gemeldet, und das war der ganze Hinweis.
  */
-.marke--mit-zeichen {
+.zeichenwort {
 	display: inline-flex;
 	align-items: center;
 	gap: var(--space-1);
 }
 
 /*
- * Das Zeichen **in** einer Marke: Tintenfarbe, nicht die des Worts daneben.
+ * Das Zeichen neben seinem Wort: Tintenfarbe, nicht die des Worts.
  *
  * Eine Ausnahme von dem, was `.zeichen` weiter oben zusagt, und dieselbe wie im
  * Abschnittskopf: ein Zeichen ist beim Blättern der Anker, das Wort die
@@ -714,18 +721,44 @@ select.feld {
  * Kreiszeichen mit — und ein Anker, den man suchen muss, ist keiner. Entscheid
  * Manuel, 2026-09-15.
  *
- * **Die Farbe steht am Zeichen und nicht an der Marke.** An
- * `.marke--mit-zeichen` schwärzte sie das Wort gleich mit, und damit stünde
- * diese eine Marke in einer anderen Farbe als alle übrigen — die Ampelstufe
- * unmittelbar daneben eingeschlossen.
+ * **Die Farbe steht am Zeichen und nicht am Behälter.** An `.zeichenwort`
+ * schwärzte sie das Wort gleich mit, und damit stünde diese eine Marke in einer
+ * anderen Farbe als alle übrigen — die Ampelstufe unmittelbar daneben
+ * eingeschlossen.
  *
  * **Zeichen in Knöpfen bleiben aussen vor** (`Erledigt`, `Ich mach's`): dort
  * trägt `currentColor` etwas, das hier niemand braucht — im deaktivierten
  * Zustand wechselt der Knopf seine Schriftfarbe, und ein Zeichen mit eigener
  * Farbe bliebe schwarz stehen, während sein Wort verblasst.
  */
-.marke--mit-zeichen .zeichen {
+.zeichenwort .zeichen {
 	color: var(--ink-primary);
+}
+
+/*
+ * Die erste Zeile einer Karte: der Name, und was rechts daneben noch hingehört.
+ *
+ * `align-items: baseline` und nicht `center`: neben dem Namen stehen kleinere
+ * Schriften — eine Marke, ein Zeichen mit Wort —, und auf der Schriftlinie
+ * ausgerichtet lesen sie sich als Fortsetzung derselben Zeile statt als zweite
+ * Sache daneben. `flex-wrap`, weil bei 375px eine lange Kultur mit Ort die
+ * Zeile allein füllt.
+ *
+ * `min-width: 0` ist das, was den Umbruch im Kind überhaupt erlaubt: ohne es
+ * weicht ein Flexkind nicht unter seine Inhaltsbreite zurück, und ein langes
+ * Wort schöbe die Karte auf.
+ *
+ * **Lag bis zum 2026-09-16 als `.ernte-zeile__titel` im `<style>` der
+ * Startseite.** Seit die Karte auf /ernte dieselbe Zeile baut, wären es zwei
+ * Regeln mit demselben Rumpf — der Fall, auf den Gate-Regel 14 anschlägt. Der
+ * neue Name nennt die Rolle und nicht die eine Seite, auf der sie zuerst stand.
+ */
+.titelzeile {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--space-2);
+	min-width: 0;
 }
 
 /*

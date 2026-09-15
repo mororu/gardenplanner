@@ -7466,7 +7466,7 @@ try {
 		],
 		[
 			'sie zeigt das Zeichen der Dauerernte mit seinem Wort',
-			/<p class="marke marke--mit-zeichen"><ZeichenKreis \/>\{DAUERERNTE_WORT\}<\/p>/.test(
+			/<p class="zeile__text zeichenwort"><ZeichenKreis \/>\{DAUERERNTE_WORT\}<\/p>/.test(
 				legendeBlock
 			),
 		],
