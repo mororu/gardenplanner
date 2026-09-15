@@ -336,6 +336,8 @@ Abschnitte werden **offen** ausgeliefert und der Zustand nirgends gespeichert: e
 
 Zuoberst auf `/ernte`, über dem Eintrageformular: ein Abschnitt in der Form von `{components.section}`, **zugeklappt ausgeliefert**. Er zeigt je eine Zeile pro Erntestufe — derselbe Streifen, dieselbe Karte wie in der Liste darunter, dazu Name und Satz der Stufe — und eine Zeile für die Dauerernte mit ihrem Zeichen.
 
+**Die Erläuterung steht seither nur noch hier** und in der Stufenwahl des Formulars — die Abschnitte der Liste tragen ihre Stufe als Überschrift, ohne den Satz darunter. Er stand dreimal untereinander und erklärte bei jedem Besuch dasselbe; das Wort in der Überschrift bleibt, und an ihm hängt die Ausnahme für das kräftige Gelb.
+
 Welche Stufen er zeigt, ist **gerechnet**: die, die das Formular anbietet, plus jede, für die gerade Zeilen dastehen. Damit erklärt er genau die Farben, die man vor sich sieht — auch die von `noch wachsen lassen`, das seit dem 2026-09-14 nicht mehr wählbar ist, dessen ältere Zeilen aber weiter in ihrem Abschnitt stehen.
 
 Der Anlass ist eine **Ausnahme von *keine Symbole ohne Beschriftung***: auf der Startseite steht die Dauerernte seit dem 2026-09-16 nur noch als Zeichen, weil das Wort in der Zeile neben Kultur, Ort, Stufe und Datum der fünfte Text war. Bezahlt ist sie zweifach — das Wort bleibt für Vorleseprogramme im Markup (`.nur-vorgelesen`), und diese Legende erklärt das Zeichen dort, wo die Ernte bearbeitet wird. Fällt eines von beiden, ist die Ausnahme nicht mehr gedeckt; `smoke` hält beide Hälften in **einer** Behauptung.

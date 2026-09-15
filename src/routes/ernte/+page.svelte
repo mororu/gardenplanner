@@ -460,8 +460,16 @@
 			drei davon untereinander sind bei 375px der halbe Bildschirm.
 		-->
 		{#if zeilen.length > 0}
+			<!--
+				**Ohne den Satz der Stufe**, seit die Legende oben ihn trägt (Entscheid
+				Manuel, 2026-09-16). Er stand hier dreimal untereinander und erklärte bei
+				jedem Besuch dasselbe — bei 375px kostete das mehr Bildschirm als die
+				Liste, um die es geht. Die Stufe steht weiterhin als **Wort** in dieser
+				Überschrift, und das ist es, woran die Ausnahme für das kräftige Gelb
+				hängt (siehe die Wache `jede Erntestufe steht als Wort neben ihrer
+				Kante`); was wegfällt, ist die Erläuterung, nicht der Name.
+			-->
 			<h2 class="abschnittstitel" id="stufe-{stufe}">{ERNTETEXT[stufe].titel}</h2>
-			<p class="hinweis">{ERNTETEXT[stufe].satz}</p>
 			<!--
 				Überschrift, Satz und Liste stehen als **Geschwister** in `.seite` und
 				nicht in einem <section> mit eigenem Stapel. Ein solcher Behälter
