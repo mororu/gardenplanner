@@ -633,29 +633,45 @@ try {
 	await breiteHalten('/wissen');
 
 	/*
-	 * **Der Griff behält sein Dreieck — hier gemessen statt aus dem Quelltext
+	 * **Der Griff behält seine Anzeige — hier gemessen statt aus dem Quelltext
 	 * gelesen.**
 	 *
-	 * Gate-Regel 15 verbietet ein `display` an der Klasse eines `<summary>` und
-	 * benennt selbst, was sie nicht sehen kann: ein `display`, das ohne
-	 * Klassennamen kommt (`summary { … }`, `details > summary`) oder geerbt wird.
-	 * Der **berechnete** Wert kennt diese Lücke nicht — er ist das Ergebnis aller
-	 * Wege zusammen. Die zwei Prüfungen ergänzen sich also und doppeln sich
-	 * nicht: die Regel sagt, wo der Fehler herkam, diese Zeile, dass er nicht da
-	 * ist.
+	 * Bis zum 2026-09-16 hiess die Zusage `er rendert als list-item, das Dreieck
+	 * ist da`. Seither trägt er wie jeder Aufklapper dieses Produkts einen Winkel
+	 * rechts, und Gate-Regel 15 lässt das `display` genau deshalb durch: weil im
+	 * Markup des `<summary>` ein Zeichen der Klasse `aufklapp` steht.
+	 *
+	 * **Was die Regel nicht sehen kann, misst diese Zeile.** Sie liest einen
+	 * Klassennamen, kein Pixel; ein `display: none` am Zeichen käme an ihr vorbei,
+	 * und der Griff sähe aus wie ein Satz Text, während das Tor grün meldet.
+	 * Dieselbe Arbeitsteilung wie vorher, nur um den neuen Gegenstand herum: die
+	 * Regel sagt, dass der Tausch im Quelltext stattgefunden hat, die Messung,
+	 * dass er auf dem Schirm ankommt.
 	 */
-	const griffe = await browser.auswerten<{ zahl: number; anzeige: string[]; hoehen: number[] }>(`
+	const griffe = await browser.auswerten<{
+		zahl: number;
+		anzeige: string[];
+		hoehen: number[];
+		zeichen: string[];
+	}>(`
 		const alle = [...document.querySelectorAll('summary.zeilenform__griff')];
 		return {
 			zahl: alle.length,
 			anzeige: alle.map((el) => getComputedStyle(el).display),
 			hoehen: alle.map((el) => el.getBoundingClientRect().height),
+			zeichen: alle.map((el) => {
+				const z = el.querySelectorAll('.aufklapp');
+				if (z.length !== 1) return z.length + ' Zeichen';
+				const r = z[0].getBoundingClientRect();
+				return Math.round(r.width) + 'x' + Math.round(r.height);
+			}),
 		};`);
 	pruefen('/wissen trägt genau einen Aufklappgriff', griffe.zahl === 1, `${griffe.zahl} Griff(e)`);
 	pruefen(
-		'und er rendert als list-item — das Dreieck ist da, auf allen Wegen zugleich geprüft',
-		griffe.anzeige.every((wert) => wert === 'list-item'),
-		`gemessen: ${griffe.anzeige.join(', ')}`
+		'und er trägt genau ein Aufklappzeichen mit Ausdehnung — das Dreieck ist abgelöst',
+		griffe.zeichen.every((mass) => /^[1-9]\d*x[1-9]\d*$/.test(mass)) &&
+			griffe.anzeige.every((wert) => wert !== 'list-item'),
+		`Zeichen ${griffe.zeichen.join(', ')}, Anzeige ${griffe.anzeige.join(', ')}`
 	);
 	pruefen(
 		`und sein Trefferfeld ist mindestens ${TREFFER_MINIMUM}px hoch`,
@@ -966,15 +982,17 @@ try {
 		`mit ${Math.round(absaetze.mit)}px, ohne ${Math.round(absaetze.ohne)}px`
 	);
 
-	const aendernGriff = await browser.auswerten<{ anzeige: string; hoehe: number }>(`
+	const aendernGriff = await browser.auswerten<{ zeichen: number; hoehe: number }>(`
 		const el = document.querySelector('summary.zeilenform__griff');
 		if (el === null) throw new Error('kein Griff auf dem Blatt');
-		const s = getComputedStyle(el);
-		return { anzeige: s.display, hoehe: el.getBoundingClientRect().height };`);
+		return {
+			zeichen: el.querySelectorAll('.aufklapp').length,
+			hoehe: el.getBoundingClientRect().height,
+		};`);
 	pruefen(
-		`der Ändern-Griff am Blatt rendert als list-item und trägt ${TREFFER_MINIMUM}px`,
-		aendernGriff.anzeige === 'list-item' && aendernGriff.hoehe >= TREFFER_MINIMUM,
-		`display ${aendernGriff.anzeige}, ${Math.round(aendernGriff.hoehe)}px`
+		`der Ändern-Griff am Blatt trägt sein Aufklappzeichen und ${TREFFER_MINIMUM}px`,
+		aendernGriff.zeichen === 1 && aendernGriff.hoehe >= TREFFER_MINIMUM,
+		`${aendernGriff.zeichen} Zeichen, ${Math.round(aendernGriff.hoehe)}px`
 	);
 
 	/*

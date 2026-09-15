@@ -7,6 +7,7 @@
 	import { datumLang } from '$lib/client/utils/date';
 	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
 	import type { ActionData, PageProps } from './$types';
+	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
 
 	const { data, form }: PageProps = $props();
 
@@ -542,7 +543,8 @@
 							id="umbenennen-griff-{mitglied.id}"
 							aria-labelledby="umbenennen-griff-{mitglied.id} mitglied-name-{mitglied.id}"
 						>
-							Umbenennen
+							<span>Umbenennen</span>
+							<ZeichenWinkel class="aufklapp" />
 						</summary>
 						<form
 							class="zeilenform__formular"

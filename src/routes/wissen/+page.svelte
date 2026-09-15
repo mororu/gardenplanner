@@ -5,6 +5,7 @@
 	import { tick } from 'svelte';
 	import type { PageProps } from './$types';
 	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
+	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
 
 	/*
 		/wissen — die Blätter, alphabetisch, und das Formular für ein neues.
@@ -187,7 +188,10 @@
 		actions der Nachbardatei. Ein dynamisches action={…} machte sie blind.
 	-->
 	<details class="zeilenform" open={abgewiesen}>
-		<summary class="zeilenform__griff">Neues Blatt</summary>
+		<summary class="zeilenform__griff">
+			<span>Neues Blatt</span>
+			<ZeichenWinkel class="aufklapp" />
+		</summary>
 		<form class="zeilenform__formular" method="POST" action="?/anlegen" use:enhance={versand}>
 			<div>
 				<label class="feld__beschriftung" for="neu-titel">Titel</label>

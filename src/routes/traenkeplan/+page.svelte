@@ -6,6 +6,7 @@
 	import type { PageProps } from './$types';
 	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
 	import { wochendatum, wochenSchluessel } from '$lib/zeit';
+	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
 
 	/*
 		/traenkeplan — die Wochen der nächsten drei Monate mit je einer Person.
@@ -350,7 +351,8 @@
 							id="besetzen-griff-{dieseWoche}"
 							aria-labelledby="besetzen-griff-{dieseWoche} woche-{dieseWoche}"
 						>
-							{eintrag.name === null ? 'Besetzen' : 'Neu besetzen'}
+							<span>{eintrag.name === null ? 'Besetzen' : 'Neu besetzen'}</span>
+							<ZeichenWinkel class="aufklapp" />
 						</summary>
 						<form
 							class="zeilenform__formular"

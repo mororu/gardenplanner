@@ -5,6 +5,7 @@
 	import { tick } from 'svelte';
 	import type { PageProps } from './$types';
 	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
+	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
 
 	/*
 		/wissen/[id] — ein Blatt, und das Formular, es zu ändern.
@@ -178,7 +179,10 @@
 		darüber, welches Blatt gemeint ist.
 	-->
 	<details class="zeilenform" open={abgewiesen}>
-		<summary class="zeilenform__griff">Ändern</summary>
+		<summary class="zeilenform__griff">
+			<span>Ändern</span>
+			<ZeichenWinkel class="aufklapp" />
+		</summary>
 		<form class="zeilenform__formular" method="POST" action="?/aendern" use:enhance={versand}>
 			<div>
 				<label class="feld__beschriftung" for="aendern-titel">Titel</label>

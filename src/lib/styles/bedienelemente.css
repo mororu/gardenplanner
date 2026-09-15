@@ -836,13 +836,16 @@ select.feld {
  *
  * Die Drehung steht hier und nicht an `.aufklapp` selbst: der Zustand `[open]`
  * hängt am `<details>`, und die Klasse trägt auch der Stift am Ändern-Griff und
- * das `+` auf /ernte — beide drehen sich nicht.
+ * das `+` auf /ernte — beide drehen sich nicht. Darum sind die zwei Griffarten
+ * ausgeschrieben und nicht `details[open] > summary .aufklapp`: jener Selektor
+ * kennte den Unterschied nicht und stellte den Stift auf den Kopf.
  *
  * **Ohne Übergang.** Eine Drehung über Zeit wäre das einzige bewegte Bild dieser
  * Anwendung und verlangte eine Ausnahme für `prefers-reduced-motion`, die sonst
  * nirgends nötig ist.
  */
-details[open] > .abschnitt__griff .aufklapp {
+details[open] > .abschnitt__griff .aufklapp,
+details[open] > .zeilenform__griff .aufklapp {
 	transform: rotate(180deg);
 }
 
@@ -1035,25 +1038,33 @@ details[open] > .abschnitt__griff .aufklapp {
  * Der Griff. Trefferfeld über die volle Breite und 44px hoch, Text in der
  * Akzentfarbe: er sieht aus wie eine Aktion, weil er eine ist.
  *
- * **Die Voreinstellung `display: list-item` bleibt stehen: sie ist es, die das
- * Dreieck malt, und das Dreieck ist die einzige Anzeige, dass hier etwas
- * aufgeht.** `display: flex` nähme es weg — dann sähe der Griff aus wie ein
- * Satz Text.
+ * **Seit dem 2026-09-16 mit Winkel rechts statt Dreieck links** (Entscheid
+ * Manuel) — dieselbe Form wie am Abschnittsgriff. Bis dahin stand hier die
+ * Warnung, dass die Voreinstellung `display: list-item` stehenbleiben muss, weil
+ * das Dreieck die einzige Anzeige ist, dass hier etwas aufgeht; sie stand in
+ * **beiden** lokalen Fassungen des Griffs, fiel beim Zusammenlegen aus dem
+ * Kommentar und wurde von der Retrospektive Epic 3 als Posten R7 zurückverlangt.
  *
- * Diese Warnung stand in **beiden** lokalen Fassungen des Griffs und ist beim
- * Zusammenlegen aus dem Kommentar gefallen; die Retrospektive Epic 3 hat sie
- * als Posten R7 zurückverlangt. Sie wiegt hier schwerer als vorher: das
- * `min-height: var(--touch)` darüber zentriert an einem `list-item` nicht
- * senkrecht, der naheliegende nächste Griff ist darum `display: flex;
- * align-items: center` — und der nähme das Dreieck jetzt auf **allen** Seiten
- * zugleich weg statt auf einer. Das ist der eigentliche Preis einer
- * Zusammenlegung: nicht die Zeilen, die verschwinden, sondern das Wissen, das
- * mit der zweiten Kopie verschwindet.
+ * **Die Zusage dahinter gilt unverändert, nur ihr Gegenstand hat gewechselt:**
+ * der Griff behält eine sichtbare Anzeige, dass er aufgeht. Sie heisst jetzt
+ * `.aufklapp` und steht im Markup jedes dieser vier `<summary>` — /wissen,
+ * /wissen/[id], /verwaltung, /traenkeplan. Gate-Regel 15 lässt das `display`
+ * hier nur deshalb durch; fehlt an einem der vier das Zeichen, fällt der Lauf an
+ * **dieser** Regel, und zwar für alle vier zugleich.
  *
- * Bewacht wird sie von Gate-Regel 15, damit sie nicht ein zweites Mal
- * unbemerkt verschwinden kann.
+ * Das ist der Grund, warum die Zusammenlegung die Warnung so teuer machte: was
+ * hier steht, gilt auf allen vier Seiten. Der Preis ist derselbe geblieben, die
+ * Wache zahlt ihn jetzt.
+ *
+ * `align-items: center` ist damit zum ersten Mal zu haben — an einem `list-item`
+ * zentrierte `min-height` nicht senkrecht, und genau dort begann früher der Weg
+ * zum verlorenen Dreieck.
  */
 .zeilenform__griff {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-2);
 	min-height: var(--touch);
 	padding: var(--space-3);
 	color: var(--accent);
@@ -1062,6 +1073,11 @@ details[open] > .abschnitt__griff .aufklapp {
 	font-weight: var(--action-weight);
 	line-height: var(--action-line);
 	cursor: pointer;
+	list-style: none;
+}
+
+.zeilenform__griff::-webkit-details-marker {
+	display: none;
 }
 
 /*
