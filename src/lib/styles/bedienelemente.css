@@ -828,16 +828,22 @@ select.feld {
 }
 
 /*
- * Der Winkel zeigt zu nach rechts und offen nach unten. Die Drehung steht hier
- * und nicht an `.aufklapp` selbst: der Zustand `[open]` hängt am `<details>`,
- * und die Klasse trägt auch der Stift am Ändern-Griff, der sich nicht dreht.
+ * Der Winkel zeigt zu nach unten und offen nach oben — die halbe Drehung, die
+ * jeder Aufklapper macht. **Bis zum 2026-09-16 waren es 90 Grad aus einem nach
+ * rechts zeigenden Winkel**, und der las sich zugeklappt als Pfeilspitze: als
+ * Verweis auf eine andere Seite, wie ihn die Ernte-Zeilen auf `/` wirklich
+ * tragen. Befund von Manuel. Jetzt ist es in beiden Zuständen ein Winkel.
+ *
+ * Die Drehung steht hier und nicht an `.aufklapp` selbst: der Zustand `[open]`
+ * hängt am `<details>`, und die Klasse trägt auch der Stift am Ändern-Griff und
+ * das `+` auf /ernte — beide drehen sich nicht.
  *
  * **Ohne Übergang.** Eine Drehung über Zeit wäre das einzige bewegte Bild dieser
  * Anwendung und verlangte eine Ausnahme für `prefers-reduced-motion`, die sonst
  * nirgends nötig ist.
  */
 details[open] > .abschnitt__griff .aufklapp {
-	transform: rotate(90deg);
+	transform: rotate(180deg);
 }
 
 /*

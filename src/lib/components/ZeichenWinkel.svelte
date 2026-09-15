@@ -19,6 +19,13 @@
 		Winkel ohne Klasse setzt, bekommt darum kein stilles Ergebnis, sondern
 		einen roten Lauf.
 
+		**Er zeigt nach unten und nicht nach rechts.** Der erste Entwurf zeigte zu
+		nach rechts; als einzelner Haken an der rechten Kante las sich das als
+		Pfeilspitze, also als Verweis auf eine andere Seite — die Ernte-Zeilen auf
+		`/` tragen dort wirklich einen. Befund von Manuel, 2026-09-16. Unten und
+		oben ist die Form, die jeder Aufklapper trägt, und in **beiden** Zuständen
+		ein Winkel.
+
 		Die Drehung steht nicht hier, sondern am Griff: sie hängt am `[open]` des
 		`<details>`, und das sieht nur der Vorfahr.
 	*/
@@ -35,5 +42,5 @@
 	stroke-linejoin="round"
 	aria-hidden="true"
 >
-	<path d="m9 5.5 7 6.5-7 6.5" />
+	<path d="m5.5 9 6.5 7 6.5-7" />
 </svg>
