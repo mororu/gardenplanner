@@ -324,7 +324,7 @@ Im Griff stehen vier Dinge nebeneinander: **Zeichen, Titel, Zahl — und rechts 
 
 - Der **Winkel** rechts zeigt zu nach rechts und offen nach unten. Er ersetzt seit dem 2026-09-16 das Dreieck, das ein `<summary>` von sich aus links malt: dort stand es unmittelbar vor dem Zeichen des Abschnitts, und zwei Zeichen nebeneinander streiten um dieselbe Aufgabe. Rechts ist zudem die gelernte Stelle für *hier geht etwas auf*. Ohne Übergang — eine Drehung über Zeit wäre das einzige bewegte Bild dieser Anwendung.
 
-**Ein Griff darf sein Dreieck nur gegen ein eigenes Zeichen tauschen.** Das gilt für jede Aufklappstelle: wer dem `<summary>` seinen Marker nimmt, stellt ein Zeichen an dessen Platz — hier den Winkel. Gate-Regel 15 prüft den Tausch im Quelltext, `smoke:sicht` misst am gerenderten Ergebnis, dass das Zeichen dasteht und den Zustand sagt.
+**Ein Griff darf sein Dreieck nur gegen ein eigenes Zeichen tauschen.** Das gilt für jede Aufklappstelle: wer dem `<summary>` seinen Marker nimmt, stellt ein Zeichen an dessen Platz — den Winkel hier, den Stift am Ändern-Griff einer Aufgabenzeile. Gate-Regel 15 prüft den Tausch im Quelltext, `smoke:sicht` misst am gerenderten Ergebnis, dass das Zeichen dasteht und den Zustand sagt.
 
 Abschnitte werden **offen** ausgeliefert und der Zustand nirgends gespeichert: ein einmaliger Griff darf nicht dauerhaft verbergen, dass etwas ansteht.
 

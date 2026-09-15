@@ -1255,16 +1255,23 @@
 										das Argument gilt hier genauso. Getragen wird die Ausnahme davon,
 										dass das Wort **nicht weg ist**, sondern nur nicht gemalt wird:
 										`.nur-vorgelesen` hält es für Screenreader und für die
-										Tastaturausgabe, und das Dreieck des Aufklappers sagt weiterhin,
-										dass sich hier etwas öffnet.
+										Tastaturausgabe.
+
+										**Seit dem 2026-09-16 steht der Stift allein**, ohne das Dreieck
+										des Aufklappers davor. Befund von Manuel: `▸` und Stift sind zwei
+										Aufforderungen an derselben Stelle, und die zweite sagt genauer,
+										was passiert. Der Stift trägt die Anzeige damit allein — darum
+										`aufklapp`: die Klasse markiert das Zeichen, das an diesem Griff
+										die Stelle des Dreiecks einnimmt, und Gate-Regel 15 liest sie.
+										Ohne sie darf keine Regel dem Griff sein Dreieck nehmen.
 
 										Derselbe Zeichensatz wie am Übernehmen-Knopf: 24er-Raster, Strich
-										in currentColor, keine Füllung, `aria-hidden` — das Zeichen ist
-										Schmuck über einem Wort, das danebensteht.
+										in currentColor, keine Füllung, `aria-hidden` — das Wort steht
+										daneben, wenn auch ungemalt.
 									-->
 									<summary class="aendern__griff">
 										<svg
-											class="zeichen"
+											class="zeichen aufklapp"
 											viewBox="0 0 24 24"
 											fill="none"
 											stroke="currentColor"
@@ -2285,9 +2292,17 @@
 	/*
 		Der Griff.
 
-		**Kein `display`** — Gate-Regel 15 verbietet es an der Klasse eines
-		`<summary>`, und das Dreieck aus der Vorgabe `list-item` ist die einzige
-		Anzeige, dass sich hier etwas aufklappt.
+		**Kein `display`, und das Dreieck ist trotzdem fort.** `list-style: none`
+		nimmt es, ohne die Vorgabe `list-item` anzutasten — der Stift daneben ist
+		seit dem 2026-09-16 die ganze Anzeige (Entscheid Manuel: zwei
+		Aufforderungen an derselben Stelle, und der Stift sagt genauer, was
+		passiert). Gate-Regel 15 lässt das genau dann durch, wenn im Markup
+		desselben `<summary>` ein Zeichen mit der Klasse `aufklapp` steht; der
+		Stift trägt sie.
+
+		Das `list-style-position: inside` von vorher ist damit gegenstandslos und
+		fort: es rückte das Dreieck in den Textfluss, und es gibt kein Dreieck
+		mehr.
 
 		**Die negativen Aussenabstände sind der Punkt.** Das Trefferfeld hält
 		`--touch`, ohne die Zeile höher zu machen: die 44px ziehen sich über die
@@ -2314,7 +2329,17 @@
 		font-weight: var(--meta-weight);
 		line-height: var(--meta-line);
 		cursor: pointer;
-		list-style-position: inside;
+		list-style: none;
+	}
+
+	/*
+		Safari vor 18.4 kennt `list-style: none` an einem `<summary>` nicht und
+		malt sein Dreieck aus einem eigenen Pseudoelement. Ohne diese Regel stünde
+		es dort weiter — auf genau den Geräten, auf denen diese Anwendung
+		überwiegend bedient wird.
+	*/
+	.aendern__griff::-webkit-details-marker {
+		display: none;
 	}
 
 	.aendern__formulare {
