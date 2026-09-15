@@ -682,15 +682,26 @@ select.feld {
 /*
  * Der Griff eines zuklappbaren Abschnitts.
  *
- * **Kein `display` hier — Gate-Regel 15 verbietet es, und aus gutem Grund:** das
- * Dreieck kommt aus der Voreinstellung `list-item` und ist die einzige Anzeige,
- * dass sich etwas aufklappt. Ein `display: flex`, der naheliegende Griff, um die
- * Marke senkrecht zu zentrieren, nähme es weg — und zwar auf allen Abschnitten
- * zugleich.
+ * **Das Dreieck ist fort, und an seiner Stelle steht ein Winkel rechts.**
+ * Befund von Manuel, 2026-09-16: das Dreieck stand links unmittelbar vor dem
+ * Zeichen des Abschnitts, und zwei Zeichen nebeneinander streiten um dieselbe
+ * Aufgabe. Rechts ist zudem die gelernte Stelle für `hier geht etwas auf`.
  *
- * Der Innenabstand macht das Trefferfeld statt einer Höhe mit Zentrierung: an
- * einem `list-item` zentriert `min-height` nicht senkrecht, und genau dort
- * beginnt der Weg zum verlorenen Dreieck.
+ * Damit ist hier zum ersten Mal ein `display` an der Klasse eines `<summary>`
+ * erlaubt. **Gate-Regel 15 hält das weiterhin eng**: ein Griff darf sein Dreieck
+ * nur ablegen, wenn im Markup desselben `<summary>` ein eigenes Aufklappzeichen
+ * steht — ein Element mit der Klasse `aufklapp`. Die Regel liest beides aus dem
+ * Baum, die Klassen der Griffe wie ihren Inhalt; eine Liste pflegt niemand.
+ * `smoke:sicht` misst dazu am gerenderten Ergebnis, dass das Zeichen wirklich
+ * dasteht und sich beim Aufklappen dreht.
+ *
+ * `list-style: none` **und** das Webkit-Pseudoelement: Safari vor 18.4 kennt das
+ * erste an einem `<summary>` nicht und malt sein Dreieck aus dem zweiten. Auf
+ * dem Telefon wird diese Anwendung überwiegend bedient.
+ *
+ * Der Innenabstand macht das Trefferfeld wie zuvor; mit `align-items: center`
+ * sitzt die Marke jetzt auch dann mittig, wenn die Zeile höher wird als ihr
+ * Text — das war an einem `list-item` nicht zu haben.
  *
  * Der Aussenabstand unten ersetzt den Abstand, den Marke und Liste vorher aus
  * dem `gap` der Seite bekamen: als Geschwister waren sie zwei Kinder von
@@ -719,10 +730,32 @@ select.feld {
  * die Karte darunter, mehr als --surface-open gegen dieselbe Karte hat.
  */
 .abschnitt__griff {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-2);
 	min-height: var(--touch);
 	padding: var(--space-2) var(--space-3);
 	background-color: var(--surface-griff);
 	cursor: pointer;
+	list-style: none;
+}
+
+.abschnitt__griff::-webkit-details-marker {
+	display: none;
+}
+
+/*
+ * Der Winkel zeigt zu nach rechts und offen nach unten. Die Drehung steht hier
+ * und nicht an `.aufklapp` selbst: der Zustand `[open]` hängt am `<details>`,
+ * und die Klasse trägt auch der Stift am Ändern-Griff, der sich nicht dreht.
+ *
+ * **Ohne Übergang.** Eine Drehung über Zeit wäre das einzige bewegte Bild dieser
+ * Anwendung und verlangte eine Ausnahme für `prefers-reduced-motion`, die sonst
+ * nirgends nötig ist.
+ */
+details[open] > .abschnitt__griff .aufklapp {
+	transform: rotate(90deg);
 }
 
 /*
@@ -754,18 +787,6 @@ select.feld {
 	flex-direction: column;
 	gap: var(--space-2);
 	padding: var(--space-3);
-}
-
-/*
- * Die Marke **im** Griff.
- *
- * `display: inline` und nicht die Vorgabe `block`: ein Block als erstes Kind
- * eines `<summary>` setzt sich unter das Dreieck statt daneben. Das ist ein
- * `display` an der Klasse der Überschrift und nicht an der des Griffs — Regel 15
- * liest die Klassen des `<summary>`, und dort steht weiterhin keines.
- */
-.marke--griff {
-	display: inline;
 }
 
 /*

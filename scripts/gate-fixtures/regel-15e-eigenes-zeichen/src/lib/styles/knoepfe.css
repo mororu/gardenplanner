@@ -1,0 +1,17 @@
+/*
+ * Gegenprobe zu Regel 15: beide Wege, ein Dreieck abzulegen, an einer Klasse,
+ * deren einziges <summary> ein eigenes Zeichen traegt. Die Regel muss beide
+ * durchlassen — sonst waere der Tausch nicht zu bauen, den sie verlangt.
+ *
+ * Erwartet sind null Treffer.
+ */
+.griff {
+	display: flex;
+	min-height: var(--gutter);
+	color: var(--accent);
+	list-style: none;
+}
+
+.griff::-webkit-details-marker {
+	display: none;
+}

@@ -1,0 +1,12 @@
+/*
+ * Fehlerprobe zu Regel 15: ein display an einer Klasse, die an zwei <summary>
+ * haengt — und nur eines von beiden traegt ein eigenes Aufklappzeichen. Die
+ * Ausnahme gilt erst, wenn jeder Griff der Klasse getauscht hat.
+ *
+ * Erwartet ist genau ein Treffer zu Regel 15.
+ */
+.griff {
+	display: flex;
+	min-height: var(--gutter);
+	color: var(--accent);
+}

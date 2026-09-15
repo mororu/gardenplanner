@@ -84,16 +84,20 @@
  *      als aus der Datenbank, in der nur der SHA-256-Hash steht. Belegt: die
  *      Zeile aus einem Block löschen lässt `npm run lint` grün und `nginx -t`
  *      "syntax is ok" melden, während die Zusage gebrochen ist.
- *  15. Keine CSS-Regel setzt an der Klasse eines `<summary>` ein `display`,
- *      ausser der Voreinstellung `list-item` selbst. Das Dreieck kommt aus
- *      dieser Voreinstellung und ist die einzige Anzeige, dass sich etwas
- *      aufklappt; `display: flex` — der naheliegende Griff, weil `min-height`
- *      an einem `list-item` nicht senkrecht zentriert — nimmt es weg. Wie
- *      Regel 14 abgeleitet: welche Klassen ein Griff trägt, sagt das Markup.
+ *  15. Ein Aufklappgriff verliert sein Dreieck nur gegen ein eigenes Zeichen.
+ *      Keine CSS-Regel an der Klasse eines `<summary>` setzt ein `display`
+ *      ausser `list-item`, ein `list-style: none` oder eine Deklaration an
+ *      dessen Markerpseudoelement — es sei denn, jedes `<summary>` mit dieser
+ *      Klasse trägt im Markup ein Element der Klasse `aufklapp`. Das Dreieck
+ *      ist sonst die einzige Anzeige, dass sich etwas aufklappt; `display:
+ *      flex` — der naheliegende Griff, weil `min-height` an einem `list-item`
+ *      nicht senkrecht zentriert — nimmt es weg. Wie Regel 14 abgeleitet:
+ *      welche Klassen ein Griff trägt und was in ihm steht, sagt das Markup.
  *      Die Warnung stand bis zum Zusammenlegen der zwei Zeilenformulare als
  *      Kommentar in beiden lokalen Fassungen und ist dabei verschwunden
  *      (Retro Epic 3, Posten R7) — ein Kommentar hat sie schon einmal nicht
- *      getragen. Seit 2026-08-30.
+ *      getragen. Seit 2026-08-30; die Ausnahme gegen ein eigenes Zeichen seit
+ *      2026-09-16, als Winkel und Stift die zwei Dreiecke ablösten.
  *  16. Jede `+page.server.ts` unter src/routes/, die `actions` exportiert,
  *      zieht `abweisen` aus src/lib/server/abweisen.ts und erklärt keines
  *      selbst. Eine zweite Fehlerform ist eine, die das Markup der Seite nicht
@@ -1712,13 +1716,29 @@ const torPrüfen = (ziel) => {
 			);
 	}
 
-	// Regel 15: der Griff eines Zeilenformulars behält sein Dreieck
+	// Regel 15: ein Aufklappgriff behält seine Anzeige
 	// -------------------------------------------------------------------
 	/*
 	 * Ein `<summary>` malt sein Aufklapp-Dreieck aus der Voreinstellung
 	 * `display: list-item`. Jede Regel, die für dieselbe Klasse ein anderes
 	 * `display` setzt, nimmt es weg — und das Dreieck ist die einzige Anzeige,
 	 * dass hier etwas aufgeht. Ohne es sieht der Griff aus wie ein Satz Text.
+	 *
+	 * **Seit dem 2026-09-16 ist das keine Verbotsregel mehr, sondern ein Tausch.**
+	 * Manuel hat an zwei Griffen das Dreieck abbestellt: im Abschnittskopf stand
+	 * es links vor dem Zeichen des Abschnitts und stritt mit ihm, am Ändern-Griff
+	 * vor dem Stift, der dasselbe genauer sagt. Beide haben stattdessen ein
+	 * eigenes Zeichen. Hätte die Regel weiter jedes `display` verboten, wäre sie
+	 * an diesem Tag gestrichen oder ausgehebelt worden — und eine gestrichene
+	 * Wache bewacht die vierte Aufklappstelle auch nicht mehr, die noch gar nicht
+	 * gebaut ist. Sie prüft darum jetzt den **Tausch**: wer das Dreieck nimmt,
+	 * stellt ein Zeichen der Klasse `aufklapp` in dasselbe `<summary>`.
+	 *
+	 * **Dabei ist sie schärfer geworden, nicht weicher.** Die alte Fassung sah nur
+	 * `display`. `list-style: none` am Griff nimmt das Dreieck ebenso — und wäre
+	 * unbemerkt durchgegangen, obwohl es der direktere Weg ist. Dasselbe gilt für
+	 * eine Deklaration an `::marker` oder `::-webkit-details-marker`. Alle drei
+	 * Wege hängen jetzt an derselben Bedingung.
 	 *
 	 * Diese Warnung stand als Kommentar in **beiden** lokalen Fassungen des
 	 * Griffs und ist beim Zusammenlegen ins geteilte Stilblatt aus dem Kommentar
@@ -1748,6 +1768,15 @@ const torPrüfen = (ziel) => {
 	 *   - ein `display` erwischen, das **ohne Klassennamen** kommt
 	 *     (`summary { … }`, `details > summary`) oder von einem Vorfahren geerbt
 	 *     wird. Beides steht heute nicht im Baum.
+	 *   - sehen, ob das Zeichen mit der Klasse `aufklapp` am Ende **sichtbar**
+	 *     ist. Sie liest einen Klassennamen im Markup, kein Pixel. Wer das
+	 *     Element mit `display: none` versteckt, kommt an ihr vorbei. Dafür misst
+	 *     `smoke:sicht` am gerenderten Ergebnis: jeder Abschnittsgriff auf `/`
+	 *     trägt genau ein solches Zeichen, es hat eine Ausdehnung, und es steht
+	 *     im aufgeklappten Zustand anders als im zugeklappten. Die zwei Prüfungen
+	 *     ergänzen sich wie bei `display` und berechnetem Wert: die Regel sagt,
+	 *     dass der Tausch im Quelltext stattgefunden hat, die Messung, dass er
+	 *     auf dem Schirm ankommt.
 	 *   - ein `<summary>` lesen, bei dem ein `>` in einem Attributausdruck
 	 *     **vor** dem `class` steht. Das Muster `<summary\b[^>]*>` bricht am
 	 *     ersten `>` ab. Gemessen, nicht vermutet: bei
@@ -1765,17 +1794,57 @@ const torPrüfen = (ziel) => {
 	 */
 	/** @type {Set<string>} Klassen, die im Markup an einem <summary> hängen */
 	const griffKlassen = new Set();
+	/** @type {Set<string>} Klassen, bei denen ein <summary> ein eigenes Zeichen trägt */
+	const mitZeichen = new Set();
+	/** @type {Set<string>} Klassen, bei denen ein <summary> keines trägt */
+	const ohneZeichen = new Set();
+
+	/*
+	 * Was als eigenes Aufklappzeichen zählt, steht in **zwei** Formen im Baum, und
+	 * die Regel kennt beide: `class="… aufklapp …"` am Element selbst und
+	 * `'aufklapp'` als Argument eines `{@render}`, mit dem ein Zeichenschnipsel
+	 * seine Zusatzklasse bekommt — die Bauform, die dieses Projekt für geteilte
+	 * Zeichen benutzt. Ein blosses Vorkommen des Wortes im Fliesstext reicht
+	 * nicht: sonst trüge ein Satz über das Aufklappzeichen die Ausnahme, die er
+	 * nur beschreibt.
+	 */
+	const ZEICHEN_IM_GRIFF = /class="[^"]*\baufklapp\b[^"]*"|'aufklapp'/;
 
 	for (const datei of dateien) {
 		if (!datei.endsWith('.svelte')) continue;
 		const roh = lesen(datei, 15);
 		if (roh === null) continue;
-		for (const treffer of roh.matchAll(/<summary\b[^>]*>/g)) {
-			const klassen = /class="([^"]*)"/.exec(treffer[0]);
+		/*
+		 * **Kommentare erst ausblenden, dann Griffe suchen** — und das ist keine
+		 * Vorsichtsmassnahme, sondern ein gefundener Fehler. Der Kommentar über dem
+		 * Winkelschnipsel in `+page.svelte` erklärt die Regel und schreibt dabei
+		 * `<summary>` hin. Ohne diese Zeile beginnt der Suchlauf **dort**, frisst
+		 * alles bis zum ersten echten `</summary>` — und der erste wirkliche Griff
+		 * der Seite fiel aus der Auswertung. Aufgefallen ist es an einer
+		 * Fehlerprobe, die stumm blieb: `aufklapp` aus dem ersten Abschnittsgriff
+		 * genommen, und das Tor meldete nichts.
+		 */
+		const markup = roh.replace(/<!--[\s\S]*?-->/g, ' ');
+		for (const treffer of markup.matchAll(/(<summary\b[^>]*>)([\s\S]*?)<\/summary>/g)) {
+			const klassen = /class="([^"]*)"/.exec(treffer[1]);
 			if (klassen === null) continue;
-			for (const wort of klassen[1].split(/\s+/)) if (wort !== '') griffKlassen.add(wort);
+			const ziel = ZEICHEN_IM_GRIFF.test(treffer[2]) ? mitZeichen : ohneZeichen;
+			for (const wort of klassen[1].split(/\s+/)) {
+				if (wort === '') continue;
+				griffKlassen.add(wort);
+				ziel.add(wort);
+			}
 		}
 	}
+
+	/**
+	 * Darf an dieser Klasse das Dreieck fallen? Nur wenn **jedes** `<summary>`,
+	 * das sie trägt, ein eigenes Zeichen hat — eines von zweien genügt nicht, sonst
+	 * nähme eine geteilte Klasse dem zweiten Griff seine Anzeige.
+	 *
+	 * @param {string} name Klassenname aus dem Selektor
+	 */
+	const getauscht = (name) => mitZeichen.has(name) && !ohneZeichen.has(name);
 
 	if (griffKlassen.size > 0) {
 		/*
@@ -1802,19 +1871,32 @@ const torPrüfen = (ziel) => {
 				// des Selektors und nicht der Beginn des Treffers.
 				const beginn = (regel.index ?? 0) + (regel[1].length - regel[1].trimStart().length);
 				const namen = [...selektor.matchAll(/\.([A-Za-z_][\w-]*)/g)].map((t) => t[1]);
-				if (!namen.some((name) => griffKlassen.has(name))) continue;
+				const betroffen = namen.filter((name) => griffKlassen.has(name));
+				if (betroffen.length === 0) continue;
+				// Nennt ein Selektor zwei Griffklassen, muss der Tausch bei beiden
+				// stattgefunden haben — die Regel gilt für jeden Griff, den er trifft.
+				if (betroffen.every(getauscht)) continue;
+				const amMarker = /::(?:-webkit-details-)?marker\b/.test(selektor);
 				for (const deklaration of regel[2].split(';')) {
-					const paar = /^\s*display\s*:\s*(.+)$/.exec(deklaration);
+					const paar = /^\s*([\w-]+)\s*:\s*(.+)$/.exec(deklaration);
 					if (paar === null) continue;
-					const wert = paar[1].trim();
-					if (wert === 'list-item') continue;
+					const eigenschaft = paar[1].trim().toLowerCase();
+					const wert = paar[2].trim();
+					const nimmtWeg =
+						(eigenschaft === 'display' && wert !== 'list-item') ||
+						((eigenschaft === 'list-style' || eigenschaft === 'list-style-type') &&
+							/\bnone\b/.test(wert)) ||
+						(amMarker && eigenschaft === 'content');
+					if (!nimmtWeg) continue;
 					melden(
 						15,
 						datei,
 						zeileVon(ganzeDatei, versatz + beginn),
-						`\`${selektor}\` setzt \`display: ${wert}\` an einem Griff, der ein ` +
+						`\`${selektor}\` setzt \`${eigenschaft}: ${wert}\` an einem Griff, der ein ` +
 							'`<summary>` ist — das nimmt das Aufklapp-Dreieck weg, und es ist die ' +
-							'einzige Anzeige, dass sich hier etwas öffnet'
+							'einzige Anzeige, dass sich hier etwas öffnet. Erlaubt ist das nur, wenn ' +
+							'jedes `<summary>` dieser Klasse im Markup ein eigenes Zeichen der Klasse ' +
+							'`aufklapp` trägt'
 					);
 				}
 			}
@@ -2341,6 +2423,29 @@ const proben = [
 		beschreibung:
 			'vollständige Vorlage; Voreinstellung, fremde Klasse und Kommentar dürfen die Regel ' +
 			'nicht wecken',
+	},
+	{
+		regel: 15,
+		verzeichnis: 'regel-15e-eigenes-zeichen',
+		erwartet: 0,
+		begruendung:
+			'Gegenprobe zum Tausch: `display: flex`, `list-style: none` und das ' +
+			'Webkit-Markerpseudoelement an einer Klasse, deren einziges <summary> ein Zeichen ' +
+			'der Klasse `aufklapp` trägt. Alle drei müssen durchgehen, sonst wäre der Tausch ' +
+			'nicht zu bauen, den die Regel verlangt',
+		art: 'Verstoss',
+		beschreibung: 'Dreieck abgelegt, eigenes Zeichen gestellt — die erlaubte Form',
+	},
+	{
+		regel: 15,
+		verzeichnis: 'regel-15f-zeichen-nur-an-einem',
+		erwartet: 1,
+		begruendung:
+			'1 display an einer Klasse, die an zwei <summary> hängt, von denen nur eines ein ' +
+			'eigenes Zeichen trägt. Belegt die Hälfte der Ausnahme, die still wegfallen könnte: ' +
+			'sie gilt erst, wenn **jeder** Griff der Klasse getauscht hat',
+		art: 'Verstoss',
+		beschreibung: 'der zweite Griff stünde ohne jede Anzeige da',
 	},
 	{
 		regel: 14,

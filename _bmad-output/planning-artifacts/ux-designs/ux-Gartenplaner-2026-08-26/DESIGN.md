@@ -3,7 +3,7 @@ name: Gemeinschaftsgarten
 description: Aufgabenliste für einen Gemeinschaftsgarten. Neutral, übersichtlich, anmächelig — Salbei auf warmem Leinen, ein einziges Erscheinungsbild, keine Zählungen, keine Dekoration.
 status: final
 created: '2026-08-26'
-updated: '2026-09-15'
+updated: '2026-09-16'
 experience: './EXPERIENCE.md'
 colors:
   surface-base: '#F6F2EA'
@@ -141,6 +141,7 @@ components:
     headTitleFont: '{typography.section}'
     headCountFont: '{typography.meta}'
     headCountColor: '{colors.ink-secondary}'
+    headChevron: right, 90deg rotation when open
   harvest-marker:
     borderLeft: '3px solid {colors.reif-sofort}'
     borderLeftStanding: '3px solid {colors.reif-stehen}'
@@ -315,11 +316,15 @@ Nur vorhanden, wenn die betrachtende Person in dieser Woche Dienst hat. Karte mi
 
 Der aufklappbare Abschnitt: Griff oben, Inhalt darunter, **eine** Kante um beide in `{colors.ink-secondary}` — das erste Kind ist ein `<summary>`, also ein Bedienelement, und die Kante des Behälters ist dessen sichtbarer Umriss. Der Griff trägt keine eigene Kante und auch keine Linie zu seinem Inhalt; die Trennung leistet seine Fläche.
 
-Im Griff stehen drei Dinge nebeneinander: **Zeichen, Titel, Zahl.**
+Im Griff stehen vier Dinge nebeneinander: **Zeichen, Titel, Zahl — und rechts aussen der Winkel.**
 
 - Das **Zeichen** ist 22px gross, dieselbe Zahl wie das Kästchen einer Aufgabe (`{components.task-box.size}`), und steht damit neben 20px-Schrift statt neben 13px. Es ist in `{colors.ink-primary}` — genauer: es hat gar keine Farbe und erbt sie, denn ein SVG malt hier in `currentColor`. Aus derselben Quelle nimmt das Aufklapp-Dreieck des `<summary>` seine Farbe; Zeichen und Dreieck können darum nicht auseinanderlaufen. Bis zum 2026-09-15 war das Zeichen `{colors.ink-secondary}` und stand heller neben einem schwarzen Dreieck (Entscheid Manuel).
 - Der **Titel** in `{typography.section}`. Er sagt, was der Abschnitt ist; ein Zeichen ohne Wort gäbe es hier so wenig wie in der Navigation.
 - Die **Zahl** in `{typography.meta}` und `{colors.ink-secondary}`, als blosse Zahl und **ohne Kasten**. Sie war einen Tag lang ein eckiger heller Kasten wie das Datum an einer Zeile darunter — zwei Kästen derselben Form für zwei verschieden wichtige Dinge liessen den einen wie den anderen aussehen. Der Datumskasten trägt die Aussage seiner Zeile, diese Zahl ergänzt eine Überschrift, die ohne sie vollständig ist.
+
+- Der **Winkel** rechts zeigt zu nach rechts und offen nach unten. Er ersetzt seit dem 2026-09-16 das Dreieck, das ein `<summary>` von sich aus links malt: dort stand es unmittelbar vor dem Zeichen des Abschnitts, und zwei Zeichen nebeneinander streiten um dieselbe Aufgabe. Rechts ist zudem die gelernte Stelle für *hier geht etwas auf*. Ohne Übergang — eine Drehung über Zeit wäre das einzige bewegte Bild dieser Anwendung.
+
+**Ein Griff darf sein Dreieck nur gegen ein eigenes Zeichen tauschen.** Das gilt für jede Aufklappstelle: wer dem `<summary>` seinen Marker nimmt, stellt ein Zeichen an dessen Platz — hier den Winkel. Gate-Regel 15 prüft den Tausch im Quelltext, `smoke:sicht` misst am gerenderten Ergebnis, dass das Zeichen dasteht und den Zustand sagt.
 
 Abschnitte werden **offen** ausgeliefert und der Zustand nirgends gespeichert: ein einmaliger Griff darf nicht dauerhaft verbergen, dass etwas ansteht.
 

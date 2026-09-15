@@ -66,7 +66,7 @@ import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-t
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 68;
+const ERWARTETE_BEHAUPTUNGEN = 70;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -1276,6 +1276,78 @@ try {
 		'nach dem Bestätigen ist der Dialog zu, die Aufgabe von / verschwunden und die Rückmeldung da',
 		!nachZusage.offen && !nachZusage.knopf && nachZusage.meldung !== '',
 		JSON.stringify(nachZusage)
+	);
+
+	// -----------------------------------------------------------------------
+	// Das Aufklappzeichen der Abschnitte — der Tausch gegen das Dreieck
+	// -----------------------------------------------------------------------
+	/*
+	 * **Hier wird gemessen, was Gate-Regel 15 nur lesen kann.**
+	 *
+	 * Seit dem 2026-09-16 legen die drei Abschnittsgriffe auf `/` ihr Dreieck ab
+	 * und stellen einen Winkel an dessen Stelle. Die Regel prüft den Tausch im
+	 * Quelltext: sie sieht die Klasse `aufklapp` im Markup des `<summary>` und
+	 * lässt das `display` daraufhin durch. Was sie nicht sehen kann, ist, ob das
+	 * Zeichen am Ende **dasteht** — ein `display: none` daran käme an ihr vorbei,
+	 * und der Griff sähe aus wie ein Satz Text, während das Tor grün meldet.
+	 *
+	 * Darum diese zwei Zeilen am gerenderten Ergebnis: das Zeichen ist da und hat
+	 * eine Ausdehnung, und es sagt den Zustand — zugeklappt steht es anders als
+	 * aufgeklappt. Ohne die zweite wäre ein Winkel, der sich nie bewegt, eine
+	 * Anzeige, die nichts anzeigt.
+	 */
+	const aufklappZeichen = await browser.auswerten<{
+		griffe: number;
+		anzeige: string[];
+		zeichen: number[];
+		masse: string[];
+	}>(`
+		const griffe = [...document.querySelectorAll('summary.abschnitt__griff')];
+		return {
+			griffe: griffe.length,
+			anzeige: griffe.map((g) => getComputedStyle(g).display),
+			zeichen: griffe.map((g) => g.querySelectorAll('.aufklapp').length),
+			masse: griffe.map((g) => {
+				const z = g.querySelector('.aufklapp');
+				if (z === null) return 'keines';
+				const r = z.getBoundingClientRect();
+				return Math.round(r.width) + 'x' + Math.round(r.height);
+			}),
+		};`);
+	pruefen(
+		'jeder der drei Abschnittsgriffe trägt genau ein Aufklappzeichen mit Ausdehnung',
+		aufklappZeichen.griffe === 3 &&
+			aufklappZeichen.zeichen.every((zahl) => zahl === 1) &&
+			aufklappZeichen.masse.every((mass) => /^[1-9]\d*x[1-9]\d*$/.test(mass)) &&
+			aufklappZeichen.anzeige.every((wert) => wert !== 'list-item'),
+		`${aufklappZeichen.griffe} Griff(e), Zeichen ${aufklappZeichen.zeichen.join('/')}, ` +
+			`Masse ${aufklappZeichen.masse.join(' ')}, Anzeige ${aufklappZeichen.anzeige.join(' ')}`
+	);
+
+	/*
+	 * Gedreht wird über `transform`, und gelesen wird der **berechnete** Wert: er
+	 * ist das Ergebnis aller Wege zusammen und kennt die Lücken nicht, die ein
+	 * Blick in den Quelltext hat.
+	 *
+	 * Der Griff wird danach wieder aufgeklappt, und das steht in derselben
+	 * Behauptung. Der Kontrast-Sweep weiter unten läuft über den ganzen Baum; ein
+	 * Abschnitt, den dieser Block zugeklappt zurückliesse, nähme ihm still seinen
+	 * Inhalt — und eine Messung, die eine spätere Messung beschneidet, fällt
+	 * niemandem auf.
+	 */
+	const ERSTER_GRIFF = 'summary.abschnitt__griff';
+	const DREHUNG = `return getComputedStyle(document.querySelector('${ERSTER_GRIFF} .aufklapp')).transform;`;
+	const drehungOffen = await browser.auswerten<string>(DREHUNG);
+	await browser.klicken(ERSTER_GRIFF);
+	const drehungZu = await browser.auswerten<string>(DREHUNG);
+	await browser.klicken(ERSTER_GRIFF);
+	const wiederOffen = await browser.auswerten<boolean>(
+		`return document.querySelector('${ERSTER_GRIFF}').parentElement.open;`
+	);
+	pruefen(
+		'das Zeichen steht zugeklappt anders als aufgeklappt — und der Abschnitt steht danach wieder offen',
+		drehungOffen !== drehungZu && wiederOffen,
+		`offen ${drehungOffen}, zu ${drehungZu}, danach offen: ${wiederOffen}`
 	);
 
 	// -----------------------------------------------------------------------

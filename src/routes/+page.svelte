@@ -633,6 +633,39 @@
 	</svg>
 {/snippet}
 
+<!--
+	Der Winkel am rechten Rand eines Abschnittsgriffs — **das Aufklappzeichen**.
+
+	Er ersetzt seit dem 2026-09-16 das Dreieck, das ein `<summary>` aus seiner
+	Voreinstellung `display: list-item` selbst malt. Der Befund von Manuel: das
+	Dreieck stand links **vor** dem Zeichen des Abschnitts, und zwei Zeichen
+	nebeneinander an derselben Stelle streiten um dieselbe Aufgabe. Rechts ist
+	zudem die gelernte Stelle für `hier geht etwas auf`.
+
+	Die Klasse `aufklapp` steht im Aufruf und nicht im Schnipsel: **Gate-Regel 15
+	liest sie dort.** Sie erlaubt einem Griff nur dann, sein Dreieck abzulegen,
+	wenn im Markup desselben `<summary>` ein eigenes Aufklappzeichen steht — und
+	was im Markup steht, sieht sie am Aufrufort, nicht in einer Schnipseldefinition
+	irgendwo darüber.
+
+	Zeigt zu und geöffnet in verschiedene Richtungen; die Drehung steht am Griff
+	im geteilten Blatt, weil dort der `[open]`-Zustand zu lesen ist.
+-->
+{#snippet zeichenWinkel(zusatz: string)}
+	<svg
+		class="zeichen {zusatz}"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		aria-hidden="true"
+	>
+		<path d="m9 5.5 7 6.5-7 6.5" />
+	</svg>
+{/snippet}
+
 {#snippet zeichenListe()}
 	<svg
 		class="zeichen griff__zeichen"
@@ -916,6 +949,7 @@
 					<span class="zaehler">{data.ueberblick.reif}</span>
 				{/if}
 			</h2>
+			{@render zeichenWinkel('aufklapp')}
 		</summary>
 		<div class="abschnitt__inhalt">
 			{#if data.ernte.length > 0}
@@ -1038,6 +1072,7 @@
 					{/if}
 				{/if}
 			</h2>
+			{@render zeichenWinkel('aufklapp')}
 		</summary>
 		<div class="abschnitt__inhalt">
 			{#if data.aufgaben.length > 0}
@@ -1354,6 +1389,7 @@
 					<span class="zaehler">{data.ueberblick.frei}</span>
 				{/if}
 			</h2>
+			{@render zeichenWinkel('aufklapp')}
 		</summary>
 		<div class="abschnitt__inhalt">
 			{#if data.einzelaufgaben.length > 0}
@@ -1682,13 +1718,19 @@
 	 * offen` steht auch im zugeklappten Griff, und damit hält AD-14 unabhängig
 	 * davon, ob jemand den Abschnitt offen lässt.
 	 *
-	 * `display: inline` bleibt aus demselben Grund wie bei der alten Marke: ein
-	 * Block als erstes Kind eines `<summary>` setzt sich unter das Dreieck statt
-	 * daneben. Das ist ein `display` an der Klasse der Überschrift und nicht an der
-	 * des Griffs — Gate-Regel 15 liest die Klassen des `<summary>`.
+	 * **Kein `display: inline` mehr.** Es stand hier, weil ein Block als erstes
+	 * Kind eines `<summary>` sich unter dessen Dreieck setzte statt daneben. Das
+	 * Dreieck ist seit dem 2026-09-16 fort und der Griff ein Flexbehälter; ein
+	 * Flexkind wird ohnehin blockiert, die Zeile hätte also nichts mehr getragen
+	 * als eine überholte Begründung.
+	 *
+	 * `min-inline-size: 0` dafür neu: ohne das weicht ein Flexkind nicht unter
+	 * seine Inhaltsbreite zurück, und ein langer Titel schöbe den Winkel aus der
+	 * Zeile.
 	 */
 	.griff__satz {
-		display: inline;
+		flex: 1 1 auto;
+		min-inline-size: 0;
 		margin: 0;
 	}
 
