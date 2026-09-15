@@ -625,7 +625,15 @@ select.feld {
  * `currentColor` und kein eigenes Farbtoken: es soll dieselbe Farbe tragen wie
  * das Wort, das es begleitet — auch im deaktivierten Zustand, in dem der Knopf
  * seine Schriftfarbe wechselt. Ein eigenes Token müsste dort mitgeführt werden
- * und liefe irgendwann auseinander.
+ * und liefe irgendwann auseinander. **In einem Knopf gilt das ohne Ausnahme**,
+ * und genau der deaktivierte Zustand ist der Grund.
+ *
+ * Ausserhalb von Knöpfen darf eine Fundstelle die Farbe überschreiben, und zwei
+ * tun es: im Kopf eines Abschnitts und in der Marke `Laufend ernten` auf `/`
+ * steht das Zeichen in Tintenfarbe, während sein Wort heller bleibt. Dort ist
+ * das Zeichen der Anker beim Blättern und das Wort die Auskunft; die Begründung
+ * steht an den beiden Regeln. Wer eine dritte Ausnahme anlegt, prüft zuerst, ob
+ * die Zusage hier noch die richtige ist.
  *
  * `flex: 0 0 auto` und eine feste Grösse: ohne sie zieht ein Flexrahmen das SVG
  * schmal, sobald der Text daneben lang wird.

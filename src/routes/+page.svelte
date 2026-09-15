@@ -1843,6 +1843,31 @@
 	}
 
 	/*
+		Das Zeichen **in** einer Marke: Tintenfarbe, nicht die des Worts daneben.
+
+		Das ist eine Ausnahme von dem, was `.zeichen` im geteilten Blatt zusagt —
+		dort malt ein Zeichen in `currentColor`, damit es dieselbe Farbe trägt wie
+		sein Wort. Der Grund für die Ausnahme ist derselbe wie im Abschnittskopf:
+		ein Zeichen ist beim Blättern der Anker, das Wort die Auskunft. Auf
+		12px-Grossbuchstaben in Nebentextfarbe verschwand das Kreiszeichen
+		mit — und ein Anker, den man suchen muss, ist keiner. Entscheid Manuel,
+		2026-09-15.
+
+		**Die Farbe steht am Zeichen und nicht an der Marke.** An `.marke--mit-zeichen`
+		schwärzte sie das Wort gleich mit, und damit stünde diese eine Marke in einer
+		anderen Farbe als alle übrigen — die Ampelstufe unmittelbar daneben
+		eingeschlossen.
+
+		**Zeichen in Knöpfen bleiben aussen vor** (`Erledigt`, `Ich mach's`): dort
+		trägt `currentColor` etwas, das hier niemand braucht — im deaktivierten
+		Zustand wechselt der Knopf seine Schriftfarbe, und ein Zeichen mit eigener
+		Farbe bliebe schwarz stehen, während sein Wort verblasst.
+	*/
+	.marke--mit-zeichen .zeichen {
+		color: var(--ink-primary);
+	}
+
+	/*
 		Das Zeichen im Griff eines Abschnitts.
 
 		**Keine Farbe.** `.zeichen` im geteilten Blatt malt in `currentColor`, und
