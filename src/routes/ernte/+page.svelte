@@ -468,170 +468,204 @@
 		</form>
 	</details>
 
-	{#if data.stand.length === 0}
-		<p class="leer">Nichts reif gemeldet.</p>
-	{/if}
+	<!--
+		**Die Liste steht in einem Aufklapper**, seit dem 2026-09-16 (Entscheid
+		Manuel): wer weiss, was reif ist, klappt sie weg und hat Legende und
+		Eintragen ohne Blättern vor sich. **Offen ausgeliefert** — sie ist der
+		Gegenstand dieser Seite, und ein zugeklappt gelieferter Vorrat an Arbeit ist
+		genau das, wogegen AD-14 geschrieben ist. Der Zustand wird nirgends
+		gespeichert; beim nächsten Laden steht wieder alles offen.
 
-	{#each ERNTESTATUS as stufe (stufe)}
-		{@const zeilen = zeilenVon(stufe)}
-		<!--
-			Ein Abschnitt ohne Zeilen entsteht gar nicht. Eine leere Überschrift
-			`Noch wachsen lassen` sagt nichts, was die Liste nicht schon sagt, und
-			drei davon untereinander sind bei 375px der halbe Bildschirm.
-		-->
-		{#if zeilen.length > 0}
-			<!--
-				**Ohne den Satz der Stufe**, seit die Legende oben ihn trägt (Entscheid
-				Manuel, 2026-09-16). Er stand hier dreimal untereinander und erklärte bei
-				jedem Besuch dasselbe — bei 375px kostete das mehr Bildschirm als die
-				Liste, um die es geht. Die Stufe steht weiterhin als **Wort** in dieser
-				Überschrift, und das ist es, woran die Ausnahme für das kräftige Gelb
-				hängt (siehe die Wache `jede Erntestufe steht als Wort neben ihrer
-				Kante`); was wegfällt, ist die Erläuterung, nicht der Name.
+		**Der Titel ist eine Frage.** `Ernte` steht schon als Seitentitel darüber,
+		und ein zweites `Ernte` sagte nichts dazu. Die Frage sagt, was die Liste
+		beantwortet — dieselbe Wendung wie `So liest du die Liste` darüber und wie
+		die Abschnitte auf `/`.
+
+		**Die Stufen darin sind `<h3>`.** Sie standen als `<h2>` unter dem
+		Seitentitel; jetzt liegt eine Überschrift dazwischen, und eine Ebene, die
+		eine andere überspringt, ist für Vorleseprogramme eine falsche Auskunft über
+		die Gliederung.
+
+		Der leere Zustand steht **mit** darin: `Nichts reif gemeldet.` ist die
+		Antwort auf dieselbe Frage.
+	-->
+	<details class="abschnitt" open>
+		<summary class="abschnitt__griff">
+			<h2 class="abschnittstitel" id="ernteliste-marke">Was gibt es aktuell zu ernten?</h2>
+			<ZeichenWinkel class="aufklapp" />
+		</summary>
+		<div class="abschnitt__inhalt">
+			{#if data.stand.length === 0}
+				<p class="leer">Nichts reif gemeldet.</p>
+			{/if}
+
+			{#each ERNTESTATUS as stufe (stufe)}
+				{@const zeilen = zeilenVon(stufe)}
+				<!--
+				Ein Abschnitt ohne Zeilen entsteht gar nicht. Eine leere Überschrift
+				`Noch wachsen lassen` sagt nichts, was die Liste nicht schon sagt, und
+				drei davon untereinander sind bei 375px der halbe Bildschirm.
 			-->
-			<h2 class="abschnittstitel" id="stufe-{stufe}">{ERNTETEXT[stufe].titel}</h2>
-			<!--
-				Überschrift, Satz und Liste stehen als **Geschwister** in `.seite` und
-				nicht in einem <section> mit eigenem Stapel. Ein solcher Behälter
-				bräuchte `display: flex; flex-direction: column; gap: var(--space-2)`
-				— und damit denselben Regelkörper wie `.knoepfe` im geteilten
-				Stilblatt. Gate-Regel 14 hat genau das gemeldet, und sie hat recht:
-				das wäre dieselbe Rolle unter neuem Namen. Die Zuordnung von Liste und
-				Überschrift trägt `aria-labelledby`, und die ist es, auf die es
-				ankommt — ein <section> allein hätte sie nicht hergestellt.
-			-->
-			<ul
-				class="liste liste--getrennt"
-				class:stufe--sofort={stufe === 'sofort'}
-				class:stufe--stehen={stufe === 'stehen'}
-				class:stufe--wachsen={stufe === 'wachsen'}
-				aria-labelledby="stufe-{stufe}"
-			>
-				{#each zeilen as eintrag (eintrag.id)}
-					{@const fragtHier = frage !== null && frage.zeile === eintrag.id}
-					<li class="karte" data-stufe={stufe}>
-						<!--
-								Die Farbe der Stufe liegt als Kante an der Karte und kommt aus
-								dem Abschnitt darüber. Das **Wort** steht in der Überschrift —
-								kein Zustand hängt allein an der Farbe, dieselbe Regel wie bei
-								überfällig auf / und unbesetzt im Tränkeplan.
+				{#if zeilen.length > 0}
+					<!--
+					**Ohne den Satz der Stufe**, seit die Legende oben ihn trägt (Entscheid
+					Manuel, 2026-09-16). Er stand hier dreimal untereinander und erklärte bei
+					jedem Besuch dasselbe — bei 375px kostete das mehr Bildschirm als die
+					Liste, um die es geht. Die Stufe steht weiterhin als **Wort** in dieser
+					Überschrift, und das ist es, woran die Ausnahme für das kräftige Gelb
+					hängt (siehe die Wache `jede Erntestufe steht als Wort neben ihrer
+					Kante`); was wegfällt, ist die Erläuterung, nicht der Name.
+				-->
+					<h3 class="abschnittstitel" id="stufe-{stufe}">{ERNTETEXT[stufe].titel}</h3>
+					<!--
+					Überschrift, Satz und Liste stehen als **Geschwister** in `.seite` und
+					nicht in einem <section> mit eigenem Stapel. Ein solcher Behälter
+					bräuchte `display: flex; flex-direction: column; gap: var(--space-2)`
+					— und damit denselben Regelkörper wie `.knoepfe` im geteilten
+					Stilblatt. Gate-Regel 14 hat genau das gemeldet, und sie hat recht:
+					das wäre dieselbe Rolle unter neuem Namen. Die Zuordnung von Liste und
+					Überschrift trägt `aria-labelledby`, und die ist es, auf die es
+					ankommt — ein <section> allein hätte sie nicht hergestellt.
+				-->
+					<ul
+						class="liste liste--getrennt"
+						class:stufe--sofort={stufe === 'sofort'}
+						class:stufe--stehen={stufe === 'stehen'}
+						class:stufe--wachsen={stufe === 'wachsen'}
+						aria-labelledby="stufe-{stufe}"
+					>
+						{#each zeilen as eintrag (eintrag.id)}
+							{@const fragtHier = frage !== null && frage.zeile === eintrag.id}
+							<li class="karte" data-stufe={stufe}>
+								<!--
+									Die Farbe der Stufe liegt als Kante an der Karte und kommt aus
+									dem Abschnitt darüber. Das **Wort** steht in der Überschrift —
+									kein Zustand hängt allein an der Farbe, dieselbe Regel wie bei
+									überfällig auf / und unbesetzt im Tränkeplan.
 
-								Die Kennung dieser Zeile, und der Grund, warum sie eine hat: die
-								Knöpfe darunter tragen Beschriftungen, die sich über alle Zeilen
-								wortgleich wiederholen — `Kann stehen`, `Abgeerntet`. Sie zeigen
-								darum mit aria-labelledby auf sich selbst und dann hierher:
-								`Abgeerntet Zucchini, Hochbeet 3`.
-							-->
-						<!--
-							**Der Vermerk steht neben der Kultur und nicht darunter** (Entscheid
-							Manuel, 2026-09-16), und in Kleinbuchstaben statt als Marke: als
-							eigene Zeile in Grossbuchstaben las er sich wie eine zweite
-							Überschrift der Karte, und das ist er nicht — er ergänzt den Namen.
-
-							**Er steht ausserhalb des `<p id="ernte-…">`**, obwohl er in dieselbe
-							Zeile gehört. Auf diese Kennung zeigen die Knöpfe der Karte mit
-							aria-labelledby; stünde er darin, hiesse der Knopf `Abgeerntet
-							Zucchini, Hochbeet 3 Laufend ernten` — der Vermerk ist für die
-							Handlung ohne Belang. Die Zeile hält `.titelzeile` zusammen.
-						-->
-						<div class="titelzeile">
-							<p class="zeile__text" id="ernte-{eintrag.id}">
-								{eintrag.kultur}{#if eintrag.ort !== null}<span class="ernte__ort"
-										>, {eintrag.ort}</span
-									>{/if}
-							</p>
-							{#if eintrag.laufend}
-								<span class="zeichenwort"
-									><ZeichenKreis /><span class="hinweis">{DAUERERNTE_WORT}</span></span
-								>
-							{/if}
-						</div>
-
-						{#if eintrag.laufend}
-							<p class="hinweis">{DAUERERNTE_SATZ}</p>
-						{/if}
-
-						<!--
-								Name und Datum: nicht als Zuständigkeit, sondern als Herkunft —
-								wie frisch die Angabe ist und wen man fragen kann. Ein fehlender
-								Name kann nur aus einem Eingriff von Hand an der Datenbank
-								stammen; die Zeile bleibt dann trotzdem lesbar.
-							-->
-						<p class="hinweis hinweis--ziffern">
-							{eintrag.name ?? 'unbekannt'} · {datumLang(eintrag.createdAt)}
-						</p>
-
-						{#if fragtHier && frage !== null}
-							<div class="ernte__frage">
-								<p class="fliesstext" id="abernten-frage-{eintrag.id}">
-									{frage.kultur}{#if frage.ort !== null}, {frage.ort}{/if} abräumen? Die Zeile ist dann
-									für alle weg.
-								</p>
-								<div class="knoepfe">
-									<!-- `Abbrechen` steht zuerst: die Reihenfolge im DOM ist die
-										     Fokusreihenfolge, und die zusagende Handlung soll nicht die
-										     erste sein. Ein Link und kein Knopf — er verwirft die Antwort
-										     der action, indem er die Seite neu holt. -->
-									<a class="button-quiet" href={resolve('/ernte')}>Abbrechen</a>
-									<form method="POST" action="?/abernten" use:enhance={versand}>
-										<input type="hidden" name="id" value={eintrag.id} />
-										<input type="hidden" name="bestaetigt" value="1" />
-										<button
-											class="button-quiet button-quiet--zerstoerend"
-											type="submit"
-											aria-describedby="abernten-frage-{eintrag.id}"
-											disabled={imFlug}
-										>
-											Abgeerntet
-										</button>
-									</form>
-								</div>
-							</div>
-						{:else}
-							<!--
-									Umstufen zeigt die **zwei anderen** Stufen. Die eigene wäre ein
-									Knopf, der nichts ändert, und bei 375px stünden drei
-									nebeneinander, von denen einer nie gedrückt wird.
-
-									Ohne Rückfrage: umstufen nimmt niemandem etwas weg und ist mit
-									dem Knopf daneben zurückgenommen. Nur `Abgeerntet` fragt, weil
-									es löscht.
+									Die Kennung dieser Zeile, und der Grund, warum sie eine hat: die
+									Knöpfe darunter tragen Beschriftungen, die sich über alle Zeilen
+									wortgleich wiederholen — `Kann stehen`, `Abgeerntet`. Sie zeigen
+									darum mit aria-labelledby auf sich selbst und dann hierher:
+									`Abgeerntet Zucchini, Hochbeet 3`.
 								-->
-							<div class="ernte__fuss">
-								{#each andereStufen(stufe) as ziel (ziel)}
-									<form method="POST" action="?/umstufen" use:enhance={versand}>
-										<input type="hidden" name="id" value={eintrag.id} />
-										<input type="hidden" name="status" value={ziel} />
-										<button
-											class="button-quiet button-quiet--kompakt"
-											type="submit"
-											id="umstufen-{ziel}-{eintrag.id}"
-											aria-labelledby="umstufen-{ziel}-{eintrag.id} ernte-{eintrag.id}"
-											disabled={imFlug}
+								<!--
+								**Der Vermerk steht neben der Kultur und nicht darunter** (Entscheid
+								Manuel, 2026-09-16), und in Kleinbuchstaben statt als Marke: als
+								eigene Zeile in Grossbuchstaben las er sich wie eine zweite
+								Überschrift der Karte, und das ist er nicht — er ergänzt den Namen.
+
+								**Er steht ausserhalb des `<p id="ernte-…">`**, obwohl er in dieselbe
+								Zeile gehört. Auf diese Kennung zeigen die Knöpfe der Karte mit
+								aria-labelledby; stünde er darin, hiesse der Knopf `Abgeerntet
+								Zucchini, Hochbeet 3 Laufend ernten` — der Vermerk ist für die
+								Handlung ohne Belang. Die Zeile hält `.titelzeile` zusammen.
+							-->
+								<div class="titelzeile">
+									<p class="zeile__text" id="ernte-{eintrag.id}">
+										{eintrag.kultur}{#if eintrag.ort !== null}<span class="ernte__ort"
+												>, {eintrag.ort}</span
+											>{/if}
+									</p>
+									{#if eintrag.laufend}
+										<span class="zeichenwort"
+											><ZeichenKreis /><span class="hinweis">{DAUERERNTE_WORT}</span></span
 										>
-											{ERNTETEXT[ziel].kurz}
-										</button>
-									</form>
-								{/each}
-								<form class="ernte__weg" method="POST" action="?/abernten" use:enhance={versand}>
-									<input type="hidden" name="id" value={eintrag.id} />
-									<button
-										class="button-quiet button-quiet--kompakt button-quiet--zerstoerend"
-										type="submit"
-										id="abernten-{eintrag.id}"
-										aria-labelledby="abernten-{eintrag.id} ernte-{eintrag.id}"
-										disabled={imFlug}
-									>
-										Abgeerntet
-									</button>
-								</form>
-							</div>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	{/each}
+									{/if}
+								</div>
+
+								{#if eintrag.laufend}
+									<p class="hinweis">{DAUERERNTE_SATZ}</p>
+								{/if}
+
+								<!--
+									Name und Datum: nicht als Zuständigkeit, sondern als Herkunft —
+									wie frisch die Angabe ist und wen man fragen kann. Ein fehlender
+									Name kann nur aus einem Eingriff von Hand an der Datenbank
+									stammen; die Zeile bleibt dann trotzdem lesbar.
+								-->
+								<p class="hinweis hinweis--ziffern">
+									{eintrag.name ?? 'unbekannt'} · {datumLang(eintrag.createdAt)}
+								</p>
+
+								{#if fragtHier && frage !== null}
+									<div class="ernte__frage">
+										<p class="fliesstext" id="abernten-frage-{eintrag.id}">
+											{frage.kultur}{#if frage.ort !== null}, {frage.ort}{/if} abräumen? Die Zeile ist
+											dann für alle weg.
+										</p>
+										<div class="knoepfe">
+											<!-- `Abbrechen` steht zuerst: die Reihenfolge im DOM ist die
+											     Fokusreihenfolge, und die zusagende Handlung soll nicht die
+											     erste sein. Ein Link und kein Knopf — er verwirft die Antwort
+											     der action, indem er die Seite neu holt. -->
+											<a class="button-quiet" href={resolve('/ernte')}>Abbrechen</a>
+											<form method="POST" action="?/abernten" use:enhance={versand}>
+												<input type="hidden" name="id" value={eintrag.id} />
+												<input type="hidden" name="bestaetigt" value="1" />
+												<button
+													class="button-quiet button-quiet--zerstoerend"
+													type="submit"
+													aria-describedby="abernten-frage-{eintrag.id}"
+													disabled={imFlug}
+												>
+													Abgeerntet
+												</button>
+											</form>
+										</div>
+									</div>
+								{:else}
+									<!--
+										Umstufen zeigt die **zwei anderen** Stufen. Die eigene wäre ein
+										Knopf, der nichts ändert, und bei 375px stünden drei
+										nebeneinander, von denen einer nie gedrückt wird.
+
+										Ohne Rückfrage: umstufen nimmt niemandem etwas weg und ist mit
+										dem Knopf daneben zurückgenommen. Nur `Abgeerntet` fragt, weil
+										es löscht.
+									-->
+									<div class="ernte__fuss">
+										{#each andereStufen(stufe) as ziel (ziel)}
+											<form method="POST" action="?/umstufen" use:enhance={versand}>
+												<input type="hidden" name="id" value={eintrag.id} />
+												<input type="hidden" name="status" value={ziel} />
+												<button
+													class="button-quiet button-quiet--kompakt"
+													type="submit"
+													id="umstufen-{ziel}-{eintrag.id}"
+													aria-labelledby="umstufen-{ziel}-{eintrag.id} ernte-{eintrag.id}"
+													disabled={imFlug}
+												>
+													{ERNTETEXT[ziel].kurz}
+												</button>
+											</form>
+										{/each}
+										<form
+											class="ernte__weg"
+											method="POST"
+											action="?/abernten"
+											use:enhance={versand}
+										>
+											<input type="hidden" name="id" value={eintrag.id} />
+											<button
+												class="button-quiet button-quiet--kompakt button-quiet--zerstoerend"
+												type="submit"
+												id="abernten-{eintrag.id}"
+												aria-labelledby="abernten-{eintrag.id} ernte-{eintrag.id}"
+												disabled={imFlug}
+											>
+												Abgeerntet
+											</button>
+										</form>
+									</div>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			{/each}
+		</div>
+	</details>
 </div>
 
 <style>

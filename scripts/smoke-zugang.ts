@@ -226,7 +226,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 652;
+const ERWARTETE_BEHAUPTUNGEN = 653;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -7388,7 +7388,7 @@ try {
 		],
 		[
 			'der Abschnitt auf /ernte trägt die Stufe als Überschrift',
-			/<h2 class="abschnittstitel" id="stufe-\{stufe\}">\{ERNTETEXT\[stufe\]\.titel\}<\/h2>/.test(
+			/<h3 class="abschnittstitel" id="stufe-\{stufe\}">\{ERNTETEXT\[stufe\]\.titel\}<\/h3>/.test(
 				ernteCode
 			),
 		],
@@ -7451,7 +7451,13 @@ try {
 			legendeBlock !== '' &&
 				ernteCode.indexOf(legendeBlock) < ernteCode.indexOf('<details class="zeilenform"'),
 		],
-		['und sie kommt zugeklappt', !/<details class="abschnitt"[^>]*\bopen\b/.test(ernteCode)],
+		// Am **Block** gemessen und nicht an der Datei: seit dem 2026-09-16 steht die
+		// Ernteliste in einem zweiten `.abschnitt`, und der kommt offen. Eine Suche
+		// über den ganzen Quelltext machte diese Zeile an ihm rot.
+		[
+			'und sie kommt zugeklappt',
+			legendeBlock !== '' && !/^<details[^>]*\bopen\b/.test(legendeBlock),
+		],
 		[
 			'ihre Stufen sind gerechnet und nicht aufgezählt',
 			legendeBlock.includes('{#each legendenStufen as stufe (stufe)}'),
@@ -7481,6 +7487,45 @@ try {
 		'das Zeichen der Dauerernte steht auf / allein — und die Legende auf /ernte erklärt es',
 		fehlendeTeile(legendeTeile).length === 0,
 		`fehlt: ${fehlendeTeile(legendeTeile).join(', ')}`
+	);
+
+	/*
+	 * **Die Ernteliste steht in einem Aufklapper — und wird offen ausgeliefert.**
+	 *
+	 * Das `open` ist die eigentliche Behauptung und nicht der Aufklapper. Die
+	 * Liste ist der Gegenstand dieser Seite; ein zugeklappt geliefertes Verzeichnis
+	 * dessen, was reif ist, bricht AD-14, ohne dass irgendeine andere Zusage
+	 * verletzt wäre — die Seite hielte jede Prüfung ein und verschwiege trotzdem,
+	 * dass die Zucchini heute weg muss. Dieselbe Klausel wie bei den Abschnitten
+	 * auf `/`, nur eine Seite weiter.
+	 *
+	 * Die Gliederung steht mit in derselben Zeile: der Seitentitel ist `<h1>`, die
+	 * zwei Aufklapper sind `<h2>`, die Stufen darin `<h3>`. Eine Ebene, die eine
+	 * andere überspringt, ist für Vorleseprogramme eine falsche Auskunft — und sie
+	 * entsteht genau dann, wenn jemand eine Überschrift dazwischenschiebt und die
+	 * darunter vergisst. Das ist hier passiert und darum bewacht.
+	 */
+	const listenTeile = [
+		[
+			'die Ernteliste steht in einem Aufklapper mit eigener Überschrift',
+			/<details class="abschnitt" open>\s*<summary class="abschnitt__griff">\s*<h2 class="abschnittstitel" id="ernteliste-marke">/.test(
+				ernteCode
+			),
+		],
+		[
+			'die Stufen darin sind eine Ebene tiefer',
+			/<h3 class="abschnittstitel" id="stufe-\{stufe\}">/.test(ernteCode) &&
+				!/<h2 class="abschnittstitel" id="stufe-\{stufe\}">/.test(ernteCode),
+		],
+		[
+			'und /ernte trägt genau zwei Aufklapper dieser Art',
+			(ernteCode.match(/<details class="abschnitt"/g) ?? []).length === 2,
+		],
+	] as const;
+	pruefen(
+		'die Ernteliste ist zuklappbar und kommt offen — die Legende darüber zugeklappt',
+		fehlendeTeile(listenTeile).length === 0,
+		`fehlt: ${fehlendeTeile(listenTeile).join(', ')}`
 	);
 
 	// =======================================================================
