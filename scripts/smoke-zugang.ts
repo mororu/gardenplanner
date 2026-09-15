@@ -3547,7 +3547,9 @@ try {
 	 */
 	/*
 	 * **Seit dem 2026-09-13 sind es drei Abschnitte**, nicht zwei: die Ernte ist
-	 * dazugekommen und trägt `+ Reifes eintragen`. Die Regel dahinter ist
+	 * dazugekommen und trägt `+ Ernten` — der Satz stand bis zum 2026-09-16 auf
+	 * `+ Reifes eintragen` und nannte damit den Griff auf /ernte statt den Knopf,
+	 * den er hier zählt. Die Regel dahinter ist
 	 * dieselbe geblieben — kein Abschnitt trägt zwei, und keiner trägt keinen.
 	 * Der zweite Teil ist so wichtig wie der erste: ein Abschnitt ohne primäre
 	 * Handlung ist eine Liste, aus der heraus man nichts anfangen kann, und

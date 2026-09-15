@@ -322,7 +322,27 @@
 		die actions der Nachbardatei. Ein dynamisches action={…} machte sie blind.
 	-->
 	<details class="zeilenform" open={formularOffen}>
-		<summary class="zeilenform__griff">Reifes eintragen</summary>
+		<!--
+			**Der Griff sieht aus wie die Aufforderungen auf `/`** — gefülltes Grün,
+			ein `+` davor (Entscheid Manuel, 2026-09-16). Er ist die einzige Handlung
+			dieser Seite, und als leiser Text in Akzentfarbe stand er neben der
+			Legende darüber wie eine zweite Überschrift.
+
+			**`.button-primary` und keine zweite Regel mit demselben Rumpf:** Fläche,
+			Kante, Radius, Trefferfeld und Schrift kommen unverändert aus der geteilten
+			Klasse — eine eigene Regel wäre der Zwilling, auf den Gate-Regel 14
+			anschlägt. Dazu kommt allein, was ein `<summary>` extra braucht.
+
+			**Das `+` trägt `aufklapp`.** Es ist das Zeichen, das hier an der Stelle des
+			Dreiecks steht: `.button-primary` bringt ein `display` mit, und damit ist
+			der Marker fort. Gate-Regel 15 lässt das genau dann durch, wenn im Markup
+			desselben `<summary>` ein solches Zeichen steht — ohne das `+` fällt der
+			Lauf. Dasselbe `+` sagt auf `/` an drei Knöpfen `hier kommt etwas dazu`.
+		-->
+		<summary class="button-primary eintragen-griff">
+			<span class="aufklapp">+</span>
+			<span>Reifes eintragen</span>
+		</summary>
 		<form class="zeilenform__formular" method="POST" action="?/eintragen" use:enhance={versand}>
 			<div>
 				<label class="feld__beschriftung" for="neu-kultur">Was ist reif</label>
@@ -618,6 +638,22 @@
 		Gedanke an zwei Orten: hier ist etwas los. Der Diensthinweis auf / trug sie
 		bis zum 2026-09-13 ebenfalls und ist seither eine gefüllte Fläche.
 	*/
+	/*
+		Was ein `<summary>` zusätzlich zu `.button-primary` braucht: den Abstand
+		zwischen `+` und Wort — die Knopfklasse kennt keinen, weil ihre übrigen
+		Träger einen einzigen Textknoten haben — und den Marker fort. `list-style`
+		allein reicht nicht: Safari vor 18.4 malt sein Dreieck aus einem eigenen
+		Pseudoelement, und auf dem Telefon wird diese Anwendung überwiegend bedient.
+	*/
+	.eintragen-griff {
+		gap: var(--space-1);
+		list-style: none;
+	}
+
+	.eintragen-griff::-webkit-details-marker {
+		display: none;
+	}
+
 	.stufe--sofort .karte {
 		border-inline-start: var(--border-marker) solid var(--reif-sofort);
 	}
