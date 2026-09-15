@@ -9,6 +9,8 @@
 	import { datumKasten, datumLang } from '$lib/client/utils/date';
 	import { AUFGABE_HOECHSTLAENGE } from '$lib/aufgabentext';
 	import { DAUERERNTE_WORT, ERNTETEXT } from '$lib/ernte';
+	import ZeichenKreis from '$lib/components/ZeichenKreis.svelte';
+	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
 	import {
 		EINZELAUFGABE_NICHT_ANSPRECHBAR,
 		fristZusatz,
@@ -600,24 +602,6 @@
 	</svg>
 {/snippet}
 
-{#snippet zeichenKreis()}
-	<svg
-		class="zeichen"
-		viewBox="0 0 24 24"
-		fill="none"
-		stroke="currentColor"
-		stroke-width="2"
-		stroke-linecap="round"
-		stroke-linejoin="round"
-		aria-hidden="true"
-	>
-		<path d="M4 9.5A7.5 7.5 0 0 1 17 5l2.5 2.5" />
-		<path d="M19.5 3.5v4h-4" />
-		<path d="M20 14.5A7.5 7.5 0 0 1 7 19l-2.5-2.5" />
-		<path d="M4.5 20.5v-4h4" />
-	</svg>
-{/snippet}
-
 {#snippet zeichenHaken()}
 	<svg
 		class="zeichen"
@@ -630,39 +614,6 @@
 		aria-hidden="true"
 	>
 		<path d="M4.5 12.5 9.5 17.5 19.5 6.5" />
-	</svg>
-{/snippet}
-
-<!--
-	Der Winkel am rechten Rand eines Abschnittsgriffs — **das Aufklappzeichen**.
-
-	Er ersetzt seit dem 2026-09-16 das Dreieck, das ein `<summary>` aus seiner
-	Voreinstellung `display: list-item` selbst malt. Der Befund von Manuel: das
-	Dreieck stand links **vor** dem Zeichen des Abschnitts, und zwei Zeichen
-	nebeneinander an derselben Stelle streiten um dieselbe Aufgabe. Rechts ist
-	zudem die gelernte Stelle für `hier geht etwas auf`.
-
-	Die Klasse `aufklapp` steht im Aufruf und nicht im Schnipsel: **Gate-Regel 15
-	liest sie dort.** Sie erlaubt einem Griff nur dann, sein Dreieck abzulegen,
-	wenn im Markup desselben `<summary>` ein eigenes Aufklappzeichen steht — und
-	was im Markup steht, sieht sie am Aufrufort, nicht in einer Schnipseldefinition
-	irgendwo darüber.
-
-	Zeigt zu und geöffnet in verschiedene Richtungen; die Drehung steht am Griff
-	im geteilten Blatt, weil dort der `[open]`-Zustand zu lesen ist.
--->
-{#snippet zeichenWinkel(zusatz: string)}
-	<svg
-		class="zeichen {zusatz}"
-		viewBox="0 0 24 24"
-		fill="none"
-		stroke="currentColor"
-		stroke-width="2"
-		stroke-linecap="round"
-		stroke-linejoin="round"
-		aria-hidden="true"
-	>
-		<path d="m9 5.5 7 6.5-7 6.5" />
 	</svg>
 {/snippet}
 
@@ -949,7 +900,7 @@
 					<span class="zaehler">{data.ueberblick.reif}</span>
 				{/if}
 			</h2>
-			{@render zeichenWinkel('aufklapp')}
+			<ZeichenWinkel class="aufklapp" />
 		</summary>
 		<div class="abschnitt__inhalt">
 			{#if data.ernte.length > 0}
@@ -999,8 +950,8 @@
 										-->
 										{#if zeile.laufend}
 											<span class="marke marke--mit-zeichen">
-												{@render zeichenKreis()}
-												{DAUERERNTE_WORT}
+												<ZeichenKreis />
+												<span class="nur-vorgelesen">{DAUERERNTE_WORT}</span>
 											</span>
 										{/if}
 									</span>
@@ -1072,7 +1023,7 @@
 					{/if}
 				{/if}
 			</h2>
-			{@render zeichenWinkel('aufklapp')}
+			<ZeichenWinkel class="aufklapp" />
 		</summary>
 		<div class="abschnitt__inhalt">
 			{#if data.aufgaben.length > 0}
@@ -1396,7 +1347,7 @@
 					<span class="zaehler">{data.ueberblick.frei}</span>
 				{/if}
 			</h2>
-			{@render zeichenWinkel('aufklapp')}
+			<ZeichenWinkel class="aufklapp" />
 		</summary>
 		<div class="abschnitt__inhalt">
 			{#if data.einzelaufgaben.length > 0}
@@ -1872,50 +1823,6 @@
 		Die Farbe ist `--ink-secondary` und nicht die des Titels: das Zeichen ist
 		die schwächere der zwei Auskünfte. Was der Abschnitt ist, sagt das Wort.
 	*/
-	/*
-		Eine Marke mit Zeichen davor.
-
-		**Ausgerichtet über die Achse und nicht über einen Versatz.** Der erste
-		Entwurf setzte `vertical-align: -0.15em` — eine Zahl, die aus keiner Rampe
-		kommt, und genau die Sorte, vor der der Tokenblock bei
-		`--textarea-bulk-min-height` warnt: Gate-Regel 1 liest ein rohes em nicht,
-		und was keine Wache hat, wächst. `align-items: center` braucht keine Zahl
-		und hält auch dann, wenn jemand die Schriftgrösse der Marke ändert.
-
-		Das `display` steht an einer eigenen Klasse und nicht an `.marke` im
-		geteilten Blatt: dort trüge es jede Marke des Baums, auch die ohne Zeichen.
-	*/
-	.marke--mit-zeichen {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--space-1);
-	}
-
-	/*
-		Das Zeichen **in** einer Marke: Tintenfarbe, nicht die des Worts daneben.
-
-		Das ist eine Ausnahme von dem, was `.zeichen` im geteilten Blatt zusagt —
-		dort malt ein Zeichen in `currentColor`, damit es dieselbe Farbe trägt wie
-		sein Wort. Der Grund für die Ausnahme ist derselbe wie im Abschnittskopf:
-		ein Zeichen ist beim Blättern der Anker, das Wort die Auskunft. Auf
-		12px-Grossbuchstaben in Nebentextfarbe verschwand das Kreiszeichen
-		mit — und ein Anker, den man suchen muss, ist keiner. Entscheid Manuel,
-		2026-09-15.
-
-		**Die Farbe steht am Zeichen und nicht an der Marke.** An `.marke--mit-zeichen`
-		schwärzte sie das Wort gleich mit, und damit stünde diese eine Marke in einer
-		anderen Farbe als alle übrigen — die Ampelstufe unmittelbar daneben
-		eingeschlossen.
-
-		**Zeichen in Knöpfen bleiben aussen vor** (`Erledigt`, `Ich mach's`): dort
-		trägt `currentColor` etwas, das hier niemand braucht — im deaktivierten
-		Zustand wechselt der Knopf seine Schriftfarbe, und ein Zeichen mit eigener
-		Farbe bliebe schwarz stehen, während sein Wort verblasst.
-	*/
-	.marke--mit-zeichen .zeichen {
-		color: var(--ink-primary);
-	}
-
 	/*
 		Das Zeichen im Griff eines Abschnitts.
 

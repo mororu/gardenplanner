@@ -16,6 +16,8 @@
 		type Erntestatus,
 	} from '$lib/ernte';
 	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
+	import ZeichenKreis from '$lib/components/ZeichenKreis.svelte';
+	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
 	import { datumLang } from '$lib/client/utils/date';
 
 	/*
@@ -38,6 +40,29 @@
 
 	/** Die Zeilen einer Stufe, in der Ordnung, in der die Abfrage sie liefert. */
 	const zeilenVon = (stufe: Erntestatus) => data.stand.filter((zeile) => zeile.status === stufe);
+
+	/*
+		Die Stufen, die die Legende zeigt: die **angebotenen** — und dazu jede, für
+		die gerade Zeilen dastehen.
+
+		Der Zusatz ist der Punkt. `wachsen` ist seit dem 2026-09-14 verborgen und
+		nicht entfernt: neu eintragen und umstufen führen nicht mehr dorthin, aber
+		Zeilen, die vorher dort landeten, stehen weiter in ihrem Abschnitt — mit
+		grünem Streifen. Eine Legende aus SICHTBARE_ERNTESTATUS allein erklärte
+		genau die Farbe nicht, die man vor sich sieht, und wäre damit an der
+		einzigen Stelle stumm, an der jemand nachschlägt.
+
+		Umgekehrt steht keine Stufe da, die es auf dieser Seite nicht gibt: ohne
+		grüne Zeile fällt sie aus der Liste. Eine Legende, die eine Farbe erklärt,
+		die nirgends vorkommt, ist eine Aufgabe für den Leser und keine Hilfe.
+	*/
+	const legendenStufen = $derived(
+		ERNTESTATUS.filter(
+			(stufe) =>
+				(SICHTBARE_ERNTESTATUS as readonly Erntestatus[]).includes(stufe) ||
+				zeilenVon(stufe).length > 0
+		)
+	);
 
 	/** Die zwei **anderen** Stufen — die, in die eine Zeile wandern kann. */
 	/*
@@ -218,6 +243,78 @@
 	<p class="hinweis">
 		Was reif ist, steht hier. Wer abgeerntet hat, nimmt die Zeile weg — dann weiss es die Nächste.
 	</p>
+
+	<!--
+		**Die Legende, und warum sie zuoberst steht.**
+
+		Die Liste darunter sagt alles in Farbe und Zeichen: ein roter Streifen, ein
+		gelber, ein Kreis aus zwei Pfeilen. Wer die Seite zum ersten Mal öffnet,
+		liest die Wörter daneben und versteht sie — wer sie zum zwanzigsten Mal
+		öffnet, liest nur noch die Farbe. Genau dazwischen fehlte etwas: auf der
+		Startseite steht die Dauerernte seit dem 2026-09-16 **nur** als Zeichen, und
+		ein Zeichen ohne Wort muss irgendwo erklärt sein. Hier ist dieses Irgendwo.
+		Entscheid Manuel, 2026-09-16.
+
+		**Zugeklappt ausgeliefert**, und das ist der Unterschied zu den Abschnitten
+		auf `/`. Dort verlangt AD-14, dass man beim Öffnen sieht, was zu tun ist;
+		hier steht kein Vorrat an Arbeit, sondern eine Auskunft, die man einmal
+		braucht und dann nicht mehr. Aufgeklappt schöbe sie die Liste, um die es
+		geht, aus dem Bild.
+
+		**Die Zeilen entstehen aus `legendenStufen`** und nicht aus zwei
+		geschriebenen Blöcken — dieselbe Quelle wie die Stufenwahl im Formular,
+		erweitert um die Stufen, für die gerade Zeilen dastehen. Die Begründung für
+		den Zusatz steht am Ausdruck selbst. Eine Legende, die ihre Stufen von Hand
+		aufzählte, wäre die erste Stelle, die beim nächsten Umbau falsch stünde.
+
+		Jede Zeile zeigt, was sie erklärt: derselbe Streifen, dieselbe Karte,
+		dasselbe Zeichen wie in der Liste. Der Streifen hängt am `<li>` und die
+		Karte darin, weil die Regel `.stufe--… .karte` heisst — eine zweite Regel
+		mit demselben Rumpf an der Karte selbst wäre der Zwilling, auf den
+		Gate-Regel 14 anschlägt.
+	-->
+	<details class="abschnitt">
+		<summary class="abschnitt__griff">
+			<h2 class="abschnittstitel" id="legende-marke">So liest du die Liste</h2>
+			<ZeichenWinkel class="aufklapp" />
+		</summary>
+		<div class="abschnitt__inhalt">
+			<ul class="liste liste--getrennt" aria-labelledby="legende-marke">
+				{#each legendenStufen as stufe (stufe)}
+					<li
+						class:stufe--sofort={stufe === 'sofort'}
+						class:stufe--stehen={stufe === 'stehen'}
+						class:stufe--wachsen={stufe === 'wachsen'}
+					>
+						<!--
+							data-stufe sagt dem Sichtlauf, dass die Kante links eine
+							Zustandsmarke ist und nicht der Umriss eines Bedienelements — siehe
+							den Tokenblock in src/app.html.
+						-->
+						<div class="karte" data-stufe={stufe}>
+							<p class="zeile__text">{ERNTETEXT[stufe].titel}</p>
+							<p class="hinweis">{ERNTETEXT[stufe].satz}</p>
+						</div>
+					</li>
+				{/each}
+				<li>
+					<div class="karte">
+						<!--
+							Dieselbe Marke wie auf der Startseite: schwarzes Zeichen, Wort in
+							Grossbuchstaben daneben. Dort ist das Wort seit dem 2026-09-16
+							`.nur-vorgelesen` und nur das Zeichen gemalt — hier steht beides,
+							und das ist der Zweck der Zeile.
+						-->
+						<p class="marke marke--mit-zeichen"><ZeichenKreis />{DAUERERNTE_WORT}</p>
+						<p class="hinweis">
+							Regelmässiges Pflücken erhöht den Ertrag — Bohnen, Zucchini, Gurken, Erbsen,
+							Cherrytomaten. {DAUERERNTE_SATZ}
+						</p>
+					</div>
+				</li>
+			</ul>
+		</div>
+	</details>
 
 	<!--
 		Das <form> trägt ein **literales** action="?/eintragen": Gate-Regel 11

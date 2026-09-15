@@ -146,6 +146,10 @@ components:
     borderLeft: '3px solid {colors.reif-sofort}'
     borderLeftStanding: '3px solid {colors.reif-stehen}'
     borderLeftGrowing: '3px solid {colors.reif-wachsen}'
+  harvest-legend:
+    shell: '{components.section}'
+    openByDefault: false
+    position: top of /ernte, above the entry form
   textarea-bulk:
     background: '{colors.surface-raised}'
     border: '1px solid {colors.ink-secondary}'
@@ -327,6 +331,14 @@ Im Griff stehen vier Dinge nebeneinander: **Zeichen, Titel, Zahl — und rechts 
 **Ein Griff darf sein Dreieck nur gegen ein eigenes Zeichen tauschen.** Das gilt für jede Aufklappstelle: wer dem `<summary>` seinen Marker nimmt, stellt ein Zeichen an dessen Platz — den Winkel hier, den Stift am Ändern-Griff einer Aufgabenzeile. Gate-Regel 15 prüft den Tausch im Quelltext, `smoke:sicht` misst am gerenderten Ergebnis, dass das Zeichen dasteht und den Zustand sagt.
 
 Abschnitte werden **offen** ausgeliefert und der Zustand nirgends gespeichert: ein einmaliger Griff darf nicht dauerhaft verbergen, dass etwas ansteht.
+
+### `harvest-legend`
+
+Zuoberst auf `/ernte`, über dem Eintrageformular: ein Abschnitt in der Form von `{components.section}`, **zugeklappt ausgeliefert**. Er zeigt je eine Zeile pro Erntestufe — derselbe Streifen, dieselbe Karte wie in der Liste darunter, dazu Name und Satz der Stufe — und eine Zeile für die Dauerernte mit ihrem Zeichen.
+
+Welche Stufen er zeigt, ist **gerechnet**: die, die das Formular anbietet, plus jede, für die gerade Zeilen dastehen. Damit erklärt er genau die Farben, die man vor sich sieht — auch die von `noch wachsen lassen`, das seit dem 2026-09-14 nicht mehr wählbar ist, dessen ältere Zeilen aber weiter in ihrem Abschnitt stehen.
+
+Der Anlass ist eine **Ausnahme von *keine Symbole ohne Beschriftung***: auf der Startseite steht die Dauerernte seit dem 2026-09-16 nur noch als Zeichen, weil das Wort in der Zeile neben Kultur, Ort, Stufe und Datum der fünfte Text war. Bezahlt ist sie zweifach — das Wort bleibt für Vorleseprogramme im Markup (`.nur-vorgelesen`), und diese Legende erklärt das Zeichen dort, wo die Ernte bearbeitet wird. Fällt eines von beiden, ist die Ausnahme nicht mehr gedeckt; `smoke` hält beide Hälften in **einer** Behauptung.
 
 ### `textarea-bulk`
 

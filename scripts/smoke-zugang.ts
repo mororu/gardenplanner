@@ -226,7 +226,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 651;
+const ERWARTETE_BEHAUPTUNGEN = 652;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -7358,10 +7358,19 @@ try {
 	 * Grund — ohne dass dort etwas rot würde, denn er misst Farben und liest
 	 * keine Sätze. Diese Zeile ist die andere Hälfte.
 	 *
-	 * Jeder der drei Träger von `data-stufe` wird einzeln nachgesehen: die Zeile
-	 * auf `/`, die Karte auf `/ernte` (ihr Wort steht in der Überschrift, an die
-	 * ihre Liste über aria-labelledby gebunden ist) und die Zeile der
-	 * Stufenwahl.
+	 * Jeder Träger von `data-stufe` wird einzeln nachgesehen: die Zeile auf `/`,
+	 * die Karte auf `/ernte` (ihr Wort steht in der Überschrift, an die ihre Liste
+	 * über aria-labelledby gebunden ist), die Zeile der Stufenwahl und seit dem
+	 * 2026-09-16 die Zeile der Legende.
+	 *
+	 * **Die letzte Zeile zählt nicht mehr ab, sondern vergleicht.** Sie stand auf
+	 * `zwei in ernteCode` und wurde rot, als die Legende den dritten Träger
+	 * brachte — während ihre Zusage hielt. Eine Zahl von Hand an dieser Stelle
+	 * sagt nichts über die Zusage; sie sagt nur, wie viele Träger es am Tag des
+	 * Schreibens gab. Jetzt steht dort, was gemeint war: **jede** Stelle, die eine
+	 * Stufenklasse setzt, weist ihre Kante auch als `data-stufe` aus. Ein vierter
+	 * Träger ist damit vom ersten Tag an mitbewacht, ein vergessenes `data-stufe`
+	 * am fünften fällt auf.
 	 */
 	const ernteCode = readFileSync(join(wurzel, 'src', 'routes', 'ernte', '+page.svelte'), 'utf8');
 	const stufenTeile = [
@@ -7390,8 +7399,14 @@ try {
 			/<span class="zeile__text">\{ERNTETEXT\[stufe\]\.titel\}<\/span>/.test(ernteCode),
 		],
 		[
-			'und alle drei Träger der Kante sind als data-stufe ausgewiesen',
-			(ernteCode.match(/data-stufe=\{stufe\}/g) ?? []).length === 2 &&
+			'die Legende auf /ernte nennt jede Stufe mit ihrem Wort',
+			/<p class="zeile__text">\{ERNTETEXT\[stufe\]\.titel\}<\/p>/.test(ernteCode),
+		],
+		[
+			'und jede Stelle mit einer Stufenklasse weist ihre Kante als data-stufe aus',
+			(ernteCode.match(/class:stufe--sofort=/g) ?? []).length ===
+				(ernteCode.match(/data-stufe=\{stufe\}/g) ?? []).length &&
+				(ernteCode.match(/data-stufe=\{stufe\}/g) ?? []).length >= 3 &&
 				(startseiteCodeDienst.match(/data-stufe=\{zeile\.status\}/g) ?? []).length === 1,
 		],
 	] as const;
@@ -7399,6 +7414,71 @@ try {
 		'jede Erntestufe steht als Wort neben ihrer Kante — die Farbe trägt sie nie allein',
 		fehlendeTeile(stufenTeile).length === 0,
 		`fehlt: ${fehlendeTeile(stufenTeile).join(', ')}`
+	);
+
+	/*
+	 * **Die Legende auf /ernte — die Gegenseite zum Zeichen, das allein steht.**
+	 *
+	 * Auf der Startseite trägt die Dauerernte seit dem 2026-09-16 **kein gemaltes
+	 * Wort** mehr, nur noch den Kreis aus zwei Pfeilen (Entscheid Manuel). Das ist
+	 * eine Ausnahme von `Keine Symbole ohne Beschriftung` in DESIGN.md, und sie
+	 * ist auf zwei Arten bezahlt: das Wort steht weiter im Markup, nur in
+	 * `.nur-vorgelesen` — wer die Seite hört, hört es unverändert —, und die
+	 * Legende erklärt das Zeichen dort, wo die Ernte bearbeitet wird.
+	 *
+	 * Beide Hälften stehen darum in **einer** Behauptung. Fiele die Legende weg,
+	 * bliebe auf `/` ein Zeichen ohne Erklärung; fiele das verborgene Wort weg,
+	 * wäre die Zeile für Vorleseprogramme stumm. Keine der beiden Lücken macht
+	 * irgendeine andere Wache rot.
+	 *
+	 * Zugeklappt ausgeliefert ist Teil der Zusage: eine aufgeklappte Legende
+	 * schöbe die Liste, um die es geht, aus dem Bild. Das Gegenstück auf `/` sagt
+	 * das Umgekehrte über die Abschnitte dort — und beide Male steht die Absicht
+	 * im `<details>` selbst.
+	 */
+	// Das `[^>]*` ist Absicht: fände die Suche den Aufklapper nur ohne `open`,
+	// meldete ein aufgeklappt ausgeliefertes `<details>` **jeden** Teil als fehlend
+	// statt des einen, der es ist. Eine Wache, die falsch zeigt, kostet die Zeit,
+	// die sie sparen soll.
+	const legendeBlock =
+		/<details class="abschnitt"[^>]*>[\s\S]*?<\/details>/.exec(ernteCode)?.[0] ?? '';
+	const legendeTeile = [
+		['die Legende ist als Aufklapper zu finden', legendeBlock !== ''],
+		[
+			'sie steht vor dem Formular zum Eintragen',
+			legendeBlock !== '' &&
+				ernteCode.indexOf(legendeBlock) < ernteCode.indexOf('<details class="zeilenform"'),
+		],
+		['und sie kommt zugeklappt', !/<details class="abschnitt"[^>]*\bopen\b/.test(ernteCode)],
+		[
+			'ihre Stufen sind gerechnet und nicht aufgezählt',
+			legendeBlock.includes('{#each legendenStufen as stufe (stufe)}'),
+		],
+		[
+			// Ohne den zweiten Zweig erklärte die Legende jene Farbe nicht, die man
+			// vor sich sieht: `wachsen` ist verborgen, seine Zeilen stehen aber noch.
+			'und sie rechnen aus den angebotenen Stufen plus denen mit Zeilen',
+			/const legendenStufen = \$derived\(\s*ERNTESTATUS\.filter\([\s\S]*?SICHTBARE_ERNTESTATUS[\s\S]*?zeilenVon\(stufe\)\.length > 0/.test(
+				ernteCode
+			),
+		],
+		[
+			'sie zeigt das Zeichen der Dauerernte mit seinem Wort',
+			/<p class="marke marke--mit-zeichen"><ZeichenKreis \/>\{DAUERERNTE_WORT\}<\/p>/.test(
+				legendeBlock
+			),
+		],
+		[
+			'und auf / steht dasselbe Zeichen, das Wort dort nur für Vorlesende',
+			/<ZeichenKreis \/>\s*<span class="nur-vorgelesen">\{DAUERERNTE_WORT\}<\/span>/.test(
+				startseiteCodeDienst
+			),
+		],
+	] as const;
+	pruefen(
+		'das Zeichen der Dauerernte steht auf / allein — und die Legende auf /ernte erklärt es',
+		fehlendeTeile(legendeTeile).length === 0,
+		`fehlt: ${fehlendeTeile(legendeTeile).join(', ')}`
 	);
 
 	// =======================================================================

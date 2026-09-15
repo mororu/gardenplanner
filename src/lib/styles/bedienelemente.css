@@ -680,6 +680,55 @@ select.feld {
 }
 
 /*
+ * Eine Marke mit Zeichen davor.
+ *
+ * **Ausgerichtet über die Achse und nicht über einen Versatz.** Der erste
+ * Entwurf setzte `vertical-align: -0.15em` — eine Zahl, die aus keiner Rampe
+ * kommt, und genau die Sorte, vor der der Tokenblock bei
+ * `--textarea-bulk-min-height` warnt: Gate-Regel 1 liest ein rohes em nicht,
+ * und was keine Wache hat, wächst. `align-items: center` braucht keine Zahl und
+ * hält auch dann, wenn jemand die Schriftgrösse der Marke ändert.
+ *
+ * Das `display` steht an dieser Modifikatorklasse und nicht an `.marke`: dort
+ * trüge es jede Marke des Baums, auch die ohne Zeichen.
+ *
+ * **Das Blatt und nicht der `<style>` der Startseite**, obwohl bisher nur sie
+ * die Klasse benutzt. Der Grund ist technisch und nicht eine Zahl von Leserinnen:
+ * das Zeichen kommt seit dem 2026-09-16 aus einer Komponente, und die Regeln
+ * einer Svelte-Komponente reichen nicht in eine andere hinein. Im `<style>` von
+ * `/` stand die zweite Regel eine Stunde lang wirkungslos da — svelte-check hat
+ * sie als unbenutzten Selektor gemeldet, und das war der ganze Hinweis.
+ */
+.marke--mit-zeichen {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+}
+
+/*
+ * Das Zeichen **in** einer Marke: Tintenfarbe, nicht die des Worts daneben.
+ *
+ * Eine Ausnahme von dem, was `.zeichen` weiter oben zusagt, und dieselbe wie im
+ * Abschnittskopf: ein Zeichen ist beim Blättern der Anker, das Wort die
+ * Auskunft. Auf 12px-Grossbuchstaben in Nebentextfarbe verschwand das
+ * Kreiszeichen mit — und ein Anker, den man suchen muss, ist keiner. Entscheid
+ * Manuel, 2026-09-15.
+ *
+ * **Die Farbe steht am Zeichen und nicht an der Marke.** An
+ * `.marke--mit-zeichen` schwärzte sie das Wort gleich mit, und damit stünde
+ * diese eine Marke in einer anderen Farbe als alle übrigen — die Ampelstufe
+ * unmittelbar daneben eingeschlossen.
+ *
+ * **Zeichen in Knöpfen bleiben aussen vor** (`Erledigt`, `Ich mach's`): dort
+ * trägt `currentColor` etwas, das hier niemand braucht — im deaktivierten
+ * Zustand wechselt der Knopf seine Schriftfarbe, und ein Zeichen mit eigener
+ * Farbe bliebe schwarz stehen, während sein Wort verblasst.
+ */
+.marke--mit-zeichen .zeichen {
+	color: var(--ink-primary);
+}
+
+/*
  * Der Griff eines zuklappbaren Abschnitts.
  *
  * **Das Dreieck ist fort, und an seiner Stelle steht ein Winkel rechts.**
