@@ -25,3 +25,8 @@ data/
 # Betriebssystem und Editor
 .DS_Store
 *.swp
+
+# Ablage für Zugetragenes — Mockups, Bildschirmfotos, alles, was zum Anschauen
+# hereinkommt und nicht zum Baum gehört. Wird weder versioniert noch geprüft.
+temp/
+Bildschirmfoto*.png

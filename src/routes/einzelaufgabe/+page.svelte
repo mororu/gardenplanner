@@ -127,7 +127,7 @@
 </script>
 
 <svelte:head>
-	<title>Terminierte Aufgabe</title>
+	<title>Termin planen</title>
 </svelte:head>
 
 <!--
@@ -142,7 +142,7 @@
 	leitet auf die Liste zurück; die Systemgeste des Browsers genügt.
 -->
 <div class="seite">
-	<h1 class="seitentitel">Terminierte Aufgabe</h1>
+	<h1 class="seitentitel">Termin planen</h1>
 
 	<!--
 		Literales action="?/ausschreiben", nicht dynamisch: Gate-Regel 11 liest den

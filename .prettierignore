@@ -24,3 +24,7 @@ scripts/db-check-fixtures/
 # npm run db:generate geschrieben hat — Prettier hat drizzle/meta/*.json schon
 # einmal umformatiert. Von Hand wird hier nie etwas geändert.
 drizzle/
+
+# Ablage für Zugetragenes (siehe .gitignore). Ein Mockup von aussen ist keine
+# Quelle dieses Projekts, und Prettier hätte den ganzen Lauf daran rot gemacht.
+temp/

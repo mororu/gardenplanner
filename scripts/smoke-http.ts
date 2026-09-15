@@ -102,6 +102,7 @@ import {
 	EINZELAUFGABE_NICHT_ANSPRECHBAR,
 	KEIN_ZUGANG,
 	MITGLIED_NICHT_ANSPRECHBAR,
+	UEBERNEHMEN_KNOPF,
 } from '../src/lib/texte.ts';
 
 /**
@@ -429,8 +430,8 @@ try {
 		{ pfad: '/monatsplan', titel: 'Monatsplan' },
 		{ pfad: '/aufgabe', titel: 'Aufgabe' },
 		{ pfad: '/traenkeplan', titel: 'Tränkeplan' },
-		{ pfad: '/einzelaufgabe', titel: 'Terminierte Aufgabe' },
-		{ pfad: '/einzelaufgaben', titel: 'Terminierte Aufgaben' },
+		{ pfad: '/einzelaufgabe', titel: 'Termin planen' },
+		{ pfad: '/einzelaufgaben', titel: 'Alle Termine' },
 		{ pfad: '/wissen', titel: 'Wissen' },
 	];
 
@@ -1635,13 +1636,23 @@ try {
 		['danach steht der Titel auf der Startseite', startseiteHtmlEinzel.includes(einzelTitel)],
 		['mit dem Wort `noch niemand`', startseiteHtmlEinzel.includes('noch niemand')],
 		[
-			// Seit dem 2026-09-11 steht ein Zeichen vor dem Wort, darum nicht mehr
-			// `>Übernehmen<` am Stück. Das **Wort** bleibt die Zusage: ein Knopf, der
-			// nur noch das Zeichen trüge, macht diese Zeile rot.
-			'und einem Knopf mit dem Wort `Übernehmen`',
-			/<button\b[^>]*type="submit"[^>]*>[\s\S]{0,400}?Übernehmen\s*<\/button>/.test(
-				startseiteHtmlEinzel
-			),
+			/*
+			 * Seit dem 2026-09-11 steht ein Zeichen vor dem Wort, darum nicht
+			 * `>…<` am Stück. Das **Wort** bleibt die Zusage: ein Knopf, der nur
+			 * noch das Zeichen trüge, macht diese Zeile rot.
+			 *
+			 * Der Wortlaut kommt seit dem 2026-09-15 aus der Konstante. Er stand
+			 * hier im Muster, und die Umbenennung auf `Ich mach's` hat die Zeile rot
+			 * gemacht, obwohl ihre Zusage unverändert hielt — die dritte Wache
+			 * desselben Tages mit demselben Fehler.
+			 */
+			'und einem Knopf mit dem Zusage-Wort',
+			new RegExp(
+				`<button\\b[^>]*type="submit"[^>]*>[\\s\\S]{0,400}?${UEBERNEHMEN_KNOPF.replace(
+					/[.*+?^${}()|[\]\\]/g,
+					'\\$&'
+				)}\\s*</button>`
+			).test(startseiteHtmlEinzel),
 		],
 		[
 			// Und das Zeichen daneben ist für Vorlesende verborgen — sonst hörte man

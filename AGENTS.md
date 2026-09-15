@@ -102,10 +102,12 @@ tun ist.
 Oberfläche und Dokumente Deutsch in Schweizer Rechtschreibung, **ohne Eszett**,
 Du-Form. Domänenspalten der Datenbank deutsch, Infrastrukturspalten englisch.
 
-**Terminierte Aufgabe, nicht Einzelaufgabe** (seit dem 2026-09-14). Die
-Oberfläche nennt sie so: Seitentitel, Griff auf `/`, die zwei Knöpfe, der
-Bestätigungsdialog und die Fehlersätze. **Die Grenze läuft am Quelltext**, und
-zwar bewusst an derselben Stelle wie beim Tränkeplan: die Routen bleiben
+**Termin, nicht Einzelaufgabe** (seit dem 2026-09-15; am 2026-09-14 hiess sie
+für einen Tag `Terminierte Aufgabe`). Die Oberfläche nennt sie so:
+`+ Termin planen`, `Alle Termine`, die Seitentitel und die Fehlersätze. Der
+Abschnitt auf `/` heisst nicht nach der Sache, sondern nach der Frage —
+**`Wer übernimmt`** —, und der Pool darunter **`Zwischendurch`**. **Die Grenze
+läuft am Quelltext**, dieselbe Stelle wie beim Tränkeplan: die Routen bleiben
 `/einzelaufgabe` und `/einzelaufgaben`, die Tabelle bleibt `signup_tasks`, die
 Funktionen behalten ihre Namen (`einzelaufgabeAusschreiben`,
 `freieEinzelaufgabenLesen`), und der Typ heisst weiter `Einzelaufgabe`. Eine

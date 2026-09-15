@@ -18,8 +18,9 @@
 		GRIFF_FREI_LEER,
 		GRIFF_OFFEN_LEER,
 		GRIFF_REIF_LEER,
-		griffFrei,
-		griffOffen,
+		GRIFF_FREI,
+		GRIFF_OFFEN,
+		UEBERNEHMEN_KNOPF,
 		griffUeberfaellig,
 		zeileBald,
 		zeileUnbesetzt,
@@ -894,7 +895,7 @@
 					<span class="kopfwort">{GRIFF_FREI_LEER}</span>
 				{:else}
 					<span class="kopfzahl">{data.ueberblick.frei}</span>
-					<span class="kopfwort">{griffFrei(data.ueberblick.frei)}</span>
+					<span class="kopfwort">{GRIFF_FREI}</span>
 				{/if}
 			</h2>
 		</summary>
@@ -1024,7 +1025,7 @@
 												<circle cx="12" cy="8" r="4" />
 												<path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
 											</svg>
-											Übernehmen
+											{UEBERNEHMEN_KNOPF}
 										</button>
 									</form>
 								{/if}
@@ -1079,7 +1080,7 @@
 											type="submit"
 											aria-describedby="einzel-frage-{aufgabe.id}"
 										>
-											Übernehmen
+											{UEBERNEHMEN_KNOPF}
 										</button>
 									</form>
 								</div>
@@ -1126,8 +1127,8 @@
 				resolve() ist Pflicht für interne Ziele
 				(svelte/no-navigation-without-resolve).
 			-->
-				<a class="button-primary" href={resolve('/einzelaufgabe')}>+ Terminierte Aufgabe</a>
-				<a class="eintrag" href={resolve('/einzelaufgaben')}>Alle terminierten Aufgaben</a>
+				<a class="button-primary" href={resolve('/einzelaufgabe')}>+ Termin planen</a>
+				<a class="eintrag" href={resolve('/einzelaufgaben')}>Alle Termine</a>
 			</div>
 		</div>
 	</details>
@@ -1155,7 +1156,7 @@
 				{:else}
 					<span class="kopfzahl">{data.ueberblick.offen}</span>
 					<span class="kopfwort">
-						{griffOffen(data.ueberblick.offen)}
+						{GRIFF_OFFEN}
 						{#if data.ueberblick.ueberfaellig > 0}
 							<span class="kopffrist">{griffUeberfaellig(data.ueberblick.ueberfaellig)}</span>
 						{/if}
@@ -1467,7 +1468,7 @@
 		bedingt.
 	-->
 	{#if zuUebernehmen !== null}
-		<h2 class="abschnittstitel" id="uebernahme-titel">Terminierte Aufgabe übernehmen?</h2>
+		<h2 class="abschnittstitel" id="uebernahme-titel">Übernimmst du das?</h2>
 		<p class="bestaetigung__text" id="uebernahme-text">
 			{uebernahmeSatz(zuUebernehmen)}
 			{UEBERNAHME_FOLGE}

@@ -8039,7 +8039,13 @@ try {
 			/GRIFF_FREI_LEER/.test(einzelBlock) && !/<p class="leer">/.test(einzelBlock),
 		],
 		['er trägt den Wortlaut `noch niemand`', /noch niemand/.test(einzelBlock)],
-		['und den Knopf `Übernehmen`', />\s*Übernehmen\s*</.test(einzelBlock)],
+		/*
+		 * Der Knopftext kommt aus der Konstante und steht nicht noch einmal hier
+		 * — sonst bricht diese Zeile bei der nächsten Umbenennung, ohne dass ihre
+		 * Zusage („die Zeile trägt den Zusage-Knopf") verletzt wäre. Genau das ist
+		 * am 2026-09-15 passiert.
+		 */
+		['und den Zusage-Knopf', einzelBlock.includes(`{UEBERNEHMEN_KNOPF}`)],
 		[
 			'der Knopf nennt seine Zeile über aria-labelledby',
 			/aria-labelledby="uebernehmen-\{aufgabe\.id\} einzel-titel-\{aufgabe\.id\}"/.test(
@@ -8173,9 +8179,9 @@ try {
 			/<form[\s\S]{0,200}?method="POST"[\s\S]{0,80}?action="\?\/uebernehmen"/.test(einzelBlock),
 		],
 		[
-			'und `Abbrechen` steht vor `Übernehmen`',
+			'und `Abbrechen` steht vor dem Zusage-Knopf',
 			einzelBlock.indexOf('>Abbrechen<') > 0 &&
-				einzelBlock.indexOf('>Abbrechen<') < einzelBlock.lastIndexOf('Übernehmen'),
+				einzelBlock.indexOf('>Abbrechen<') < einzelBlock.lastIndexOf('{UEBERNEHMEN_KNOPF}'),
 		],
 	] as const;
 	pruefen(

@@ -278,7 +278,7 @@ export const UEBERNAHME_FOLGE = 'Dein Name steht danach für alle daneben.';
  * wie Fall 6 aus der Sicht der lesenden Person, und darum derselbe Satz.
  */
 export const EINZELAUFGABE_NICHT_ANSPRECHBAR =
-	'Diese terminierte Aufgabe lässt sich nicht ansprechen. Lade die Liste neu.';
+	'Dieser Termin lässt sich nicht ansprechen. Lade die Liste neu.';
 
 /**
  * Die Sätze in den Griffen der zwei Abschnitte auf `/` — und in der Zeile zum
@@ -291,7 +291,7 @@ export const EINZELAUFGABE_NICHT_ANSPRECHBAR =
  *
  * Das hat eine Folge, die mehr wert ist als der gesparte Platz: **ein
  * zugeklappter Abschnitt verbirgt seinen Inhalt, nicht mehr seine Lage.** Wer
- * `1 Einzelaufgabe offen` liest, weiss, dass etwas ansteht, auch ohne
+ * `1 Zwischendurch` liest, weiss, dass etwas ansteht, auch ohne
  * aufzuklappen. Genau das verlangt AD-14, und vorher hing es daran, dass die
  * Abschnitte offen ausgeliefert werden.
  *
@@ -299,9 +299,7 @@ export const EINZELAUFGABE_NICHT_ANSPRECHBAR =
  * Schriftrolle daneben, und eine Zeichenkette, die sie enthielte, liesse sich
  * nicht mehr getrennt setzen.
  */
-export function griffOffen(anzahl: number): string {
-	return anzahl === 1 ? 'Aufgabe offen' : 'Aufgaben offen';
-}
+export const GRIFF_OFFEN = 'Zwischendurch';
 
 /** Der Zusatz im Griff des Pools, in --overdue. Fehlt bei null ganz. */
 export function griffUeberfaellig(anzahl: number): string {
@@ -312,21 +310,31 @@ export function griffUeberfaellig(anzahl: number): string {
 export const GRIFF_OFFEN_LEER = 'Nichts offen.';
 
 /**
- * Freie Einzelaufgaben.
+ * Der Griff über den Terminen, die noch niemand genommen hat.
  *
- * `offen` und nicht `frei`, obwohl `frei` das Wort des Quelltexts ist
- * (`freieEinzelaufgabenLesen`): der Griff steht über dem des Pools, und zwei
- * verschiedene Wörter für „hier fehlt noch jemand" wären untereinander die
- * teurere Genauigkeit. Der Unterschied ist benannt und hingenommen — eine offene
- * Aufgabe ist nicht abgehakt, eine offene Einzelaufgabe hat noch niemanden, und
- * einen Erledigt-Zustand hat sie gar nicht (`signup_tasks` trägt keine Spalte
- * dafür).
+ * **Eine Frage und kein Zähltext**, seit dem 2026-09-15: der Block sagt, was zu
+ * tun ist, statt zu benennen, was er enthält. Die Zahl steht wie bisher in
+ * eigener Schriftrolle daneben, und darum trägt dieser Satz keine Mehrzahlform
+ * mehr — er wird nicht mitgezählt.
+ *
+ * Das Fragezeichen fehlt bewusst: der Griff ist eine Überschrift, keine
+ * Ansprache, und ein Fragezeichen in einer Überschrift verlangt eine Antwort,
+ * die der Block gar nicht entgegennimmt.
  */
-export function griffFrei(anzahl: number): string {
-	return anzahl === 1 ? 'terminierte Aufgabe offen' : 'terminierte Aufgaben offen';
-}
+export const GRIFF_FREI = 'Wer übernimmt';
 
-/** Keine Einzelaufgabe ausgeschrieben. */
+/**
+ * Die Zusage an einer Zeile von `Wer übernimmt`.
+ *
+ * **Steht als Konstante und nicht im Markup**, seit dem 2026-09-15 und aus
+ * einem Vorfall desselben Tages: der Knopf hiess `Übernehmen`, zwei Wachen in
+ * `smoke-zugang.ts` trugen jenes Wort wörtlich, und die Umbenennung hat sie rot
+ * gemacht, obwohl ihre Zusagen unverändert hielten. Wortlaut gehört an eine
+ * Stelle, die Markup und Wache gemeinsam lesen.
+ */
+export const UEBERNEHMEN_KNOPF = "Ich mach's";
+
+/** Kein Termin ausgeschrieben. */
 export const GRIFF_FREI_LEER = 'Nichts ausgeschrieben.';
 
 /**
