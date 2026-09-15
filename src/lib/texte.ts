@@ -334,6 +334,23 @@ export const GRIFF_FREI = 'Wer übernimmt';
  */
 export const UEBERNEHMEN_KNOPF = "Ich mach's";
 
+/**
+ * Der Knopf, mit dem man einen eigenen Termin abschliesst.
+ *
+ * Als Konstante aus demselben Grund wie UEBERNEHMEN_KNOPF daneben: Wortlaut
+ * gehört an eine Stelle, die Markup und Wache gemeinsam lesen.
+ */
+export const ERLEDIGT_KNOPF = 'Erledigt';
+
+/**
+ * Was hinter dem Namen steht, wenn der Termin abgeschlossen ist.
+ *
+ * Mitsamt Trennzeichen und aus demselben Grund wie `fristZusatz`: Svelte
+ * schneidet den Leerraum am Anfang eines `{#if}` weg, und ein ` · ` im Markup
+ * klebte am Namen.
+ */
+export const ERLEDIGT_ZUSATZ = ' · erledigt';
+
 /** Kein Termin ausgeschrieben. */
 export const GRIFF_FREI_LEER = 'Nichts ausgeschrieben.';
 

@@ -366,6 +366,27 @@ export const signupTasks = sqliteTable('signup_tasks', {
 	 * keine Auskunft, die diese Gemeinschaft von ihrem Werkzeug erwartet.
 	 */
 	memberId: integer('member_id').references(() => members.id),
+	/*
+	 * Wann der Termin abgeschlossen wurde, in Unix-Sekunden — dieselbe Bauform
+	 * und dieselbe Begründung wie `completed_at` an tasks: **die** Unterscheidung
+	 * zwischen offen und erledigt, als Vorbedingung in der where-Klausel, ohne
+	 * Statusfeld daneben. Zwei Quellen für denselben Zustand geraten auseinander.
+	 *
+	 * **Kein zweites `completed_by`**, anders als bei tasks: wer einen Termin
+	 * abschliesst, ist die Person, die ihn übernommen hat — das steht schon in
+	 * member_id, und die Abfrage nimmt es als Vorbedingung. Eine zweite Spalte
+	 * könnte mit der ersten in Widerspruch geraten und beantwortete keine Frage,
+	 * die die erste nicht schon beantwortet.
+	 *
+	 * Kein $defaultFn: der Wert entsteht nicht beim Ausschreiben, sondern beim
+	 * Abschliessen, und dort setzt ihn einzelaufgabeAbschliessen.
+	 *
+	 * **Ein abgeschlossener Termin bleibt stehen.** Er verlässt die Startseite —
+	 * weder `Wer übernimmt` noch `Meine Aufgaben` zeigen ihn —, steht aber
+	 * weiterhin unter `Alle Termine`. Dieselbe Zusage wie FR14 sie den abgehakten
+	 * Aufgaben einer ausgetretenen Person gibt: die Historie bricht nicht auf.
+	 */
+	completedAt: integer('completed_at'),
 	/* Wie bei members, tasks und duty_weeks über $defaultFn im Schema. */
 	createdAt: integer('created_at')
 		.notNull()

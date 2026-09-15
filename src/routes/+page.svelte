@@ -12,6 +12,7 @@
 	import {
 		EINZELAUFGABE_NICHT_ANSPRECHBAR,
 		fristZusatz,
+		ERLEDIGT_KNOPF,
 		MEINE_MARKE,
 		UEBERNAHME_FOLGE,
 		VERSAND_FEHLGESCHLAGEN,
@@ -132,7 +133,7 @@
 		}
 		// Der Titel steht im Satz, wie der Aufgabentext beim Abhaken: die Region
 		// sagt an, **was** gerade geschehen ist, nicht nur **dass**.
-		if (form.art === 'uebernommen') {
+		if (form.art === 'uebernommen' || form.art === 'abgeschlossen') {
 			return `${form.meldung} ${form.titel}`;
 		}
 		/*
@@ -599,6 +600,21 @@
 	</svg>
 {/snippet}
 
+{#snippet zeichenHaken()}
+	<svg
+		class="zeichen"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		aria-hidden="true"
+	>
+		<path d="M4.5 12.5 9.5 17.5 19.5 6.5" />
+	</svg>
+{/snippet}
+
 {#snippet zeichenListe()}
 	<svg
 		class="zeichen griff__zeichen"
@@ -736,40 +752,56 @@
 		`Du hast nichts zugesagt` nähme jede Woche Platz, um nichts mitzuteilen.
 	-->
 	{#if data.zusagen.length > 0}
-		<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-		<a class="meine" href={resolve('/einzelaufgaben')}>
-			<span class="meine__kopf">
-				<h2 class="marke">{MEINE_MARKE}</h2>
-				<span class="plan-zeile__pfeil" aria-hidden="true">→</span>
-			</span>
-			<!--
-				**Eine Kachel und Punkte darunter**, nicht eine Karte je Zusage. Bis zum
-				2026-09-14 trug jede Zeile ihre eigene Marke; bei zwei Zusagen stand
-				dieselbe Überschrift zweimal da und sagte beim zweiten Mal nichts mehr.
-
-				Ein echtes Aufzählungszeichen und nicht die sonst übliche `.liste` ohne
-				Marker: hier sind es Punkte unter einer Überschrift und keine Zeilen mit
-				eigenen Bedienelementen. Die Punkte sind das, was sie vorgeben zu sein.
-			-->
+		<!--
+			**Die Kachel ist seit dem 2026-09-15 kein Verweis mehr.** Sie war als
+			Ganzes ein Link auf /einzelaufgaben; mit dem Erledigt-Knopf an jedem Punkt
+			geht das nicht mehr — ein Knopf in einem Link ist ungültiges Markup, und
+			ein Browser macht daraus, was er will. Der Weg zu allen Terminen steht
+			eine Kachel weiter unten als `Alle Termine` und fehlt damit nicht.
+		-->
+		<div class="meine">
+			<h2 class="marke">{MEINE_MARKE}</h2>
 			<ul class="meine__punkte">
 				{#each data.zusagen as zusage (zusage.id)}
 					<li>
-						<span class="zeile__text">{zusage.titel}</span>
-						<span
-							class="hinweis hinweis--ziffern"
-							class:einzel__verstrichen={zusage.lage === 'verstrichen'}
-						>
+						<div class="meine__zeile">
+							<span class="zeile__spalte">
+								<span class="zeile__text" id="zusage-{zusage.id}">{zusage.titel}</span>
+								<span
+									class="hinweis hinweis--ziffern"
+									class:einzel__verstrichen={zusage.lage === 'verstrichen'}
+								>
+									{datumLang(zusage.terminAt)}{fristZusatz(zusage.lage)}
+								</span>
+							</span>
 							<!--
-								Zusatz und Trennzeichen kommen als **ein** Ausdruck aus $lib/texte:
-								ein ` · ` im Markup verlöre sein führendes Leerzeichen an den
-								Blockanfang. Die Begründung steht dort.
+								**Genau eine Interaktion, keine Rückfrage** — wie das Abhaken im
+								Pool. Das Übernehmen darunter wird bestätigt, weil eine Zusage
+								andere bindet; ein Abschluss meldet nur, dass die eigene Zusage
+								eingelöst ist.
+
+								`aria-labelledby` nennt erst den Knopf, dann den Titel: in einer
+								Elementliste stünde sonst dreimal dasselbe Wort ohne Auskunft,
+								worum es geht. Derselbe Handgriff wie am Zusage-Knopf.
 							-->
-							{datumLang(zusage.terminAt)}{fristZusatz(zusage.lage)}
-						</span>
+							<form method="POST" action="?/abschliessen" use:enhance={versandZeile()}>
+								<input type="hidden" name="einzelaufgabeId" value={zusage.id} />
+								<button
+									class="button-quiet button-quiet--kompakt"
+									type="submit"
+									id="erledigt-{zusage.id}"
+									aria-labelledby="erledigt-{zusage.id} zusage-{zusage.id}"
+									disabled={imFlug}
+								>
+									{@render zeichenHaken()}
+									{ERLEDIGT_KNOPF}
+								</button>
+							</form>
+						</div>
 					</li>
 				{/each}
 			</ul>
-		</a>
+		</div>
 	{/if}
 
 	<!--
@@ -1655,17 +1687,24 @@
 		border-radius: var(--radius-md);
 		background-color: var(--surface-raised);
 		color: var(--ink-primary);
-		text-decoration: none;
 	}
 
-	/* Überschrift links, Pfeil rechts — der Pfeil sagt, dass die Kachel führt. */
-	.meine__kopf {
+	/*
+		Punkt und Knopf nebeneinander. `align-items: flex-start`, damit der Knopf
+		bei einem zweizeiligen Titel oben bleibt und nicht in die Mitte rutscht —
+		dieselbe Überlegung wie an der Zeile der freien Termine.
+	*/
+	.meine__zeile {
 		display: flex;
-		align-items: baseline;
+		align-items: flex-start;
 		gap: var(--space-2);
 	}
 
-	.meine__kopf .plan-zeile__pfeil {
+	/* Der Knopf steht rechts und gibt nicht nach — die Begründung steht an
+	   `.einzel__form`, wo derselbe Fehler gemessen wurde. */
+	.meine__zeile form {
+		flex: none;
+		margin: 0;
 		margin-inline-start: auto;
 	}
 

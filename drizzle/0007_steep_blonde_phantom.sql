@@ -1,0 +1,1 @@
+ALTER TABLE `signup_tasks` ADD `completed_at` integer;

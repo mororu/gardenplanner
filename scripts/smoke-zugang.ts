@@ -126,6 +126,7 @@ import {
  */
 import {
 	eigeneEinzelaufgabenLesen,
+	einzelaufgabeAbschliessen,
 	einzelaufgabeAusschreiben,
 	einzelaufgabeUebernehmen,
 	einzelaufgabenLesen,
@@ -225,7 +226,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 649;
+const ERWARTETE_BEHAUPTUNGEN = 651;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -7469,9 +7470,9 @@ try {
 		`${frueherTermin.id} | ${mittlererTermin.id} | ${spaeterTermin.id}`
 	);
 	pruefen(
-		'und sie reicht weder member_id noch created_at heraus — nur was die Seite zeigt',
+		'und sie reicht weder member_id noch completed_at noch created_at heraus — nur was die Seite zeigt',
 		einzelaufgabenLesen().every(
-			(zeile) => Object.keys(zeile).sort().join(',') === 'id,terminAt,titel,uebernehmer'
+			(zeile) => Object.keys(zeile).sort().join(',') === 'erledigt,id,terminAt,titel,uebernehmer'
 		),
 		JSON.stringify(einzelaufgabenLesen()[0] ?? null)
 	);
@@ -7555,6 +7556,76 @@ try {
 		einzelaufgabeUebernehmen(zeile.id, { id: nico.id, name: nico.name });
 	}
 	einzelaufgabeUebernehmen(fremdBald.id, { id: vera.id, name: vera.name });
+
+	/*
+	 * **Abschliessen — die zwei Vorbedingungen und die Zusage der Historie.**
+	 *
+	 * Beide stehen in der where-Klausel von einzelaufgabeAbschliessen, also im
+	 * selben Statement wie das Schreiben: die Zeile gehoert mir, und sie ist noch
+	 * offen. Die dritte Zeile unten ist die wichtigste des Blocks — ein
+	 * abgeschlossener Termin faellt aus der freien Liste, aber **nicht** aus der
+	 * Gesamtliste. Verschwaende er dort, waere `Alle Termine` eine Liste, die die
+	 * Haelfte verschweigt, und FR14 haette an den Terminen kein Gegenstueck.
+	 */
+	const meinerZumSchliessen = einzelaufgabeAusschreiben(
+		'Schneckenzaun kontrollieren',
+		jetztFest + 3 * TAG_SEKUNDEN
+	);
+	einzelaufgabeUebernehmen(meinerZumSchliessen.id, { id: nico.id, name: nico.name });
+
+	const fremderVersuch = einzelaufgabeAbschliessen(meinerZumSchliessen.id, vera.id);
+	const eigenerVersuch = einzelaufgabeAbschliessen(meinerZumSchliessen.id, nico.id);
+	const zweiterVersuch = einzelaufgabeAbschliessen(meinerZumSchliessen.id, nico.id);
+	const inAllen = einzelaufgabenLesen().find((zeile) => zeile.id === meinerZumSchliessen.id);
+	const schliessenTeile = [
+		['wer nicht uebernommen hat, trifft keine Zeile', fremderVersuch === null],
+		['wer uebernommen hat, schliesst ab', eigenerVersuch?.erledigt === true],
+		['ein zweites Abschliessen trifft nichts mehr', zweiterVersuch === null],
+		[
+			'die Zeile steht weiter in der Gesamtliste, mit Namen und als erledigt',
+			inAllen?.erledigt === true && inAllen?.uebernehmer === nico.name,
+		],
+		[
+			'aber in keiner freien Liste mehr',
+			!freieEinzelaufgabenLesen().some((zeile) => zeile.id === meinerZumSchliessen.id),
+		],
+		[
+			'und in keiner eigenen Zusage mehr',
+			!eigeneEinzelaufgabenLesen(nico.id, jetztFest + 7 * TAG_SEKUNDEN).some(
+				(zeile) => zeile.id === meinerZumSchliessen.id
+			),
+		],
+	] as const;
+	pruefen(
+		'Abschliessen trifft nur die eigene, offene Zeile — und die Historie bleibt',
+		fehlendeTeile(schliessenTeile).length === 0,
+		`fehlt: ${fehlendeTeile(schliessenTeile).join(', ')}`
+	);
+
+	/*
+	 * **Erledigt schlaegt frei.** Endet der Zugang der Person, die einen Termin
+	 * abgeschlossen hat, faellt die Zeile ueber den zweiten Zweig von `frei()`
+	 * zurueck in die freie Liste — als waere sie nie gemacht worden. Genau davor
+	 * steht `completed_at IS NULL` in jener Bedingung, und genau das misst diese
+	 * Zeile. Ohne sie waere die neue Spalte eine stille Luecke.
+	 */
+	const abtretende = mitgliedAnlegen({
+		name: 'Abtretende',
+		inviteTokenHash: tokenHashen(tokenErzeugen()),
+		isAdmin: false,
+	});
+	const vonAbtretender = einzelaufgabeAusschreiben(
+		'Rankgitter abbauen',
+		jetztFest + 5 * TAG_SEKUNDEN
+	);
+	einzelaufgabeUebernehmen(vonAbtretender.id, { id: abtretende.id, name: abtretende.name });
+	einzelaufgabeAbschliessen(vonAbtretender.id, abtretende.id);
+	mitgliedDeaktivieren(abtretende.id);
+	pruefen(
+		'ein abgeschlossener Termin faellt nicht in die freie Liste zurueck, wenn der Zugang endet',
+		!freieEinzelaufgabenLesen().some((zeile) => zeile.id === vonAbtretender.id),
+		JSON.stringify(freieEinzelaufgabenLesen().map((zeile) => zeile.id))
+	);
 
 	const meine = eigeneEinzelaufgabenLesen(nico.id, jetztFest + 7 * TAG_SEKUNDEN);
 	const meineIds = meine.map((zeile) => zeile.id);
@@ -7850,9 +7921,19 @@ try {
 		/if \(data\.ausgeschrieben\) return 'Ausgeschrieben\.';/.test(rueckmeldungRumpf),
 		rueckmeldungRumpf === '' ? 'rueckmeldung nicht gefunden' : rueckmeldungRumpf
 	);
+	/*
+	 * **Die Bedingung wird nicht mehr wörtlich gelesen.** Sie stand hier als
+	 * ganzer Quelltextausdruck und wurde am 2026-09-15 rot, als `abgeschlossen`
+	 * als zweite Art in denselben Zweig kam — obwohl die Zusage („eine
+	 * beantwortete Übernahme ergibt den Satz mit dem Titel") unverändert hielt.
+	 *
+	 * Geprüft wird jetzt, dass die Art in einem Zweig vorkommt, der Meldung und
+	 * Titel zusammensetzt. Das ist die Aussage; der Ausdruck drumherum ist es
+	 * nicht. Siebte Fundstelle desselben Musters in zwei Tagen.
+	 */
 	pruefen(
 		'und aus einer beantworteten Übernahme den Satz mit dem Titel',
-		/if \(form\.art === 'uebernommen'\) \{ return `\$\{form\.meldung\} \$\{form\.titel\}`; \}/.test(
+		/form\.art === 'uebernommen'[^\n]*\{ return `\$\{form\.meldung\} \$\{form\.titel\}`; \}/.test(
 			rueckmeldungRumpf
 		),
 		rueckmeldungRumpf === '' ? 'rueckmeldung nicht gefunden' : rueckmeldungRumpf

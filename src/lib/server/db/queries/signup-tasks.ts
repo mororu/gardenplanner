@@ -37,6 +37,16 @@ export type Einzelaufgabe = {
 	titel: string;
 	terminAt: number;
 	uebernehmer: string | null;
+	/**
+	 * Abgeschlossen — seit dem 2026-09-15.
+	 *
+	 * Ein **Zustand** und kein Zeitpunkt: wann jemand fertig wurde, beantwortet
+	 * keine Frage, die diese Gemeinschaft an ihr Werkzeug stellt, und dieselbe
+	 * Zurückhaltung steht schon am fehlenden Zeitstempel der Übernahme. Die
+	 * Spalte trägt die Sekunde trotzdem, weil sie zugleich die Vorbedingung in
+	 * der where-Klausel ist; herausgereicht wird nur das Ja oder Nein.
+	 */
+	erledigt: boolean;
 };
 
 /*
@@ -57,6 +67,7 @@ const anzeigeSpalten = {
 	terminAt: signupTasks.terminAt,
 	name: members.name,
 	istAktiv: members.isActive,
+	completedAt: signupTasks.completedAt,
 };
 
 /**
@@ -90,7 +101,17 @@ function frei() {
 		.select({ id: members.id })
 		.from(members)
 		.where(eq(members.isActive, false));
-	return or(isNull(signupTasks.memberId), inArray(signupTasks.memberId, beendete));
+	/*
+	 * **`completed_at IS NULL` steht seit dem 2026-09-15 mit drin**, und ohne
+	 * diese Zeile hätte die neue Spalte eine stille Lücke gerissen: ein Termin,
+	 * den jemand abgeschlossen hat und dessen Zugang später endet, fiele über den
+	 * zweiten Zweig wieder in die freie Liste — als wäre er nie gemacht worden.
+	 * Erledigt schlägt frei.
+	 */
+	return and(
+		isNull(signupTasks.completedAt),
+		or(isNull(signupTasks.memberId), inArray(signupTasks.memberId, beendete))
+	);
 }
 
 /**
@@ -114,6 +135,7 @@ type Anzeigezeile = {
 	terminAt: number;
 	name: string | null;
 	istAktiv: boolean | null;
+	completedAt: number | null;
 };
 
 /** Faltet Name und Aktiv-Zustand auf das eine Feld, das die Seite sieht. */
@@ -125,6 +147,8 @@ function alsEinzelaufgabe(zeile: Anzeigezeile): Einzelaufgabe {
 		// `=== true` und nicht `!!`: istAktiv ist bei fehlender Mitgliedszeile null,
 		// und null soll hier dasselbe bedeuten wie false, nicht etwas Drittes.
 		uebernehmer: zeile.istAktiv === true ? zeile.name : null,
+		// Der Zeitpunkt bleibt in der Datenschicht, nach draussen geht das Ja.
+		erledigt: zeile.completedAt !== null,
 	};
 }
 
@@ -159,9 +183,10 @@ export function einzelaufgabeAusschreiben(titel: string, terminAt: number): Einz
 			terminAt: signupTasks.terminAt,
 		})
 		.get();
-	// Der Übernehmer ist zwangsläufig null — die Zeile ist gerade erst entstanden.
-	// Ausgeschrieben statt über einen zweiten Lesevorgang, der dasselbe ergäbe.
-	return { ...zeile, uebernehmer: null };
+	// Übernehmer und Erledigt sind zwangsläufig leer — die Zeile ist gerade erst
+	// entstanden. Ausgeschrieben statt über einen zweiten Lesevorgang, der
+	// dasselbe ergäbe.
+	return { ...zeile, uebernehmer: null, erledigt: false };
 }
 
 /**
@@ -260,7 +285,9 @@ export function einzelaufgabeUebernehmen(
 			terminAt: signupTasks.terminAt,
 		})
 		.get();
-	return zeile === undefined ? null : { ...zeile, uebernehmer: mitglied.name };
+	// Erledigt ist hier zwangsläufig falsch: übernommen wird nur, was frei ist,
+	// und frei() schliesst Abgeschlossenes aus.
+	return zeile === undefined ? null : { ...zeile, uebernehmer: mitglied.name, erledigt: false };
 }
 
 /**
@@ -283,7 +310,8 @@ export function einzelaufgabeUebernehmen(
  *
  * Kein `frei()` und kein Aktiv-Zustand in der where-Klausel: gefragt ist nach
  * den Zeilen **einer bestimmten** Person, und wer diese Seite sieht, hat eine
- * gültige Sitzung. Der leftJoin trägt den Namen wie in jeder Abfrage dieser
+ * gültige Sitzung. `completed_at IS NULL` steht seit dem 2026-09-15 dabei — was
+ * abgeschlossen ist, steht nicht mehr auf der Liste dessen, was zu tun ist. Der leftJoin trägt den Namen wie in jeder Abfrage dieser
  * Datei — hier ist es der eigene, und die Zeile zeigt ihn nicht.
  */
 export function eigeneEinzelaufgabenLesen(
@@ -294,8 +322,63 @@ export function eigeneEinzelaufgabenLesen(
 		.select(anzeigeSpalten)
 		.from(signupTasks)
 		.leftJoin(members, eq(members.id, signupTasks.memberId))
-		.where(and(eq(signupTasks.memberId, mitgliedId), lt(signupTasks.terminAt, vorSekunden)))
+		.where(
+			and(
+				eq(signupTasks.memberId, mitgliedId),
+				isNull(signupTasks.completedAt),
+				lt(signupTasks.terminAt, vorSekunden)
+			)
+		)
 		.orderBy(...ordnung)
 		.all()
 		.map(alsEinzelaufgabe);
+}
+
+/**
+ * Schliesst einen **eigenen, offenen** Termin ab und gibt die Zeile zurück,
+ * oder null.
+ *
+ * **Zwei Vorbedingungen, und beide stehen in der where-Klausel**, also im selben
+ * Statement wie das Schreiben:
+ *
+ *   - `member_id = mitgliedId` — abschliessen darf, wer übernommen hat. Nicht
+ *     aus Misstrauen, sondern weil es sonst keine Aussage wäre: `Erledigt` an
+ *     einer fremden Zeile hiesse „ich glaube, jemand anderes hat das gemacht".
+ *     Wer irrtümlich zugesagt hat, kann das heute ohnehin nicht zurücknehmen;
+ *     die Lücke ist alt und wird von dieser Funktion weder grösser noch kleiner.
+ *   - `completed_at IS NULL` — ein zweites Abschliessen trifft keine Zeile und
+ *     bekommt null, statt den Zeitpunkt des ersten zu überschreiben.
+ *
+ * **Es gibt bewusst keinen Rückweg**, und das ist der eine Unterschied zur
+ * Poolaufgabe, die `aufgabeWiederOeffnen` kennt. Dort ist der Fehlgriff die
+ * Regel — ein Kästchen am Daumen, im Garten, mit Handschuhen. Hier liegt der
+ * Knopf in der eigenen Kachel hinter einem Titel, den man gelesen hat. Sollte
+ * sich das als falsch erweisen, ist das Gegenstück dieselbe Bauform mit
+ * `IS NOT NULL` — es fehlt nicht aus Versehen.
+ *
+ * Das null ist wie überall in dieser Datei mehrdeutig: die Zeile gibt es nicht,
+ * sie gehört jemand anderem, oder sie ist schon abgeschlossen. Alle drei enden
+ * in derselben Handlung — die Liste neu laden.
+ */
+export function einzelaufgabeAbschliessen(id: number, mitgliedId: number): Einzelaufgabe | null {
+	const zeile = datenbank()
+		.update(signupTasks)
+		.set({ completedAt: Math.floor(Date.now() / 1000) })
+		.where(
+			and(
+				eq(signupTasks.id, id),
+				eq(signupTasks.memberId, mitgliedId),
+				isNull(signupTasks.completedAt)
+			)
+		)
+		.returning({ id: signupTasks.id, titel: signupTasks.titel })
+		.get();
+	if (zeile === undefined) return null;
+	/*
+	 * Der Rückgabewert wird **neu gelesen** und nicht aus dem UPDATE gebaut: die
+	 * Projektion dieser Datei nimmt den Namen über einen leftJoin auf members,
+	 * und ein `returning` kennt keinen Join. Eine von Hand zusammengesetzte Zeile
+	 * wäre die zweite Stelle, an der `Einzelaufgabe` entsteht.
+	 */
+	return einzelaufgabenLesen().find((eintrag) => eintrag.id === zeile.id) ?? null;
 }

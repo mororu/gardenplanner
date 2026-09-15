@@ -5,6 +5,7 @@ import { aufgabentextPruefen } from '../lib/aufgabentext.ts';
 import {
 	einzelaufgabeUebernehmen,
 	eigeneEinzelaufgabenLesen,
+	einzelaufgabeAbschliessen,
 	freieEinzelaufgabeLesen,
 	freieEinzelaufgabenLesen,
 	type Einzelaufgabe,
@@ -550,6 +551,43 @@ export const actions = {
 			aufgabeId: aufgabe.id,
 			text: aufgabe.text,
 		};
+	},
+
+	/**
+	 * Schliesst einen eigenen Termin ab.
+	 *
+	 * **Genau eine Interaktion, keine Rückfrage** — wie das Abhaken im Pool und
+	 * anders als das Übernehmen darüber. Der Unterschied ist, wen es betrifft:
+	 * eine Zusage bindet **andere** und wird darum bestätigt, ein Abschluss
+	 * meldet nur, dass die eigene Zusage eingelöst ist.
+	 *
+	 * Beide Vorbedingungen — die Zeile gehört mir, sie ist noch offen — stehen in
+	 * der where-Klausel von einzelaufgabeAbschliessen und damit im selben
+	 * Statement wie das Schreiben. Diese action prüft davor nichts: ein
+	 * Vorab-Select hätte ein Zeitfenster.
+	 */
+	abschliessen: async ({ locals, request }: RequestEvent) => {
+		const mitglied = locals.mitglied;
+		// Unerreichbar: der Wächter hat vorher mit 403 abgewiesen. Die Prüfung
+		// steht hier, weil der Typ null zulässt — derselbe Handgriff wie beim
+		// Abhaken.
+		if (mitglied === null) {
+			return abweisen(EINZELAUFGABE_NICHT_ANSPRECHBAR);
+		}
+
+		const formular = await request.formData();
+		const id = idLesen(formular.get('einzelaufgabeId'));
+		if (id === null) {
+			return abweisen(EINZELAUFGABE_NICHT_ANSPRECHBAR);
+		}
+
+		// Unbekannt, fremd und schon abgeschlossen fallen hier zusammen.
+		const aufgabe = einzelaufgabeAbschliessen(id, mitglied.id);
+		if (aufgabe === null) {
+			return abweisen(EINZELAUFGABE_NICHT_ANSPRECHBAR);
+		}
+
+		return { art: 'abgeschlossen' as const, meldung: 'Erledigt.', titel: aufgabe.titel };
 	},
 
 	/**
