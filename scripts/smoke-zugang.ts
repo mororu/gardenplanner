@@ -8085,8 +8085,23 @@ try {
 				startseiteCodeEinzel.indexOf('{#if data.einzelaufgaben.length > 0}'),
 		],
 		[
-			'das Zeichen im Knopf ist für Vorlesende verborgen',
-			/<svg\n?[\s\S]{0,400}?aria-hidden="true"/.test(einzelBlock),
+			// Das SVG steht seit dem 2026-09-15 als Schnipsel am Anfang der Datei
+			// und nicht mehr im Block — der Knopf ruft es nur noch auf.
+			'der Knopf ruft das geteilte Personenzeichen auf',
+			einzelBlock.includes('{@render zeichenPerson('),
+		],
+		[
+			/*
+			 * **Baumweit statt blocklokal**, und das ist die stärkere Aussage: nicht
+			 * „dieses eine Zeichen ist verborgen", sondern „keines ist es nicht".
+			 * Die alte Fassung las das SVG im Block; seit es als Schnipsel oben
+			 * steht, hätte sie es dort gesucht und nicht gefunden, obwohl die Zusage
+			 * unverändert hielt.
+			 */
+			'jedes Zeichen der Startseite ist für Vorlesende verborgen',
+			(startseiteCodeEinzel.match(/<svg\b/g) ?? []).length > 0 &&
+				(startseiteCodeEinzel.match(/<svg\b/g) ?? []).length ===
+					(startseiteCodeEinzel.match(/<svg\b[\s\S]{0,400}?aria-hidden="true"/g) ?? []).length,
 		],
 		/*
 		 * Block 1 vor Block 2 vor Block 3 — die Reihenfolge aus AD-14, gemessen an

@@ -550,6 +550,73 @@
 	};
 </script>
 
+<!--
+	**Die drei Zeichen als Schnipsel und nicht dreimal als SVG.**
+
+	Das Personenzeichen steht an zwei Orten — im Griff von `Wer übernimmt` und im
+	Zusage-Knopf jeder Zeile darunter —, und zwei gleiche SVG-Blöcke in derselben
+	Datei sind dasselbe, worauf Gate-Regel 14 im Stilblatt anschlägt: eine Rolle
+	an zwei Stellen. Die Regel liest kein Markup, aber der Grund gilt hier wie
+	dort.
+
+	Alle drei im Zeichensatz, der schon im Baum war: 24er-Raster, Strich in
+	`currentColor`, keine Füllung, `aria-hidden`. Sie tragen keine Aussage — die
+	steht als Wort daneben, und DESIGN.md verlangt das ausdrücklich.
+
+	Die Auswahl ist Manuels (2026-09-15): Korb für die Ernte, Person für die
+	Zusage, Häkchenliste für den Pool. Gewählt aus drei Sätzen, die als Blatt 4
+	des Gestaltungsrahmens nebeneinander standen.
+-->
+{#snippet zeichenKorb()}
+	<svg
+		class="zeichen griff__zeichen"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		aria-hidden="true"
+	>
+		<path d="M3.5 9.5h17l-1.8 10H5.3l-1.8-10Z" />
+		<path d="M8 9.5 10.5 3.5" />
+		<path d="M16 9.5 13.5 3.5" />
+	</svg>
+{/snippet}
+
+{#snippet zeichenPerson(zusatz: string)}
+	<svg
+		class="zeichen {zusatz}"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		aria-hidden="true"
+	>
+		<circle cx="12" cy="8" r="4" />
+		<path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+	</svg>
+{/snippet}
+
+{#snippet zeichenListe()}
+	<svg
+		class="zeichen griff__zeichen"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		aria-hidden="true"
+	>
+		<path d="M3.5 7 5 8.5 7.5 6" />
+		<path d="M3.5 15 5 16.5 7.5 14" />
+		<path d="M11 7.5h9.5" />
+		<path d="M11 15.5h9.5" />
+	</svg>
+{/snippet}
+
 <svelte:head>
 	<title>Aufgaben</title>
 </svelte:head>
@@ -778,6 +845,7 @@
 				Wort daneben. Kein Zustand hängt allein an der Farbe.
 			-->
 			<h2 class="griff__satz" id="ernte-marke">
+				{@render zeichenKorb()}
 				{#if data.ueberblick.reif === 0}
 					<span class="kopfwort">{GRIFF_REIF_LEER}</span>
 				{:else}
@@ -891,6 +959,7 @@
 	<details class="abschnitt" open>
 		<summary class="abschnitt__griff">
 			<h2 class="griff__satz" id="einzel-marke">
+				{@render zeichenPerson('griff__zeichen')}
 				{#if data.ueberblick.frei === 0}
 					<span class="kopfwort">{GRIFF_FREI_LEER}</span>
 				{:else}
@@ -1040,18 +1109,7 @@
 									sonst hörte man die Handlung zweimal. `currentColor`, damit es
 									im deaktivierten Zustand mit der Schrift mitgeht.
 								-->
-											<svg
-												class="zeichen"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-												aria-hidden="true"
-											>
-												<circle cx="12" cy="8" r="4" />
-												<path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
-											</svg>
+											{@render zeichenPerson('')}
 											{UEBERNEHMEN_KNOPF}
 										</button>
 									</form>
@@ -1178,6 +1236,7 @@
 	<details class="abschnitt" open>
 		<summary class="abschnitt__griff">
 			<h2 class="griff__satz" id="offen-marke">
+				{@render zeichenListe()}
 				{#if data.ueberblick.offen === 0}
 					<span class="kopfwort">{GRIFF_OFFEN_LEER}</span>
 				{:else}
@@ -1668,6 +1727,24 @@
 		unberührt: **ein zugeklappter Abschnitt verbirgt seinen Inhalt, nicht seine
 		Lage.** Die Zahl steht weiterhin im Griff, nur kleiner und in einem Kasten.
 	*/
+	/*
+		Das Zeichen im Griff.
+
+		`vertical-align: middle` und kein Zahlenwert: der Griff ist ein
+		`list-item`, seine Kinder stehen in einer Zeilenbox, und ein SVG sässe ohne
+		diese Zeile auf der Grundlinie — also zu tief neben einer Überschrift in
+		20px. Ein Versatz in em wäre die genauere Schraube und brächte eine Zahl
+		mit, die aus keiner Rampe kommt; Gate-Regel 1 liest ein rohes em nicht, und
+		genau darum steht sie hier nicht.
+
+		Die Farbe ist `--ink-secondary` und nicht die des Titels: das Zeichen ist
+		die schwächere der zwei Auskünfte. Was der Abschnitt ist, sagt das Wort.
+	*/
+	.griff__zeichen {
+		vertical-align: middle;
+		color: var(--ink-secondary);
+	}
+
 	.griff__titel {
 		color: var(--ink-primary);
 		font-family: var(--section-font);
