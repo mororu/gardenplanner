@@ -431,10 +431,15 @@ export function fristZusatz(lage: Fristlage): string {
 }
 
 /**
- * Die Überschrift der Kachel mit den eigenen Zusagen auf der Startseite.
+ * Der Titel des Abschnitts mit den eigenen Zusagen auf der Startseite.
  *
  * Sie hiess bis zum 2026-09-14 `Du hast zugesagt` und stand an **jeder** Zeile.
  * Bei zwei Zusagen stand sie zweimal da und sagte beim zweiten Mal nichts mehr —
- * die Kachel trägt sie seither einmal, und darunter stehen die Punkte.
+ * der Block trägt sie seither einmal, und darunter stehen die Punkte.
+ *
+ * Seit dem 2026-09-17 steht sie im **Griff eines Aufklappers** und nicht mehr
+ * über einer Kachel, mit Zeichen und Zahl davor wie die zwei Abschnitte
+ * darunter. Am Wortlaut ändert das nichts: `Meine Aufgaben` sagt in beiden
+ * Bauformen dasselbe.
  */
 export const MEINE_MARKE = 'Meine Aufgaben';

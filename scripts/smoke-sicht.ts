@@ -1316,6 +1316,7 @@ try {
 	 */
 	const aufklappZeichen = await browser.auswerten<{
 		griffe: number;
+		abschnitte: number;
 		anzeige: string[];
 		zeichen: number[];
 		masse: string[];
@@ -1323,6 +1324,7 @@ try {
 		const griffe = [...document.querySelectorAll('summary.abschnitt__griff')];
 		return {
 			griffe: griffe.length,
+			abschnitte: document.querySelectorAll('details.abschnitt').length,
 			anzeige: griffe.map((g) => getComputedStyle(g).display),
 			zeichen: griffe.map((g) => g.querySelectorAll('.aufklapp').length),
 			masse: griffe.map((g) => {
@@ -1333,19 +1335,34 @@ try {
 			}),
 		};`);
 	/*
-	 * **Zwei Griffe, und vom 2026-09-13 bis zum 2026-09-17 waren es drei.** Die
-	 * Ernte war der dritte Abschnitt; sie steht seither als Zeile mit Zahl und
-	 * Pfeil da und klappt nichts mehr auf. Die Zahl bleibt von Hand geführt und
-	 * bricht bei jedem Abschnitt, der dazu- oder wegkommt — genau dann soll
-	 * jemand sein Aufklappzeichen ansehen.
+	 * **Die Zahl der Griffe wird abgeleitet und nicht von Hand geführt** — seit dem
+	 * 2026-09-17, und der Grund ist ein Fehlschlag desselben Tages.
+	 *
+	 * Sie stand hier als feste Zahl, und das trug, solange jeder Abschnitt der
+	 * Seite immer da war. Der Abschnitt mit den eigenen Zusagen ist der erste, der
+	 * **von den Daten abhängt**: ohne Zusage fehlt er ganz. Die Saat dieses Laufs
+	 * legt keine an, im Quelltext stehen drei Abschnitte, gerendert sind es zwei —
+	 * die feste Drei wurde rot, während die Zusage hielt.
+	 *
+	 * Verglichen wird darum gegen die Zahl der `<details class="abschnitt">` im
+	 * selben Dokument. Das ist die Zusage, um die es geht: **jeder Abschnitt, der
+	 * dasteht, hat genau ein Aufklappzeichen mit Ausdehnung.** Wie viele dastehen,
+	 * entscheiden die Daten.
+	 *
+	 * Die Untergrenze daneben ist kein Ersatz für eine Zahl, sondern der Schutz
+	 * gegen die vakuante Wahrheit: ohne sie wäre die Zeile grün, wenn die Seite
+	 * gar keinen Abschnitt mehr trüge. Sie steht bei zwei, weil `Zum Erledigen`
+	 * und `Wer übernimmt` datenunabhängig sind — beide stehen auch leer da.
 	 */
 	pruefen(
-		'jeder der zwei Abschnittsgriffe trägt genau ein Aufklappzeichen mit Ausdehnung',
-		aufklappZeichen.griffe === 2 &&
+		'jeder Abschnittsgriff trägt genau ein Aufklappzeichen mit Ausdehnung',
+		aufklappZeichen.griffe === aufklappZeichen.abschnitte &&
+			aufklappZeichen.griffe >= 2 &&
 			aufklappZeichen.zeichen.every((zahl) => zahl === 1) &&
 			aufklappZeichen.masse.every((mass) => /^[1-9]\d*x[1-9]\d*$/.test(mass)) &&
 			aufklappZeichen.anzeige.every((wert) => wert !== 'list-item'),
-		`${aufklappZeichen.griffe} Griff(e), Zeichen ${aufklappZeichen.zeichen.join('/')}, ` +
+		`${aufklappZeichen.griffe} Griff(e) zu ${aufklappZeichen.abschnitte} Abschnitt(en), ` +
+			`Zeichen ${aufklappZeichen.zeichen.join('/')}, ` +
 			`Masse ${aufklappZeichen.masse.join(' ')}, Anzeige ${aufklappZeichen.anzeige.join(' ')}`
 	);
 

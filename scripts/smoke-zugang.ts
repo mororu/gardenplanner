@@ -3570,29 +3570,40 @@ try {
 	 * macht diese Zeile rot.
 	 */
 	/*
-	 * **Seit dem 2026-09-17 sind es wieder zwei Abschnitte.** Die Ernte war vom
-	 * 2026-09-13 an der dritte und trug `+ Ernten`; sie steht seither als Zeile
-	 * mit Zahl und Pfeil da und klappt nichts mehr auf — die Handlung `Reifes
-	 * eintragen` steht dort, wohin die Zeile führt.
+	 * **Die zweite Hälfte dieser Regel ist am 2026-09-17 gefallen, mit Ansage.**
 	 *
-	 * Die Regel dahinter ist dieselbe geblieben: kein Abschnitt trägt zwei, und
-	 * keiner trägt keinen. Der zweite Teil ist so wichtig wie der erste — ein
-	 * Abschnitt ohne primäre Handlung ist eine Liste, aus der heraus man nichts
-	 * anfangen kann, und genau das war die Ernte in ihrem ersten Entwurf.
+	 * Sie lautete: kein Abschnitt trägt zwei, **und keiner trägt keinen** — ein
+	 * Abschnitt ohne primäre Handlung sei eine Liste, aus der heraus man nichts
+	 * anfangen kann. Das galt, solange jeder Abschnitt einen Vorrat an Arbeit
+	 * zeigte, den irgendwer aufnehmen kann; die Ernte war in ihrem ersten Entwurf
+	 * genau der Fall, gegen den die Hälfte geschrieben war.
 	 *
-	 * **Die Zahl steht hier von Hand und bricht bei jedem Abschnitt, der dazu-
-	 * oder wegkommt.** Das ist Absicht: sie ist die Stelle, an der jemand den
-	 * neuen Abschnitt auf seine eine Handlung ansieht.
+	 * Der Abschnitt mit den **eigenen Zusagen** ist der erste, für den sie nicht
+	 * gilt, und er widerlegt nicht die Regel, sondern ihre Reichweite: er zeigt
+	 * nicht, was jemand anfangen könnte, sondern was ich schon zugesagt habe. Die
+	 * Handlung steht an **jeder Zeile** (`Erledigt`), und ein `+`-Knopf darüber
+	 * müsste etwas anlegen, das es nicht gibt — eine Zusage entsteht drüben bei
+	 * `Wer übernimmt`, indem man sie gibt.
+	 *
+	 * Gemessen wird darum jetzt: **keiner trägt zwei**, und **genau zwei tragen
+	 * einen**. Die zweite Zahl hält die alte Zusage für die zwei Abschnitte, für
+	 * die sie je gedacht war; ein dritter, der still seinen Knopf verlöre, fällt
+	 * weiterhin auf.
+	 *
+	 * **Beide Zahlen stehen von Hand und brechen bei jedem Abschnitt, der dazu-
+	 * oder wegkommt.** Das ist Absicht: es ist die Stelle, an der jemand den neuen
+	 * Abschnitt daraufhin ansieht, ob er eine Handlung braucht.
 	 */
-	const abschnitte = ohneZeilenformulare.split('<details class="abschnitt" open>').slice(1);
+	const abschnitte = ohneZeilenformulare.split(/<details class="abschnitt[^"]*" open>/).slice(1);
 	const primaerJeAbschnitt = abschnitte.map(
 		(teil) =>
 			(teil.slice(0, teil.indexOf('</details>')).match(/class="button-primary"/g) ?? []).length
 	);
 	pruefen(
-		`jeder Aufklapper auf / trägt genau einen button-primary (${primaerJeAbschnitt.join('/')})`,
-		primaerJeAbschnitt.length === 2 &&
-			primaerJeAbschnitt.every((zahl) => zahl === 1) &&
+		`kein Aufklapper auf / trägt zwei button-primary, und zwei tragen einen (${primaerJeAbschnitt.join('/')})`,
+		primaerJeAbschnitt.length === 3 &&
+			primaerJeAbschnitt.every((zahl) => zahl <= 1) &&
+			primaerJeAbschnitt.filter((zahl) => zahl === 1).length === 2 &&
 			(ohneZeilenformulare.match(/class="button-primary"/g) ?? []).length === 2,
 		`je Abschnitt: ${primaerJeAbschnitt.join('/')}, insgesamt: ${
 			(ohneZeilenformulare.match(/class="button-primary"/g) ?? []).length
@@ -6035,6 +6046,13 @@ try {
 				!/\{#if data\.ueberblick\.ueberfaellig > 0\}\s*<details/.test(startseitenCode),
 		],
 		[
+			// Seit dem 2026-09-17: der Abschnitt mit den eigenen Zusagen ist selbst
+			// ein Aufklapper, und ein zugeklappter darf seine Lage nicht verbergen —
+			// also trägt auch sein Griff eine Zahl.
+			'der Griff der eigenen Zusagen trägt die Zahl',
+			/<span class="kopfzahl">\{data\.zusagen\.length\}<\/span>/.test(startseitenCode),
+		],
+		[
 			'die Zeile zum Tränkeplan ist ein Verweis und kein Aufklapper',
 			/<a class="plan-zeile" href=\{resolve\('\/traenkeplan'\)\}>/.test(startseitenCode) &&
 				/\{#if data\.ueberblick\.unbesetzt > 0\}/.test(startseitenCode),
@@ -8395,11 +8413,13 @@ try {
 	/*
 	 * **Die zwei Abschnitte sind zuklappbar — und werden offen geliefert.**
 	 *
-	 * **Zwei, und vom 2026-09-13 bis zum 2026-09-17 waren es drei.** Die Ernte
-	 * war der dritte; sie steht seither als Zeile mit Zahl und Pfeil da und
-	 * klappt nichts mehr auf. Die Zahl steht hier von Hand und bricht bei jedem
-	 * Abschnitt, der dazu- oder wegkommt — das ist Absicht und die Stelle, an der
-	 * jemand den neuen Abschnitt auf `open`, Griff und Kennung ansieht.
+	 * **Drei, und die Besetzung hat an einem Tag zweimal gewechselt.** Vom
+	 * 2026-09-13 an war die Ernte der dritte; sie steht seit dem 2026-09-17 als
+	 * Zeile mit Zahl und Pfeil da und klappt nichts mehr auf. Am selben Tag ist
+	 * der Abschnitt mit den eigenen Zusagen an ihre Stelle getreten — er war
+	 * vorher eine Kachel ohne Griff. Die Zahl steht hier von Hand und bricht bei
+	 * jedem Abschnitt, der dazu- oder wegkommt; das ist Absicht und die Stelle, an
+	 * der jemand den neuen Abschnitt auf `open`, Griff und Kennung ansieht.
 	 *
 	 * Das `open` ist hier die eigentliche Behauptung und nicht der Aufklapper.
 	 * AD-14 verlangt, dass man beim Öffnen der Seite sieht, was zu tun ist; ein
@@ -8417,12 +8437,16 @@ try {
 	 */
 	const aufklappTeile = [
 		[
-			'es sind genau zwei Abschnitts-Aufklapper',
-			(startseiteCodeEinzel.match(/<details class="abschnitt" open>/g) ?? []).length === 2,
+			// Das Muster liest die Klassenliste tolerant: der Abschnitt mit den
+			// eigenen Zusagen trägt seit dem 2026-09-17 zusätzlich `meine` für seine
+			// Kante links. Ein Vergleich auf die genaue Zeichenkette hätte ihn beim
+			// Umbau still aus der Zählung fallen lassen.
+			'es sind genau drei Abschnitts-Aufklapper',
+			(startseiteCodeEinzel.match(/<details class="abschnitt[^"]*" open>/g) ?? []).length === 3,
 		],
 		[
-			'beide tragen einen Griff',
-			(startseiteCodeEinzel.match(/<summary class="abschnitt__griff">/g) ?? []).length === 2,
+			'alle drei tragen einen Griff',
+			(startseiteCodeEinzel.match(/<summary class="abschnitt__griff">/g) ?? []).length === 3,
 		],
 		[
 			/*
@@ -8441,21 +8465,21 @@ try {
 			// Der Griff trägt seit dem 2026-09-11 die Zahl statt eines Titels — die
 			// Zahl **ist** die Überschrift. Was er sagt, prüft die Griff-Wache weiter
 			// oben; hier steht nur, dass er da ist.
-			'beide Griffe tragen einen Satz mit Kennung',
-			(startseiteCodeEinzel.match(/<h2 class="griff__satz" id="[a-z-]+">/g) ?? []).length === 2,
+			'alle drei Griffe tragen einen Satz mit Kennung',
+			(startseiteCodeEinzel.match(/<h2 class="griff__satz" id="[a-z-]+">/g) ?? []).length === 3,
 		],
 		[
 			// Seit dem 2026-09-11 umgekehrt: die primären Knöpfe liegen **in** ihren
 			// Abschnitten. Der Preis — zugeklappt kein Erfassen — ist am Knopf
 			// ausgeschrieben; getragen wird er davon, dass der Zustand nirgends
 			// gespeichert ist.
-			'und beide primären Knöpfe liegen in ihren Abschnitten',
+			'und die primären Knöpfe liegen in ihren Abschnitten',
 			startseiteCodeEinzel.lastIndexOf('class="button-primary"') <
 				startseiteCodeEinzel.lastIndexOf('</details>'),
 		],
 	] as const;
 	pruefen(
-		'beide Abschnitte auf / sind zuklappbar und werden offen ausgeliefert',
+		'alle drei Abschnitte auf / sind zuklappbar und werden offen ausgeliefert',
 		fehlendeTeile(aufklappTeile).length === 0,
 		`fehlt: ${fehlendeTeile(aufklappTeile).join(', ')}`
 	);

@@ -576,6 +576,13 @@
 	heisst jemand giesst. Die Zeile zählt unbesetzte Wochen — fehlende Personen,
 	nicht fehlendes Wasser. Zwischenstand vom selben Tag, eine Stunde alt; der
 	Tropfen stand nie ausgeliefert da.
+
+	**Das Häkchen am Griff der eigenen Zusagen ist bewusst dasselbe wie am
+	`Erledigt`-Knopf** in dessen Zeilen (2026-09-17, mit dem Umbau zum
+	Aufklapper). Es sagt an beiden Stellen dasselbe: was ich zugesagt habe, hake
+	ich ab. Ein zweites Personenzeichen neben dem von `Wer übernimmt` wäre die
+	Alternative gewesen und die schlechtere — zwei gleiche Zeichen auf einer Seite
+	unterscheiden nichts.
 -->
 {#snippet zeichenKanne()}
 	<svg
@@ -627,9 +634,9 @@
 	</svg>
 {/snippet}
 
-{#snippet zeichenHaken()}
+{#snippet zeichenHaken(zusatz = '')}
 	<svg
-		class="zeichen"
+		class="zeichen {zusatz}"
 		viewBox="0 0 24 24"
 		fill="none"
 		stroke="currentColor"
@@ -786,7 +793,9 @@
 		**Keine gefüllte Fläche.** Die gehört dem Diensthinweis darüber und ihm
 		allein — eine zweite nähme ihm genau das, was ihn dort trägt. Was die zwei
 		verbindet, ist die Kante links in Akzentfarbe: dasselbe Zeichen wie an der
-		laufenden Woche im Tränkeplan, `hier bist du gerade`.
+		laufenden Woche im Tränkeplan, `hier bist du gerade`. Sie hat den Umbau zum
+		Aufklapper am 2026-09-17 überlebt und ist dort das einzige, was diesen
+		Abschnitt von den zwei anderen unterscheidet.
 
 		Bei null Zusagen fehlt der Block ganz, wie der Diensthinweis darüber. Ein
 		`Du hast nichts zugesagt` nähme jede Woche Platz, um nichts mitzuteilen.
@@ -798,20 +807,46 @@
 			geht das nicht mehr — ein Knopf in einem Link ist ungültiges Markup, und
 			ein Browser macht daraus, was er will. Der Weg zu allen Terminen steht
 			eine Kachel weiter unten als `Alle Termine` und fehlt damit nicht.
+
+			**Seit dem 2026-09-17 ein Aufklapper wie die zwei Abschnitte darunter**
+			(Entscheid Manuel). Damit ist die Seite in einer Form: Zeichen, Zahl,
+			Titel — und wer den Abschnitt wegklappt, sieht im Griff weiterhin, wie
+			viel er zugesagt hat. Genau das verlangt AD-14, und genau darum trägt der
+			Griff eine Zahl: ein zugeklappter Abschnitt darf seinen Inhalt verbergen,
+			nicht seine Lage.
+
+			**`.meine` ist von der Kachel übriggeblieben und trägt nur noch die Kante
+			links.** Fläche, Radius und Umriss kommen aus `.abschnitt`; das
+			3px-Akzentstück ist dasselbe Zeichen wie an der laufenden Woche im
+			Tränkeplan — hier bist du gerade — und es ist der einzige Unterschied zu
+			den zwei anderen Abschnitten. Er ist gewollt: die zwei zeigen, was
+			irgendwer tun könnte, dieser zeigt, was **ich** zugesagt habe.
+
+			**Offen ausgeliefert**, wie die zwei darunter, und der Zustand wird
+			nirgends gespeichert.
 		-->
-		<div class="meine">
-			<h2 class="marke">{MEINE_MARKE}</h2>
-			<ul class="meine__punkte">
-				{#each data.zusagen as zusage (zusage.id)}
-					<li>
-						<div class="meine__zeile">
-							<span class="zeile__spalte">
-								<span class="zeile__text" id="zusage-{zusage.id}">{zusage.titel}</span>
-								<span
-									class="hinweis hinweis--ziffern"
-									class:einzel__verstrichen={zusage.lage === 'verstrichen'}
-								>
-									{datumLang(zusage.terminAt)}{fristZusatz(zusage.lage)}
+		<details class="abschnitt meine" open>
+			<summary class="abschnitt__griff">
+				<h2 class="griff__satz" id="meine-marke">
+					{@render zeichenHaken('griff__zeichen')}
+					<span class="kopfzahl">{data.zusagen.length}</span>
+					<span class="griff__titel">{MEINE_MARKE}</span>
+				</h2>
+				<ZeichenWinkel class="aufklapp" />
+			</summary>
+			<div class="abschnitt__inhalt">
+				<ul class="meine__punkte" aria-labelledby="meine-marke">
+					{#each data.zusagen as zusage (zusage.id)}
+						<li>
+							<div class="meine__zeile">
+								<span class="zeile__spalte">
+									<span class="zeile__text" id="zusage-{zusage.id}">{zusage.titel}</span>
+									<span
+										class="hinweis hinweis--ziffern"
+										class:einzel__verstrichen={zusage.lage === 'verstrichen'}
+									>
+										{datumLang(zusage.terminAt)}{fristZusatz(zusage.lage)}
+									</span>
 								</span>
 								<!--
 								**Genau eine Interaktion, keine Rückfrage** — wie das Abhaken im
@@ -823,24 +858,25 @@
 								Elementliste stünde sonst dreimal dasselbe Wort ohne Auskunft,
 								worum es geht. Derselbe Handgriff wie am Zusage-Knopf.
 							-->
-							<form method="POST" action="?/abschliessen" use:enhance={versandZeile()}>
-								<input type="hidden" name="einzelaufgabeId" value={zusage.id} />
-								<button
-									class="button-quiet button-quiet--kompakt"
-									type="submit"
-									id="erledigt-{zusage.id}"
-									aria-labelledby="erledigt-{zusage.id} zusage-{zusage.id}"
-									disabled={imFlug}
-								>
-									{@render zeichenHaken()}
-									{ERLEDIGT_KNOPF}
-								</button>
-							</form>
-						</div>
-					</li>
-				{/each}
-			</ul>
-		</div>
+								<form method="POST" action="?/abschliessen" use:enhance={versandZeile()}>
+									<input type="hidden" name="einzelaufgabeId" value={zusage.id} />
+									<button
+										class="button-quiet button-quiet--kompakt"
+										type="submit"
+										id="erledigt-{zusage.id}"
+										aria-labelledby="erledigt-{zusage.id} zusage-{zusage.id}"
+										disabled={imFlug}
+									>
+										{@render zeichenHaken()}
+										{ERLEDIGT_KNOPF}
+									</button>
+								</form>
+							</div>
+						</li>
+					{/each}
+				</ul>
+			</div>
+		</details>
 	{/if}
 
 	<!--
@@ -865,6 +901,8 @@
 	{#if data.ueberblick.unbesetzt > 0}
 		<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
 		<a class="plan-zeile" href={resolve('/traenkeplan')}>
+			{@render zeichenKanne()}
+			<span class="kopfzahl">{data.ueberblick.unbesetzt}</span>
 			<span class="griff__titel">
 				{zeileUnbesetzt(data.ueberblick.unbesetzt)}
 				<!--
@@ -893,8 +931,6 @@
 		längste der Startseite.
 
 		Der Verlust ist benannt und angenommen: **die Dringlichkeit steht auf `/`
-			{@render zeichenKanne()}
-			<span class="kopfzahl">{data.ueberblick.unbesetzt}</span>
 		nicht mehr**. Wer die Übersicht öffnet, liest, dass es etwas zu ernten
 		gibt und wie viel — welche Kultur, in welchem Beet und wie dringend, steht
 		einen Griff weiter. Genau dafür ist /ernte da, und dort ist es auch der
@@ -916,6 +952,7 @@
 				unbesetzt` darüber.
 			-->
 			<span class="kopfzahl">{data.ueberblick.reif}</span>
+			<span class="griff__titel">Zum Ernten</span>
 			<span class="plan-zeile__pfeil" aria-hidden="true">→</span>
 		</a>
 	{/if}
@@ -942,9 +979,9 @@
 				{#if data.ueberblick.offen === 0}
 					<span class="kopfwort">{GRIFF_OFFEN_LEER}</span>
 				{:else}
+					<span class="kopfzahl">{data.ueberblick.offen}</span>
 					<span class="griff__titel">{GRIFF_OFFEN}</span>
 					{#if data.ueberblick.ueberfaellig > 0}
-			<span class="griff__titel">Zum Ernten</span>
 						<span class="kopffrist">{griffUeberfaellig(data.ueberblick.ueberfaellig)}</span>
 					{/if}
 				{/if}
@@ -971,7 +1008,6 @@
 
 					`!istErledigt` zieht den ersten Konjunkt in **diese Sitzung** hinein.
 					In der Datenbank fällt er mit dem Abhaken weg; in der Oberfläche nicht,
-					<span class="kopfzahl">{data.ueberblick.offen}</span>
 					weil der Rückruf mit invalidateAll: false fährt und die Zeile samt
 					unverändertem `data` an ihrem Platz stehen bleibt. Bliebe die zweite
 					Zeile stehen, behauptete `seit 4 Wochen überfällig` eine offene Frist
@@ -1270,6 +1306,7 @@
 				{#if data.ueberblick.frei === 0}
 					<span class="kopfwort">{GRIFF_FREI_LEER}</span>
 				{:else}
+					<span class="kopfzahl">{data.ueberblick.frei}</span>
 					<span class="griff__titel">{GRIFF_FREI}</span>
 				{/if}
 			</h2>
@@ -1298,7 +1335,6 @@
 						`align-items: flex-start`: bei einem langen Titel, der bei 375px
 						über drei Zeilen läuft, soll der Knopf oben bleiben und nicht in
 						die Mitte rutschen.
-					<span class="kopfzahl">{data.ueberblick.frei}</span>
 					-->
 							<div class="einzel__reihe">
 								<!--
@@ -1639,9 +1675,7 @@
 		die beiden stehen damit untereinander, ohne sich zu gleichen.
 	*/
 	/*
-		Die Kachel mit den eigenen Zusagen. Fläche, Kante und Radius wie an der
-		Ernte-Zeile — die Form für `das hier führt woandershin`, und sie führt auf
-		/einzelaufgaben, wo die übernommenen Zeilen mit ihren Namen stehen.
+		Was von der Kachel mit den eigenen Zusagen übrig ist: **eine Kante**.
 
 		Seit dem 2026-09-17 ist der Block ein `.abschnitt` wie die zwei darunter,
 		und Fläche, Umriss, Radius und `overflow` kommen von dort. Diese Regel
@@ -1807,6 +1841,23 @@
 		Ziffernbreite genau dort auffällt (UX-DR).
 	*/
 	.kopfzahl {
+		/*
+			**Platz für zwei Ziffern, auch wenn nur eine dasteht** (Entscheid Manuel,
+			2026-09-17). Ohne ihn beginnt der Titel je nach Zahl an einer anderen
+			Stelle, und fünf Zeilen untereinander stehen dann treppenförmig.
+
+			`2ch` und keine Zahl aus der Abstandsrampe: `ch` ist die Breite der
+			Ziffer Null, und zusammen mit `tabular-nums` darüber ist das **genau**
+			zwei Ziffern — kein geschätzter Wert, der bei der nächsten Schriftart
+			daneben liegt. Ein Wert aus der Rampe wäre hier die ungenauere Schraube.
+
+			Die Zahl steht rechtsbündig darin: die Einer liegen damit untereinander
+			und der Abstand zum Titel ist immer derselbe. Bei dreistelligen Zahlen —
+			die es in diesem Garten nicht gibt, aber die Regel soll nicht daran
+			hängen — wächst das Feld, statt abzuschneiden.
+		*/
+		min-inline-size: 2ch;
+		text-align: end;
 		font-family: var(--section-font);
 		font-size: var(--section-size);
 		font-weight: var(--section-weight);
@@ -1834,23 +1885,6 @@
 
 		**Die Schriftrolle steht seit dem 2026-09-15 hier** und nicht mehr in der
 		Umgebung: bis dahin lag dieses Element in `.kopfwort` und erbte dessen
-		/*
-			**Platz für zwei Ziffern, auch wenn nur eine dasteht** (Entscheid Manuel,
-			2026-09-17). Ohne ihn beginnt der Titel je nach Zahl an einer anderen
-			Stelle, und fünf Zeilen untereinander stehen dann treppenförmig.
-
-			`2ch` und keine Zahl aus der Abstandsrampe: `ch` ist die Breite der
-			Ziffer Null, und zusammen mit `tabular-nums` darüber ist das **genau**
-			zwei Ziffern — kein geschätzter Wert, der bei der nächsten Schriftart
-			daneben liegt. Ein Wert aus der Rampe wäre hier die ungenauere Schraube.
-
-			Die Zahl steht rechtsbündig darin: die Einer liegen damit untereinander
-			und der Abstand zum Titel ist immer derselbe. Bei dreistelligen Zahlen —
-			die es in diesem Garten nicht gibt, aber die Regel soll nicht daran
-			hängen — wächst das Feld, statt abzuschneiden.
-		*/
-		min-inline-size: 2ch;
-		text-align: end;
 		meta-Rolle. Mit dem Umbau auf Titel und Zähler ist es ein direktes Kind der
 		Überschrift geworden und erbte deren Grösse — der Satz stand in
 		Überschriftgrösse und brach über zwei Zeilen um. Gesehen am gerenderten
