@@ -68,3 +68,32 @@ export function datumKasten(unixSekunden: number): { tag: string; monat: string 
 		monat: teile.find((teil) => teil.type === 'month')?.value ?? '',
 	};
 }
+
+/*
+ * Der Monat mit seinem Jahr — die Überschrift einer Archivgruppe.
+ *
+ * Derselbe Formatierer-einmal-bauen-Grund wie oben, und dieselbe Zone: ein
+ * Abhaken am 1. Oktober um 00:30 gehört in die Gruppe `Oktober 2026` und nicht
+ * in die des Vortags, wie es eine Rechnung in UTC ergäbe.
+ *
+ * **Das Jahr steht mit dabei, obwohl es im Archiv meist dasselbe ist.** Ohne
+ * Jahr hiessen zwei Gruppen `September`, sobald der Garten ins zweite Jahr geht,
+ * und die Zeichenkette taugte dann auch nicht mehr als Gruppenschlüssel — die
+ * Komponente gruppiert über genau diesen Wert und legte zwei Septembers
+ * zusammen.
+ */
+const MONAT_UND_JAHR = new Intl.DateTimeFormat('de-CH', {
+	month: 'long',
+	year: 'numeric',
+	timeZone: ZEITZONE,
+});
+
+/**
+ * Ein Monat in Alltagssprache: `September 2026`.
+ *
+ * @param unixSekunden Zeitstempel in Unix-**Sekunden**, so wie er in der
+ *   Datenbank steht — nicht in Millisekunden.
+ */
+export function monatUndJahr(unixSekunden: number): string {
+	return MONAT_UND_JAHR.format(new Date(unixSekunden * 1000));
+}

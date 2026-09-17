@@ -19,6 +19,11 @@
 	 * Zucchini entdeckt, soll sie in zwei Griffen eintragen können. Genau diese
 	 * Unterscheidung trennt die Leiste von /mehr, seit es beides gibt.
 	 *
+	 * **`/archiv` steht seit dem 2026-09-17 ebenfalls auf /mehr** und damit in
+	 * `gehoertDazu` desselben Ziels, nach demselben Massstab: was im letzten
+	 * Monat getan wurde, schlägt die planende Person einmal im Monat nach. Es ist
+	 * keine fünfte Beschriftung geworden — die Zahl der Ziele bleibt bei vier.
+	 *
 	 * **`/wissen` steht darum in `gehoertDazu` von /mehr** — und /wissen/[id]
 	 * braucht dort **keinen** eigenen Eintrag: die Einzelansicht liegt unter dem
 	 * Pfad ihres früheren Ziels, und `trifft` unten vergleicht an der
@@ -37,7 +42,8 @@
 	 * Zugeordnet wird nach dem **Weg dorthin**, nicht nach dem Thema: /aufgabe
 	 * wird vom Knopf `+ Aufgabe` unter dem Pool erreicht und /einzelaufgabe wie
 	 * /einzelaufgaben von den zwei Wegen unter Block 2 — alle drei gehören darum
-	 * zu `/`. /monatsplan, /verwaltung und /wissen stehen als Einträge auf /mehr.
+	 * zu `/`. /monatsplan, /verwaltung, /wissen und
+	 * /archiv stehen als Einträge auf /mehr.
 	 * Wer die Leiste liest, soll dort stehen sehen, woher er kam.
 	 *
 	 * **Die Ernte-Zeilen auf `/` ändern daran nichts.** Die Startseite führt seit
@@ -80,7 +86,11 @@
 		},
 		{ href: '/traenkeplan', beschriftung: 'Tränkeplan', gehoertDazu: [] },
 		{ href: '/ernte', beschriftung: 'Ernte', gehoertDazu: [] },
-		{ href: '/mehr', beschriftung: 'Mehr', gehoertDazu: ['/monatsplan', '/verwaltung', '/wissen'] },
+		{
+			href: '/mehr',
+			beschriftung: 'Mehr',
+			gehoertDazu: ['/archiv', '/monatsplan', '/verwaltung', '/wissen'],
+		},
 	];
 
 	type Ziel = (typeof ziele)[number];

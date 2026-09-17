@@ -116,7 +116,7 @@ import {
  * Stellen, von denen eine niemand rot macht, ist schlechter als eine Zahl an
  * einer — die Schlussmeldung des Laufs nennt sie ohnehin bei jedem Durchgang.
  */
-const ERWARTETE_BEHAUPTUNGEN = 162;
+const ERWARTETE_BEHAUPTUNGEN = 169;
 
 /**
  * Ein Jahr in Sekunden — die Laufzeit aus src/lib/server/auth.ts.
@@ -433,6 +433,7 @@ try {
 		{ pfad: '/einzelaufgabe', titel: 'Termin planen' },
 		{ pfad: '/einzelaufgaben', titel: 'Alle Termine' },
 		{ pfad: '/wissen', titel: 'Wissen' },
+		{ pfad: '/archiv', titel: 'Archiv' },
 	];
 
 	for (const seite of seiten) {
@@ -1274,9 +1275,20 @@ try {
 			// `hinweis hinweis--ziffern` statt einer eigenen Klasse: der Regelkörper
 			// war byte-gleich mit ihr, und die SEITENFORM-Wache in smoke-zugang.ts
 			// hält ihn jetzt an einer Stelle.
+			//
+			// **Gesucht wird im Dienstblock und nicht im ganzen Dokument** — und die
+			// Klasse wird an der Wortgrenze verglichen, nicht bis zum Anführungs-
+			// zeichen. Beides ist am 2026-09-17 nachgezogen worden, und die Zeile war
+			// bis dahin **zu weit** gefasst: sie traf jede Ziffernzeile der Seite, und
+			// getragen hat sie zuletzt eine Erntezeile — nicht der Dienstblock, über
+			// den sie etwas behauptet. Als die Erntezeilen von `/` verschwanden, fiel
+			// sie auf, obwohl das Wochendatum unverändert dastand. Der frühere
+			// Vergleich `class="hinweis hinweis--ziffern"` verlangte ausserdem, dass
+			// Svelte diesem Knoten **keine** Gültigkeitsklasse anhängt — eine Annahme
+			// über den Übersetzer, die sich mit jeder Änderung am Stilblatt dreht.
 			'mit dem Wochendatum',
-			/<span\b[^>]*\bclass="hinweis hinweis--ziffern"[^>]*>[^<]*[0-9]{1,2}\./.test(
-				startseiteMitDienstHtml
+			/<span\b[^>]*\bclass="hinweis hinweis--ziffern[ "][^>]*>[^<]*[0-9]{1,2}\./.test(
+				/<a\b[^>]*\bclass="dienst[ "][\s\S]*?<\/a>/.exec(startseiteMitDienstHtml)?.[0] ?? ''
 			),
 		],
 		[

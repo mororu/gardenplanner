@@ -13,7 +13,8 @@
 	Mehr — die seltenen Handlungen. Seit Story 2.1 steht darunter **immer**
 	mindestens ein Eintrag: `Monatsplan ablegen` gilt allen, denn die planende
 	Person wechselt monatlich und ist nicht die Adminperson. Seit dem 2026-09-13
-	steht `Wissen` darunter; `Verwaltung` steht für Adminpersonen zuunterst.
+	steht `Wissen` darunter, seit dem 2026-09-17 `Archiv`; `Verwaltung` steht für
+	Adminpersonen zuunterst.
 
 	Damit ist die Liste nie mehr leer, und der frühere {:else}-Zweig mit
 	`Nichts zu verwalten.` ist weggefallen — ein toter Zweig, der beim nächsten
@@ -57,6 +58,21 @@
 			-->
 			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
 			<a class="eintrag" href={resolve('/wissen')}>Wissen</a>
+		</li>
+		<li>
+			<!--
+				`Archiv` steht seit dem 2026-09-17 hier und nicht in der Leiste, nach
+				demselben Massstab wie `Wissen` darüber: wie oft man hingeht. Was reif
+				ist, sieht man in der Saison bei jedem Gang durch den Garten nach; was
+				im letzten Monat getan wurde, schlägt die planende Person einmal im
+				Monat nach, wenn sie den Monatsplan schreibt.
+
+				Damit ist dies der **einzige** Weg ins Archiv — wie bei `Wissen` und
+				anders als bei `Alle Termine`, das in Block 2 auf `/` einen zweiten hat,
+				der nur manchmal da ist.
+			-->
+			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+			<a class="eintrag" href={resolve('/archiv')}>Archiv</a>
 		</li>
 		{#if data.istAdmin}
 			<li>

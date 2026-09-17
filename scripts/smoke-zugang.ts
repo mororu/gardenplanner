@@ -115,6 +115,7 @@ import {
 	aufgabeAnlegen,
 	aufgabeEntfernen,
 	aufgabenStapelAnlegen,
+	erledigteAufgabenAuflisten,
 	offeneAufgabenAuflisten,
 } from '../src/lib/server/db/queries/tasks.ts';
 /*
@@ -226,7 +227,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 653;
+const ERWARTETE_BEHAUPTUNGEN = 661;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -707,6 +708,26 @@ async function einzelaufgabenLaden(): Promise<EinzelaufgabenModul> {
 	einzelaufgabenModul ??=
 		(await import('../src/routes/einzelaufgaben/+page.server.ts')) as unknown as EinzelaufgabenModul;
 	return einzelaufgabenModul;
+}
+
+/*
+ * Das Archiv vom 2026-09-17.
+ *
+ * Seine load nimmt **kein** Ereignis — alle sehen dieselbe Liste, und der
+ * Aufruf ohne Argument weiter unten ist die Behauptung: fordert sie je eines,
+ * greift sie auf undefined zu und wirft. Dieselbe Bauform wie bei WissenModul.
+ *
+ * `actions` fehlt im Typ, und das trägt für sich genommen nichts: `as unknown
+ * as ArchivModul` löscht jede Beziehung zum echten Modul. Die Zusage steht
+ * darum als ausgeführte Behauptung im Block weiter unten, gelesen am geladenen
+ * Modul **und** am Quelltext — dieselbe zwei Wege wie bei /einzelaufgaben.
+ */
+type ArchivModul = { load: () => unknown };
+let archivModul: ArchivModul | null = null;
+
+async function archivLaden(): Promise<ArchivModul> {
+	archivModul ??= (await import('../src/routes/archiv/+page.server.ts')) as unknown as ArchivModul;
+	return archivModul;
 }
 
 /*
@@ -3546,14 +3567,19 @@ try {
 	 * macht diese Zeile rot.
 	 */
 	/*
-	 * **Seit dem 2026-09-13 sind es drei Abschnitte**, nicht zwei: die Ernte ist
-	 * dazugekommen und trägt `+ Ernten` — der Satz stand bis zum 2026-09-16 auf
-	 * `+ Reifes eintragen` und nannte damit den Griff auf /ernte statt den Knopf,
-	 * den er hier zählt. Die Regel dahinter ist
-	 * dieselbe geblieben — kein Abschnitt trägt zwei, und keiner trägt keinen.
-	 * Der zweite Teil ist so wichtig wie der erste: ein Abschnitt ohne primäre
-	 * Handlung ist eine Liste, aus der heraus man nichts anfangen kann, und
-	 * genau das war die Ernte in ihrem ersten Entwurf.
+	 * **Seit dem 2026-09-17 sind es wieder zwei Abschnitte.** Die Ernte war vom
+	 * 2026-09-13 an der dritte und trug `+ Ernten`; sie steht seither als Zeile
+	 * mit Zahl und Pfeil da und klappt nichts mehr auf — die Handlung `Reifes
+	 * eintragen` steht dort, wohin die Zeile führt.
+	 *
+	 * Die Regel dahinter ist dieselbe geblieben: kein Abschnitt trägt zwei, und
+	 * keiner trägt keinen. Der zweite Teil ist so wichtig wie der erste — ein
+	 * Abschnitt ohne primäre Handlung ist eine Liste, aus der heraus man nichts
+	 * anfangen kann, und genau das war die Ernte in ihrem ersten Entwurf.
+	 *
+	 * **Die Zahl steht hier von Hand und bricht bei jedem Abschnitt, der dazu-
+	 * oder wegkommt.** Das ist Absicht: sie ist die Stelle, an der jemand den
+	 * neuen Abschnitt auf seine eine Handlung ansieht.
 	 */
 	const abschnitte = ohneZeilenformulare.split('<details class="abschnitt" open>').slice(1);
 	const primaerJeAbschnitt = abschnitte.map(
@@ -3562,9 +3588,9 @@ try {
 	);
 	pruefen(
 		`jeder Aufklapper auf / trägt genau einen button-primary (${primaerJeAbschnitt.join('/')})`,
-		primaerJeAbschnitt.length === 3 &&
+		primaerJeAbschnitt.length === 2 &&
 			primaerJeAbschnitt.every((zahl) => zahl === 1) &&
-			(ohneZeilenformulare.match(/class="button-primary"/g) ?? []).length === 3,
+			(ohneZeilenformulare.match(/class="button-primary"/g) ?? []).length === 2,
 		`je Abschnitt: ${primaerJeAbschnitt.join('/')}, insgesamt: ${
 			(ohneZeilenformulare.match(/class="button-primary"/g) ?? []).length
 		}`
@@ -3620,11 +3646,17 @@ try {
 		 * Verlust.
 		 */
 		[
-			`alle elf Seitenkomponenten sind eingesammelt (gefunden: ${seitenPfade.length})`,
-			seitenPfade.length === 11,
+			`alle zwölf Seitenkomponenten sind eingesammelt (gefunden: ${seitenPfade.length})`,
+			seitenPfade.length === 12,
 		] as const,
 		// Vier bis zum 2026-09-13, fünf seit /ernte: die neue Seite trägt dieselbe
 		// höfliche Region wie /, /traenkeplan, /verwaltung und /wissen.
+		//
+		// **Fünf und nicht sechs, obwohl am 2026-09-17 eine zwölfte Seite dazukam.**
+		// /archiv hat keine Meldungsregion, weil es nichts zu melden hat: die Seite
+		// liest nur, sie exportiert kein `actions`, und eine Region ohne Vorgang
+		// wäre eine Ansage, die nie kommt. Die zwei Zahlen dieser Wache zählen
+		// darum Verschiedenes und bewegen sich nicht gemeinsam.
 		['es gibt genau fünf Meldungsregionen im Baum', meldungsTags.length === 5] as const,
 		...meldungsTags.map(
 			([name, tag]) =>
@@ -7360,10 +7392,16 @@ try {
 	 * Grund — ohne dass dort etwas rot würde, denn er misst Farben und liest
 	 * keine Sätze. Diese Zeile ist die andere Hälfte.
 	 *
-	 * Jeder Träger von `data-stufe` wird einzeln nachgesehen: die Zeile auf `/`,
-	 * die Karte auf `/ernte` (ihr Wort steht in der Überschrift, an die ihre Liste
-	 * über aria-labelledby gebunden ist), die Zeile der Stufenwahl und seit dem
+	 * Jeder Träger von `data-stufe` wird einzeln nachgesehen: die Karte auf
+	 * `/ernte` (ihr Wort steht in der Überschrift, an die ihre Liste über
+	 * aria-labelledby gebunden ist), die Zeile der Stufenwahl und seit dem
 	 * 2026-09-16 die Zeile der Legende.
+	 *
+	 * **Die Startseite ist seit dem 2026-09-17 keiner mehr.** Sie trug je reifer
+	 * Kultur eine Zeile mit Stufenfarbe und Stufenwort; jetzt steht dort eine
+	 * Zeile mit Zahl und Pfeil, und keine Stufe. Damit gibt es auf `/` keine
+	 * Farbe mehr, die etwas zu tragen hätte — die Zusage dieser Wache ist auf
+	 * /ernte unverändert, sie hat nur einen Ort weniger.
 	 *
 	 * **Die letzte Zeile zählt nicht mehr ab, sondern vergleicht.** Sie stand auf
 	 * `zwei in ernteCode` und wurde rot, als die Legende den dritten Träger
@@ -7377,14 +7415,11 @@ try {
 	const ernteCode = readFileSync(join(wurzel, 'src', 'routes', 'ernte', '+page.svelte'), 'utf8');
 	const stufenTeile = [
 		[
-			'die Zeile auf / trägt die Stufe als Marke neben der Kultur',
-			/<span class="marke">\{ERNTETEXT\[zeile\.status\]\.kurz\}<\/span>/.test(startseiteCodeDienst),
-		],
-		[
-			'und sie ist derselbe Knoten, der die Kante trägt',
-			/class:ernte-zeile--wachsen=\{zeile\.status === 'wachsen'\}\s*data-stufe=\{zeile\.status\}/.test(
-				startseiteCodeDienst
-			),
+			// Die Gegenprobe zur Umstellung vom 2026-09-17: auf `/` steht keine Stufe
+			// mehr, und darum darf dort auch keine Stufenfarbe liegen. Ohne diese
+			// Zeile käme eine Stufenklasse still zurück, ohne ihr Wort daneben.
+			'die Startseite trägt gar keine Stufe mehr — weder Wort noch Kante',
+			!startseiteCodeDienst.includes('data-stufe') && !startseiteCodeDienst.includes('ERNTETEXT'),
 		],
 		[
 			'der Abschnitt auf /ernte trägt die Stufe als Überschrift',
@@ -7408,8 +7443,7 @@ try {
 			'und jede Stelle mit einer Stufenklasse weist ihre Kante als data-stufe aus',
 			(ernteCode.match(/class:stufe--sofort=/g) ?? []).length ===
 				(ernteCode.match(/data-stufe=\{stufe\}/g) ?? []).length &&
-				(ernteCode.match(/data-stufe=\{stufe\}/g) ?? []).length >= 3 &&
-				(startseiteCodeDienst.match(/data-stufe=\{zeile\.status\}/g) ?? []).length === 1,
+				(ernteCode.match(/data-stufe=\{stufe\}/g) ?? []).length >= 3,
 		],
 	] as const;
 	pruefen(
@@ -7419,19 +7453,19 @@ try {
 	);
 
 	/*
-	 * **Die Legende auf /ernte — die Gegenseite zum Zeichen, das allein steht.**
+	 * **Die Legende auf /ernte — sie erklärt Stufen und Zeichen an einer Stelle.**
 	 *
-	 * Auf der Startseite trägt die Dauerernte seit dem 2026-09-16 **kein gemaltes
-	 * Wort** mehr, nur noch den Kreis aus zwei Pfeilen (Entscheid Manuel). Das ist
-	 * eine Ausnahme von `Keine Symbole ohne Beschriftung` in DESIGN.md, und sie
-	 * ist auf zwei Arten bezahlt: das Wort steht weiter im Markup, nur in
-	 * `.nur-vorgelesen` — wer die Seite hört, hört es unverändert —, und die
-	 * Legende erklärt das Zeichen dort, wo die Ernte bearbeitet wird.
+	 * Sie entstand am 2026-09-16 als Gegenseite zu einem Zeichen, das auf `/`
+	 * ohne gemaltes Wort stand. **Diesen Ort gibt es seit dem 2026-09-17 nicht
+	 * mehr**: die Startseite trägt eine Zeile mit Zahl und Pfeil, und die
+	 * Dauerernte kommt dort gar nicht mehr vor. Damit ist die Ausnahme von
+	 * `Keine Symbole ohne Beschriftung` erledigt — auf /ernte steht neben dem
+	 * Kreis das Wort.
 	 *
-	 * Beide Hälften stehen darum in **einer** Behauptung. Fiele die Legende weg,
-	 * bliebe auf `/` ein Zeichen ohne Erklärung; fiele das verborgene Wort weg,
-	 * wäre die Zeile für Vorleseprogramme stumm. Keine der beiden Lücken macht
-	 * irgendeine andere Wache rot.
+	 * Die Legende bleibt trotzdem, und aus ihrem zweiten Grund: sie erklärt die
+	 * drei Stufenfarben. Wer die Liste zum zwanzigsten Mal öffnet, liest nur noch
+	 * die Farbe; wer sie zum ersten Mal öffnet, schlägt hier nach. Zugeklappt
+	 * ausgeliefert, damit sie die Liste nicht aus dem Bild schiebt.
 	 *
 	 * Zugeklappt ausgeliefert ist Teil der Zusage: eine aufgeklappte Legende
 	 * schöbe die Liste, um die es geht, aus dem Bild. Das Gegenstück auf `/` sagt
@@ -7477,14 +7511,15 @@ try {
 			),
 		],
 		[
-			'und auf / steht dasselbe Zeichen, das Wort dort nur für Vorlesende',
-			/<ZeichenKreis \/>\s*<span class="nur-vorgelesen">\{DAUERERNTE_WORT\}<\/span>/.test(
-				startseiteCodeDienst
-			),
+			// Die Gegenprobe zur Umstellung vom 2026-09-17: das Zeichen steht auf `/`
+			// nicht mehr. Käme es dorthin zurück, gehörte sein Wort mit — und diese
+			// Zeile fiele, bis jemand beides bedacht hat.
+			'und auf / steht es nicht mehr — dort gibt es keine Erntezeilen',
+			!startseiteCodeDienst.includes('ZeichenKreis'),
 		],
 	] as const;
 	pruefen(
-		'das Zeichen der Dauerernte steht auf / allein — und die Legende auf /ernte erklärt es',
+		'die Legende auf /ernte erklärt die Stufen und das Zeichen der Dauerernte',
 		fehlendeTeile(legendeTeile).length === 0,
 		`fehlt: ${fehlendeTeile(legendeTeile).join(', ')}`
 	);
@@ -8342,6 +8377,12 @@ try {
 	/*
 	 * **Die zwei Abschnitte sind zuklappbar — und werden offen geliefert.**
 	 *
+	 * **Zwei, und vom 2026-09-13 bis zum 2026-09-17 waren es drei.** Die Ernte
+	 * war der dritte; sie steht seither als Zeile mit Zahl und Pfeil da und
+	 * klappt nichts mehr auf. Die Zahl steht hier von Hand und bricht bei jedem
+	 * Abschnitt, der dazu- oder wegkommt — das ist Absicht und die Stelle, an der
+	 * jemand den neuen Abschnitt auf `open`, Griff und Kennung ansieht.
+	 *
 	 * Das `open` ist hier die eigentliche Behauptung und nicht der Aufklapper.
 	 * AD-14 verlangt, dass man beim Öffnen der Seite sieht, was zu tun ist; ein
 	 * Abschnitt, der zugeklappt ausgeliefert wird, bricht das, ohne dass jemand
@@ -8358,12 +8399,12 @@ try {
 	 */
 	const aufklappTeile = [
 		[
-			'es sind genau drei Abschnitts-Aufklapper',
-			(startseiteCodeEinzel.match(/<details class="abschnitt" open>/g) ?? []).length === 3,
+			'es sind genau zwei Abschnitts-Aufklapper',
+			(startseiteCodeEinzel.match(/<details class="abschnitt" open>/g) ?? []).length === 2,
 		],
 		[
-			'alle drei tragen einen Griff',
-			(startseiteCodeEinzel.match(/<summary class="abschnitt__griff">/g) ?? []).length === 3,
+			'beide tragen einen Griff',
+			(startseiteCodeEinzel.match(/<summary class="abschnitt__griff">/g) ?? []).length === 2,
 		],
 		[
 			/*
@@ -8382,21 +8423,21 @@ try {
 			// Der Griff trägt seit dem 2026-09-11 die Zahl statt eines Titels — die
 			// Zahl **ist** die Überschrift. Was er sagt, prüft die Griff-Wache weiter
 			// oben; hier steht nur, dass er da ist.
-			'alle drei Griffe tragen einen Satz mit Kennung',
-			(startseiteCodeEinzel.match(/<h2 class="griff__satz" id="[a-z-]+">/g) ?? []).length === 3,
+			'beide Griffe tragen einen Satz mit Kennung',
+			(startseiteCodeEinzel.match(/<h2 class="griff__satz" id="[a-z-]+">/g) ?? []).length === 2,
 		],
 		[
 			// Seit dem 2026-09-11 umgekehrt: die primären Knöpfe liegen **in** ihren
 			// Abschnitten. Der Preis — zugeklappt kein Erfassen — ist am Knopf
 			// ausgeschrieben; getragen wird er davon, dass der Zustand nirgends
 			// gespeichert ist.
-			'und alle drei primären Knöpfe liegen in ihren Abschnitten',
+			'und beide primären Knöpfe liegen in ihren Abschnitten',
 			startseiteCodeEinzel.lastIndexOf('class="button-primary"') <
 				startseiteCodeEinzel.lastIndexOf('</details>'),
 		],
 	] as const;
 	pruefen(
-		'alle drei Abschnitte auf / sind zuklappbar und werden offen ausgeliefert',
+		'beide Abschnitte auf / sind zuklappbar und werden offen ausgeliefert',
 		fehlendeTeile(aufklappTeile).length === 0,
 		`fehlt: ${fehlendeTeile(aufklappTeile).join(', ')}`
 	);
@@ -9355,6 +9396,139 @@ try {
 			!/^\s*\.textfeld \{/m.test(wissenKomponente) &&
 			!/^\s*\.textfeld \{/m.test(blattKomponente),
 		'eine Seite trägt die Regel wieder lokal'
+	);
+
+	// -----------------------------------------------------------------------
+	// /archiv — was schon getan ist (2026-09-17)
+	// -----------------------------------------------------------------------
+	/*
+	 * **Die erste Ansicht, die `completed_at` überhaupt liest.** Bis zu diesem Tag
+	 * schrieb das Abhaken zwei Spalten, die keine Abfrage je zurückgelesen hat;
+	 * die Zeile verschwand beim nächsten Laden und war fort. Was hier geprüft
+	 * wird, ist darum nicht bloss eine weitere Liste, sondern die Grenze, an der
+	 * diese Seite entlangläuft: **der Zeitpunkt darf heraus, die Person nicht.**
+	 *
+	 * Der Block sät sein eigenes Mitglied und seine eigenen Zeilen. Die Blöcke
+	 * davor haken selbst ab — das Archiv ist an dieser Stelle also längst nicht
+	 * leer —, und jede Behauptung über die Reihenfolge filtert darum auf die
+	 * eigenen Ids. Dieselbe Begründung wie an `offeneReihenfolge`: eine
+	 * Reihenfolgebehauptung über den ganzen Tabelleninhalt sagt mehr zu, als sie
+	 * meint.
+	 */
+	const archiv = await archivLaden();
+	const archivMitglied = mitgliedAnlegen({
+		name: 'Tamara',
+		inviteTokenHash: tokenHashen(tokenErzeugen()),
+		isAdmin: false,
+	});
+	const archivLocals = ohneTokenHash(archivMitglied);
+
+	const archivJetzt = Math.floor(Date.now() / 1000);
+	const archivFrueh = aufgabeSaen('Reisig bündeln und zum Häcksler fahren', archivJetzt - 300);
+	const archivSpaet = aufgabeSaen('Wege im Nordteil abziehen', archivJetzt - 200);
+	const archivOffen = aufgabeSaen('Kompost umsetzen, zweite Miete', archivJetzt - 100);
+
+	for (const id of [archivFrueh, archivSpaet]) {
+		await routenausgang(() =>
+			startseite.actions.abhaken(
+				alsMitglied('/', archivLocals, { aufgabeId: String(id) }).alsRequestEvent()
+			)
+		);
+	}
+	/*
+	 * Der frühere der zwei bekommt einen Zeitpunkt aus dem Vormonat, direkt in
+	 * die Spalte. Beide sind in derselben Sekunde abgehakt worden, und dann
+	 * entschiede allein die Id — die zweite Stufe der Ordnung. Geprüft werden
+	 * soll aber die **erste**, und die braucht zwei verschiedene Zeitpunkte.
+	 * Nebenbei liegen die zwei Zeilen damit in verschiedenen Monaten, was die
+	 * Gruppierung der Komponente überhaupt erst zu tun bekommt.
+	 */
+	datenbank()
+		.update(tasks)
+		.set({ completedAt: archivJetzt - 40 * 24 * 60 * 60 })
+		.where(eq(tasks.id, archivFrueh))
+		.run();
+
+	const archivStand = await routenausgang(() => archiv.load());
+	const archivZeilen = ((wertVon(archivStand).erledigte ?? []) as { id: number }[]).map(
+		(zeile) => zeile.id
+	);
+	pruefen(
+		'die load von /archiv läuft ohne Ereignis und gibt dieselbe Liste wie die Abfrage',
+		archivStand.art === 'wert' &&
+			JSON.stringify(wertVon(archivStand).erledigte) ===
+				JSON.stringify(erledigteAufgabenAuflisten()),
+		`Ausgang ${archivStand.art}`
+	);
+	pruefen(
+		'eine abgehakte Aufgabe steht im Archiv, eine offene nicht',
+		archivZeilen.includes(archivFrueh) &&
+			archivZeilen.includes(archivSpaet) &&
+			!archivZeilen.includes(archivOffen),
+		`Archiv: ${archivZeilen.join(' | ')}, offen gesät: ${archivOffen}`
+	);
+	pruefenGleich(
+		'das zuletzt Abgehakte steht vorn — die Ordnung ist die umgekehrte der offenen Liste',
+		archivZeilen.filter((id) => id === archivFrueh || id === archivSpaet).join(' | '),
+		`${archivSpaet} | ${archivFrueh}`
+	);
+	/*
+	 * **Die zwei Behauptungen, die zusammengehören.** Die erste allein erfüllte
+	 * sich an einer leeren Projektion: eine load, die gar nichts zurückgibt,
+	 * nennt auch kein completed_by. Die zweite ist die Gegenprobe — der Zeitpunkt
+	 * ist wirklich da, unter seinem deutschen Namen, und er steht auf der Sekunde,
+	 * die in der Spalte steht.
+	 */
+	pruefen(
+		'die Seitendaten von /archiv tragen weder completed_by noch completed_at',
+		!nenntErledigt(wertVon(archivStand)),
+		JSON.stringify(wertVon(archivStand)).slice(0, 160)
+	);
+	const archivZeileSpaet = (
+		(wertVon(archivStand).erledigte ?? []) as {
+			id: number;
+			erledigtAm?: number;
+		}[]
+	).find((zeile) => zeile.id === archivSpaet);
+	pruefenGleich(
+		'und der Zeitpunkt reist trotzdem mit — als erledigtAm, nicht als completedAt',
+		archivZeileSpaet?.erledigtAm ?? -1,
+		aufgabeLesen(archivSpaet)?.completedAt ?? -2
+	);
+	/*
+	 * Die Person steht in der Datenbank und nirgends sonst. Ohne diese Zeile
+	 * bewiese der Block nur, dass die Projektion schweigt — nicht, dass es etwas
+	 * zu verschweigen gäbe.
+	 */
+	pruefenGleich(
+		'abgehakt hat ein Mensch, und die Spalte trägt ihn — nur reicht sie ihn nicht heraus',
+		aufgabeLesen(archivSpaet)?.completedBy ?? -1,
+		archivMitglied.id
+	);
+	pruefen(
+		'und /archiv hat keine action — eine abgehakte Aufgabe ist Historie (FR14)',
+		!('actions' in (archiv as Record<string, unknown>)) &&
+			!/export const actions/.test(quelltext('src', 'routes', 'archiv', '+page.server.ts')),
+		Object.keys(archiv).join(', ')
+	);
+	/*
+	 * Der Weg zurück führt über `/` und nimmt die Zeile aus dem Archiv — die
+	 * andere Hälfte der Zusage, die der Hinweissatz auf der Seite gibt. Ohne
+	 * diese Behauptung bliebe offen, ob das Archiv den Zustand liest oder eine
+	 * Kopie führt, die beim Wiederöffnen stehen bleibt.
+	 */
+	await routenausgang(() =>
+		startseite.actions.wiederOeffnen(
+			alsMitglied('/', archivLocals, { aufgabeId: String(archivSpaet) }).alsRequestEvent()
+		)
+	);
+	const archivNachRueckgabe = (
+		(wertVon(await routenausgang(() => archiv.load())).erledigte ?? []) as { id: number }[]
+	).map((zeile) => zeile.id);
+	pruefen(
+		'wer eine Aufgabe wieder öffnet, nimmt sie aus dem Archiv',
+		!archivNachRueckgabe.includes(archivSpaet) && archivNachRueckgabe.includes(archivFrueh),
+		`Archiv danach: ${archivNachRueckgabe.join(' | ')}`
 	);
 } catch (fehler) {
 	unerwarteterWurf('smoke', fehler);
