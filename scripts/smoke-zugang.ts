@@ -7253,9 +7253,14 @@ try {
 			/\{eintrag\.name \?\? '— unbesetzt —'\}/.test(traenkeplanCode),
 		],
 		[
+			// Seit dem 2026-09-17 `--overdue` und nicht mehr `--warn`: das Gold las
+			// sich als Beige (Befund Manuel), und mit diesem Wechsel hat `--warn`
+			// seinen letzten Leser verloren und ist aus src/app.html verschwunden.
+			// Die Zusage dieser Zeile ist davon unberührt — sie sagt, dass die Farbe
+			// **zusätzlich** zum Wort kommt, nicht welche.
 			'die Farbe kommt zusätzlich, über eine eigene Klasse',
 			/class:woche__name--unbesetzt=\{eintrag\.name === null\}/.test(traenkeplanCode) &&
-				/\.woche__name--unbesetzt \{[^}]*color: var\(--warn\)/.test(traenkeplanCode),
+				/\.woche__name--unbesetzt \{[^}]*color: var\(--overdue\)/.test(traenkeplanCode),
 		],
 		/*
 		 * Ziffern in Tabellenstellung — UX-DR: eine Wochenliste, deren Zahlen

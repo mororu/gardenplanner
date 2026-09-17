@@ -189,7 +189,7 @@ export function gerundet(wert: number): number {
  *     4.54:1 — das steht in jeder Kontrasttabelle der Welt und stammt nicht aus
  *     diesem Projekt. Ohne diese drei Zeilen prüfte der Selbsttest die eigene
  *     Rechnung gegen die eigenen Zahlen.
- *   - **Die veröffentlichte Tabelle aus DESIGN.md**, neunzehn von Hand
+ *   - **Die veröffentlichte Tabelle aus DESIGN.md**, siebzehn von Hand
  *     gerechnete Werte. Sie sind hier die Vorgabe, nicht das Ergebnis: stimmen
  *     sie, haben zwei voneinander unabhängige Rechnungen dasselbe
  *     herausbekommen. Seit dem 2026-09-13 ist es **eine** Spalte statt zwei —
@@ -213,7 +213,13 @@ export function gerundet(wert: number): number {
  */
 
 /**
- * Die neunzehn Paarungen der Tabelle „Kontrast, geprüft statt behauptet".
+ * Die siebzehn Paarungen der Tabelle „Kontrast, geprüft statt behauptet".
+ *
+ * **Zwei sind am 2026-09-17 weggefallen** — `Unbesetzt auf Karte` und
+ * `Unbesetzt auf Grund`. Sie beschrieben `--warn`, und dieses Token hat mit
+ * dem Wechsel der unbesetzten Woche auf `--overdue` seinen letzten Leser
+ * verloren; es steht seither nicht mehr in src/app.html. Eine Zeile über eine
+ * Farbe, die es nicht gibt, prüft nichts.
  *
  * Je Zeile: Name, Vordergrund, Grund, der **dokumentierte** Wert und die
  * Schwelle, die er halten muss. Schwelle 0 heisst: diese Zeile hat keinen
@@ -234,8 +240,6 @@ const DOKUMENTIERT = [
 	 */
 	['Titelleistenschrift auf Akzent', 'accentInk', 'accent', 6.05, 4.5],
 	['Überfällig auf Karte', 'overdue', 'raised', 6.3, 4.5],
-	['Unbesetzt auf Karte', 'warn', 'raised', 5.35, 4.5],
-	['Unbesetzt auf Grund', 'warn', 'base', 4.87, 4.5],
 	['Zerstörend auf Karte', 'danger', 'raised', 6.71, 4.5],
 	['Zerstörend auf Grund', 'danger', 'base', 6.11, 4.5],
 	/*
@@ -313,7 +317,6 @@ const HELL = {
 	accent: '#3f6b4a',
 	accentInk: '#fffdf8',
 	overdue: '#98481d',
-	warn: '#856500',
 	danger: '#a33427',
 	reifSofort: '#c0392b',
 	reifStehen: '#ffc400',

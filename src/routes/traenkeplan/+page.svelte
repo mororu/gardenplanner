@@ -503,8 +503,21 @@
 		text-align: end;
 	}
 
-	/* Das Wort trägt die Aussage, die Farbe kommt dazu — nie die Farbe allein. */
+	/*
+		Das Wort trägt die Aussage, die Farbe kommt dazu — nie die Farbe allein.
+
+		**`--overdue` seit dem 2026-09-17** (Entscheid Manuel). Bis dahin stand hier
+		`--warn`, ein dunkles Gold, das sich als Beige las statt als Warnung; mit
+		diesem Wechsel hat jenes Token seinen letzten Leser verloren und ist aus
+		src/app.html verschwunden.
+
+		Damit tragen die unbesetzte Woche hier und die Warnung an der Tränkezeile
+		auf `/` denselben Ton — sie sagen auch dasselbe. Was sie von `überfällig`
+		im Pool-Griff unterscheidet, sind die Wörter und die Orte, nicht mehr die
+		Farbe; so stand es schon vorher im Tokenblock als das, was die Aussage
+		wirklich trägt.
+	*/
 	.woche__name--unbesetzt {
-		color: var(--warn);
+		color: var(--overdue);
 	}
 </style>

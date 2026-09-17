@@ -124,30 +124,26 @@
 				   Gemessen: Fliesstext 13.28:1, Nebentext 4.93:1, Akzent 5.00:1.
 				*/
 				--surface-griff: #ede7db;
-				--overdue: #98481d;
 				/*
-				   Gold, und nur für die unbesetzte Dienstwoche (Epic 3): eine Lücke,
-				   die jemand schliessen muss — kein Fehler und keine Gefahr, darum
-				   nicht --danger, und kein Liegenbleiben, darum nicht --overdue.
+				   Rostlehm, für alles, was **drängt**: die überfällige Aufgabe im
+				   Pool-Griff, die unbesetzte Woche im Tränkeplan und die Warnung an der
+				   Tränkezeile auf `/`.
 
-				   **Dieses Token trug bis zum 2026-09-13 zwei Aufgaben, und daran ist
-				   es fast zerbrochen.** Es färbte zugleich die Kante einer Erntestufe.
-				   Eine Textfarbe muss 4.5:1 halten, eine 3px-Kante nur 3:1 — und weil
-				   immer die strengere Anforderung gewann, blieb die Kante blass. Die
-				   Ampel hat seither eigene Token (--reif-*), und dieses hier hat wieder
-				   genau einen Zweck.
+				   **Seit dem 2026-09-17 ist es für alle drei zuständig, und dabei ist
+				   --warn verschwunden.** Jenes Token war Gold (#856500) und trug die
+				   zwei Zustände der Unbesetztheit; es las sich auf 13px als Beige und
+				   nicht als Warnung (Befund Manuel). Der Unterschied zu diesem hier war
+				   ohnehin nur der Ton — 1.18:1 zueinander —, und was die Zustände
+				   wirklich auseinanderhält, stand schon damals im Tokenblock: **die
+				   Wörter sind verschieden, und sie stehen an verschiedenen Orten.**
 
-				   **Von --overdue unterscheidet es der Farbton, nicht die Helligkeit:**
-				   die zwei liegen bei 1.18:1 zueinander, aber das eine ist Rostlehm und
-				   das andere Gold. Bis zum 2026-09-13 waren es 1.07:1 bei gleichem Ton,
-				   und der Tokenblock nannte das ausdrücklich hingenommen. Getragen wird
-				   die Aussage ohnehin vom Wort — die zwei Zustände stehen seit dem
-				   2026-09-11 beide auf der Startseite, in verschiedenen Blöcken und mit
-				   verschiedenen Wörtern.
+				   **Nicht --danger**, obwohl das der klarere Rotton wäre: DESIGN.md
+				   reserviert ihn für Zerstörendes, und eine unbesetzte Woche ist keine
+				   Gefahr, sondern eine Lücke.
 
-				   Gemessen: 5.35:1 auf --surface-raised, 4.87:1 auf --surface-base.
+				   Gemessen: 6.30:1 auf --surface-raised.
 				*/
-				--warn: #856500;
+				--overdue: #98481d;
 				/*
 				   Rot, und nur für Zerstörendes: der Knopf `Einladung widerrufen`.
 				   Es gibt bewusst kein --danger-ink, weil der zerstörende Knopf
@@ -322,8 +318,11 @@
 
 				   Ein eigenes Token und nicht --border-hairline, obwohl beide 1px sind:
 				   das eine ist die Breite einer Linie, das andere die Grösse eines
-				   Kastens. Zwei Zwecke an einem Token sind die Falle, in die --warn am
-				   2026-09-13 gelaufen ist.
+				   Kastens. Zwei Zwecke an einem Token sind die Falle, in die das
+				   frühere --warn am 2026-09-13 gelaufen ist — es färbte Text und die
+				   Kante einer Erntestufe zugleich, und die strengere Schwelle gewann
+				   immer. (Das Token selbst gibt es seit dem 2026-09-17 nicht mehr; die
+				   Falle gibt es weiterhin.)
 				*/
 				--verborgen: 0.0625rem;
 

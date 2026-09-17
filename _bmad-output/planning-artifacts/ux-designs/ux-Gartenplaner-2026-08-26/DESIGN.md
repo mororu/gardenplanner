@@ -202,8 +202,6 @@ Ein einziger chromatischer Ton für alles Handlungsfähige, einer für Überfäl
 | Akzent als Text auf Karte | 6.05:1 | 4.5 |
 | Titelleistenschrift auf Akzent | 6.05:1 | 4.5 |
 | Überfällig auf Karte | 6.30:1 | 4.5 |
-| Unbesetzt auf Karte | 5.35:1 | 4.5 |
-| Unbesetzt auf Grund | 4.87:1 | 4.5 |
 | Zerstörend auf Karte | 6.71:1 | 4.5 |
 | Zerstörend auf Grund | 6.11:1 | 4.5 |
 | Bedienelement-Umriss auf Grund | 5.44:1 | 3.0 |
