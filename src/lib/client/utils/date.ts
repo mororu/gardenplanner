@@ -44,6 +44,50 @@ export function datumLang(unixSekunden: number): string {
 }
 
 /*
+ * Dasselbe Datum mit abgekürztem Monat: `17. Sep 2026`.
+ *
+ * **Für Angaben, die neben etwas anderem stehen** — Herkunft und Termin an
+ * einer Zeile, in 13px neben einem Namen. Dort ist die Breite knapp, und der
+ * ausgeschriebene Monat kostet je nach Monat bis zu sechs Zeichen (September)
+ * und im Mai keines.
+ *
+ * **Und ausdrücklich nicht überall** (Entscheid Manuel, 2026-09-17, gegen den
+ * ersten Wortlaut „überall"). `datumLang` daneben bleibt lang, und das aus drei
+ * Gründen, die alle an konkreten Stellen hängen:
+ *
+ *   - **Überschriften** wie `Sitzung vom 17. September 2026` haben eine ganze
+ *     Zeile für sich. `Sitzung vom 17. Sep 2026` liest sich dort wie ein
+ *     Formularfeld, nicht wie eine Überschrift.
+ *   - **Sätze** wie der Bestätigungstext `Du übernimmst: …, 19. September 2026.`
+ *     und `…, aufgenommen am …, kommt danach nicht mehr herein` sind Prosa. In
+ *     einem Satz ist eine Abkürzung eine Stolperstelle.
+ *   - **Was vorgelesen wird**, bleibt lang: die verborgene Fassung an der Zeile
+ *     der freien Termine (`.nur-vorgelesen`) geht an ein Vorleseprogramm, und
+ *     `Sep` wird dort je nach Stimme buchstabiert statt gelesen.
+ *
+ * Zwei Funktionen und kein Schalter am Aufruf: welche Fassung eine Stelle
+ * braucht, ist eine Eigenschaft der Stelle und keine Laune des Aufrufers.
+ * `month: 'short'` liefert in de-CH drei Buchstaben ohne Punkt — `Sep`, nicht
+ * `Sept.`; gemessen, nicht vermutet.
+ */
+const KURZER_MONAT = new Intl.DateTimeFormat('de-CH', {
+	day: 'numeric',
+	month: 'short',
+	year: 'numeric',
+	timeZone: ZEITZONE,
+});
+
+/**
+ * Ein Datum mit abgekürztem Monat: `17. Sep 2026`.
+ *
+ * @param unixSekunden Zeitstempel in Unix-**Sekunden**, so wie er in der
+ *   Datenbank steht — nicht in Millisekunden.
+ */
+export function datumKurz(unixSekunden: number): string {
+	return KURZER_MONAT.format(new Date(unixSekunden * 1000));
+}
+
+/*
  * Der Tag und der Monat getrennt — für den Datumskasten an einer Zeile.
  *
  * **Zwei Felder und keine Zeichenkette**, weil die zwei im Kasten

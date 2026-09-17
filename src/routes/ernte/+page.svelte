@@ -19,7 +19,7 @@
 	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
 	import ZeichenKreis from '$lib/components/ZeichenKreis.svelte';
 	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
-	import { datumLang } from '$lib/client/utils/date';
+	import { datumKurz } from '$lib/client/utils/date';
 
 	/*
 		/ernte — was reif ist, in drei Stufen, dringend zuoberst.
@@ -612,7 +612,7 @@
 									stammen; die Zeile bleibt dann trotzdem lesbar.
 								-->
 								<p class="hinweis hinweis--ziffern">
-									{eintrag.name ?? 'unbekannt'} · {datumLang(eintrag.createdAt)}
+									{eintrag.name ?? 'unbekannt'} · {datumKurz(eintrag.createdAt)}
 								</p>
 
 								{#if fragtHier && frage !== null}

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { datumLang, monatUndJahr } from '$lib/client/utils/date';
+	import { datumKurz, monatUndJahr } from '$lib/client/utils/date';
 	import type { PageProps } from './$types';
 
 	const { data }: PageProps = $props();
@@ -120,13 +120,18 @@
 							wiederfinden will — `Mitte September` ist die Auskunft, nach der man
 							sucht, und der Monat allein gibt sie nicht.
 
-							Ausgeschrieben **mit** Jahr, obwohl es über der Gruppe schon steht:
-							`datumLang` ist die eine Datumsform dieses Produkts, und dieselbe
-							Zeile trägt sie auf `Alle Termine`. Zwei Schreibweisen desselben
-							Datums wären der teurere Handel als eine Wiederholung.
-							`.hinweis--ziffern` setzt sie in die Ziffernrolle, wie dort.
+							**Mit Jahr und mit abgekürztem Monat** — `datumKurz`, seit dem
+							2026-09-17. Das Jahr steht über der Gruppe schon; es hier zu
+							wiederholen ist der billigere Handel als zwei Schreibweisen desselben
+							Datums, denn dieselbe Zeile trägt diese Form auch auf `Alle Termine`,
+							auf `/ernte` und auf `/sitzungen`.
+
+							Abgekürzt, weil sie neben anderem steht: `datumLang` bleibt den
+							Überschriften und den Sätzen vorbehalten. Die Begründung in ganzer
+							Länge steht an `datumKurz` in $lib/client/utils/date.
+							`.hinweis--ziffern` setzt sie in die Ziffernrolle.
 						-->
-						<p class="hinweis hinweis--ziffern">{datumLang(zeile.erledigtAm)}</p>
+						<p class="hinweis hinweis--ziffern">{datumKurz(zeile.erledigtAm)}</p>
 						<!--
 							Der Name steht nur an einer Terminzeile — eine Poolaufgabe ist
 							namenlos, und zwar im Typ und nicht bloss in der Anzeige. Es gibt

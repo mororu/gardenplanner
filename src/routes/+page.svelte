@@ -6,7 +6,7 @@
 	import { resolve } from '$app/paths';
 	import { tick } from 'svelte';
 	import type { PageProps } from './$types';
-	import { datumKasten, datumLang } from '$lib/client/utils/date';
+	import { datumKasten, datumKurz, datumLang } from '$lib/client/utils/date';
 	import { AUFGABE_HOECHSTLAENGE } from '$lib/aufgabentext';
 	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
 	import {
@@ -875,7 +875,7 @@
 										class="hinweis hinweis--ziffern"
 										class:einzel__verstrichen={zusage.lage === 'verstrichen'}
 									>
-										{datumLang(zusage.terminAt)}{fristZusatz(zusage.lage)}
+										{datumKurz(zusage.terminAt)}{fristZusatz(zusage.lage)}
 									</span>
 								</span>
 								<!--

@@ -4,7 +4,7 @@
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 	import { tick } from 'svelte';
 	import type { PageProps } from './$types';
-	import { datumLang } from '$lib/client/utils/date';
+	import { datumKurz, datumLang } from '$lib/client/utils/date';
 	import { PROTOKOLL_HOECHSTGROESSE_MB } from '$lib/sitzung';
 	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
 	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
@@ -331,7 +331,7 @@
 							bleibt dann trotzdem lesbar.
 						-->
 						<p class="hinweis hinweis--ziffern">
-							{punkt.name ?? 'unbekannt'} · {datumLang(punkt.createdAt)}
+							{punkt.name ?? 'unbekannt'} · {datumKurz(punkt.createdAt)}
 						</p>
 					</li>
 				{/each}
@@ -426,7 +426,7 @@
 						Protokoll der Sitzung vom {datumLang(protokoll.sitzungAm)}
 					</a>
 					<p class="hinweis hinweis--ziffern">
-						{protokoll.name ?? 'unbekannt'} · {datumLang(protokoll.createdAt)}
+						{protokoll.name ?? 'unbekannt'} · {datumKurz(protokoll.createdAt)}
 					</p>
 				</li>
 			{/each}

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { datumLang } from '$lib/client/utils/date';
+	import { datumKurz } from '$lib/client/utils/date';
 	import type { PageProps } from './$types';
 
 	const { data }: PageProps = $props();
@@ -69,7 +69,7 @@
 						liefen bei 375px sonst aus der Box.
 					-->
 					<p class="fliesstext zeile__text">{aufgabe.titel}</p>
-					<p class="hinweis hinweis--ziffern">{datumLang(aufgabe.terminAt)}</p>
+					<p class="hinweis hinweis--ziffern">{datumKurz(aufgabe.terminAt)}</p>
 					<!--
 						**Der Name trägt das Wort, nicht die Farbe.** `noch niemand` steht in
 						der Nebentext-Rolle und ausdrücklich nicht in `--warn`: jenes Token
