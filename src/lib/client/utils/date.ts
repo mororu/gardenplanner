@@ -48,8 +48,11 @@ export function datumLang(unixSekunden: number): string {
  *
  * **Für Angaben, die neben etwas anderem stehen** — Herkunft und Termin an
  * einer Zeile, in 13px neben einem Namen. Dort ist die Breite knapp, und der
- * ausgeschriebene Monat kostet je nach Monat bis zu sechs Zeichen (September)
- * und im Mai keines.
+ * ausgeschriebene Monat kostet je nach Monat bis zu vier Zeichen (September,
+ * November, Dezember) und in März, Mai, Juni und Juli keines — im Mittel 1.9.
+ * Gemessen an den zwei Formatierern dieses Moduls und nicht am Monat allein:
+ * `month: 'short'` liefert für sich `Sep`, zusammen mit einem Tag aber
+ * `17. Sept. 2026`, mit Punkt und mit vier Buchstaben.
  *
  * **Und ausdrücklich nicht überall** (Entscheid Manuel, 2026-09-17, gegen den
  * ersten Wortlaut „überall"). `datumLang` daneben bleibt lang, und das aus drei
@@ -67,8 +70,6 @@ export function datumLang(unixSekunden: number): string {
  *
  * Zwei Funktionen und kein Schalter am Aufruf: welche Fassung eine Stelle
  * braucht, ist eine Eigenschaft der Stelle und keine Laune des Aufrufers.
- * `month: 'short'` liefert in de-CH drei Buchstaben ohne Punkt — `Sep`, nicht
- * `Sept.`; gemessen, nicht vermutet.
  */
 const KURZER_MONAT = new Intl.DateTimeFormat('de-CH', {
 	day: 'numeric',

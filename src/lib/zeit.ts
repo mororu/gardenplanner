@@ -508,11 +508,19 @@ export function wochenSchluessel({ jahr, woche }: Woche): number {
 /** Die Wochentage als Text, für das Wochendatum darunter. */
 /*
  * **Abgekürzt seit dem 2026-09-17** (Entscheid Manuel). `31. August bis
- * 6. September` sind 27 Zeichen, `31. Aug bis 6. Sep` deren 18 — und dieser
+ * 6. September` sind 27 Zeichen, `31. Aug. bis 6. Sept.` deren 21 — und dieser
  * Satz steht vierzehnmal untereinander im Tränkeplan, unter jeder
  * Wochennummer, dazu im Diensthinweis auf `/`. Er war damit die längste
  * Zeitangabe des Produkts und die einzige, die zweimal einen Monatsnamen
  * trägt.
+ *
+ * **Was `month: 'short'` in de-CH wirklich liefert, ist gemessen und nicht
+ * vermutet, und es ist nicht, was man annimmt.** Der Monat **allein** kommt als
+ * `Sep` ohne Punkt; zusammen mit einem Tag wählt Intl ein anderes Muster und
+ * schreibt `31. Aug.` und `6. Sept.` — mit Punkt, und der September mit vier
+ * Buchstaben. Ein erster Anlauf dieser Änderung hat den Monat allein gemessen
+ * und beide Wachen auf `6. Sep` gestellt; sie sind rot geworden, und das ist
+ * der Grund, aus dem sie den Wortlaut überhaupt wörtlich lesen.
  *
  * Dieselbe Abwägung wie bei `datumKurz` in ./client/utils/date.ts, nur fällt
  * sie hier eindeutig aus: dieses Datum steht nie als Überschrift und nie in
@@ -525,7 +533,7 @@ const WOCHENDATUM_TAG = new Intl.DateTimeFormat('de-CH', {
 });
 
 /**
- * Die Woche in Alltagssprache: `31. Aug bis 6. Sep`.
+ * Die Woche in Alltagssprache: `31. Aug. bis 6. Sept.`.
  *
  * **`timeZone: 'UTC'` und nicht ZEITZONE**, anders als bei `datumLang` in
  * ./client/utils/date.ts: montagDerWoche liefert Mitternacht UTC eines
