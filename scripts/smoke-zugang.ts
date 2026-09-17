@@ -220,6 +220,8 @@ import {
 	WOCHE_NICHT_ANSPRECHBAR,
 } from '../src/lib/texte.ts';
 import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
+import { TRAKTANDUM_HOECHSTLAENGE, istPdf, traktandumPruefen } from '../src/lib/sitzung.ts';
+import { protokollAblegen, protokollLesen } from '../src/lib/server/protokollablage.ts';
 
 /**
  * So viele Behauptungen muss ein vollständiger Lauf ablegen, die Schlusszählung
@@ -228,7 +230,7 @@ import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 661;
+const ERWARTETE_BEHAUPTUNGEN = 664;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -9537,12 +9539,126 @@ try {
 		)
 	);
 	const archivNachRueckgabe = (
-		(wertVon(await routenausgang(() => archiv.load())).erledigte ?? []) as { id: number }[]
-	).map((zeile) => zeile.id);
+		(wertVon(await routenausgang(() => archiv.load())).erledigte ?? []) as Archivzeile[]
+	).map((zeile) => zeile.schluessel);
 	pruefen(
 		'wer eine Aufgabe wieder öffnet, nimmt sie aus dem Archiv',
-		!archivNachRueckgabe.includes(archivSpaet) && archivNachRueckgabe.includes(archivFrueh),
+		!archivNachRueckgabe.includes(`aufgabe-${archivSpaet}`) &&
+			archivNachRueckgabe.includes(`aufgabe-${archivFrueh}`),
 		`Archiv danach: ${archivNachRueckgabe.join(' | ')}`
+	);
+
+	/*
+	 * -----------------------------------------------------------------------
+	 * /sitzungen — was ein Traktandum und was ein Protokoll passieren lässt
+	 * -----------------------------------------------------------------------
+	 *
+	 * **Gemessen werden die zwei Stellen, an denen eine Eingabe von aussen auf
+	 * den Server trifft**, und nicht die Oberfläche: die Prüfung des
+	 * Traktandumtexts und die der hochgeladenen Bytes. Für die Ablage kommt die
+	 * Namensdisziplin dazu — sie ist die Schranke, die verhindert, dass ein
+	 * Lesevorgang das Verzeichnis verlässt, und sie ist damit die einzige Stelle
+	 * dieses Features, an der ein Fehler mehr kostet als eine krumme Zeile.
+	 */
+	const traktandumTeile = [
+		['ein gewöhnlicher Satz kommt gefaltet durch', 'text' in traktandumPruefen(' Zaun  flicken ')],
+		[
+			'und zwar wirklich gefaltet — doppelter Leerraum zusammengezogen, Rand getrimmt',
+			(traktandumPruefen(' Zaun  flicken ') as { text: string }).text === 'Zaun flicken',
+		],
+		['leer fällt', 'fehler' in traktandumPruefen('')],
+		[
+			'nur Leerraum fällt ebenso — sonst wäre ein Leerschlag ein Traktandum',
+			'fehler' in traktandumPruefen('   '),
+		],
+		[
+			'und die Grenze zählt Codepoints, nicht UTF-16-Einheiten',
+			'text' in traktandumPruefen('🌱'.repeat(TRAKTANDUM_HOECHSTLAENGE)) &&
+				'fehler' in traktandumPruefen('🌱'.repeat(TRAKTANDUM_HOECHSTLAENGE + 1)),
+		],
+	] as const;
+	pruefen(
+		'ein Traktandum wird gefaltet, nicht leer und nach Codepoints begrenzt angenommen',
+		fehlendeTeile(traktandumTeile).length === 0,
+		`fehlt: ${fehlendeTeile(traktandumTeile).join(', ')}`
+	);
+
+	const alsBytes = (text: string): Uint8Array => new TextEncoder().encode(text);
+	const pdfTeile = [
+		['eine Datei mit der PDF-Kennung kommt durch', istPdf(alsBytes('%PDF-1.7\nirgendwas'))],
+		['ein Word-Dokument nicht', istPdf(alsBytes('PK\u0003\u0004irgendwas')) === false],
+		[
+			// Die Kennung steht am **Anfang** und nicht irgendwo: sonst käme jede
+			// Datei durch, die das Wort später einmal enthält.
+			'und auch keine, die die Kennung erst weiter hinten trägt',
+			istPdf(alsBytes('  %PDF-1.7')) === false,
+		],
+		['eine leere Datei ebenso wenig', istPdf(new Uint8Array(0)) === false],
+		[
+			// Ohne die Längenprüfung läse die Schleife über das Ende hinaus und
+			// vergliche undefined — was für jedes Zeichen falsch ist, aber erst nach
+			// dem Zugriff feststeht.
+			'und eine, die kürzer ist als die Kennung selbst, fällt ohne Zugriff daneben',
+			istPdf(alsBytes('%PD')) === false,
+		],
+	] as const;
+	pruefen(
+		'ein Protokoll wird an seinen ersten Bytes erkannt und nicht am gemeldeten Typ',
+		fehlendeTeile(pdfTeile).length === 0,
+		`fehlt: ${fehlendeTeile(pdfTeile).join(', ')}`
+	);
+
+	/*
+	 * Die Ablage, ausgeführt statt beschrieben: ablegen, zurücklesen, und die
+	 * Namen, die sie **nicht** annimmt.
+	 *
+	 * Die drei Ablehnungen sind der Kern. Sie messen nicht, dass ein Angriff
+	 * scheitert — dazu müsste ausserhalb des Verzeichnisses etwas liegen —,
+	 * sondern dass der Name gegen die **erzeugte Form** geprüft wird und nicht
+	 * bloss gegen eine Liste verbotener Zeichen. Wer die Prüfung später gegen ein
+	 * `!datei.includes('..')` tauscht, macht diese Zeilen rot.
+	 */
+	const abgelegteDatei = protokollAblegen(alsBytes('%PDF-1.7 Protokoll'));
+	const ablageTeile = [
+		[
+			'der Name ist erzeugt und nicht übernommen — UUID plus .pdf',
+			/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$/.test(abgelegteDatei),
+		],
+		[
+			'und die Bytes kommen unverändert zurück',
+			new TextDecoder().decode(protokollLesen(abgelegteDatei) ?? new Uint8Array(0)) ===
+				'%PDF-1.7 Protokoll',
+		],
+		/*
+		 * **Die entscheidende Zeile, und sie zeigt auf eine Datei, die es gibt.**
+		 *
+		 * `./<name>` bezeichnet nach `join` genau die eben abgelegte Datei. Eine
+		 * Prüfung, die bloss verbotene Zeichenfolgen suchte — `!datei.includes('..')`
+		 * ist der naheliegende Griff —, liesse sie durch und läse die Bytes. Die
+		 * Prüfung gegen die erzeugte Form lässt sie nicht durch, weil ein
+		 * Schrägstrich in einer UUID nicht vorkommt.
+		 *
+		 * Gemessen: mit `includes('..')` an Stelle des Musters wird diese Zeile rot,
+		 * die drei anderen bleiben grün. Genau darum steht sie hier — die anderen
+		 * fallen auf `existsSync` zurück und wären für sich vakuant wahr.
+		 */
+		[
+			'ein Name mit Pfadanteil wird nicht gelesen, auch wenn er auf eine echte Datei zeigt',
+			protokollLesen(`./${abgelegteDatei}`) === null,
+		],
+		[
+			'und einer, der aus dem Verzeichnis führt, ebenso wenig',
+			protokollLesen('../db.sqlite') === null,
+		],
+		[
+			'eine Kennung, die es nicht gibt, ist null und kein Wurf',
+			protokollLesen('00000000-0000-0000-0000-000000000000.pdf') === null,
+		],
+	] as const;
+	pruefen(
+		'die Protokollablage vergibt ihre Namen selbst und liest nur solche zurück',
+		fehlendeTeile(ablageTeile).length === 0,
+		`fehlt: ${fehlendeTeile(ablageTeile).join(', ')}`
 	);
 } catch (fehler) {
 	unerwarteterWurf('smoke', fehler);
