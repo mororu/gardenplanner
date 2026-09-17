@@ -106,7 +106,7 @@ Du-Form. Domänenspalten der Datenbank deutsch, Infrastrukturspalten englisch.
 für einen Tag `Terminierte Aufgabe`). Die Oberfläche nennt sie so:
 `+ Termin planen`, `Alle Termine`, die Seitentitel und die Fehlersätze. Der
 Abschnitt auf `/` heisst nicht nach der Sache, sondern nach der Frage —
-**`Wer übernimmt`** —, und der Pool darunter **`Zwischendurch`**. **Die Grenze
+**`Wer übernimmt`** —, und der Pool darunter **`Zum Erledigen`**. **Die Grenze
 läuft am Quelltext**, dieselbe Stelle wie beim Tränkeplan: die Routen bleiben
 `/einzelaufgabe` und `/einzelaufgaben`, die Tabelle bleibt `signup_tasks`, die
 Funktionen behalten ihre Namen (`einzelaufgabeAusschreiben`,

@@ -291,7 +291,7 @@ export const EINZELAUFGABE_NICHT_ANSPRECHBAR =
  *
  * Das hat eine Folge, die mehr wert ist als der gesparte Platz: **ein
  * zugeklappter Abschnitt verbirgt seinen Inhalt, nicht mehr seine Lage.** Wer
- * `1 Zwischendurch` liest, weiss, dass etwas ansteht, auch ohne
+ * `Zum Erledigen 1` liest, weiss, dass etwas ansteht, auch ohne
  * aufzuklappen. Genau das verlangt AD-14, und vorher hing es daran, dass die
  * Abschnitte offen ausgeliefert werden.
  *
@@ -299,7 +299,7 @@ export const EINZELAUFGABE_NICHT_ANSPRECHBAR =
  * Schriftrolle daneben, und eine Zeichenkette, die sie enthielte, liesse sich
  * nicht mehr getrennt setzen.
  */
-export const GRIFF_OFFEN = 'Zwischendurch';
+export const GRIFF_OFFEN = 'Zum Erledigen';
 
 /** Der Zusatz im Griff des Pools, in --overdue. Fehlt bei null ganz. */
 export function griffUeberfaellig(anzahl: number): string {

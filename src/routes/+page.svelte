@@ -694,7 +694,7 @@
 		            steht direkt unter diesem Kommentar.
 		  Block 2 — freie Einzelaufgaben zum Übernehmen, `Wer übernimmt`. Seit
 		            Story 3.2 gebaut.
-		  Block 3 — der offene Pool, `Zwischendurch`. Diesen füllte Story 1.4.
+		  Block 3 — der offene Pool, `Zum Erledigen`. Diesen füllte Story 1.4.
 
 		Die Reihenfolge stand schon, als zwei Drittel leer waren: sie ist eine
 		Entscheidung über die Aufmerksamkeit im Garten und keine Folge davon, in
@@ -1802,7 +1802,7 @@
 		**Das kehrt die Entscheidung vom 2026-09-11 um**, und zwar bewusst. Damals
 		wurde die Zahl zur Überschrift, weil die Griffe vorher zwei Überschriften
 		für dieselbe Sache trugen. Seit die Abschnitte nach ihrer Frage heissen
-		(`Wer übernimmt`, `Zwischendurch`), trägt der Titel die Aussage und die
+		(`Wer übernimmt`, `Zum Erledigen`), trägt der Titel die Aussage und die
 		Zahl den Umfang — `2 Wer übernimmt` liest sich als Satz falsch, und eine
 		Zahl in Überschriftgrösse vor einer Frage betont das Falsche.
 

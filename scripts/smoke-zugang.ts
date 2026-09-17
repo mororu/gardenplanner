@@ -5971,7 +5971,7 @@ try {
 	 * **Die Klasse heisst seit dem 2026-09-15 `zaehler` und nicht mehr
 	 * `kopfzahl`**, und die Zusage dieser Zeilen ist davon unberührt: die Zahl
 	 * steht im Griff. Was sich geändert hat, ist ihre Grösse — die Überschrift ist
-	 * seither der Titel (`Wer übernimmt`, `Zwischendurch`), und die Zahl steht
+	 * seither der Titel (`Wer übernimmt`, `Zum Erledigen`), und die Zahl steht
 	 * kleiner in einem eckigen Kasten daneben. AD-14 verlangt, dass ein
 	 * zugeklappter Abschnitt seine Lage nicht verbirgt, nicht dass die Zahl gross
 	 * ist.
@@ -8316,7 +8316,7 @@ try {
 		 * behauptet.
 		 *
 		 * **Die zwei letzten stehen seit dem 2026-09-15 getauscht** und weichen
-		 * damit von der Reihenfolge in AD-14 ab: der Pool `Zwischendurch` steht vor
+		 * damit von der Reihenfolge in AD-14 ab: der Pool `Zum Erledigen` steht vor
 		 * `Wer übernimmt`. Entscheid Manuel — wer auf die Seite kommt, um etwas zu
 		 * tun, findet den Vorrat zuerst, die Zusage auf einen Termin danach. Die
 		 * Begründung steht bei den Blöcken in `+page.svelte`.
