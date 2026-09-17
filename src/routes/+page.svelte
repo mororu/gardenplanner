@@ -566,7 +566,35 @@
 	Die Auswahl ist Manuels (2026-09-15): Korb für die Ernte, Person für die
 	Zusage, Häkchenliste für den Pool. Gewählt aus drei Sätzen, die als Blatt 4
 	des Gestaltungsrahmens nebeneinander standen.
+
+	**Die Spritzkanne kam am 2026-09-17 dazu** (Entscheid Manuel): bis dahin trug
+	die Zeile zum Tränkeplan als einzige kein Zeichen und stand damit in einer
+	Reihe, in der alle anderen eines haben. Sie ist im selben Raster gezeichnet
+	und trägt dieselbe Zusage — keine Aussage, die nicht daneben als Wort steht.
+
+	**Die Kanne und nicht ein Tropfen**: ein Tropfen heisst Wasser, die Kanne
+	heisst jemand giesst. Die Zeile zählt unbesetzte Wochen — fehlende Personen,
+	nicht fehlendes Wasser. Zwischenstand vom selben Tag, eine Stunde alt; der
+	Tropfen stand nie ausgeliefert da.
 -->
+{#snippet zeichenKanne()}
+	<svg
+		class="zeichen griff__zeichen"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		aria-hidden="true"
+	>
+		<path d="M4.5 10.5h8.5v6a3 3 0 0 1-3 3H7.5a3 3 0 0 1-3-3v-6Z" />
+		<path d="M7 10.5V9a2.5 2.5 0 0 1 4.5-1.5" />
+		<path d="M13 12.5 18.5 9" />
+		<path d="M16.5 6.5 20.5 10.5" />
+	</svg>
+{/snippet}
+
 {#snippet zeichenKorb()}
 	<svg
 		class="zeichen griff__zeichen"
@@ -785,8 +813,7 @@
 								>
 									{datumLang(zusage.terminAt)}{fristZusatz(zusage.lage)}
 								</span>
-							</span>
-							<!--
+								<!--
 								**Genau eine Interaktion, keine Rückfrage** — wie das Abhaken im
 								Pool. Das Übernehmen darunter wird bestätigt, weil eine Zusage
 								andere bindet; ein Abschluss meldet nur, dass die eigene Zusage
@@ -849,7 +876,6 @@
 					<span class="plan-zeile__bald">{zeileBald(data.ueberblick.unbesetztBald)}</span>
 				{/if}
 			</span>
-			<span class="kopfzahl">{data.ueberblick.unbesetzt}</span>
 			<span class="plan-zeile__pfeil" aria-hidden="true">→</span>
 		</a>
 	{/if}
@@ -867,6 +893,8 @@
 		längste der Startseite.
 
 		Der Verlust ist benannt und angenommen: **die Dringlichkeit steht auf `/`
+			{@render zeichenKanne()}
+			<span class="kopfzahl">{data.ueberblick.unbesetzt}</span>
 		nicht mehr**. Wer die Übersicht öffnet, liest, dass es etwas zu ernten
 		gibt und wie viel — welche Kultur, in welchem Beet und wie dringend, steht
 		einen Griff weiter. Genau dafür ist /ernte da, und dort ist es auch der
@@ -887,7 +915,6 @@
 				sie führt und was dort wartet — dieselbe Wendung wie `Tränkewochen
 				unbesetzt` darüber.
 			-->
-			<span class="griff__titel">Zum Ernten</span>
 			<span class="kopfzahl">{data.ueberblick.reif}</span>
 			<span class="plan-zeile__pfeil" aria-hidden="true">→</span>
 		</a>
@@ -916,8 +943,8 @@
 					<span class="kopfwort">{GRIFF_OFFEN_LEER}</span>
 				{:else}
 					<span class="griff__titel">{GRIFF_OFFEN}</span>
-					<span class="zaehler">{data.ueberblick.offen}</span>
 					{#if data.ueberblick.ueberfaellig > 0}
+			<span class="griff__titel">Zum Ernten</span>
 						<span class="kopffrist">{griffUeberfaellig(data.ueberblick.ueberfaellig)}</span>
 					{/if}
 				{/if}
@@ -944,6 +971,7 @@
 
 					`!istErledigt` zieht den ersten Konjunkt in **diese Sitzung** hinein.
 					In der Datenbank fällt er mit dem Abhaken weg; in der Oberfläche nicht,
+					<span class="kopfzahl">{data.ueberblick.offen}</span>
 					weil der Rückruf mit invalidateAll: false fährt und die Zeile samt
 					unverändertem `data` an ihrem Platz stehen bleibt. Bliebe die zweite
 					Zeile stehen, behauptete `seit 4 Wochen überfällig` eine offene Frist
@@ -1243,7 +1271,6 @@
 					<span class="kopfwort">{GRIFF_FREI_LEER}</span>
 				{:else}
 					<span class="griff__titel">{GRIFF_FREI}</span>
-					<span class="zaehler">{data.ueberblick.frei}</span>
 				{/if}
 			</h2>
 			<ZeichenWinkel class="aufklapp" />
@@ -1271,6 +1298,7 @@
 						`align-items: flex-start`: bei einem langen Titel, der bei 375px
 						über drei Zeilen läuft, soll der Knopf oben bleiben und nicht in
 						die Mitte rutschen.
+					<span class="kopfzahl">{data.ueberblick.frei}</span>
 					-->
 							<div class="einzel__reihe">
 								<!--
@@ -1615,21 +1643,20 @@
 		Ernte-Zeile — die Form für `das hier führt woandershin`, und sie führt auf
 		/einzelaufgaben, wo die übernommenen Zeilen mit ihren Namen stehen.
 
-		Die 3px-Kante links in Akzentfarbe ist dasselbe Zeichen wie an der
+		Seit dem 2026-09-17 ist der Block ein `.abschnitt` wie die zwei darunter,
+		und Fläche, Umriss, Radius und `overflow` kommen von dort. Diese Regel
+		trägt allein das 3px-Akzentstück links — dasselbe Zeichen wie an der
 		laufenden Woche im Tränkeplan: hier bist du gerade. Der Diensthinweis trug
-		sie bis zum 2026-09-13 ebenfalls und ist seither eine gefüllte Fläche —
-		die beiden stehen damit untereinander, ohne sich zu gleichen.
+		es bis zum 2026-09-13 ebenfalls und ist seither eine gefüllte Fläche; die
+		drei stehen damit untereinander, ohne sich zu gleichen.
+
+		**Eine Deklaration und kein Zwilling.** Die frühere Fassung wiederholte
+		Fläche, Umriss und Radius von `.abschnitt` — genau der Regelkörper, auf den
+		Gate-Regel 14 anschlägt, sobald zwei Klassen ihn teilen. Jetzt steht hier
+		nur noch, was diesen Abschnitt von den anderen unterscheidet.
 	*/
 	.meine {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
-		padding: var(--space-3);
-		border: var(--border-hairline) solid var(--ink-secondary);
 		border-inline-start: var(--border-marker) solid var(--accent);
-		border-radius: var(--radius-md);
-		background-color: var(--surface-raised);
-		color: var(--ink-primary);
 	}
 
 	/*
@@ -1753,26 +1780,32 @@
 	}
 
 	/*
-		Der Zähler daneben — **eine blosse Zahl, kein Kasten**.
+		**Die Zahl — eine für alle vier, vorn, in der Grösse des Titels.**
 
-		Er war einen Tag lang ein eckiger, heller Kasten wie das Datum an einer
-		Zeile darunter. Das war zu viel: der Datumskasten trägt die Aussage seiner
-		Zeile, dieser Zähler ergänzt eine Überschrift, die ohne ihn vollständig
-		ist. Zwei Kästen derselben Form für zwei verschieden wichtige Dinge liessen
-		den einen wie den anderen aussehen. Entscheid Manuel, 2026-09-15.
+		Die vier sind die zwei Zeilen mit Pfeil (Tränkeplan, Ernte) und die zwei
+		Abschnittsgriffe (`Zum Erledigen`, `Wer übernimmt`). Sie sagen dasselbe —
+		wie viele —, und seit dem 2026-09-17 sehen sie gleich aus. Entscheid
+		Manuel.
 
-		Nebentextfarbe und nicht Tintenfarbe, aus demselben Grund wie beim Zeichen
-		davor: was der Abschnitt ist, sagt das Wort.
+		**Das nimmt zwei frühere Entscheidungen zurück, und beide sind benannt.**
+		Am 2026-09-15 bekamen die Griffe einen kleinen Zähler in Nebentextfarbe,
+		weil „was der Abschnitt ist, sagt das Wort"; die Zeilen behielten ihre
+		grosse Zahl. Das waren zwei Formen für eine Sache, und auf einer Seite,
+		die alle vier untereinander zeigt, liest sich das als Rangordnung, die es
+		nicht gibt. Am selben Tag stand die Begründung, `2 Wer übernimmt` lese
+		sich als Satz falsch — das stimmt, und es wiegt weniger als vier Zeilen,
+		die man nebeneinander vergleichen kann. Die Zahl wird nicht mitgelesen,
+		sie wird abgelesen.
+
+		**Eine blosse Zahl und kein Kasten.** Das bleibt von der Entscheidung vom
+		2026-09-15 übrig und gilt unverändert: der Datumskasten an einer Zeile
+		darunter trägt die Aussage seiner Zeile, diese Zahl zählt nur. Zwei Kästen
+		derselben Form für zwei verschieden wichtige Dinge liessen den einen wie
+		den anderen aussehen.
+
+		`tabular-nums`, weil vier davon untereinander stehen und eine springende
+		Ziffernbreite genau dort auffällt (UX-DR).
 	*/
-	.zaehler {
-		color: var(--ink-secondary);
-		font-family: var(--meta-font);
-		font-size: var(--meta-size);
-		font-weight: var(--meta-weight);
-		line-height: var(--meta-line);
-		font-variant-numeric: tabular-nums;
-	}
-
 	.kopfzahl {
 		font-family: var(--section-font);
 		font-size: var(--section-size);
@@ -1801,6 +1834,23 @@
 
 		**Die Schriftrolle steht seit dem 2026-09-15 hier** und nicht mehr in der
 		Umgebung: bis dahin lag dieses Element in `.kopfwort` und erbte dessen
+		/*
+			**Platz für zwei Ziffern, auch wenn nur eine dasteht** (Entscheid Manuel,
+			2026-09-17). Ohne ihn beginnt der Titel je nach Zahl an einer anderen
+			Stelle, und fünf Zeilen untereinander stehen dann treppenförmig.
+
+			`2ch` und keine Zahl aus der Abstandsrampe: `ch` ist die Breite der
+			Ziffer Null, und zusammen mit `tabular-nums` darüber ist das **genau**
+			zwei Ziffern — kein geschätzter Wert, der bei der nächsten Schriftart
+			daneben liegt. Ein Wert aus der Rampe wäre hier die ungenauere Schraube.
+
+			Die Zahl steht rechtsbündig darin: die Einer liegen damit untereinander
+			und der Abstand zum Titel ist immer derselbe. Bei dreistelligen Zahlen —
+			die es in diesem Garten nicht gibt, aber die Regel soll nicht daran
+			hängen — wächst das Feld, statt abzuschneiden.
+		*/
+		min-inline-size: 2ch;
+		text-align: end;
 		meta-Rolle. Mit dem Umbau auf Titel und Zähler ist es ein direktes Kind der
 		Überschrift geworden und erbte deren Grösse — der Satz stand in
 		Überschriftgrösse und brach über zwei Zeilen um. Gesehen am gerenderten

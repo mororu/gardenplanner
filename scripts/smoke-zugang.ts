@@ -6004,23 +6004,25 @@ try {
 	 * nicht vorkommen.
 	 */
 	/*
-	 * **Die Klasse heisst seit dem 2026-09-15 `zaehler` und nicht mehr
-	 * `kopfzahl`**, und die Zusage dieser Zeilen ist davon unberührt: die Zahl
-	 * steht im Griff. Was sich geändert hat, ist ihre Grösse — die Überschrift ist
-	 * seither der Titel (`Wer übernimmt`, `Zum Erledigen`), und die Zahl steht
-	 * kleiner in einem eckigen Kasten daneben. AD-14 verlangt, dass ein
-	 * zugeklappter Abschnitt seine Lage nicht verbirgt, nicht dass die Zahl gross
-	 * ist.
+	 * **Die Klasse heisst seit dem 2026-09-17 wieder `kopfzahl`**, und die Zusage
+	 * dieser Zeilen ist von beiden Umbenennungen unberührt: die Zahl steht im
+	 * Griff. Sie hiess vom 2026-09-15 an `zaehler` und stand klein hinter dem
+	 * Titel; jetzt steht sie wieder vor ihm und in seiner Grösse, weil alle fünf
+	 * Zahlen der Seite gleich aussehen sollen (Entscheid Manuel).
+	 *
+	 * AD-14 verlangt, dass ein zugeklappter Abschnitt seine Lage nicht verbirgt —
+	 * nicht, wie gross die Zahl ist und wo sie steht. Genau darum haben diese
+	 * Zeilen beide Umbauten ohne Änderung ihrer Aussage überstanden.
 	 */
 	const griffTeile = [
 		['es gibt kein Überblicksband mehr', !/ueberblick__|class="ueberblick"/.test(startseitenCode)],
 		[
 			'der Griff der Termine trägt die Zahl',
-			/<span class="zaehler">\{data\.ueberblick\.frei\}<\/span>/.test(startseitenCode),
+			/<span class="kopfzahl">\{data\.ueberblick\.frei\}<\/span>/.test(startseitenCode),
 		],
 		[
 			'der Griff des Pools trägt die Zahl',
-			/<span class="zaehler">\{data\.ueberblick\.offen\}<\/span>/.test(startseitenCode),
+			/<span class="kopfzahl">\{data\.ueberblick\.offen\}<\/span>/.test(startseitenCode),
 		],
 		[
 			'beide Griffe tragen bei null einen Satz statt einer Zahl',

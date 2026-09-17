@@ -603,16 +603,20 @@ try {
 	const fristZeilen = wieViele(startseiteHtml, klasse('p', 'zeile__frist'));
 	/*
 	 * **Der Griff des Pools wird ausgeschnitten, nicht der erste im Dokument.**
-	 * Die Zahl eines Griffs steht in `zaehler`, die Zahl der Zeile zum Tränkeplan
-	 * in `kopfzahl` — bis zum 2026-09-15 trugen beide dieselbe Klasse, und der
-	 * erste Treffer im Dokument war darum die Zahl der unbesetzten Wochen.
-	 * Gemessen am 2026-09-11: „Zeilen 1, Griff 13". Der Schnitt über die Kennung
-	 * bleibt trotzdem: er hängt nicht daran, dass die zwei Klassen heute
-	 * verschieden heissen.
+	 * Alle vier Zahlen der Seite — die zwei Griffe und die zwei Zeilen mit Pfeil —
+	 * tragen seit dem 2026-09-17 wieder **dieselbe** Klasse `kopfzahl`; der erste
+	 * Treffer im Dokument wäre darum die Zahl der unbesetzten Wochen und nicht
+	 * die des Pools. Gemessen am 2026-09-11: „Zeilen 1, Griff 13".
+	 *
+	 * Vom 2026-09-15 bis zum 2026-09-17 hiessen die zwei Sorten verschieden
+	 * (`zaehler` am Griff, `kopfzahl` an der Zeile), und diese Zeile hätte auch
+	 * ohne den Schnitt getragen. Genau darum stand hier schon damals, dass der
+	 * Schnitt über die Kennung bleibt: er hängt nicht daran, wie die Klassen
+	 * gerade heissen — und jetzt hängt wieder alles an ihm.
 	 */
 	const griffVon = (html: string, kennung: string): string =>
 		(new RegExp(`<h2[^>]*\\bid="${kennung}"[\\s\\S]*?<\\/h2>`).exec(html) ?? [''])[0];
-	const ZAEHLER_MUSTER = /<span[^>]*\bclass="[^"]*\bzaehler\b[^"]*"[^>]*>([0-9]+)</;
+	const ZAEHLER_MUSTER = /<span[^>]*\bclass="[^"]*\bkopfzahl\b[^"]*"[^>]*>([0-9]+)</;
 	const griffZahl = (html: string, kennung: string): number | null => {
 		const treffer = ZAEHLER_MUSTER.exec(griffVon(html, kennung));
 		return treffer === null ? null : Number(treffer[1]);
