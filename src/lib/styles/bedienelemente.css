@@ -697,6 +697,34 @@ select.feld {
 }
 
 /*
+ * Der Winkel am rechten Rand eines Eintrags: **dahinter liegt mehr**
+ * (Entscheid Manuel, 2026-09-17).
+ *
+ * **Nach unten, weil jeder Winkel dieses Produkts nach unten zeigt.** Ein
+ * erster Entwurf zeigte nach rechts, mit dem Argument, das an ZeichenWinkel
+ * selbst steht: ein Winkel nach rechts liest sich als Verweis auf eine andere
+ * Seite, und genau das sind die fünf Einträge auf /mehr. Der Einwand bleibt
+ * richtig und wiegt weniger als die Gleichförmigkeit — auf einer Seite mit fünf
+ * Zeilen fällt ein Zeichen, das in eine andere Richtung zeigt als alle anderen,
+ * mehr auf, als seine genauere Bedeutung wert ist.
+ *
+ * **Die Regel steht hier und nicht in der Seite**, obwohl sie nur dort einen
+ * Träger hat. Der Grund ist gemessen: Svelte grenzt die Stile einer Komponente
+ * auf deren **eigenes** Markup ein, und diese Klasse reist als Eigenschaft in
+ * ZeichenWinkel hinein — im Stilblatt von /mehr blieb sie darum ungenutzt, und
+ * svelte-check meldete sie. Dieselbe Lage wie bei `.aufklapp` eine Regel weiter
+ * oben, und dieselbe Antwort.
+ *
+ * `margin-inline-start: auto` schiebt ihn an die rechte Kante — `.eintrag` ist
+ * ein Flexbehälter, und eine Breitenangabe wäre die zweite Wahrheit darüber,
+ * wie breit die Zeile ist. Die kleinere Grösse bleibt: das Zeichen vorn benennt
+ * die Sache, dieser sagt nur, dass es weitergeht.
+ */
+.eintrag__weiter {
+	margin-inline-start: auto;
+}
+
+/*
  * Der Nebenknopf **neben** einem Text statt über die ganze Spalte.
  *
  * Modifikator und keine zweite Knopfregel: Kante, Radius, Farben und der

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
 	import type { PageProps } from './$types';
 
 	const { data }: PageProps = $props();
@@ -157,7 +158,7 @@
 		<li>
 			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
 			<a class="eintrag" href={resolve('/monatsplan')}>
-				{@render zeichenKalender()}Monatsplan ablegen
+				{@render zeichenKalender()}Monatsplan ablegen<ZeichenWinkel class="eintrag__weiter" />
 			</a>
 		</li>
 		<li>
@@ -173,7 +174,9 @@
 				Block 2 auf `/` einen zweiten, der nur manchmal da ist.
 			-->
 			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-			<a class="eintrag" href={resolve('/wissen')}>{@render zeichenBuch()}Wissen</a>
+			<a class="eintrag" href={resolve('/wissen')}
+				>{@render zeichenBuch()}Wissen<ZeichenWinkel class="eintrag__weiter" /></a
+			>
 		</li>
 		<li>
 			<!--
@@ -188,7 +191,9 @@
 			-->
 			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
 			<a class="eintrag" href={resolve('/sitzungen')}>
-				{@render zeichenDokument()}Protokolle und Traktanden
+				{@render zeichenDokument()}Protokolle und Traktanden<ZeichenWinkel
+					class="eintrag__weiter"
+				/>
 			</a>
 		</li>
 		<li>
@@ -204,7 +209,9 @@
 				der nur manchmal da ist.
 			-->
 			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-			<a class="eintrag" href={resolve('/archiv')}>{@render zeichenKiste()}Archiv</a>
+			<a class="eintrag" href={resolve('/archiv')}
+				>{@render zeichenKiste()}Archiv<ZeichenWinkel class="eintrag__weiter" /></a
+			>
 		</li>
 		{#if data.istAdmin}
 			<li>
@@ -215,7 +222,9 @@
 					sein — und `Monatsplan ablegen` darüber verrät nicht, dass es mehr
 					gäbe.
 				-->
-				<a class="eintrag" href={resolve('/verwaltung')}>{@render zeichenSchluessel()}Verwaltung</a>
+				<a class="eintrag" href={resolve('/verwaltung')}
+					>{@render zeichenSchluessel()}Verwaltung<ZeichenWinkel class="eintrag__weiter" /></a
+				>
 			</li>
 		{/if}
 	</ul>

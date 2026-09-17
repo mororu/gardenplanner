@@ -4948,14 +4948,21 @@ try {
 	 * berührt: sie sagt, **wo** der Eintrag steht — vor der Adminschranke, also
 	 * für alle —, und nicht, was in ihm gemalt wird. Das Muster hing damit an
 	 * einer Eigenschaft, über die es gar nichts behaupten wollte.
+	 *
+	 * Das `\s*` vor dem `>` kam eine Stunde später dazu, aus demselben Grund
+	 * eine Stufe tiefer: mit dem Winkel wurde die Zeile lang genug, dass Prettier
+	 * das schliessende `>` auf die nächste Zeile setzt. Wie der Übersetzer den
+	 * Quelltext umbricht, ist keine Zusage dieser Seite.
 	 */
 	pruefen(
 		'`Monatsplan ablegen` steht auf /mehr vor dem {#if data.istAdmin} und gilt damit allen',
 		verwaltungsVon > 0 &&
-			/<a class="eintrag" href=\{resolve\('\/monatsplan'\)\}>/.test(
+			/<a class="eintrag" href=\{resolve\('\/monatsplan'\)\}\s*>/.test(
 				mehrCode.slice(0, verwaltungsVon)
 			) &&
-			/<a class="eintrag" href=\{resolve\('\/verwaltung'\)\}>/.test(mehrCode.slice(verwaltungsVon)),
+			/<a class="eintrag" href=\{resolve\('\/verwaltung'\)\}\s*>/.test(
+				mehrCode.slice(verwaltungsVon)
+			),
 		verwaltungsVon < 0 ? 'kein {#if data.istAdmin} gefunden' : mehrCode.slice(0, verwaltungsVon)
 	);
 	/*
