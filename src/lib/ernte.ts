@@ -216,16 +216,46 @@ export function kulturPruefen(eingabe: string): { kultur: string } | { fehler: s
 }
 
 /**
+ * Was im Feld `Beet oder Ort` steht, bevor jemand tippt.
+ *
+ * **Das Wort steht schon da, die Zahl kommt dazu** (Entscheid Manuel,
+ * 2026-09-17). Fast jede Angabe in diesem Garten ist ein Beet mit einer
+ * Nummer, und `Beet` einzutippen ist die Arbeit, die sich an jeder Meldung
+ * wiederholt.
+ *
+ * Es ist eine **Vorgabe und kein Präfix**: das Feld bleibt ein gewöhnliches
+ * Textfeld, und wer `Obstwiese` meldet, überschreibt es. Ein festes `Beet`
+ * vor einem Zahlenfeld wäre der andere Weg gewesen und hätte genau diesen
+ * Fall verloren — die Angabe ist freiwillig, gerade weil sie nicht immer ein
+ * Beet ist.
+ *
+ * Das Leerzeichen am Ende gehört dazu: der Einfügepunkt steht danach, und
+ * `Beet3` wäre die Meldung, die aus einer fehlenden Lücke entsteht.
+ * `ortPruefen` faltet es weg.
+ */
+export const ORT_VORGABE = 'Beet ';
+
+/**
  * Prüft den Ort: **darf leer sein**, und leer heisst null.
  *
  * Das ist der ganze Unterschied zur Kultur daneben. Ein Beet anzugeben ist
  * freiwillig, weil die Angabe oft nichts hinzufügt — wer `Obstwiese` liest,
  * weiss es ohnehin, und ein Pflichtfeld hier wäre eine Hürde vor der Handlung,
  * die diese Seite ermöglichen soll.
+ *
+ * **Die unangetastete Vorgabe zählt als leer**, und das ist der Preis dafür,
+ * dass sie überhaupt im Feld steht: wer nichts eingibt, schickt seit dem
+ * 2026-09-17 nicht mehr die leere Zeichenkette, sondern `Beet `. Ohne diese
+ * Zeile trüge jede Zeile ohne Ortsangabe den Ort `Beet` — eine Auskunft, die
+ * nichts sagt und in der Liste aussieht wie eine, die etwas sagt.
+ *
+ * Verglichen wird gegen die **gefaltete** Vorgabe und nicht gegen das Literal:
+ * das Leerzeichen am Ende überlebt die Faltung nicht, und ein Vergleich gegen
+ * `ORT_VORGABE` selbst träfe darum nie zu.
  */
 export function ortPruefen(eingabe: string): { ort: string | null } | { fehler: string } {
 	const ort = aufgabentextFalten(eingabe);
-	if (ort === '') return { ort: null };
+	if (ort === '' || ort === aufgabentextFalten(ORT_VORGABE)) return { ort: null };
 	if ([...ort].length > ERNTE_HOECHSTLAENGE) return { fehler: ORT_ZU_LANG };
 	return { ort };
 }

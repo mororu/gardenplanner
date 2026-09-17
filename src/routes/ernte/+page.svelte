@@ -13,6 +13,7 @@
 		ERNTE_HOECHSTLAENGE,
 		KULTUREN,
 		KULTURLISTE,
+		ORT_VORGABE,
 		type Erntestatus,
 	} from '$lib/ernte';
 	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
@@ -408,12 +409,17 @@
 					name="ort"
 					type="text"
 					maxlength={ERNTE_HOECHSTLAENGE}
-					value={ortWert}
+					value={ortWert === '' ? ORT_VORGABE : ortWert}
 					aria-invalid={fehlerAmOrt !== '' ? 'true' : undefined}
 					aria-describedby={fehlerAmOrt !== '' ? 'neu-ort-fehler' : undefined}
 				/>
-				<!-- Kein `required`: ein Beet anzugeben ist freiwillig, und leer heisst null. -->
-				<p class="hinweis hinweis--am-feld">Freiwillig.</p>
+				<!--
+					Kein `required`: ein Beet anzugeben ist freiwillig, und leer heisst
+					null — seit dem 2026-09-17 auch dann, wenn die Vorgabe `Beet `
+					unangetastet zurückkommt. Die Begründung steht an ORT_VORGABE und an
+					ortPruefen in $lib/ernte.ts.
+				-->
+				<p class="hinweis hinweis--am-feld">Freiwillig — Nummer dazu, oder ganz überschreiben.</p>
 				<p class="fehler live" id="neu-ort-fehler" role="alert" aria-live="assertive">
 					{fehlerAmOrt}
 				</p>
