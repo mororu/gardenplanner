@@ -64,16 +64,37 @@
 		)
 	);
 
-	/** Die zwei **anderen** Stufen — die, in die eine Zeile wandern kann. */
+	/** Wohin eine Zeile umgestuft werden kann — **nur nach vorn**. */
 	/*
-	 * Wohin eine Zeile umgestuft werden kann: die **angebotenen** Stufen ausser
-	 * der eigenen. Seit dem 2026-09-14 ist das nicht mehr dasselbe wie „alle
-	 * ausser der eigenen" — `wachsen` ist verborgen (siehe SICHTBARE_ERNTESTATUS
-	 * in $lib/ernte). Eine Zeile, die noch dort steht, kann damit **heraus**, aber
-	 * keine mehr hinein.
+	 * Angeboten werden die **dringenderen** Stufen, nicht alle anderen.
+	 *
+	 * **Umstufen geht seit dem 2026-09-17 nur in eine Richtung** (Entscheid
+	 * Manuel): was einmal `Sofort ernten` ist, wird nicht wieder
+	 * `Langsam ernten`. Die Stufen beschreiben den Reifegrad einer Kultur, und
+	 * der läuft in eine Richtung — der Knopf zurück bot eine Handlung an, die im
+	 * Beet gar nicht vorkommt. Er stand an jeder roten Zeile, also an genau den
+	 * Zeilen, an denen er am wenigsten zu suchen hatte.
+	 *
+	 * Die Richtung kommt aus der **Reihenfolge von ERNTESTATUS** und nicht aus
+	 * einer zweiten Liste daneben: das Array steht dringend zuerst (siehe dort),
+	 * und „dringender" heisst damit „kleinerer Index". Eine eigene Rangtabelle
+	 * hier wäre dieselbe Ordnung ein zweites Mal behauptet — genau der Fehler,
+	 * gegen den $lib/ernte.ts als einzige Stelle geschrieben ist.
+	 *
+	 * Gefiltert wird zusätzlich auf die **angebotenen** Stufen: `wachsen` ist
+	 * seit dem 2026-09-14 verborgen (siehe SICHTBARE_ERNTESTATUS in
+	 * $lib/ernte). Damit bleibt eine Zeile, die noch dort steht, weiter
+	 * wegstufbar — auf `sofort` und auf `stehen`, beides nach vorn —, und keine
+	 * neue landet dort.
+	 *
+	 * Eine Zeile auf `sofort` bekommt darum **keinen** Umstufen-Knopf mehr. Ihr
+	 * Fuss trägt dann allein `Abgeerntet`, und das ist der ganze Weg, der ihr
+	 * bleibt: sie ist reif.
 	 */
 	const andereStufen = (stufe: Erntestatus) =>
-		SICHTBARE_ERNTESTATUS.filter((andere) => andere !== stufe);
+		SICHTBARE_ERNTESTATUS.filter(
+			(andere) => ERNTESTATUS.indexOf(andere) < ERNTESTATUS.indexOf(stufe)
+		);
 
 	/*
 		Die Rückmeldung eines geglückten Eintragens, Umstufens oder Aberntens.
@@ -616,13 +637,15 @@
 									</div>
 								{:else}
 									<!--
-										Umstufen zeigt die **zwei anderen** Stufen. Die eigene wäre ein
-										Knopf, der nichts ändert, und bei 375px stünden drei
-										nebeneinander, von denen einer nie gedrückt wird.
+										Umstufen zeigt die **dringenderen** Stufen, und an einer roten
+										Zeile darum keine. Die Begründung in ganzer Länge steht an
+										`andereStufen` oben: der Reifegrad läuft in eine Richtung.
 
-										Ohne Rückfrage: umstufen nimmt niemandem etwas weg und ist mit
-										dem Knopf daneben zurückgenommen. Nur `Abgeerntet` fragt, weil
-										es löscht.
+										Ohne Rückfrage — und das ist seit dem 2026-09-17 **nicht** mehr
+										damit begründet, dass der Knopf daneben es zurücknähme: den gibt
+										es nicht mehr. Getragen wird es davon, dass Umstufen nichts
+										wegnimmt: die Zeile wechselt den Abschnitt und steht weiter da.
+										Nur `Abgeerntet` fragt, weil es löscht.
 									-->
 									<div class="ernte__fuss">
 										{#each andereStufen(stufe) as ziel (ziel)}
