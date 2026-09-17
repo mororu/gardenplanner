@@ -115,30 +115,45 @@ export function datumKasten(unixSekunden: number): { tag: string; monat: string 
 }
 
 /*
- * Der Monat mit seinem Jahr — die Überschrift einer Archivgruppe.
+ * Der Monatsname und das Jahr — **getrennt**, seit das Archiv nach beidem
+ * gruppiert (2026-09-17, Entscheid Manuel).
  *
- * Derselbe Formatierer-einmal-bauen-Grund wie oben, und dieselbe Zone: ein
- * Abhaken am 1. Oktober um 00:30 gehört in die Gruppe `Oktober 2026` und nicht
- * in die des Vortags, wie es eine Rechnung in UTC ergäbe.
+ * Vorher stand hier eine Funktion `monatUndJahr`, die `September 2026` als ein
+ * Stück lieferte. Sie ist weg und nicht bloss ungenutzt: das Archiv klappt jetzt
+ * je Jahr auf und führt die Monate darunter, und eine zusammengesetzte
+ * Zeichenkette müsste dort wieder zerlegt werden — die Zerlegung wäre eine
+ * zweite Datumsrechnung neben dieser hier. Dieselbe Begründung wie an
+ * `datumKasten` darunter, wo Tag und Monat aus demselben Grund als zwei Felder
+ * herausgehen.
  *
- * **Das Jahr steht mit dabei, obwohl es im Archiv meist dasselbe ist.** Ohne
- * Jahr hiessen zwei Gruppen `September`, sobald der Garten ins zweite Jahr geht,
- * und die Zeichenkette taugte dann auch nicht mehr als Gruppenschlüssel — die
- * Komponente gruppiert über genau diesen Wert und legte zwei Septembers
- * zusammen.
+ * Beide mit derselben Zone wie die Datumsformen darüber: ein Abhaken am
+ * 1. Januar um 00:30 gehört in das neue Jahr und nicht in das alte, wie es eine
+ * Rechnung in UTC ergäbe.
  */
-const MONAT_UND_JAHR = new Intl.DateTimeFormat('de-CH', {
-	month: 'long',
-	year: 'numeric',
-	timeZone: ZEITZONE,
-});
+const NUR_MONAT = new Intl.DateTimeFormat('de-CH', { month: 'long', timeZone: ZEITZONE });
+
+const NUR_JAHR = new Intl.DateTimeFormat('de-CH', { year: 'numeric', timeZone: ZEITZONE });
 
 /**
- * Ein Monat in Alltagssprache: `September 2026`.
+ * Der Monat allein: `September`.
+ *
+ * **Ohne Jahr, und darum als Gruppenschlüssel nur innerhalb eines Jahres
+ * eindeutig.** Genau so wird er benutzt: die Monate stehen im Archiv unter dem
+ * Jahr, das sie trägt.
  *
  * @param unixSekunden Zeitstempel in Unix-**Sekunden**, so wie er in der
  *   Datenbank steht — nicht in Millisekunden.
  */
-export function monatUndJahr(unixSekunden: number): string {
-	return MONAT_UND_JAHR.format(new Date(unixSekunden * 1000));
+export function monatName(unixSekunden: number): string {
+	return NUR_MONAT.format(new Date(unixSekunden * 1000));
+}
+
+/**
+ * Das Jahr allein: `2026`.
+ *
+ * @param unixSekunden Zeitstempel in Unix-**Sekunden**, so wie er in der
+ *   Datenbank steht — nicht in Millisekunden.
+ */
+export function jahrVon(unixSekunden: number): string {
+	return NUR_JAHR.format(new Date(unixSekunden * 1000));
 }
