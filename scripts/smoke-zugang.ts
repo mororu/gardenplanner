@@ -5317,11 +5317,11 @@ try {
 		],
 		[
 			'das Wochendatum nennt Montag und Sonntag',
-			wochendatum({ jahr: 2026, woche: 36 }) === '31. August bis 6. September',
+			wochendatum({ jahr: 2026, woche: 36 }) === '31. Aug bis 6. Sep',
 		],
 		[
 			'und es reicht über den Jahreswechsel',
-			wochendatum({ jahr: 2026, woche: 53 }) === '28. Dezember bis 3. Januar',
+			wochendatum({ jahr: 2026, woche: 53 }) === '28. Dez bis 3. Jan',
 		],
 	] as const;
 	pruefen(

@@ -506,14 +506,26 @@ export function wochenSchluessel({ jahr, woche }: Woche): number {
 }
 
 /** Die Wochentage als Text, für das Wochendatum darunter. */
+/*
+ * **Abgekürzt seit dem 2026-09-17** (Entscheid Manuel). `31. August bis
+ * 6. September` sind 27 Zeichen, `31. Aug bis 6. Sep` deren 18 — und dieser
+ * Satz steht vierzehnmal untereinander im Tränkeplan, unter jeder
+ * Wochennummer, dazu im Diensthinweis auf `/`. Er war damit die längste
+ * Zeitangabe des Produkts und die einzige, die zweimal einen Monatsnamen
+ * trägt.
+ *
+ * Dieselbe Abwägung wie bei `datumKurz` in ./client/utils/date.ts, nur fällt
+ * sie hier eindeutig aus: dieses Datum steht nie als Überschrift und nie in
+ * einem Satz, sondern immer klein unter einer Wochennummer.
+ */
 const WOCHENDATUM_TAG = new Intl.DateTimeFormat('de-CH', {
 	day: 'numeric',
-	month: 'long',
+	month: 'short',
 	timeZone: 'UTC',
 });
 
 /**
- * Die Woche in Alltagssprache: `31. August bis 6. September`.
+ * Die Woche in Alltagssprache: `31. Aug bis 6. Sep`.
  *
  * **`timeZone: 'UTC'` und nicht ZEITZONE**, anders als bei `datumLang` in
  * ./client/utils/date.ts: montagDerWoche liefert Mitternacht UTC eines
