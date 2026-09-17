@@ -412,73 +412,6 @@
 	{/if}
 
 	<!--
-		Das Ablegen. `enctype="multipart/form-data"` ist Pflicht und die eine
-		Stelle, an der diese Seite von jedem anderen Formular des Produkts
-		abweicht: ohne diese Angabe schickt der Browser vom Dateifeld **nur den
-		Namen** und keine Bytes, und die action wiese eine Datei ab, die die Person
-		sichtbar gewählt hat.
-	-->
-	<details class="zeilenform" open={protokollOffen}>
-		<summary class="button-primary button-primary--griff">
-			<span class="aufklapp">+</span>
-			<span>Protokoll ablegen</span>
-		</summary>
-		<form
-			class="zeilenform__formular"
-			method="POST"
-			action="?/ablegen"
-			enctype="multipart/form-data"
-			use:enhance={versand}
-		>
-			<div>
-				<label class="feld__beschriftung" for="protokoll-sitzung">Datum der Sitzung</label>
-				<input
-					class="feld"
-					id="protokoll-sitzung"
-					name="sitzungAm"
-					type="date"
-					required
-					min={data.frueheste}
-					max={data.spaeteste}
-					aria-invalid={fehlerAmProtokollDatum !== '' ? 'true' : undefined}
-					aria-describedby={fehlerAmProtokollDatum !== '' ? 'protokoll-sitzung-fehler' : undefined}
-				/>
-				<p class="fehler live" id="protokoll-sitzung-fehler" role="alert" aria-live="assertive">
-					{fehlerAmProtokollDatum}
-				</p>
-			</div>
-
-			<div>
-				<label class="feld__beschriftung" for="protokoll-datei">Das Protokoll als PDF</label>
-				<!--
-					`accept` ist ein Vorschlag an den Dateiwähler und keine Prüfung: es
-					stellt den Filter im Dialog ein, und jeder Browser lässt ihn
-					umschalten. Geprüft wird in der action, und zwar an den ersten Bytes
-					der Datei — siehe istPdf in $lib/sitzung.ts.
-				-->
-				<input
-					class="feld"
-					id="protokoll-datei"
-					name="datei"
-					type="file"
-					accept="application/pdf"
-					required
-					aria-invalid={fehlerAmDatei !== '' ? 'true' : undefined}
-					aria-describedby={fehlerAmDatei !== '' ? 'protokoll-datei-fehler' : undefined}
-				/>
-				<p class="hinweis hinweis--am-feld">
-					Höchstens {PROTOKOLL_HOECHSTGROESSE_MB} MB. Abgelegte Protokolle bleiben stehen.
-				</p>
-				<p class="fehler live" id="protokoll-datei-fehler" role="alert" aria-live="assertive">
-					{fehlerAmDatei}
-				</p>
-			</div>
-
-			<button class="button-quiet" type="submit" disabled={imFlug}>Ablegen</button>
-		</form>
-	</details>
-
-	<!--
 		**Die zwei Ablagen sind seit dem 2026-09-17 Aufklapper** (Entscheid Manuel)
 		— dieselbe Bauform wie die Abschnitte auf `/` und aus demselben Grund:
 		nachgeschlagen wird selten, und was selten gebraucht wird, soll nicht jedes
@@ -567,6 +500,81 @@
 				</ul>
 			{/if}
 		</div>
+	</details>
+	<!--
+		**Das Ablegen steht zuunterst**, seit dem 2026-09-17 (Entscheid Manuel).
+
+		Es stand vorher zwischen der Sammlung und den zwei Ablagen, und damit
+		mitten im Weg: wer die Seite öffnet, kommt wegen der Traktanden, und wer
+		ein Protokoll ablegt, tut das ein paar Mal im Jahr. Die Reihenfolge der
+		Seite folgt jetzt durchgehend der Zeit — was ansteht, was zur Sprache kam,
+		was beschlossen wurde, und zuunterst die Handlung, die das Letzte davon
+		nachträgt. Sie steht damit direkt unter den Protokollen, auf die sie wirkt.
+
+		`enctype="multipart/form-data"` ist Pflicht und die eine
+		Stelle, an der diese Seite von jedem anderen Formular des Produkts
+		abweicht: ohne diese Angabe schickt der Browser vom Dateifeld **nur den
+		Namen** und keine Bytes, und die action wiese eine Datei ab, die die Person
+		sichtbar gewählt hat.
+	-->
+	<details class="zeilenform" open={protokollOffen}>
+		<summary class="button-primary button-primary--griff">
+			<span class="aufklapp">+</span>
+			<span>Protokoll ablegen</span>
+		</summary>
+		<form
+			class="zeilenform__formular"
+			method="POST"
+			action="?/ablegen"
+			enctype="multipart/form-data"
+			use:enhance={versand}
+		>
+			<div>
+				<label class="feld__beschriftung" for="protokoll-sitzung">Datum der Sitzung</label>
+				<input
+					class="feld"
+					id="protokoll-sitzung"
+					name="sitzungAm"
+					type="date"
+					required
+					min={data.frueheste}
+					max={data.spaeteste}
+					aria-invalid={fehlerAmProtokollDatum !== '' ? 'true' : undefined}
+					aria-describedby={fehlerAmProtokollDatum !== '' ? 'protokoll-sitzung-fehler' : undefined}
+				/>
+				<p class="fehler live" id="protokoll-sitzung-fehler" role="alert" aria-live="assertive">
+					{fehlerAmProtokollDatum}
+				</p>
+			</div>
+
+			<div>
+				<label class="feld__beschriftung" for="protokoll-datei">Das Protokoll als PDF</label>
+				<!--
+					`accept` ist ein Vorschlag an den Dateiwähler und keine Prüfung: es
+					stellt den Filter im Dialog ein, und jeder Browser lässt ihn
+					umschalten. Geprüft wird in der action, und zwar an den ersten Bytes
+					der Datei — siehe istPdf in $lib/sitzung.ts.
+				-->
+				<input
+					class="feld"
+					id="protokoll-datei"
+					name="datei"
+					type="file"
+					accept="application/pdf"
+					required
+					aria-invalid={fehlerAmDatei !== '' ? 'true' : undefined}
+					aria-describedby={fehlerAmDatei !== '' ? 'protokoll-datei-fehler' : undefined}
+				/>
+				<p class="hinweis hinweis--am-feld">
+					Höchstens {PROTOKOLL_HOECHSTGROESSE_MB} MB. Abgelegte Protokolle bleiben stehen.
+				</p>
+				<p class="fehler live" id="protokoll-datei-fehler" role="alert" aria-live="assertive">
+					{fehlerAmDatei}
+				</p>
+			</div>
+
+			<button class="button-quiet" type="submit" disabled={imFlug}>Ablegen</button>
+		</form>
 	</details>
 </div>
 
