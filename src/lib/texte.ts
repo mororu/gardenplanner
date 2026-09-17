@@ -368,11 +368,34 @@ export const GRIFF_FREI_LEER = 'Nichts ausgeschrieben.';
  * Sie steht **neben** der Gesamtzahl und ersetzt sie nicht: die eine sagt, wie
  * viel offen ist, die andere, wie dringend. Eine Lücke in vier Wochen ist
  * Planung, eine diese Woche ist ein Loch.
+ *
+ * **Kürzer seit dem 2026-09-17, und die Kürzung ist gemessen** (Befund Manuel:
+ * die Zeile ist zu hoch, sobald die Warnung dasteht). `davon beide in den
+ * nächsten zwei Wochen` brauchte 233px, und genau so breit ist das Feld — der
+ * Satz brach damit auf zwei Zeilen um und machte die Zeile 73.6px hoch, wo die
+ * vier anderen 44px messen. Die jetzige Fassung braucht 206px, bleibt einzeilig
+ * und bringt die Zeile auf 55.4px.
+ *
+ * **Auf 44px kommt sie nicht**, und das ist kein Versäumnis: die Warnung ist
+ * eine zweite Zeile, und eine zweite Zeile kostet eine Zeilenhöhe. Der Versuch,
+ * sie hinter den Titel zu setzen wie `· 2 überfällig` im Pool-Griff, ist
+ * gemessen und war schlechter (56.4px): dann bricht der **Titel** um.
+ *
+ * **Die Wochen werden benannt statt gezählt.** `in den nächsten zwei Wochen`
+ * sagt dasselbe wie `diese und nächste Woche` und braucht mehr Platz; die
+ * zweite Fassung sagt zusätzlich, **welche** — und genau danach sieht jemand
+ * im Plan nach. `davon` bleibt stehen, weil es die Zahl an die Gesamtzahl in
+ * der Zeile darüber bindet.
+ *
+ * Die Ziffer statt des Wortes ist derselbe Handel: `1` und `2` sind hier keine
+ * Prosa, sondern Zählungen, und die Zeile trägt schon eine Ziffer.
+ *
+ * Mehr als zwei kann die Zahl nicht werden — BALD_WOCHEN in
+ * ../routes/+page.server.ts ist 2, und damit gibt es genau die zwei Fälle, die
+ * hier stehen.
  */
 export function zeileBald(anzahl: number): string {
-	return anzahl === 1
-		? 'davon eine in den nächsten zwei Wochen'
-		: 'davon beide in den nächsten zwei Wochen';
+	return anzahl === 1 ? 'davon 1 diese oder nächste Woche' : 'davon 2 diese und nächste Woche';
 }
 
 export function zeileUnbesetzt(anzahl: number): string {

@@ -2029,7 +2029,7 @@
 		darum nicht auf ein Gegengewicht verlassen, das wir setzen.
 	*/
 	/*
-		Die Warnung, wenn in den nächsten zwei Wochen jemand fehlt.
+		Die Warnung, wenn diese oder nächste Woche jemand fehlt.
 
 		`--warn` ist genau dafür da, und **seit dem 2026-09-13 ausschliesslich**:
 		bis dahin färbte dasselbe Token auch die Kante einer Erntestufe, und weil

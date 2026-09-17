@@ -1357,7 +1357,7 @@ try {
 		],
 		[
 			'und warnt vor der Lücke in den nächsten zwei Wochen',
-			/<span[^>]*\bclass="[^"]*\bplan-zeile__bald\b[^"]*"[^>]*>\s*davon (eine|beide) in den nächsten zwei Wochen/.test(
+			/<span[^>]*\bclass="[^"]*\bplan-zeile__bald\b[^"]*"[^>]*>\s*davon [12] diese (oder|und) nächste Woche/.test(
 				planZeile
 			),
 		],
