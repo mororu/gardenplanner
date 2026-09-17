@@ -601,7 +601,7 @@
 -->
 {#snippet zeichenKanne()}
 	<svg
-		class="zeichen griff__zeichen"
+		class="zeichen zeichen--gross"
 		viewBox="0 0 24 24"
 		fill="none"
 		stroke="currentColor"
@@ -619,7 +619,7 @@
 
 {#snippet zeichenKorb()}
 	<svg
-		class="zeichen griff__zeichen"
+		class="zeichen zeichen--gross"
 		viewBox="0 0 24 24"
 		fill="none"
 		stroke="currentColor"
@@ -666,7 +666,7 @@
 
 {#snippet zeichenFahne()}
 	<svg
-		class="zeichen griff__zeichen"
+		class="zeichen zeichen--gross"
 		viewBox="0 0 24 24"
 		fill="none"
 		stroke="currentColor"
@@ -682,7 +682,7 @@
 
 {#snippet zeichenListe()}
 	<svg
-		class="zeichen griff__zeichen"
+		class="zeichen zeichen--gross"
 		viewBox="0 0 24 24"
 		fill="none"
 		stroke="currentColor"
@@ -1323,7 +1323,7 @@
 	<details class="abschnitt">
 		<summary class="abschnitt__griff">
 			<h2 class="griff__satz" id="einzel-marke">
-				{@render zeichenPerson('griff__zeichen')}
+				{@render zeichenPerson('zeichen--gross')}
 				{#if data.ueberblick.frei === 0}
 					<span class="kopfwort">{GRIFF_FREI_LEER}</span>
 				{:else}
@@ -1830,40 +1830,6 @@
 		unberührt: **ein zugeklappter Abschnitt verbirgt seinen Inhalt, nicht seine
 		Lage.** Die Zahl steht weiterhin im Griff, nur kleiner und in einem Kasten.
 	*/
-	/*
-		Das Zeichen im Griff.
-
-		`vertical-align: middle` und kein Zahlenwert: der Griff ist ein
-		`list-item`, seine Kinder stehen in einer Zeilenbox, und ein SVG sässe ohne
-		diese Zeile auf der Grundlinie — also zu tief neben einer Überschrift in
-		20px. Ein Versatz in em wäre die genauere Schraube und brächte eine Zahl
-		mit, die aus keiner Rampe kommt; Gate-Regel 1 liest ein rohes em nicht, und
-		genau darum steht sie hier nicht.
-
-		Die Farbe ist `--ink-secondary` und nicht die des Titels: das Zeichen ist
-		die schwächere der zwei Auskünfte. Was der Abschnitt ist, sagt das Wort.
-	*/
-	/*
-		Das Zeichen im Griff eines Abschnitts.
-
-		**Keine Farbe.** `.zeichen` im geteilten Blatt malt in `currentColor`, und
-		das ist im Griff die geerbte Tintenfarbe aus `body` — dieselbe Quelle, aus
-		der auch das Aufklapp-Dreieck des `<summary>` seine Farbe nimmt, denn ein
-		`::marker` ohne eigene Regel malt in der Farbe seines Elements. Zeichen und
-		Dreieck stehen damit nicht nur zufällig gleich, sondern können gar nicht
-		auseinanderlaufen. Eine zweite Regel für das Dreieck wäre eine zweite
-		Wahrheit über dieselbe Farbe.
-
-		Bis zum 2026-09-15 stand hier `--ink-secondary`: das Zeichen war heller als
-		das Dreieck daneben und heller als das Wort dahinter. Entscheid Manuel —
-		beide schwarz.
-	*/
-	.griff__zeichen {
-		inline-size: var(--zeichen-gross);
-		block-size: var(--zeichen-gross);
-		vertical-align: middle;
-	}
-
 	/*
 		**Die Rolle `action` und nicht `section`** — seit dem 2026-09-17, auf
 		Manuels Befund, die Titel seien in dieser Ansicht zu gross.

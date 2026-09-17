@@ -741,6 +741,34 @@ select.feld {
  * `.hinweis`, nur ihre Ziffernbreite nicht.
  */
 .hinweis--ziffern {
+/*
+ * Die grössere Fassung — für ein Zeichen, das eine **Zeile anführt** statt in
+ * einem Knopf zu stehen: die fünf Griffe auf `/` und die fünf Einträge auf
+ * /mehr.
+ *
+ * **Geteilt seit dem 2026-09-17.** Die Grösse stand lokal in
+ * ../../routes/+page.svelte als `.griff__zeichen`, zusammen mit einem
+ * `vertical-align: middle`. Jenes Ausrichten war nötig, solange der Griff ein
+ * Block mit Inline-Kindern war; seit er ein Flexbehälter ist, richtet
+ * `align-items` aus, und die Deklaration war tot. Was bleibt, ist die Grösse —
+ * und die hat mit /mehr einen zweiten Ort bekommen.
+ *
+ * Modifikator und keine zweite Regel neben `.zeichen`: `flex: 0 0 auto` und die
+ * Farbe kommen unverändert von dort, hier wechselt allein das Mass.
+ *
+ * **Und ausdrücklich keine Farbe.** Das Zeichen malt in `currentColor` und erbt
+ * damit die Tinte der Zeile, die es anführt — im Abschnittsgriff dieselbe
+ * Quelle, aus der auch das Aufklappzeichen daneben seine Farbe nimmt, auf
+ * /mehr die Akzentfarbe des Eintrags. Die zwei können so gar nicht
+ * auseinanderlaufen. Bis zum 2026-09-15 stand am Griff `--ink-secondary`, und
+ * das Zeichen war heller als das Wort dahinter; Entscheid Manuel — beide
+ * gleich.
+ */
+.zeichen--gross {
+	width: var(--zeichen-gross);
+	height: var(--zeichen-gross);
+}
+
 	font-variant-numeric: tabular-nums;
 }
 
