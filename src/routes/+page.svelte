@@ -2031,17 +2031,27 @@
 	/*
 		Die Warnung, wenn diese oder nächste Woche jemand fehlt.
 
-		`--warn` ist genau dafür da, und **seit dem 2026-09-13 ausschliesslich**:
-		bis dahin färbte dasselbe Token auch die Kante einer Erntestufe, und weil
-		es hier Text ist, hielt es beide an 4.5:1 fest. Die Ampel hat jetzt eigene
-		Token, und dieses hier hat wieder einen Zweck.
+		**`--overdue` und nicht mehr `--warn`**, seit dem 2026-09-17 (Befund
+		Manuel: das Gold liest sich als Beige und nicht als Warnung). `--warn` ist
+		#856500 — ein dunkles Gold, und auf 13px daneben kaum von der Tinte zu
+		unterscheiden; `--overdue` ist #98481d, Rostlehm, und genau der Ton, den
+		`· 2 überfällig` im Pool-Griff derselben Seite trägt.
 
-		Überfälligkeit und Unbesetztheit stehen seit dem 2026-09-11 auf derselben
-		Seite — `· 2 überfällig` im Pool-Griff, diese Zeile darüber. Getragen wird
-		die Unterscheidung von dem, was schon immer trug: die Wörter sind
-		verschieden und sie stehen in verschiedenen Blöcken. Dazu kommt seit dem
-		2026-09-13 der Farbton, der es vorher nicht tat — Rostlehm gegen Gold
-		statt zweimal dasselbe dunkle Orange (1.18:1 zueinander statt 1.07:1).
+		**Damit tragen die zwei dringenden Zustände auf `/` dieselbe Farbe**, und
+		das ist eine Rücknahme: bis heute unterschied sie der Farbton — Rostlehm
+		gegen Gold, 1.18:1 zueinander. Was die Unterscheidung wirklich trägt, hat
+		derselbe Kommentar schon vorher benannt und gilt unverändert: **die Wörter
+		sind verschieden, und sie stehen in verschiedenen Blöcken.** Was die Farbe
+		jetzt sagt, ist das, was beide gemeinsam haben — hier drängt etwas.
+
+		`--danger` wäre der klarere Rotton gewesen und ist es nicht geworden:
+		DESIGN.md reserviert ihn für Zerstörendes, und eine unbesetzte Woche ist
+		keine Gefahr, sondern eine Lücke.
+
+		**`--warn` bleibt, wo es herkommt**: am `— unbesetzt —` im Tränkeplan. Wer
+		es dort auch rot will, ändert das Token selbst — und damit die
+		veröffentlichte Kontrasttabelle in DESIGN.md, an der `kontrast:selftest`
+		hängt.
 	*/
 	/*
 		**Die Schriftrolle steht seit dem 2026-09-17 hier.** Bis dahin lag dieses
@@ -2052,7 +2062,7 @@
 	*/
 	.plan-zeile__bald {
 		display: block;
-		color: var(--warn);
+		color: var(--overdue);
 		font-family: var(--meta-font);
 		font-size: var(--meta-size);
 		font-weight: var(--meta-weight);

@@ -6087,8 +6087,12 @@ try {
 			),
 		],
 		[
-			'und steht in --warn, dem Token der unbesetzten Woche',
-			/\.plan-zeile__bald \{[^}]*color: var\(--warn\);[^}]*\}/.test(startseitenCode),
+			// Seit dem 2026-09-17 `--overdue` und nicht mehr `--warn`: das Gold las
+			// sich als Beige (Befund Manuel). Damit tragen die zwei dringenden
+			// Zustände auf `/` dieselbe Farbe; unterschieden werden sie von ihren
+			// Wörtern und ihren Blöcken, wie der Tokenblock es ohnehin sagt.
+			'und steht in --overdue, dem Token des Dringenden',
+			/\.plan-zeile__bald \{[^}]*color: var\(--overdue\);[^}]*\}/.test(startseitenCode),
 		],
 		[
 			'die Gesamtzahl bleibt daneben stehen',
