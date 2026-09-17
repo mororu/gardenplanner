@@ -1576,10 +1576,16 @@ try {
 			/<h2[^>]*\bclass="[^"]*\bgriff__satz\b[^"]*"[^>]*\bid="einzel-marke"/.test(leeresBlock2),
 		],
 		[
-			// Svelte schreibt das Wahrheitsattribut als open="" aus, nicht als nacktes
-			// `open`. Gemessen am gebauten Baum, nicht angenommen.
-			'und wird offen ausgeliefert',
-			/<details\b[^>]*\bopen\b/.test(leeresBlock2),
+			// **Umgekehrt seit dem 2026-09-17** (Entscheid Manuel): die Abschnitte auf
+			// `/` kommen zugeklappt, weil ihr Griff seit dem Umbau Zeichen, Zahl und
+			// Titel trägt und die Lage damit auch zugeklappt dasteht. Die Begründung
+			// in ganzer Länge steht in der Komponente.
+			//
+			// Svelte schreibt ein Wahrheitsattribut als open="" aus und nicht als
+			// nacktes `open`; gemessen am gebauten Baum, nicht angenommen — und
+			// darum liest diese Zeile den Namen und nicht die Schreibweise.
+			'und wird zugeklappt ausgeliefert',
+			!/<details\b[^>]*\bopen\b/.test(leeresBlock2),
 		],
 		[
 			// Der Satz steht im Griff und nicht im Rumpf — er ist damit auch im

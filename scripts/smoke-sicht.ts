@@ -213,7 +213,33 @@ try {
 	});
 
 	const adresse = `http://127.0.0.1:${port}`;
+
+	/*
+	 * **Die Abschnitte auf `/` kommen seit dem 2026-09-17 zugeklappt ausgeliefert**
+	 * (Entscheid Manuel), und dieser Lauf klappt sie nach jedem Besuch auf.
+	 *
+	 * Das ist keine Umgehung der Zusage, sondern die Arbeitsteilung zwischen den
+	 * Schichten: **dass** sie zugeklappt geliefert werden, misst der Quelltextlauf
+	 * (`smoke`) und der Serverlauf am ausgelieferten HTML (`smoke:http`). Dieser
+	 * hier misst **Geometrie** — Trefferfelder, Kontraste, Fokus, Übergänge —, und
+	 * in einem zugeklappten `<details>` gibt es davon nichts: der Inhalt steht
+	 * nicht im Layout, jede Messung daran wäre ein Wurf oder eine Null.
+	 *
+	 * Ohne diesen Griff brach der Lauf am ersten Klick auf `Übernehmen` ab, weil
+	 * der Knopf in einem zugeklappten Abschnitt liegt. Gemessen, nicht überlegt.
+	 *
+	 * Gesetzt wird `open` und nicht geklickt: ein Klick wäre eine Handlung, die
+	 * der Lauf an anderer Stelle selbst prüft, und er würde den Zustand des
+	 * Aufklappzeichens mitdrehen.
+	 */
+	const abschnitteOeffnen = async (): Promise<void> => {
+		await browser!.auswerten<boolean>(`
+			for (const d of document.querySelectorAll('details.abschnitt')) d.open = true;
+			return true;`);
+	};
+
 	await browser.besuchen(`${adresse}/`);
+	await abschnitteOeffnen();
 
 	/*
 	 * Der Messkopf, einmal in die Seite gelegt. Er gibt **Zahlen und Zeichenketten**
@@ -469,6 +495,7 @@ try {
 		browser!.auswerten<string>('return getComputedStyle(document.body).backgroundColor');
 
 	await browser.besuchen(`${adresse}/`);
+	await abschnitteOeffnen();
 	const grund = await grundfarbe();
 
 	pruefen(
@@ -497,6 +524,7 @@ try {
 		],
 	});
 	await browser.besuchen(`${adresse}/`);
+	await abschnitteOeffnen();
 	const mitBewegung = await dauer();
 
 	await browser.senden('Emulation.setEmulatedMedia', {
@@ -506,6 +534,7 @@ try {
 		],
 	});
 	await browser.besuchen(`${adresse}/`);
+	await abschnitteOeffnen();
 	const ohneBewegung = await dauer();
 
 	pruefen(
@@ -1097,6 +1126,7 @@ try {
 		Math.floor(Date.now() / 1000) + 3 * 24 * 60 * 60
 	);
 	await browser.besuchen(`${adresse}/`);
+	await abschnitteOeffnen();
 	const uebernehmen = `#uebernehmen-${einzel.id}`;
 	pruefen(
 		'die ausgeschriebene Einzelaufgabe steht mit ihrem Knopf auf /',

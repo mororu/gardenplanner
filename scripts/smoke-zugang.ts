@@ -3594,7 +3594,7 @@ try {
 	 * oder wegkommt.** Das ist Absicht: es ist die Stelle, an der jemand den neuen
 	 * Abschnitt daraufhin ansieht, ob er eine Handlung braucht.
 	 */
-	const abschnitte = ohneZeilenformulare.split(/<details class="abschnitt[^"]*" open>/).slice(1);
+	const abschnitte = ohneZeilenformulare.split(/<details class="abschnitt[^"]*">/).slice(1);
 	const primaerJeAbschnitt = abschnitte.map(
 		(teil) =>
 			(teil.slice(0, teil.indexOf('</details>')).match(/class="button-primary"/g) ?? []).length
@@ -8314,7 +8314,7 @@ try {
 	 * dieselbe Bauform wie der Pool seit Story 1.4.
 	 */
 	const einzelBlock =
-		/<details class="abschnitt" open>\s*<summary class="abschnitt__griff">\s*<h2[^>]*id="einzel-marke"[\s\S]*?<\/details>/.exec(
+		/<details class="abschnitt">\s*<summary class="abschnitt__griff">\s*<h2[^>]*id="einzel-marke"[\s\S]*?<\/details>/.exec(
 			startseiteCodeEinzel
 		)?.[0] ?? '';
 	const blockTeile = [
@@ -8446,7 +8446,7 @@ try {
 			// Kante links. Ein Vergleich auf die genaue Zeichenkette hätte ihn beim
 			// Umbau still aus der Zählung fallen lassen.
 			'es sind genau drei Abschnitts-Aufklapper',
-			(startseiteCodeEinzel.match(/<details class="abschnitt[^"]*" open>/g) ?? []).length === 3,
+			(startseiteCodeEinzel.match(/<details class="abschnitt[^"]*">/g) ?? []).length === 3,
 		],
 		[
 			'alle drei tragen einen Griff',
@@ -8454,14 +8454,23 @@ try {
 		],
 		[
 			/*
+			 * **Umgekehrt seit dem 2026-09-17** (Entscheid Manuel): die drei
+			 * Abschnitte kommen **zugeklappt**. Bis dahin stand hier das Gegenteil,
+			 * mit AD-14 als Begründung — man soll beim Öffnen sehen, was ansteht.
+			 *
+			 * Die Begründung ist nicht gefallen, ihre Voraussetzung ist es. Sie
+			 * trug, solange der Griff nur einen Titel hatte; seit er Zeichen, **Zahl**
+			 * und Titel trägt, steht die Lage im Griff, und zugeklappt verbirgt er
+			 * den Inhalt und nicht die Lage. Genau diese Unterscheidung verlangt
+			 * AD-14.
+			 *
 			 * Das `open` wird **irgendwo** im Tag gesucht und nicht direkt hinter
-			 * `<details`: seit dem 2026-09-13 steht davor eine Klasse. Das alte
-			 * Muster hing an der Reihenfolge der Attribute, und es wurde in dem
-			 * Moment still falsch — es fand jedes dieser Tags und meldete sie als
-			 * zugeklappt ausgeliefert, obwohl `open` daran steht.
+			 * `<details`: davor steht eine Klasse, und das Muster darf nicht an der
+			 * Reihenfolge der Attribute hängen. Genau daran ist es am 2026-09-13
+			 * schon einmal still falsch geworden.
 			 */
-			'keiner wird zugeklappt ausgeliefert',
-			!/<details(?![^>]*\sopen[\s>])[^>]*>\s*<summary class="abschnitt__griff">/.test(
+			'keiner wird offen ausgeliefert',
+			!/<details[^>]*\sopen[\s>][^>]*>\s*<summary class="abschnitt__griff">/.test(
 				startseiteCodeEinzel
 			),
 		],
@@ -8483,7 +8492,7 @@ try {
 		],
 	] as const;
 	pruefen(
-		'alle drei Abschnitte auf / sind zuklappbar und werden offen ausgeliefert',
+		'alle drei Abschnitte auf / sind aufklappbar und werden zugeklappt ausgeliefert',
 		fehlendeTeile(aufklappTeile).length === 0,
 		`fehlt: ${fehlendeTeile(aufklappTeile).join(', ')}`
 	);

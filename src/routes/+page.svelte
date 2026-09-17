@@ -852,10 +852,12 @@
 			den zwei anderen Abschnitten. Er ist gewollt: die zwei zeigen, was
 			irgendwer tun könnte, dieser zeigt, was **ich** zugesagt habe.
 
-			**Offen ausgeliefert**, wie die zwei darunter, und der Zustand wird
-			nirgends gespeichert.
+			**Zugeklappt ausgeliefert**, wie die zwei darunter, und der Zustand wird
+			nirgends gespeichert. Die Zahl im Griff sagt auch zugeklappt, wie viel ich
+			zugesagt habe — die Begründung in ganzer Länge steht am Abschnitt `Zum
+			Erledigen`.
 		-->
-		<details class="abschnitt meine" open>
+		<details class="abschnitt meine">
 			<summary class="abschnitt__griff">
 				<h2 class="griff__satz" id="meine-marke">
 					{@render zeichenFahne()}
@@ -991,18 +993,33 @@
 		Derselbe Aufklapper wie über den Einzelaufgaben darunter — ein Abschnitt,
 		zwei Abschnitte, eine Bauform.
 
-		**Offen geliefert, und das ist keine Kleinigkeit.** AD-14 verlangt, dass man
-		beim Öffnen der Seite sieht, was zu tun ist. Ein zugeklappter Abschnitt
-		bräche das — `open` hält die Zusage, und zugleich darf jede Person den
-		Abschnitt wegklappen, wenn sie ihn gerade nicht braucht. Der Zustand wird
-		**nicht** gespeichert: beim nächsten Laden steht wieder alles offen, und
-		damit kann kein einmaliger Griff dauerhaft verbergen, dass etwas ansteht.
+		**Zugeklappt geliefert, seit dem 2026-09-17 — und das kehrt eine
+		Entscheidung um, die hier lange stand** (Entscheid Manuel).
+
+		Bis dahin trugen die Abschnitte `open`, und die Begründung war AD-14: man
+		soll beim Öffnen der Seite sehen, was zu tun ist. Ein zugeklappter
+		Abschnitt bräche das.
+
+		**Die Voraussetzung dieser Begründung ist heute weggefallen.** Sie stimmte,
+		solange der Griff nur einen Titel trug: dann verbarg ein zugeklappter
+		Abschnitt tatsächlich, dass etwas ansteht. Seit die fünf Zeilen Zeichen,
+		**Zahl** und Titel tragen, steht die Lage im Griff — `3 Zum Erledigen`
+		sagt zugeklappt dasselbe wie aufgeklappt. Was das Zuklappen verbirgt, ist
+		der Inhalt, nicht die Lage, und genau diese Unterscheidung verlangt AD-14.
+
+		Der Gewinn ist der Überblick: die ganze Seite passt jetzt ohne Blättern
+		aufs Telefon — fünf Zeilen mit fünf Zahlen, und man klappt auf, was einen
+		gerade angeht.
+
+		Der Zustand wird **nicht** gespeichert: beim nächsten Laden steht wieder
+		alles zugeklappt. Kein Griff wirkt über den Besuch hinaus, in keine der
+		beiden Richtungen.
 
 		Der Knopf `+ Aufgabe` steht **ausserhalb**: er legt etwas an, statt etwas
 		anzuzeigen, und muss auch dann erreichbar sein, wenn jemand die Liste
 		weggeklappt hat.
 	-->
-	<details class="abschnitt" open>
+	<details class="abschnitt">
 		<summary class="abschnitt__griff">
 			<h2 class="griff__satz" id="offen-marke">
 				{@render zeichenListe()}
@@ -1329,7 +1346,7 @@
 		**nicht** gespeichert: beim nächsten Laden steht wieder alles offen, und
 		damit kann kein einmaliger Griff dauerhaft verbergen, dass etwas ansteht.
 		-->
-	<details class="abschnitt" open>
+	<details class="abschnitt">
 		<summary class="abschnitt__griff">
 			<h2 class="griff__satz" id="einzel-marke">
 				{@render zeichenPerson('griff__zeichen')}
@@ -1558,10 +1575,13 @@
 				untereinander sind für jede Person, die sie einzeln vorgelesen bekommt,
 				ununterscheidbar.
 
-				**Die Bedingung, unter der das trägt, ist `open` am Abschnitt darüber.**
-				In einem zugeklappten Aufklapper läge die Liste mit; AD-14 ist genau
-				dagegen geschrieben. Offen ausgeliefert steht sie da, und wer sie
-				wegklappt, klappt seine eigene Ansicht weg — bis zum nächsten Laden.
+				**Seit dem 2026-09-17 liegt die Liste in einem zugeklappten Aufklapper**,
+				und das ist eine Umkehr: bis dahin stand hier, `open` am Abschnitt sei die
+				Bedingung, unter der die Unterscheidung trägt. Sie trägt weiterhin — nur
+				trägt sie jetzt für die Person, die **aufgeklappt** hat, und für die
+				zugeklappte Ansicht sagt der Griff mit seiner Zahl, was dahinter liegt.
+				Die Begründung für das Zuklappen in ganzer Länge steht am Abschnitt `Zum
+				Erledigen`.
 
 				**Und der Abschnitt steht jetzt auch ohne eine einzige freie
 				Einzelaufgabe.** Das ist eine Umkehr der alten Zusage „fehlt ganz oder gar
