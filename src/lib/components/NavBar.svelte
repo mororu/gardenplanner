@@ -46,11 +46,11 @@
 	 * /archiv stehen als Einträge auf /mehr.
 	 * Wer die Leiste liest, soll dort stehen sehen, woher er kam.
 	 *
-	 * **Die Ernte-Zeilen auf `/` ändern daran nichts.** Die Startseite führt seit
-	 * dem 2026-09-13 je reifer Kultur eine Zeile, die nach /ernte geht — aber
-	 * /ernte ist ein eigenes Ziel und liegt nicht unter `/`. Es gibt darum
-	 * nichts einzutragen: die Leiste markiert `Ernte`, sobald man dort ist, egal
-	 * über welchen der zwei Wege.
+	 * **Die Ernte-Zeile auf `/` ändert daran nichts.** Die Startseite führt eine
+	 * Zeile mit Zahl und Pfeil, die nach /ernte geht (seit dem 2026-09-17; davor
+	 * war es eine Zeile je reifer Kultur) — aber /ernte ist ein eigenes Ziel und
+	 * liegt nicht unter `/`. Es gibt darum nichts einzutragen: die Leiste
+	 * markiert `Ernte`, sobald man dort ist, egal über welchen der zwei Wege.
 	 *
 	 * **Die zwei Seiten zur Einzelaufgabe hängen seit dem 2026-09-13 an `/`** und
 	 * nicht mehr an `Mehr` — eine Umkehr, und sie hat einen Grund, der zwei Tage

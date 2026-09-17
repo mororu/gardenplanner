@@ -1332,9 +1332,16 @@ try {
 				return Math.round(r.width) + 'x' + Math.round(r.height);
 			}),
 		};`);
+	/*
+	 * **Zwei Griffe, und vom 2026-09-13 bis zum 2026-09-17 waren es drei.** Die
+	 * Ernte war der dritte Abschnitt; sie steht seither als Zeile mit Zahl und
+	 * Pfeil da und klappt nichts mehr auf. Die Zahl bleibt von Hand geführt und
+	 * bricht bei jedem Abschnitt, der dazu- oder wegkommt — genau dann soll
+	 * jemand sein Aufklappzeichen ansehen.
+	 */
 	pruefen(
-		'jeder der drei Abschnittsgriffe trägt genau ein Aufklappzeichen mit Ausdehnung',
-		aufklappZeichen.griffe === 3 &&
+		'jeder der zwei Abschnittsgriffe trägt genau ein Aufklappzeichen mit Ausdehnung',
+		aufklappZeichen.griffe === 2 &&
 			aufklappZeichen.zeichen.every((zahl) => zahl === 1) &&
 			aufklappZeichen.masse.every((mass) => /^[1-9]\d*x[1-9]\d*$/.test(mass)) &&
 			aufklappZeichen.anzeige.every((wert) => wert !== 'list-item'),

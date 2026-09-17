@@ -405,20 +405,6 @@ export const ERNTEZEILE_NICHT_ANSPRECHBAR =
 	'Diese Zeile lässt sich nicht ansprechen. Lade die Liste neu.';
 
 /**
- * Der Satz im Griff der Ernte auf `/`, wenn nichts gemeldet ist.
- *
- * Die Fassung nennt den **Grund** und nicht den Zustand: `Nichts reif` wäre
- * eine Behauptung über den Garten, die diese Anwendung nicht aufstellen kann —
- * im August ist immer etwas reif, es hat nur niemand eingetragen. `Nichts reif
- * gemeldet` sagt, was stimmt, und wer es liest, weiss zugleich, was zu tun
- * wäre.
- *
- * Dieselbe Fassung wie GRIFF_OFFEN_LEER und GRIFF_FREI_LEER darüber: ein
- * ganzer Satz mit Punkt, weil an dieser Stelle keine Zahl davor steht.
- */
-export const GRIFF_REIF_LEER = 'Nichts reif gemeldet.';
-
-/**
  * Die zwei Wörter an einem Termin — und die Lage, die sie benennen, steht in
  * `fristlage` in ./zeit.ts.
  *

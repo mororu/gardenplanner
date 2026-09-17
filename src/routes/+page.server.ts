@@ -18,7 +18,7 @@ import {
 	offeneAufgabenAuflisten,
 	type OffeneAufgabe,
 } from '../lib/server/db/queries/tasks.ts';
-import { erntestandLesen, type Erntezeile } from '../lib/server/db/queries/harvests.ts';
+import { erntestandLesen } from '../lib/server/db/queries/harvests.ts';
 import { SICHTBARE_ERNTESTATUS } from '../lib/ernte.ts';
 import { AUFGABE_NICHT_ANSPRECHBAR, EINZELAUFGABE_NICHT_ANSPRECHBAR } from '../lib/texte.ts';
 import {
@@ -237,7 +237,6 @@ export function load({ locals, url }: ServerLoadEvent): {
 	aufgaben: OffeneAufgabe[];
 	einzelaufgaben: MitLage[];
 	zusagen: MitLage[];
-	ernte: Erntezeile[];
 	ueberblick: Ueberblick;
 	dienst: { datum: string } | null;
 	abgelegt: number | null;
@@ -308,23 +307,21 @@ export function load({ locals, url }: ServerLoadEvent): {
 	 * zweite Wahrheit über denselben Kalender.
 	 */
 	/*
-	 * Der **ganze** Stand und nicht nur die dringenden Zeilen — dieselbe Abfrage
-	 * und dieselbe Ordnung wie auf /ernte, und das ist der Punkt: die
-	 * Registerkarte hier ist ein Ausschnitt derselben Liste, nicht eine zweite
-	 * Auswahl daneben. Eine eigene Abfrage mit `where status = 'sofort'` zeigte
-	 * an zwei Orten zwei verschiedene Stände, sobald jemand die Grenze
-	 * verschiebt.
+	 * **Nur gezählt, nicht mehr ausgeliefert** — seit dem 2026-09-17. Bis dahin
+	 * reiste der ganze Erntestand mit und stand auf `/` als Liste; die Seite
+	 * trägt seither eine Zeile mit Zahl und Pfeil, und die Zeilen stehen allein
+	 * auf /ernte (Entscheid Manuel, Begründung in der Komponente).
 	 *
-	 * Was die Zeilen kosten, ist gemessen und nicht geschätzt: was reif ist,
-	 * wird abgeerntet, und die Tabelle trägt zu jeder Zeit eine Handvoll Zeilen.
-	 * Die Auslösebedingung für einen Ausschnitt ist benannt — eine Liste, die auf
-	 * der Startseite gescrollt werden muss.
-	 */
-	/*
+	 * Gelesen wird trotzdem **dieselbe** Abfrage wie dort und keine mit
+	 * `count(*)`: die Zahl soll die Länge genau jener Liste sein, die einen Griff
+	 * weiter dasteht. Was das kostet, ist gemessen und nicht geschätzt — was reif
+	 * ist, wird abgeerntet, und die Tabelle trägt zu jeder Zeit eine Handvoll
+	 * Zeilen.
+	 *
 	 * **Nur die angebotenen Stufen** — seit dem 2026-09-14 zwei von drei. Eine
 	 * Zeile auf `wachsen` ist ausdrücklich nichts zu tun, und die Startseite
-	 * beantwortet die Frage, was ansteht; sie mitzuzählen machte die Zahl über
-	 * dem Abschnitt grösser, ohne dass mehr zu tun wäre.
+	 * beantwortet die Frage, was ansteht; sie mitzuzählen machte die Zahl
+	 * grösser, ohne dass mehr zu tun wäre.
 	 *
 	 * Gefiltert wird **hier** und nicht in der Abfrage: /ernte zeigt weiterhin
 	 * alle Stufen, damit eine Zeile, die noch auf `wachsen` steht, erreichbar
@@ -357,9 +354,9 @@ export function load({ locals, url }: ServerLoadEvent): {
 		frei: einzelaufgaben.length,
 		unbesetzt: unbesetzteWochen.length,
 		unbesetztBald: wochen.slice(0, BALD_WOCHEN).filter((woche) => woche.name === null).length,
-		// Gezählt wird dieselbe Liste, die darunter gerendert wird — kein zweites
-		// SELECT mit COUNT. Ein Bestand, eine Uhr, eine Wahrheit; derselbe Grund
-		// wie bei `offen` und `ueberfaellig` oben.
+		// Gezählt wird dieselbe Liste, die /ernte rendert — kein zweites SELECT mit
+		// COUNT. Ein Bestand, eine Uhr, eine Wahrheit; derselbe Grund wie bei
+		// `offen` und `ueberfaellig` oben.
 		reif: ernte.length,
 	};
 
@@ -367,7 +364,6 @@ export function load({ locals, url }: ServerLoadEvent): {
 		aufgaben,
 		einzelaufgaben,
 		zusagen,
-		ernte,
 		ueberblick,
 		dienst: eigene === null ? null : { datum: wochendatum(eigene.woche) },
 		abgelegt: abgelegtLesen(url),

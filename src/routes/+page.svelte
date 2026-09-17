@@ -8,8 +8,6 @@
 	import type { PageProps } from './$types';
 	import { datumKasten, datumLang } from '$lib/client/utils/date';
 	import { AUFGABE_HOECHSTLAENGE } from '$lib/aufgabentext';
-	import { DAUERERNTE_WORT, ERNTETEXT } from '$lib/ernte';
-	import ZeichenKreis from '$lib/components/ZeichenKreis.svelte';
 	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
 	import {
 		EINZELAUFGABE_NICHT_ANSPRECHBAR,
@@ -20,7 +18,6 @@
 		VERSAND_FEHLGESCHLAGEN,
 		GRIFF_FREI_LEER,
 		GRIFF_OFFEN_LEER,
-		GRIFF_REIF_LEER,
 		GRIFF_FREI,
 		GRIFF_OFFEN,
 		UEBERNEHMEN_KNOPF,
@@ -820,25 +817,28 @@
 	{/if}
 
 	<!--
-		Die unbesetzten Wochen des Tränkeplans.
+		**Zwei Zeilen mit Pfeil, und sie sind seit dem 2026-09-17 dieselbe Bauform**
+		(Entscheid Manuel): die unbesetzten Tränkewochen und der Erntestand. Beide
+		sagen dasselbe — hier sind so viele, und dahinter liegt eine eigene Seite.
 
-		**Sie steht hier und nicht bei den zwei Abschnitten darunter**, weil sie
-		dieselbe Sache betrifft wie der Diensthinweis darüber: den Tränkeplan. Erst
-		die eigene Woche, dann die Lücken, die jemand schliessen muss.
+		**Sie sind kein Aufklapper, obwohl sie wie die Griffe eine Zahl tragen:**
+		es gibt hier nichts aufzuklappen. Der Pfeil sagt das, das Dreieck der
+		Griffe fehlt.
 
-		Und sie ist **kein** Aufklapper, obwohl sie wie die Griffe eine Zahl trägt:
-		der Plan ist eine eigene Seite, hier gibt es nichts aufzuklappen. Der Pfeil
-		sagt das, das Dreieck der Griffe fehlt.
+		**Der Titel steht vor der Zahl, und die Zahl in derselben Schriftrolle wie
+		er.** Bis zum 2026-09-17 stand an der Tränkezeile die Zahl voran und das
+		Wort klein daneben — eine dritte Form neben den Griffen darunter, die ihren
+		Titel vorn und ihren Zähler klein dahinter tragen. Jetzt lesen sich beide
+		Zeilen wie eine Überschrift mit Umfang, und zwar dieselbe.
 
-		Bei null unbesetzten Wochen fehlt sie ganz — eine Zeile `0 Tränkewochen
-		unbesetzt` verlangte Aufmerksamkeit für eine Nicht-Lage. Dieselbe Haltung wie
-		beim Diensthinweis darüber.
+		Bei null fehlt die jeweilige Zeile **ganz** — eine Zeile `0 Tränkewochen
+		unbesetzt` verlangte Aufmerksamkeit für eine Nicht-Lage. Dieselbe Haltung
+		wie beim Diensthinweis darüber.
 	-->
 	{#if data.ueberblick.unbesetzt > 0}
 		<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
 		<a class="plan-zeile" href={resolve('/traenkeplan')}>
-			<span class="kopfzahl">{data.ueberblick.unbesetzt}</span>
-			<span class="kopfwort">
+			<span class="griff__titel">
 				{zeileUnbesetzt(data.ueberblick.unbesetzt)}
 				<!--
 					**Die Warnung trägt das Wort und die Farbe, nicht die Farbe allein.**
@@ -849,6 +849,7 @@
 					<span class="plan-zeile__bald">{zeileBald(data.ueberblick.unbesetztBald)}</span>
 				{/if}
 			</span>
+			<span class="kopfzahl">{data.ueberblick.unbesetzt}</span>
 			<span class="plan-zeile__pfeil" aria-hidden="true">→</span>
 		</a>
 	{/if}
@@ -859,140 +860,38 @@
 		im Garten zu holen wäre, und die Einzelaufgaben, was jemand übernehmen
 		kann.
 
-		**Ein Aufklapper und keine Zeile mit Pfeil**, anders als der Tränkeplan
-		darüber: dort gibt es eine Zahl und dahinter eine Seite, hier stehen die
-		Zeilen selbst da. Der Griff zählt, die Liste nennt.
+		**Seit dem 2026-09-17 eine Zeile mit Pfeil und kein Aufklapper mehr**
+		(Entscheid Manuel). Bis dahin standen hier der ganze Erntestand als Liste
+		und darunter ein Knopf `+ Ernten` — die Seite trug damit zweimal dieselben
+		Zeilen, einmal hier und einmal auf /ernte, und der Abschnitt war der
+		längste der Startseite.
 
-		**Jede Zeile ist ein Griff nach /ernte, und keine trägt einen Knopf.**
-		Umgestuft und abgeerntet wird dort, wo die ganze Liste steht — zwei Orte
-		für dieselbe Handlung hiessen zwei Stände, die auseinanderlaufen, sobald
-		einer von beiden eine Zeile nicht kennt.
+		Der Verlust ist benannt und angenommen: **die Dringlichkeit steht auf `/`
+		nicht mehr**. Wer die Übersicht öffnet, liest, dass es etwas zu ernten
+		gibt und wie viel — welche Kultur, in welchem Beet und wie dringend, steht
+		einen Griff weiter. Genau dafür ist /ernte da, und dort ist es auch der
+		einzige Stand. Zwei Orte für dieselbe Liste waren die teurere Hälfte.
 
-		**Der ganze Stand und nicht nur das Dringende.** Ohne die gelben und
-		grünen Zeilen hätte die Farbe an dieser Stelle nichts zu unterscheiden,
-		und wer am Samstag in den Garten geht, will wissen, was es überhaupt gibt
-		— nicht nur, was brennt.
+		Was damit ebenfalls fort ist: die drei Stufenfarben auf dieser Seite, das
+		Zeichen der Dauerernte und der Knopf `+ Ernten`. Eintragen beginnt jetzt
+		über die Leiste — `Ernte` steht dort, und die Seite öffnet mit der
+		Aufforderung `+ Reifes eintragen`.
 	-->
-	<details class="abschnitt" open>
-		<summary class="abschnitt__griff">
+	{#if data.ueberblick.reif > 0}
+		<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+		<a class="plan-zeile" href={resolve('/ernte')}>
+			{@render zeichenKorb()}
 			<!--
-				**Die Zahl zählt, was darunter steht** — Kachel und Liste sagen
-				dasselbe. Bis zum 2026-09-13 trug die Kachel zwei Zahlen und zwei
-				Sätze (`2 Kulturen sofort ernten, 3 weitere können stehen`); das war
-				genauer und schlechter: von den drei Kacheln dieser Seite war sie die
-				einzige, deren grosse Zahl nicht die Länge ihrer eigenen Liste war.
-
-				Das Wort ist darum ein einzelnes und kein Satz mit Mehrzahlform: `5
-				Ernten` heisst nicht „fünf Ernten sind fällig", sondern benennt den
-				Abschnitt und zählt ihn — wie `3 Aufgaben offen` daneben, nur dass hier
-				das Verb schon alles sagt.
-
-				Was dabei aus der Kachel fiel, ist die **Dringlichkeit**, und die steht
-				seither an jeder Zeile: die Farbe trug sie schon, jetzt trägt sie das
-				Wort daneben. Kein Zustand hängt allein an der Farbe.
+				`Zum Ernten` und nicht `Ernten`: das Wort stand als Griff über einer
+				Liste und benannte den Abschnitt. Als Zeile mit Pfeil sagt es, wohin
+				sie führt und was dort wartet — dieselbe Wendung wie `Tränkewochen
+				unbesetzt` darüber.
 			-->
-			<h2 class="griff__satz" id="ernte-marke">
-				{@render zeichenKorb()}
-				{#if data.ueberblick.reif === 0}
-					<span class="kopfwort">{GRIFF_REIF_LEER}</span>
-				{:else}
-					<span class="griff__titel">Ernten</span>
-					<span class="zaehler">{data.ueberblick.reif}</span>
-				{/if}
-			</h2>
-			<ZeichenWinkel class="aufklapp" />
-		</summary>
-		<div class="abschnitt__inhalt">
-			{#if data.ernte.length > 0}
-				<ul class="liste liste--getrennt" aria-labelledby="ernte-marke">
-					{#each data.ernte as zeile (zeile.id)}
-						<li>
-							<!--
-							Die Farbe der Stufe als Marke — dieselbe Breite und dieselben drei
-							Token wie auf /ernte, damit dasselbe Zeichen an beiden Orten dasselbe
-							heisst. Das **Wort** steht auf /ernte in der Überschrift des
-							Abschnitts und hier in der Marke an der Zeile. Kein Zustand hängt
-							allein an der Farbe.
-						-->
-							<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-							<a
-								class="ernte-zeile"
-								class:ernte-zeile--sofort={zeile.status === 'sofort'}
-								class:ernte-zeile--stehen={zeile.status === 'stehen'}
-								class:ernte-zeile--wachsen={zeile.status === 'wachsen'}
-								data-stufe={zeile.status}
-								href={resolve('/ernte')}
-							>
-								<span class="zeile__spalte">
-									<span class="titelzeile">
-										<span class="zeile__text"
-											>{zeile.kultur}{#if zeile.ort !== null}<span class="ernte-zeile__ort"
-													>, {zeile.ort}</span
-												>{/if}</span
-										>
-										<!--
-										Das Wort der Stufe, seit die Kachel es nicht mehr trägt. Die
-										**kurze** Fassung wie an den Knöpfen auf /ernte — die Zeile
-										hat neben Kultur, Ort und Vermerk keinen Platz für einen
-										ganzen Satz, und die lange steht drüben in der Überschrift
-										des Abschnitts.
-									-->
-										<span class="marke">{ERNTETEXT[zeile.status].kurz}</span>
-										<!--
-											**Das Kreiszeichen steht hinter der Stufe, nicht davor**
-											(Entscheid Manuel, 2026-09-15): die Stufe sagt, wie dringend es
-											ist, die Dauerernte, dass es wiederkommt. Das Zeichen gehört zur
-											zweiten Auskunft und macht sie beim Blättern auffindbar, ohne
-											dass man beide Wörter lesen muss.
-
-											`aria-hidden` wie bei jedem Zeichen dieser Seite — das Wort
-											steht daneben und trägt die Aussage allein.
-										-->
-										{#if zeile.laufend}
-											<span class="zeichenwort">
-												<ZeichenKreis />
-												<span class="nur-vorgelesen">{DAUERERNTE_WORT}</span>
-											</span>
-										{/if}
-									</span>
-									<span class="hinweis hinweis--ziffern">
-										{zeile.name ?? 'unbekannt'} · {datumLang(zeile.createdAt)}
-									</span>
-								</span>
-								<span class="plan-zeile__pfeil" aria-hidden="true">→</span>
-							</a>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-
-			<!--
-			Die Haupthandlung dieses Abschnitts. Sie steht ausserhalb des {#if} — auch
-			wer nichts gemeldet sieht, soll losgehen können. Ohne sie wäre die Ernte
-			der einzige Abschnitt auf dieser Seite, aus dem heraus man nichts anfangen
-			kann.
-
-			**Seit dem 2026-09-13 mit `+`, und das kehrt eine frühere Entscheidung
-			um.** Hier stand `Ernten` ohne Zeichen, mit der Begründung: die zwei
-			Knöpfe darunter legen etwas an, dieser führt dorthin, wo man **beides**
-			kann — sehen, was reif ist, und eintragen, was man gefunden hat; ein `+`
-			verspräche ein Formular, und die Seite öffnet zuerst eine Liste.
-
-			Manuel hat den Knopf trotzdem als den zum Hinzufügen gelesen, und das ist
-			die Auskunft, die zählt: er steht unter einer Liste und ist grün wie die
-			zwei anderen, die anlegen. Die Form der drei ist jetzt dieselbe.
-
-			Er trug bis zum 2026-09-13 `?eintragen` und klappte drüben den Griff auf.
-			Das war die Zusage der alten Beschriftung; mit `Ernten` gibt es sie nicht
-			mehr, und der Parameter ist mit ihr weg statt als tote Mechanik
-			stehenzubleiben.
-		-->
-			<div class="knoepfe">
-				<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-				<a class="button-primary" href={resolve('/ernte')}>+ Ernten</a>
-			</div>
-		</div>
-	</details>
+			<span class="griff__titel">Zum Ernten</span>
+			<span class="kopfzahl">{data.ueberblick.reif}</span>
+			<span class="plan-zeile__pfeil" aria-hidden="true">→</span>
+		</a>
+	{/if}
 
 	<!--
 		Derselbe Aufklapper wie über den Einzelaufgaben darunter — ein Abschnitt,
@@ -1916,21 +1815,28 @@
 	}
 
 	/*
-	 * Die Zeile zum Tränkeplan.
+	 * Die zwei Zeilen mit Pfeil — Tränkeplan und Ernte.
 	 *
-	 * **Sie sieht anders aus als die zwei Griffe darüber, weil sie etwas anderes
-	 * tut.** Die Griffe klappen einen Abschnitt dieser Seite auf; diese Zeile führt
-	 * auf eine andere Seite. Gleiche Form bei verschiedenem Verhalten wäre die
-	 * Falle — wer einmal gelernt hat, dass eine Zeile mit Zahl aufklappt, erwartet
-	 * das auch hier.
+	 * **Sie sehen anders aus als die Griffe darunter, weil sie etwas anderes
+	 * tun.** Die Griffe klappen einen Abschnitt dieser Seite auf; diese Zeilen
+	 * führen auf eine andere Seite. Gleiche Form bei verschiedenem Verhalten wäre
+	 * die Falle — wer einmal gelernt hat, dass eine Zeile mit Zahl aufklappt,
+	 * erwartet das auch hier.
 	 *
 	 * Darum: kein Dreieck, sondern ein Pfeil am Ende, Akzentfarbe wie jeder andere
-	 * Verweis, und eine Kante wie am Diensthinweis darüber — beide führen auf den
-	 * Tränkeplan, und beide sehen deshalb gleich aus.
+	 * Verweis, und eine Kante wie am Diensthinweis darüber — der führt ebenfalls
+	 * auf den Tränkeplan, und beide sehen deshalb gleich aus.
+	 *
+	 * **`center` und nicht `baseline`**, seit dem 2026-09-17 und aus zwei
+	 * Gründen: die Ernte-Zeile trägt vorn ein Zeichen, und ein SVG hat keine
+	 * Grundlinie — der Browser nimmt dann seine Unterkante, und das Zeichen sässe
+	 * zu tief. Und an der Tränkezeile steht die Warnung als zweite Zeile unter dem
+	 * Titel; Zahl und Pfeil gehören dann in die Mitte der zwei Zeilen und nicht an
+	 * die obere.
 	 */
 	.plan-zeile {
 		display: flex;
-		align-items: baseline;
+		align-items: center;
 		gap: var(--space-2);
 		min-height: var(--touch);
 		padding: var(--space-2) var(--space-3);
@@ -1963,9 +1869,20 @@
 		2026-09-13 der Farbton, der es vorher nicht tat — Rostlehm gegen Gold
 		statt zweimal dasselbe dunkle Orange (1.18:1 zueinander statt 1.07:1).
 	*/
+	/*
+		**Die Schriftrolle steht seit dem 2026-09-17 hier.** Bis dahin lag dieses
+		Element in `.kopfwort` und erbte dessen meta-Rolle; jetzt liegt es im
+		Titel und erbte dessen Grösse — der Satz stünde in Überschriftgrösse und
+		bräche über zwei Zeilen um. Derselbe Vorfall wie bei `.kopffrist` oben,
+		und dieselbe Lösung.
+	*/
 	.plan-zeile__bald {
 		display: block;
 		color: var(--warn);
+		font-family: var(--meta-font);
+		font-size: var(--meta-size);
+		font-weight: var(--meta-weight);
+		line-height: var(--meta-line);
 	}
 
 	.plan-zeile__pfeil {
@@ -1974,69 +1891,6 @@
 		font-family: var(--section-font);
 		font-size: var(--section-size);
 		line-height: var(--section-line);
-	}
-
-	/*
-		Die Zeile der Ernte-Registerkarte. Sie ist ein **Griff** und keine Karte:
-		Kante, Fläche und Trefferfeld wie `.plan-zeile` darüber — dieselbe Aussage,
-		„das hier führt woandershin" —, aber zweizeilig, weil sie Kultur und Ort in
-		der ersten und Namen und Datum in der zweiten Zeile trägt.
-
-		Sie hat darum `align-items: center` und `.plan-zeile` nicht: dort stehen
-		Zahl und Wort auf einer Grundlinie, hier soll der Pfeil zwischen den zwei
-		Zeilen sitzen und nicht an der oberen kleben.
-	*/
-	.ernte-zeile {
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
-		min-height: var(--touch);
-		padding: var(--space-2) var(--space-3);
-		border: var(--border-hairline) solid var(--ink-secondary);
-		border-radius: var(--radius-md);
-		background-color: var(--surface-raised);
-		color: var(--ink-primary);
-		text-decoration: none;
-	}
-
-	/*
-		Dieselben drei Token wie die Abschnitte auf /ernte, je als Marke in der
-		Breite von --border-marker. Dasselbe Zeichen an beiden Orten heisst
-		dasselbe.
-
-		**Seit dem 2026-09-13 sind es eigene Token und keine geliehenen mehr.** Bis
-		dahin standen hier --danger, --warn und --accent — drei Textfarben, und
-		damit an 4.5:1 gebunden, wo eine Kante 3:1 hält. Die mittlere Stufe war auf
-		drei Pixeln praktisch nicht zu sehen; die Begründung steht im Tokenblock in
-		src/app.html. Nebenbei hört damit auf, dass eine reife Zucchini sich die
-		Farbe des Zerstörenden lieh.
-
-		Das Wort dazu steht an der Zeile selbst und auf /ernte in der Überschrift
-		jedes Abschnitts. Kein Zustand hängt allein an der Farbe.
-	*/
-	.ernte-zeile--sofort {
-		border-inline-start: var(--border-marker) solid var(--reif-sofort);
-	}
-
-	.ernte-zeile--stehen {
-		border-inline-start: var(--border-marker) solid var(--reif-stehen);
-	}
-
-	.ernte-zeile--wachsen {
-		border-inline-start: var(--border-marker) solid var(--reif-wachsen);
-	}
-
-	/*
-		Der Ort neben der Kultur. Nebentext-Rolle und **ohne** eigenes
-		`line-height`: als Span in der Zeile der Kultur zerteilte das deren
-		Zeilenbox. Derselbe Handgriff und dieselbe Begründung wie beim ISO-Jahr im
-		Tränkeplan und beim Ort auf /ernte.
-	*/
-	.ernte-zeile__ort {
-		color: var(--ink-secondary);
-		font-family: var(--meta-font);
-		font-size: var(--meta-size);
-		font-weight: var(--meta-weight);
 	}
 
 	/*
