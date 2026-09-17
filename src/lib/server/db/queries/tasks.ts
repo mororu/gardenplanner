@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, isNotNull, isNull } from 'drizzle-orm';
 import { datenbank } from '../index.ts';
 import { tasks, type NewTask, type SichtbareAufgabe } from '../schema.ts';
 import { wochenOffenSeit } from '../../../zeit.ts';
@@ -81,6 +81,47 @@ type NurSichtbar = SichtbareAufgabe & Partial<Record<'completedBy' | 'completedA
  * weiter nach created_at, und überfällige Zeilen stehen an ihrem Platz.
  */
 export type OffeneAufgabe = NurSichtbar & { wochenOffen: number | null };
+
+/**
+ * Eine erledigte Aufgabe samt dem Zeitpunkt, an dem sie abgehakt wurde — der
+ * Zeilentyp des Archivs.
+ *
+ * **Die einzige Projektion dieser Datei, die `completed_at` herausreicht**, und
+ * darum steht hier die Begründung, warum das AD-5 nicht bricht. AD-5 verbietet
+ * jede Zuordnung einer erledigten Aufgabe zu einer **Person**; das ist
+ * `completed_by`, und diese Spalte bleibt hier ausgeschlossen wie überall
+ * sonst. Der Zeitpunkt ist keine Person: er sagt, **wann** im Gartenjahr etwas
+ * getan wurde, und genau diese Auskunft ist der Zweck des Archivs. Dass
+ * SichtbareAufgabe in ../schema.ts beide Spalten auslässt, hat für die zwei
+ * verschiedene Gründe — `completed_by` wegen AD-5, `completed_at`, weil es in
+ * jeder Liste offener Aufgaben leer ist und dort nichts bedeutet. Der zweite
+ * Grund fällt hier weg, der erste nicht.
+ *
+ * **Das Feld heisst `erledigtAm` und nicht `completedAt`**, und das ist keine
+ * Kosmetik: scripts/smoke-zugang.ts durchsucht die Seitendaten nach dem Muster
+ * `/completed/i` und macht daraus die Wache für AD-5. Ein durchgereichtes
+ * `completedAt` machte sie rot — richtigerweise, denn sie kann nicht wissen,
+ * welche der zwei Spalten gemeint ist. Der deutsche Name hält die Wache scharf
+ * für das, wogegen sie steht, und folgt zugleich der Hausregel für
+ * Domänenfelder; `wochenOffen` an OffeneAufgabe darüber steht aus demselben
+ * Grund deutsch da.
+ *
+ * `number` und nicht `number | null`: die Abfrage liest ausschliesslich Zeilen
+ * mit `completed_at IS NOT NULL`. Wie diese Zusage aus der where-Klausel in den
+ * Typ kommt, steht an erledigteAufgabenAuflisten.
+ */
+type Archivzeile = SichtbareAufgabe & { erledigtAm: number };
+
+/**
+ * Archivzeile — und `completed_by` ausdrücklich **verboten**.
+ *
+ * Dieselbe Bauform und dieselbe Begründung wie NurSichtbar darüber: die
+ * Rückgabeannotation allein trägt die Zusage nicht, weil TypeScript strukturell
+ * ist und eine vollständige Task-Zeile zuweisbar wäre. `completed_at` steht hier
+ * **nicht** im Verbot, denn genau dieses Feld reicht diese Projektion heraus —
+ * unter seinem deutschen Namen, siehe oben.
+ */
+export type ErledigteAufgabe = Archivzeile & Partial<Record<'completedBy', never>>;
 
 /**
  * Legt eine Aufgabe an und gibt die erzeugte Zeile zurück.
@@ -250,6 +291,89 @@ export function offeneAufgabenAuflisten(jetztSekunden: number): OffeneAufgabe[] 
 			...zeile,
 			wochenOffen: wochenOffenSeit(zeile.dueAt ?? zeile.createdAt, jetztSekunden),
 		}));
+}
+
+/*
+ * Die Spaltenauswahl des Archivs: dieselben vier wie oben, dazu der Zeitpunkt
+ * des Abhakens unter seinem deutschen Namen.
+ *
+ * Sie steht **neben** sichtbareSpalten und ersetzt sie nicht. Eine einzige
+ * Projektion für alle sechs Funktionen dieser Datei wäre der bequemere Weg
+ * gewesen und der falsche: `erledigtAm` landete dann im `returning()` von
+ * aufgabeAnlegen, aufgabenStapelAnlegen, aufgabeAbhaken und
+ * aufgabeWiederOeffnen, wo es entweder leer ist oder — beim Abhaken — den
+ * Zeitpunkt in die Antwort einer action trüge, die ihn nirgends zeigt. Zwei
+ * Projektionen sind hier billiger als eine breite: jede sagt, was ihre Leser
+ * sehen dürfen.
+ *
+ * `satisfies Record<keyof Archivzeile, unknown>` hält die Auswahl an den Typ und
+ * weist eine überzählige Spalte ab — insbesondere `completed_by`, das in
+ * Archivzeile nicht vorkommt. Die Gegenrichtung fängt die Rückgabeannotation der
+ * Funktion darunter.
+ */
+const archivSpalten = {
+	...sichtbareSpalten,
+	erledigtAm: tasks.completedAt,
+} satisfies Record<keyof Archivzeile, unknown>;
+
+/**
+ * Die erledigten Aufgaben, die zuletzt abgehakte zuerst.
+ *
+ * Das Archiv. Es beantwortet die Frage, die das Produkt bis heute schreibt und
+ * nie liest: **was ist in diesem Garten schon getan worden?** Abgehakt wird auf
+ * `/`, und dort verschwindet die Zeile beim nächsten Laden — seither lagen
+ * `completed_at` und `completed_by` in der Tabelle, ohne dass eine einzige
+ * Abfrage sie zurückgelesen hätte. Wer im Oktober den Monatsplan ablegt, sieht
+ * hier, was der September wirklich gebracht hat, statt es zu schätzen.
+ *
+ * **Ohne Namen, und das ist der Kern.** Die Projektion trägt `completed_by`
+ * nicht, der Typ verbietet es, und die Seite kann ihn darum nicht anzeigen —
+ * dieselbe Kette wie bei SichtbareAufgabe und aus demselben Grund (AD-5). Ein
+ * Archiv, das Namen trüge, wäre eine Leistungsabrechnung über eine
+ * Nachbarschaft, und die Spec zum Überblicksband verbietet die Auswertung nach
+ * Person ausdrücklich auch als Aggregat.
+ *
+ * **Absteigend, anders als die offene Liste.** Jene ordnet aufsteigend, damit
+ * das Älteste oben liegt und niemand es übersieht; ein Archiv liest man von
+ * heute rückwärts. Die Id als zweites Kriterium hat denselben Grund wie dort:
+ * `completed_at` hat die Auflösung einer Sekunde, und zwei in derselben Sekunde
+ * abgehakte Aufgaben hätten sonst keine festgelegte Reihenfolge — die Liste
+ * wechselte zwischen zwei Aufrufen ihre Anordnung, ohne dass sich etwas geändert
+ * hat.
+ *
+ * **Der flatMap ist keine zweite Vorbedingung.** `completed_at` ist im Schema
+ * nullbar, weil eine offene Aufgabe keinen Zeitpunkt hat; die where-Klausel
+ * schliesst jene Zeilen aus, aber der Zeilentyp aus Drizzle weiss davon nichts
+ * und bleibt `number | null`. Der leere Zweig ist die Stelle, an der diese
+ * Zusage aus SQL in den Typ übersetzt wird. Er ist **unerreichbar**, und er
+ * steht trotzdem da statt einer Zusicherung mit `as`: die hätte dieselbe
+ * Wirkung, aber keine Prüfung — fiele das `isNotNull` eines Tages aus der
+ * where-Klausel, liefe eine Zeile mit `erledigtAm: null` still durch einen Typ,
+ * der `number` verspricht, und die Seite formatierte den 1. Januar 1970.
+ *
+ * **Kein Blättern und kein Index**, dieselbe Entscheidung wie bei den übrigen
+ * Abfragen dieser Datei und mit einer benannten Auslösebedingung: zwanzig Leute
+ * haken eine Handvoll Aufgaben je Woche ab, was nach einem Gartenjahr ein paar
+ * hundert Zeilen ergibt — eine Tabelle, die in wenige Speicherseiten passt, und
+ * ein voller Durchlauf, der sie liest. Wer diese Seite je nach Zeitraum
+ * **filtert** statt alles zu lesen, liest zum ersten Mal einen Ausschnitt, und
+ * dann trägt ein Index auf `completed_at` zum ersten Mal etwas. Dieselbe
+ * Auslösebedingung steht in ../schema.ts an signup_tasks.
+ *
+ * **Kein Bezugszeitpunkt als Parameter**, anders als bei offeneAufgabenAuflisten:
+ * hier wird nichts gegen eine Uhr gerechnet. Was das Archiv zeigt, ändert sich
+ * nicht dadurch, dass Zeit vergeht.
+ */
+export function erledigteAufgabenAuflisten(): ErledigteAufgabe[] {
+	return datenbank()
+		.select(archivSpalten)
+		.from(tasks)
+		.where(isNotNull(tasks.completedAt))
+		.orderBy(desc(tasks.completedAt), desc(tasks.id))
+		.all()
+		.flatMap((zeile) =>
+			zeile.erledigtAm === null ? [] : [{ ...zeile, erledigtAm: zeile.erledigtAm }]
+		);
 }
 
 /**
