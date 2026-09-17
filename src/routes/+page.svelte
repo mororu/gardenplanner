@@ -577,6 +577,13 @@
 	nicht fehlendes Wasser. Zwischenstand vom selben Tag, eine Stunde alt; der
 	Tropfen stand nie ausgeliefert da.
 
+	**Die Kanne zeigt nach links und hat den Bügel rechts** (zweite Fassung,
+	2026-09-17, auf Manuels Befund). Die erste hatte das Rohr rechts oben und den
+	Griff obenauf; bei 22px lagen Rohr und Bügel dort so nah beieinander, dass
+	die Form eher nach Kanne mit Deckel aussah. Jetzt steht das Rohr frei auf der
+	einen Seite und der Bügel frei auf der anderen — dieselbe Silhouette, die man
+	von einer Giesskanne im Regal kennt.
+
 	**Das Häkchen am Griff der eigenen Zusagen ist bewusst dasselbe wie am
 	`Erledigt`-Knopf** in dessen Zeilen (2026-09-17, mit dem Umbau zum
 	Aufklapper). Es sagt an beiden Stellen dasselbe: was ich zugesagt habe, hake
@@ -595,10 +602,10 @@
 		stroke-linejoin="round"
 		aria-hidden="true"
 	>
-		<path d="M4.5 10.5h8.5v6a3 3 0 0 1-3 3H7.5a3 3 0 0 1-3-3v-6Z" />
-		<path d="M7 10.5V9a2.5 2.5 0 0 1 4.5-1.5" />
-		<path d="M13 12.5 18.5 9" />
-		<path d="M16.5 6.5 20.5 10.5" />
+		<path d="M9 10.5h9v6.5a3 3 0 0 1-3 3h-3a3 3 0 0 1-3-3v-6.5Z" />
+		<path d="M9 13.5 4 10" />
+		<path d="M2.5 11.5 5.5 7.5" />
+		<path d="M18 12.5a2.5 2.5 0 0 1 0 5" />
 	</svg>
 {/snippet}
 
@@ -1649,7 +1656,27 @@
 	 * seine Inhaltsbreite zurück, und ein langer Titel schöbe den Winkel aus der
 	 * Zeile.
 	 */
+	/*
+		**Ein Flexbehälter mit demselben Abstand wie `.plan-zeile`** — seit dem
+		2026-09-17, und der Grund ist gemessen und nicht vermutet.
+
+		Bis dahin war dies ein gewöhnlicher Block, seine Kinder standen als
+		Inline-Kästen nebeneinander, und der Abstand zwischen ihnen war der
+		**Leerraum im Quelltext**: ein Leerzeichen, rund 5.7px. Die zwei Zeilen mit
+		Pfeil daneben sind Flexbehälter mit `gap: var(--space-2)`, also 8px. Bei
+		375px gemessen begannen die Titel darum an zwei verschiedenen Stellen —
+		74.7px in den Griffen, 92.9px in den Zeilen.
+
+		**Und `min-inline-size` an der Zahl war dort wirkungslos.** Die Eigenschaft
+		gilt für nicht ersetzte Inline-Kästen nicht; der Platz für zwei Ziffern
+		stand in den Zeilen und fehlte in den Griffen, ohne dass irgendetwas rot
+		wurde. Als Flex-Kind greift sie, und die fünf Titel beginnen an derselben
+		Stelle.
+	*/
 	.griff__satz {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
 		flex: 1 1 auto;
 		min-inline-size: 0;
 		margin: 0;
@@ -1691,6 +1718,22 @@
 	*/
 	.meine {
 		border-inline-start: var(--border-marker) solid var(--accent);
+	}
+
+	/*
+		**Die zwei Pixel, die die Akzentkante kostet, gibt der Griff zurück.**
+
+		`.abschnitt` trägt links eine Haarlinie, `.meine` an ihrer Stelle die
+		3px-Marke. Alles darin rückt damit um die Differenz nach rechts — gemessen
+		bei 375px: das Zeichen dieses Griffs sass bei 31px, das der anderen vier
+		bei 29px. Zwei Pixel sieht man einzeln nicht und in einer Reihe von fünf
+		schon.
+
+		Gerechnet aus den zwei Kantentoken und nicht als Zahl hingeschrieben: wer
+		`--border-marker` verschiebt, verschiebt diesen Ausgleich mit.
+	*/
+	.meine > .abschnitt__griff {
+		padding-inline-start: calc(var(--space-3) - (var(--border-marker) - var(--border-hairline)));
 	}
 
 	/*
@@ -1804,11 +1847,35 @@
 		vertical-align: middle;
 	}
 
+	/*
+		**Die Rolle `action` und nicht `section`** — seit dem 2026-09-17, auf
+		Manuels Befund, die Titel seien in dieser Ansicht zu gross.
+
+		`section` sind 20px und die Rolle der **Seitengliederung**: die Titelleiste,
+		der Titel eines Abschnitts auf /ernte oder /sitzungen, wo einer oder zwei
+		davon stehen. Auf `/` stehen **fünf** untereinander, und fünf Überschriften
+		in 20px sind kein Aufbau mehr, sondern eine Wand.
+
+		`action` sind 16px in derselben Schrift und demselben Gewicht — die Rolle
+		des Knopftextes, und das passt hier besser, als es zunächst klingt: diese
+		fünf Zeilen sind Griffe. Drei klappen auf, zwei führen weg; jede ist etwas,
+		das man antippt.
+
+		**Keine neue Zahl und keine neue Rolle.** Die Rampe in src/app.html bleibt
+		unberührt; wer `--section-size` verschöbe, verschöbe die Titelleiste und
+		jeden Abschnittstitel des Produkts mit. Hier wechselt nur, welche der
+		bestehenden Rollen diese fünf Zeilen tragen.
+
+		`line-height` kommt trotzdem aus `section` und nicht aus `action`: dessen
+		1.0 ist für einen Knopf gedacht, dessen Höhe der Knopf selbst setzt. Ein
+		Titel, der umbricht — `Tränkewochen unbesetzt` tut das bei 375px —, klebte
+		damit zusammen.
+	*/
 	.griff__titel {
 		color: var(--ink-primary);
-		font-family: var(--section-font);
-		font-size: var(--section-size);
-		font-weight: var(--section-weight);
+		font-family: var(--action-font);
+		font-size: var(--action-size);
+		font-weight: var(--action-weight);
 		line-height: var(--section-line);
 		letter-spacing: var(--section-tracking);
 	}
@@ -1858,9 +1925,9 @@
 		*/
 		min-inline-size: 2ch;
 		text-align: end;
-		font-family: var(--section-font);
-		font-size: var(--section-size);
-		font-weight: var(--section-weight);
+		font-family: var(--action-font);
+		font-size: var(--action-size);
+		font-weight: var(--action-weight);
 		line-height: var(--section-line);
 		letter-spacing: var(--section-tracking);
 		color: var(--ink-primary);
