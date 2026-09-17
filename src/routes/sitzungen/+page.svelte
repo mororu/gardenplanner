@@ -419,9 +419,9 @@
 		sichtbar gewählt hat.
 	-->
 	<details class="zeilenform" open={protokollOffen}>
-		<summary class="zeilenform__griff">
+		<summary class="button-primary button-primary--griff">
+			<span class="aufklapp">+</span>
 			<span>Protokoll ablegen</span>
-			<ZeichenWinkel class="aufklapp" />
 		</summary>
 		<form
 			class="zeilenform__formular"
@@ -479,71 +479,95 @@
 	</details>
 
 	<!--
-		**Die gezogenen Listen stehen zwischen der Sammlung und den Protokollen**,
-		und die Stelle ist die Aussage: sie sind der Schritt dazwischen. Oben steht,
-		was noch zu besprechen ist, hier, was zur Sprache kam, unten, was
-		beschlossen wurde.
+		**Die zwei Ablagen sind seit dem 2026-09-17 Aufklapper** (Entscheid Manuel)
+		— dieselbe Bauform wie die Abschnitte auf `/` und aus demselben Grund:
+		nachgeschlagen wird selten, und was selten gebraucht wird, soll nicht jedes
+		Mal die halbe Seite füllen. Die Sammlung darüber bleibt offen: sie ist das,
+		woran gerade gearbeitet wird.
 
-		Kein leerer Zustand mit eigenem Satz: solange nie eine Liste gezogen wurde,
-		fehlt der Abschnitt **ganz**. `Noch keine gezogen` erklärte eine Handlung,
-		die einen Griff weiter oben ohnehin dasteht — anders als bei den
-		Protokollen, wo der leere Zustand die einzige Stelle ist, an der die Seite
-		überhaupt sagt, dass es sie gibt.
+		**Beide stehen jetzt immer da**, auch leer — die gezogenen Listen fehlten
+		vorher ganz, solange nie eine gezogen war. Als offener Abschnitt war das
+		richtig (ein leerer Titel ohne Inhalt ist eine Zeile ohne Aussage); als
+		zugeklappter Griff ist es der Fehler: zwei Aufklapper, von denen einer
+		manchmal fehlt, sind eine Seite, die je nach Datenlage anders aussieht. Der
+		leere Zustand steht darum **im** Abschnitt, wie bei den Protokollen.
+
+		**Zugeklappt geliefert**, wie die drei Abschnitte auf `/`. Die Griffe tragen
+		den Titel in der Abschnittsrolle und den Winkel; die Klassen mit Zahl und
+		Zeichen, die `/` an seinen Griffen hat, bleiben dort — sie tragen einen
+		Zähler und ein Piktogramm, die diese Seite nicht hat, und geteilt würden sie
+		zu einer Rolle, die an einer Stelle halb leer bliebe.
 	-->
-	{#if data.traktandenlisten.length > 0}
-		<h2 class="abschnittstitel" id="listen-marke">Gezogene Traktandenlisten</h2>
-		<ul class="liste liste--getrennt" aria-labelledby="listen-marke">
-			{#each data.traktandenlisten as liste (liste.id)}
-				<li class="karte karte--eng">
-					<!--
-						Ein gewöhnlicher Link und kein `download`-Attribut, aus demselben
-						Grund wie bei den Protokollen darunter: die Ausgabe schickt
-						`Content-Disposition: attachment`.
+	<details class="abschnitt">
+		<summary class="abschnitt__griff">
+			<h2 class="abschnittstitel" id="listen-marke">Gezogene Traktandenlisten</h2>
+			<ZeichenWinkel class="aufklapp" />
+		</summary>
+		<div class="abschnitt__inhalt">
+			{#if data.traktandenlisten.length === 0}
+				<p class="leer">Noch keine gezogen.</p>
+			{:else}
+				<ul class="liste liste--getrennt" aria-labelledby="listen-marke">
+					{#each data.traktandenlisten as liste (liste.id)}
+						<li class="karte karte--eng">
+							<!--
+								Ein gewöhnlicher Link und kein `download`-Attribut, aus demselben
+								Grund wie bei den Protokollen darunter: die Ausgabe schickt
+								`Content-Disposition: attachment`.
 
-						**Eine eigene Route und nicht `/sitzungen/[id]`**: die Kennungen
-						kommen aus zwei Tabellen und überdeckten einander — die Liste 3 und
-						das Protokoll 3 gibt es beide.
+								**Eine eigene Route und nicht `/sitzungen/[id]`**: die Kennungen
+								kommen aus zwei Tabellen und überdeckten einander — die Liste 3
+								und das Protokoll 3 gibt es beide.
 
-						resolve() ist Pflicht für interne Ziele
-						(svelte/no-navigation-without-resolve).
-					-->
-					<a class="eintrag" href={resolve(`/sitzungen/liste/${liste.id}`)}>
-						Traktandenliste vom {datumLang(liste.createdAt)}
-					</a>
-					<p class="hinweis hinweis--ziffern">
-						{liste.name ?? 'unbekannt'} · {datumKurz(liste.createdAt)}
-					</p>
-				</li>
-			{/each}
-		</ul>
-	{/if}
+								resolve() ist Pflicht für interne Ziele
+								(svelte/no-navigation-without-resolve).
+							-->
+							<a class="eintrag" href={resolve(`/sitzungen/liste/${liste.id}`)}>
+								Traktandenliste vom {datumLang(liste.createdAt)}
+							</a>
+							<p class="hinweis hinweis--ziffern">
+								{liste.name ?? 'unbekannt'} · {datumKurz(liste.createdAt)}
+							</p>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
+	</details>
 
-	<h2 class="abschnittstitel" id="protokolle-marke">Abgelegte Protokolle</h2>
-	{#if data.protokolle.length === 0}
-		<p class="leer">Noch keines abgelegt.</p>
-	{:else}
-		<ul class="liste liste--getrennt" aria-labelledby="protokolle-marke">
-			{#each data.protokolle as protokoll (protokoll.id)}
-				<li class="karte karte--eng">
-					<!--
-						Ein gewöhnlicher Link und kein `download`-Attribut: die Ausgabe
-						schickt `Content-Disposition: attachment`, und damit lädt der Browser
-						die Datei ohnehin herunter. Das Attribut wäre dieselbe Aussage ein
-						zweites Mal, an der Stelle, die sie nicht durchsetzt.
+	<details class="abschnitt">
+		<summary class="abschnitt__griff">
+			<h2 class="abschnittstitel" id="protokolle-marke">Abgelegte Protokolle</h2>
+			<ZeichenWinkel class="aufklapp" />
+		</summary>
+		<div class="abschnitt__inhalt">
+			{#if data.protokolle.length === 0}
+				<p class="leer">Noch keines abgelegt.</p>
+			{:else}
+				<ul class="liste liste--getrennt" aria-labelledby="protokolle-marke">
+					{#each data.protokolle as protokoll (protokoll.id)}
+						<li class="karte karte--eng">
+							<!--
+								Ein gewöhnlicher Link und kein `download`-Attribut: die Ausgabe
+								schickt `Content-Disposition: attachment`, und damit lädt der
+								Browser die Datei ohnehin herunter. Das Attribut wäre dieselbe
+								Aussage ein zweites Mal, an der Stelle, die sie nicht durchsetzt.
 
-						resolve() ist Pflicht für interne Ziele
-						(svelte/no-navigation-without-resolve).
-					-->
-					<a class="eintrag" href={resolve(`/sitzungen/${protokoll.id}`)}>
-						Protokoll der Sitzung vom {datumLang(protokoll.sitzungAm)}
-					</a>
-					<p class="hinweis hinweis--ziffern">
-						{protokoll.name ?? 'unbekannt'} · {datumKurz(protokoll.createdAt)}
-					</p>
-				</li>
-			{/each}
-		</ul>
-	{/if}
+								resolve() ist Pflicht für interne Ziele
+								(svelte/no-navigation-without-resolve).
+							-->
+							<a class="eintrag" href={resolve(`/sitzungen/${protokoll.id}`)}>
+								Protokoll der Sitzung vom {datumLang(protokoll.sitzungAm)}
+							</a>
+							<p class="hinweis hinweis--ziffern">
+								{protokoll.name ?? 'unbekannt'} · {datumKurz(protokoll.createdAt)}
+							</p>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
+	</details>
 </div>
 
 <style>
