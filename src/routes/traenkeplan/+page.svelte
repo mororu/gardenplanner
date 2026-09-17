@@ -192,11 +192,6 @@
 		{fehlerOben}
 	</p>
 
-	<p class="hinweis">
-		Wer tränkt, steht drei Monate im Voraus fest. Ein Tausch ist ein neuer Name — sag der Verwaltung
-		Bescheid.
-	</p>
-
 	<ul class="liste liste--getrennt">
 		{#each data.wochen as eintrag (schluessel(eintrag))}
 			{@const dieseWoche = schluessel(eintrag)}
