@@ -676,6 +676,13 @@ select.feld {
 .eintrag {
 	display: flex;
 	align-items: center;
+	/*
+		Der Abstand zwischen Zeichen und Wort — seit dem 2026-09-17, als die
+		Einträge auf /mehr eines bekamen. Ein Eintrag ohne Zeichen merkt davon
+		nichts: `gap` wirkt erst zwischen zwei Kindern, und die Protokollzeilen auf
+		/sitzungen tragen nur ihren Text.
+	*/
+	gap: var(--space-2);
 	min-height: var(--touch);
 	padding: var(--space-2) var(--space-3);
 	border: var(--border-hairline) solid var(--ink-secondary);
@@ -735,13 +742,6 @@ select.feld {
 }
 
 /*
- * Ziffern in Tabellenstellung, für Nebentext, der aus Zahlen besteht: eine Liste
- * von Daten untereinander liest sich schlecht, wenn die Zahlen springen.
- * Modifikator und keine eigene Regel — die Schrift ist dieselbe wie bei
- * `.hinweis`, nur ihre Ziffernbreite nicht.
- */
-.hinweis--ziffern {
-/*
  * Die grössere Fassung — für ein Zeichen, das eine **Zeile anführt** statt in
  * einem Knopf zu stehen: die fünf Griffe auf `/` und die fünf Einträge auf
  * /mehr.
@@ -769,6 +769,13 @@ select.feld {
 	height: var(--zeichen-gross);
 }
 
+/*
+ * Ziffern in Tabellenstellung, für Nebentext, der aus Zahlen besteht: eine Liste
+ * von Daten untereinander liest sich schlecht, wenn die Zahlen springen.
+ * Modifikator und keine eigene Regel — die Schrift ist dieselbe wie bei
+ * `.hinweis`, nur ihre Ziffernbreite nicht.
+ */
+.hinweis--ziffern {
 	font-variant-numeric: tabular-nums;
 }
 

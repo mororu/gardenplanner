@@ -5,6 +5,120 @@
 	const { data }: PageProps = $props();
 </script>
 
+<!--
+	Die fünf Zeichen der Einträge — 24er-Raster, Strich in `currentColor`, keine
+	Füllung, `aria-hidden`. Derselbe Zeichensatz wie auf `/`, und aus demselben
+	Grund dort als Ausschnitte und nicht als Komponenten: jedes steht genau
+	einmal, an dieser Seite, und eine Datei je Zeichen wäre fünf Dateien für fünf
+	Pfade. Wer eines an einem zweiten Ort braucht, zieht es dann heraus — so ist
+	es dem Stift am 2026-09-17 ergangen.
+
+	**Sie tragen keine Aussage.** Die steht als Wort daneben, und DESIGN.md
+	verlangt genau das: bei zwanzig Leuten mit sehr unterschiedlicher Vertrautheit
+	ist ein Wort verlässlicher als ein Piktogramm. Was die Zeichen leisten, ist
+	das Wiederfinden beim Blättern — fünf Zeilen, die ohne sie gleich aussehen.
+
+	Die Auswahl ist Manuels (2026-09-17), getroffen an einem Blatt mit je zwei
+	Entwürfen je Eintrag: Kalenderblatt, aufgeschlagenes Buch, Dokument, Kiste,
+	Schlüssel. Die verworfenen Zweitentwürfe sind benannt, damit niemand sie ein
+	zweites Mal vorschlägt: ein Ablage-Pfeil für den Monatsplan (liest sich als
+	`herunterladen`, und Herunterladen gibt es auf /sitzungen wirklich), ein
+	geschlossenes Buch mit Lesezeichen für Wissen (Wissen wird nachgeschlagen,
+	nicht aufbewahrt), zwei Sprechblasen für die Protokolle (die Seite besteht aus
+	Dateien, nicht aus Gesprächen) und Schieberegler für die Verwaltung (heissen
+	`Einstellungen`, und die gibt es dort nicht).
+-->
+{#snippet zeichenKalender()}
+	<svg
+		class="zeichen zeichen--gross"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		aria-hidden="true"
+	>
+		<rect x="3.5" y="5.5" width="17" height="15" rx="2" />
+		<path d="M3.5 10.5h17" />
+		<path d="M8 3.5v4" />
+		<path d="M16 3.5v4" />
+		<path d="M8 14.5h3" />
+		<path d="M8 17.5h8" />
+	</svg>
+{/snippet}
+
+{#snippet zeichenBuch()}
+	<svg
+		class="zeichen zeichen--gross"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		aria-hidden="true"
+	>
+		<path
+			d="M12 7.5C10 5.8 7.5 5.2 4 5.5v12c3.5-.3 6 .3 8 2 2-1.7 4.5-2.3 8-2v-12c-3.5-.3-6 .3-8 2Z"
+		/>
+		<path d="M12 7.5v12" />
+	</svg>
+{/snippet}
+
+{#snippet zeichenDokument()}
+	<svg
+		class="zeichen zeichen--gross"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		aria-hidden="true"
+	>
+		<path d="M6 3.5h8l4.5 4.5v12.5H6Z" />
+		<path d="M14 3.5v4.5h4.5" />
+		<path d="M9 12.5h6" />
+		<path d="M9 16h6" />
+	</svg>
+{/snippet}
+
+{#snippet zeichenKiste()}
+	<svg
+		class="zeichen zeichen--gross"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		aria-hidden="true"
+	>
+		<rect x="2.5" y="4.5" width="19" height="5" rx="1" />
+		<path d="M4.5 9.5v10a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-10" />
+		<path d="M9.5 13.5h5" />
+	</svg>
+{/snippet}
+
+{#snippet zeichenSchluessel()}
+	<svg
+		class="zeichen zeichen--gross"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		aria-hidden="true"
+	>
+		<circle cx="7.5" cy="8.5" r="4" />
+		<path d="M10.3 11.3 20 21" />
+		<path d="M17.5 18.5l2-2" />
+		<path d="M15 16l2-2" />
+	</svg>
+{/snippet}
+
 <svelte:head>
 	<title>Mehr</title>
 </svelte:head>
@@ -42,7 +156,9 @@
 	<ul class="liste liste--getrennt">
 		<li>
 			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-			<a class="eintrag" href={resolve('/monatsplan')}>Monatsplan ablegen</a>
+			<a class="eintrag" href={resolve('/monatsplan')}>
+				{@render zeichenKalender()}Monatsplan ablegen
+			</a>
 		</li>
 		<li>
 			<!--
@@ -57,7 +173,7 @@
 				Block 2 auf `/` einen zweiten, der nur manchmal da ist.
 			-->
 			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-			<a class="eintrag" href={resolve('/wissen')}>Wissen</a>
+			<a class="eintrag" href={resolve('/wissen')}>{@render zeichenBuch()}Wissen</a>
 		</li>
 		<li>
 			<!--
@@ -71,7 +187,9 @@
 				manchmal da ist.
 			-->
 			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-			<a class="eintrag" href={resolve('/sitzungen')}>Protokolle und Traktanden</a>
+			<a class="eintrag" href={resolve('/sitzungen')}>
+				{@render zeichenDokument()}Protokolle und Traktanden
+			</a>
 		</li>
 		<li>
 			<!--
@@ -86,7 +204,7 @@
 				der nur manchmal da ist.
 			-->
 			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-			<a class="eintrag" href={resolve('/archiv')}>Archiv</a>
+			<a class="eintrag" href={resolve('/archiv')}>{@render zeichenKiste()}Archiv</a>
 		</li>
 		{#if data.istAdmin}
 			<li>
@@ -97,7 +215,7 @@
 					sein — und `Monatsplan ablegen` darüber verrät nicht, dass es mehr
 					gäbe.
 				-->
-				<a class="eintrag" href={resolve('/verwaltung')}>Verwaltung</a>
+				<a class="eintrag" href={resolve('/verwaltung')}>{@render zeichenSchluessel()}Verwaltung</a>
 			</li>
 		{/if}
 	</ul>

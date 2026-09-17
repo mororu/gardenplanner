@@ -4939,15 +4939,23 @@ try {
 		readFileSync(join(wurzel, 'src', 'routes', 'mehr', '+page.svelte'), 'utf8')
 	);
 	const verwaltungsVon = mehrCode.indexOf('{#if data.istAdmin}');
+	/*
+	 * **Gelesen wird das Ziel und nicht der Zeileninhalt** — nachgezogen am
+	 * 2026-09-17, als die fünf Einträge ein Zeichen bekamen.
+	 *
+	 * Die Zeile stand auf `>Monatsplan ablegen</a>` und wurde rot, weil zwischen
+	 * `>` und dem Wort jetzt ein `{@render …}` steht. Ihre Zusage hat das nie
+	 * berührt: sie sagt, **wo** der Eintrag steht — vor der Adminschranke, also
+	 * für alle —, und nicht, was in ihm gemalt wird. Das Muster hing damit an
+	 * einer Eigenschaft, über die es gar nichts behaupten wollte.
+	 */
 	pruefen(
 		'`Monatsplan ablegen` steht auf /mehr vor dem {#if data.istAdmin} und gilt damit allen',
 		verwaltungsVon > 0 &&
-			/<a class="eintrag" href=\{resolve\('\/monatsplan'\)\}>Monatsplan ablegen<\/a>/.test(
+			/<a class="eintrag" href=\{resolve\('\/monatsplan'\)\}>/.test(
 				mehrCode.slice(0, verwaltungsVon)
 			) &&
-			/<a class="eintrag" href=\{resolve\('\/verwaltung'\)\}>Verwaltung<\/a>/.test(
-				mehrCode.slice(verwaltungsVon)
-			),
+			/<a class="eintrag" href=\{resolve\('\/verwaltung'\)\}>/.test(mehrCode.slice(verwaltungsVon)),
 		verwaltungsVon < 0 ? 'kein {#if data.istAdmin} gefunden' : mehrCode.slice(0, verwaltungsVon)
 	);
 	/*
