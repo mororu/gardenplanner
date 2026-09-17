@@ -75,7 +75,7 @@
 	const ziele = [
 		{
 			href: '/',
-			beschriftung: 'Aufgaben',
+			beschriftung: 'Übersicht',
 			gehoertDazu: ['/aufgabe', '/einzelaufgabe', '/einzelaufgaben'],
 		},
 		{ href: '/traenkeplan', beschriftung: 'Tränkeplan', gehoertDazu: [] },
@@ -103,7 +103,7 @@
 	/*
 	 * **Zwei Werte, weil es zwei Aussagen sind.** `aria-current="page"` heisst
 	 * „das hier ist die angezeigte Seite" — auf /aufgabe wäre das über den
-	 * Eintrag `Aufgaben` eine Falschaussage, die angezeigte Seite ist eine
+	 * Eintrag `Übersicht` eine Falschaussage, die angezeigte Seite ist eine
 	 * andere. `aria-current="true"` heisst „das hier ist der laufende Eintrag"
 	 * und ist genau die schwächere Aussage, die dort stimmt.
 	 *

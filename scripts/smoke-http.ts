@@ -424,7 +424,7 @@ try {
 	 * dafür ist diese Zeile, nicht ein zweiter Block weiter unten.
 	 */
 	const seiten = [
-		{ pfad: '/', titel: 'Aufgaben' },
+		{ pfad: '/', titel: 'Übersicht' },
 		{ pfad: '/verwaltung', titel: 'Verwaltung' },
 		{ pfad: '/mehr', titel: 'Mehr' },
 		{ pfad: '/monatsplan', titel: 'Monatsplan' },
@@ -648,17 +648,17 @@ try {
 	const aufgabeHtml = await (await holen(port, '/aufgabe', { keks: adminKeks })).text();
 	pruefen(
 		'die Navigationsleiste steht auf /aufgabe überhaupt im ausgelieferten HTML',
-		navZiel(aufgabeHtml, 'Aufgaben') !== '',
-		'kein <a> mit der Beschriftung Aufgaben gefunden'
+		navZiel(aufgabeHtml, 'Übersicht') !== '',
+		'kein <a> mit der Beschriftung Übersicht gefunden'
 	);
 	pruefenGleich(
-		'auf /aufgabe ist der Eintrag Aufgaben der laufende Abschnitt, nicht die Seite',
-		navMarke(aufgabeHtml, 'Aufgaben'),
+		'auf /aufgabe ist der Eintrag Übersicht der laufende Abschnitt, nicht die Seite',
+		navMarke(aufgabeHtml, 'Übersicht'),
 		'true'
 	);
 	pruefenGleich(
 		'und auf / ist derselbe Eintrag die angezeigte Seite',
-		navMarke(startseiteHtml, 'Aufgaben'),
+		navMarke(startseiteHtml, 'Übersicht'),
 		'page'
 	);
 	pruefenGleich(

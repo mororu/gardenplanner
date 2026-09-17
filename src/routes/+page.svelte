@@ -636,7 +636,7 @@
 {/snippet}
 
 <svelte:head>
-	<title>Aufgaben</title>
+	<title>Übersicht</title>
 </svelte:head>
 
 <div class="seite">
@@ -655,7 +655,7 @@
 		statt auf der Seite. `.nur-vorgelesen` löst genau das: fort aus dem Bild, da
 		für die Ansage.
 	-->
-	<h1 class="nur-vorgelesen">Aufgaben</h1>
+	<h1 class="nur-vorgelesen">Übersicht</h1>
 
 	<!--
 		Die zwei Live-Regionen stehen **immer** im Markup, auch leer: ein Element,
