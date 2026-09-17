@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, lt, or } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm';
 import { datenbank } from '../index.ts';
 import { members, signupTasks, type NewSignupTask } from '../schema.ts';
 
@@ -40,11 +40,24 @@ export type Einzelaufgabe = {
 	/**
 	 * Abgeschlossen — seit dem 2026-09-15.
 	 *
-	 * Ein **Zustand** und kein Zeitpunkt: wann jemand fertig wurde, beantwortet
-	 * keine Frage, die diese Gemeinschaft an ihr Werkzeug stellt, und dieselbe
-	 * Zurückhaltung steht schon am fehlenden Zeitstempel der Übernahme. Die
-	 * Spalte trägt die Sekunde trotzdem, weil sie zugleich die Vorbedingung in
-	 * der where-Klausel ist; herausgereicht wird nur das Ja oder Nein.
+	 * Ein **Zustand** und kein Zeitpunkt, und dieselbe Zurückhaltung steht schon
+	 * am fehlenden Zeitstempel der Übernahme. Die Spalte trägt die Sekunde
+	 * trotzdem, weil sie zugleich die Vorbedingung in der where-Klausel ist;
+	 * durch **dieses** Feld geht nur das Ja oder Nein.
+	 *
+	 * **Der Satz daneben hiess bis zum 2026-09-17: „wann jemand fertig wurde,
+	 * beantwortet keine Frage, die diese Gemeinschaft an ihr Werkzeug stellt".
+	 * Er stimmt nicht mehr.** Das Archiv stellt genau diese Frage — was ist wann
+	 * getan worden —, und es bekommt den Zeitpunkt darum auch: über
+	 * `AbgeschlossenerTermin` weiter unten, eine eigene Projektion neben dieser.
+	 * Der Zustand hier bleibt trotzdem ein Ja oder Nein: die Leser dieses Typs
+	 * sind die Rückgabe von `einzelaufgabeAbschliessen` und die Listen der
+	 * offenen Termine, und keiner von ihnen zeigt eine Sekunde an.
+	 *
+	 * **Es bleibt dabei, dass der Zeitpunkt der Übernahme nirgends steht.** Wann
+	 * jemand zugesagt hat, ist weiterhin keine Auskunft, die diese Gemeinschaft
+	 * von ihrem Werkzeug erwartet — das Archiv fragt nach dem Tun, nicht nach dem
+	 * Versprechen.
 	 */
 	erledigt: boolean;
 };
@@ -138,6 +151,25 @@ type Anzeigezeile = {
 	completedAt: number | null;
 };
 
+/**
+ * Eine Zeile an ihrer Id, **in jedem Zustand** — oder null.
+ *
+ * Die einzige Leseabfrage dieser Datei ohne Vorbedingung, und sie hat genau
+ * einen Aufrufer: `einzelaufgabeAbschliessen` liest damit die Zeile nach, die es
+ * gerade geschrieben hat. Sie ist bewusst **nicht exportiert** — eine Route, die
+ * eine Zeile ohne Zustandsfrage liest, hätte die Frage vergessen, nicht
+ * beantwortet.
+ */
+function zeileLesen(id: number): Einzelaufgabe | null {
+	const zeile = datenbank()
+		.select(anzeigeSpalten)
+		.from(signupTasks)
+		.leftJoin(members, eq(members.id, signupTasks.memberId))
+		.where(eq(signupTasks.id, id))
+		.get();
+	return zeile === undefined ? null : alsEinzelaufgabe(zeile);
+}
+
 /** Faltet Name und Aktiv-Zustand auf das eine Feld, das die Seite sieht. */
 function alsEinzelaufgabe(zeile: Anzeigezeile): Einzelaufgabe {
 	return {
@@ -190,20 +222,104 @@ export function einzelaufgabeAusschreiben(titel: string, terminAt: number): Einz
 }
 
 /**
- * Alle Einzelaufgaben, das Nächste zuerst — freie wie übernommene.
+ * Die **offenen** Einzelaufgaben, das Nächste zuerst — freie wie übernommene.
  *
- * Die Liste für `/einzelaufgaben`. Sie zeigt **beide** Zustände, weil genau das
- * die Auskunft ist, die dort gesucht wird: ob und von wem etwas übernommen ist.
- * Auf `/` steht der Ausschnitt darunter.
+ * Die Liste für `/einzelaufgaben`. Sie zeigt beide Zustände der Übernahme, weil
+ * genau das die Auskunft ist, die dort gesucht wird: ob und von wem etwas
+ * übernommen ist. Auf `/` steht der Ausschnitt darunter.
+ *
+ * **`completed_at IS NULL` steht seit dem 2026-09-17 dabei** (Entscheid Manuel),
+ * und damit heisst die Liste nicht mehr „alle": ein abgeschlossener Termin
+ * verlässt sie und steht im Archiv. Vorher stand er hier weiter mitten unter den
+ * offenen und war von ihnen **nicht zu unterscheiden** — die Komponente zeigt
+ * `erledigt` nirgends an. Wer die Seite aufschlug, um zu sehen, was noch
+ * ansteht, las erledigte Arbeit mit.
+ *
+ * Damit ist dies die dritte Abfrage dieser Datei mit derselben Vorbedingung
+ * (neben `frei()` und `eigeneEinzelaufgabenLesen`) — und zugleich die Stelle,
+ * an der die Zusage aus dem Schema-Docblock zu signup_tasks.completed_at
+ * umgezogen ist: ein abgeschlossener Termin bleibt stehen, aber nicht mehr
+ * hier.
  */
 export function einzelaufgabenLesen(): Einzelaufgabe[] {
 	return datenbank()
 		.select(anzeigeSpalten)
 		.from(signupTasks)
 		.leftJoin(members, eq(members.id, signupTasks.memberId))
+		.where(isNull(signupTasks.completedAt))
 		.orderBy(...ordnung)
 		.all()
 		.map(alsEinzelaufgabe);
+}
+
+/**
+ * Ein abgeschlossener Termin, wie ihn das Archiv sieht.
+ *
+ * **Eine eigene Projektion neben `Einzelaufgabe`**, aus demselben Grund wie
+ * `ErledigteAufgabe` neben `SichtbareAufgabe` in ./tasks.ts: jede sagt, was ihre
+ * Leser sehen dürfen. Der Unterschied ist genau ein Feld in jede Richtung —
+ * `erledigtAm` kommt dazu, `erledigt` fällt weg. Ein Ja, das immer Ja ist,
+ * beantwortet in einer Liste abgeschlossener Termine keine Frage.
+ *
+ * **`terminAt` fehlt, und das ist eine Entscheidung.** Im Archiv zählt, wann
+ * etwas getan wurde, nicht bis wann es zu tun war; zwei Daten an derselben Zeile
+ * wären eine Frage mehr für jeden, der sie liest („welches ist welches?"). Wer
+ * den Termin sucht, sucht ihn, solange er offen ist — dort steht er.
+ *
+ * `uebernehmer` wird gefaltet wie überall in dieser Datei, mit einer Folge, die
+ * hier eine andere ist: fällt der Name weg, weil ein Zugang endete, wird die
+ * Zeile dadurch **nicht** wieder frei — sie ist getan. Sie steht dann ohne Namen
+ * im Archiv, und das ist die wahrheitsgemässe Auskunft: gemacht wurde es, von
+ * wem, weiss das Werkzeug nicht mehr.
+ */
+export type AbgeschlossenerTermin = {
+	id: number;
+	titel: string;
+	uebernehmer: string | null;
+	erledigtAm: number;
+};
+
+/**
+ * Die **abgeschlossenen** Termine, der zuletzt abgeschlossene zuerst.
+ *
+ * Die zweite Hälfte des Archivs; die erste liest `erledigteAufgabenAuflisten` in
+ * ./tasks.ts. Die zwei bleiben **getrennte Abfragen aus getrennten Modulen**,
+ * und das ist AD-3 und AD-4: die Aufgabenarten haben keine Basistabelle und
+ * keine gemeinsame Zuständigkeitsspalte, weil sie verschieden verbindlich sind.
+ * Zusammengeführt wird erst in der load von /archiv — dort, wo aus zwei Arten
+ * **eine Ansicht** wird, und nicht in einer Schicht, die den Unterschied
+ * einebnete.
+ *
+ * Absteigend wie das Archiv der Aufgaben, und aus demselben Grund: ein Archiv
+ * liest man von heute rückwärts. Die Ordnung dieser Datei (`ordnung`, nach dem
+ * Termin aufsteigend) gilt hier ausdrücklich **nicht** — sie ordnet, was noch
+ * bevorsteht.
+ *
+ * Der leere Zweig im flatMap ist unerreichbar: die where-Klausel schliesst ihn
+ * aus. Er steht trotzdem da statt einer Zusicherung mit `as`, aus demselben
+ * Grund wie in ./tasks.ts — fiele das `isNotNull` eines Tages heraus, liefe eine
+ * Zeile mit `erledigtAm: null` still durch einen Typ, der `number` verspricht.
+ */
+export function abgeschlosseneEinzelaufgabenLesen(): AbgeschlossenerTermin[] {
+	return datenbank()
+		.select(anzeigeSpalten)
+		.from(signupTasks)
+		.leftJoin(members, eq(members.id, signupTasks.memberId))
+		.where(isNotNull(signupTasks.completedAt))
+		.orderBy(desc(signupTasks.completedAt), desc(signupTasks.id))
+		.all()
+		.flatMap((zeile) =>
+			zeile.completedAt === null
+				? []
+				: [
+						{
+							id: zeile.id,
+							titel: zeile.titel,
+							uebernehmer: zeile.istAktiv === true ? zeile.name : null,
+							erledigtAm: zeile.completedAt,
+						},
+					]
+		);
 }
 
 /**
@@ -379,6 +495,13 @@ export function einzelaufgabeAbschliessen(id: number, mitgliedId: number): Einze
 	 * Projektion dieser Datei nimmt den Namen über einen leftJoin auf members,
 	 * und ein `returning` kennt keinen Join. Eine von Hand zusammengesetzte Zeile
 	 * wäre die zweite Stelle, an der `Einzelaufgabe` entsteht.
+	 *
+	 * **Gelesen wird über `zeileLesen` und seit dem 2026-09-17 nicht mehr über
+	 * `einzelaufgabenLesen`.** Jene Liste führt seither nur noch die offenen, und
+	 * die eben abgeschlossene Zeile ist darin zwangsläufig nicht mehr zu finden:
+	 * der `find` gäbe undefined und diese Funktion null — also „nichts
+	 * getroffen", obwohl das UPDATE gerade eine Zeile getroffen hat. Die Route
+	 * machte daraus einen Fehlersatz nach einer geglückten Handlung.
 	 */
-	return einzelaufgabenLesen().find((eintrag) => eintrag.id === zeile.id) ?? null;
+	return zeileLesen(zeile.id);
 }

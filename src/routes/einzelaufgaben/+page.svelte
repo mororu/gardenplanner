@@ -11,7 +11,15 @@
 </svelte:head>
 
 <!--
-	/einzelaufgaben — alle, freie wie übernommene.
+	/einzelaufgaben — die offenen, freie wie übernommene.
+
+	**Was abgeschlossen ist, steht im Archiv** (seit dem 2026-09-17). Die Seite
+	heisst weiter `Alle Termine` — der Name ist in AGENTS.md festgehalten und
+	steht in der Startseite, der Navigation und den Wachen —, aber die Marke über
+	der Liste sagt, was wirklich darunter steht. Ein Seitentitel, der `alle`
+	verspricht, und eine Marke, die `offen` sagt, sind hier kein Widerspruch,
+	sondern die Arbeitsteilung zwischen dem eingeführten Namen einer Seite und der
+	Beschriftung einer Liste.
 
 	**Keine Aktion auf dieser Seite.** Übernommen wird auf `/`, wo die freien
 	Einzelaufgaben ohnehin stehen; die Begründung steht in der Nachbardatei. Diese
@@ -32,12 +40,13 @@
 	-->
 	<p class="hinweis">
 		Wer übernimmt, sagt vor allen zu. Freie stehen mit ihrem Knopf auf der
-		<a href={resolve('/')}>Startseite</a>.
+		<a href={resolve('/')}>Startseite</a>, Abgeschlossenes im
+		<a href={resolve('/archiv')}>Archiv</a>.
 	</p>
 
 	{#if data.einzelaufgaben.length === 0}
 		<!-- Der leere Zustand sagt, was gilt, und nennt den Weg heraus. -->
-		<p class="leer">Nichts ausgeschrieben.</p>
+		<p class="leer">Nichts offen.</p>
 	{:else}
 		<!--
 			Die Liste trägt einen zugänglichen Namen über die Marke — sonst heisst sie
@@ -45,7 +54,7 @@
 			`Zum Übernehmen` auf `/`; die Marke steht sichtbar da und ist keine
 			verborgene Beschriftung.
 		-->
-		<h2 class="marke" id="alle-marke">Alle Termine</h2>
+		<h2 class="marke" id="alle-marke">Offene Termine</h2>
 		<ul class="liste liste--getrennt" aria-labelledby="alle-marke">
 			{#each data.einzelaufgaben as aufgabe (aufgabe.id)}
 				<!--

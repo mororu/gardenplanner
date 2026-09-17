@@ -382,9 +382,19 @@ export const signupTasks = sqliteTable('signup_tasks', {
 	 * Abschliessen, und dort setzt ihn einzelaufgabeAbschliessen.
 	 *
 	 * **Ein abgeschlossener Termin bleibt stehen.** Er verlässt die Startseite —
-	 * weder `Wer übernimmt` noch `Meine Aufgaben` zeigen ihn —, steht aber
-	 * weiterhin unter `Alle Termine`. Dieselbe Zusage wie FR14 sie den abgehakten
-	 * Aufgaben einer ausgetretenen Person gibt: die Historie bricht nicht auf.
+	 * weder `Wer übernimmt` noch `Meine Aufgaben` zeigen ihn — und seit dem
+	 * 2026-09-17 auch `Alle Termine`; er steht im **Archiv**, nach dem Zeitpunkt
+	 * dieser Spalte geordnet und gruppiert. Dieselbe Zusage wie FR14 sie den
+	 * abgehakten Aufgaben einer ausgetretenen Person gibt: die Historie bricht
+	 * nicht auf — sie hat jetzt nur einen eigenen Ort statt eines Platzes mitten
+	 * unter dem, was noch aussteht.
+	 *
+	 * **Damit hat diese Spalte zum ersten Mal einen Leser in der Oberfläche.**
+	 * Bis dahin war sie reine Vorbedingung in where-Klauseln; die Listen fragten
+	 * sie, zeigten sie aber nie. Der Weg nach draussen ist eine eigene Projektion
+	 * (`AbgeschlossenerTermin` in ./queries/signup-tasks.ts) und nicht die
+	 * bestehende — dieselbe Trennung wie bei tasks.completed_at, das über
+	 * `ErledigteAufgabe` und unter dem Namen `erledigtAm` herausgeht.
 	 */
 	completedAt: integer('completed_at'),
 	/* Wie bei members, tasks und duty_weeks über $defaultFn im Schema. */

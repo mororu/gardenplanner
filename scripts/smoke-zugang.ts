@@ -230,7 +230,7 @@ import { protokollAblegen, protokollLesen } from '../src/lib/server/protokollabl
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 664;
+const ERWARTETE_BEHAUPTUNGEN = 667;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -9422,7 +9422,18 @@ try {
 	 * schrieb das Abhaken zwei Spalten, die keine Abfrage je zurückgelesen hat;
 	 * die Zeile verschwand beim nächsten Laden und war fort. Was hier geprüft
 	 * wird, ist darum nicht bloss eine weitere Liste, sondern die Grenze, an der
-	 * diese Seite entlangläuft: **der Zeitpunkt darf heraus, die Person nicht.**
+	 * diese Seite entlangläuft: **der Zeitpunkt darf heraus, die Person nicht** —
+	 * jedenfalls aus dem Pool. Beim Termin darf sie, weil dort jemand vor allen
+	 * zugesagt hat, und genau diesen Unterschied messen zwei Zeilen am Ende des
+	 * Blocks.
+	 *
+	 * **Seit dem 2026-09-17 mischt die load zwei Quellen** (Entscheid Manuel), und
+	 * das verschiebt, was hier zu prüfen ist: nicht mehr „die Seite gibt weiter,
+	 * was die Abfrage liefert" — sie gibt zwei Abfragen zusammengefasst —,
+	 * sondern dass die Zusammenfassung **durchgehend** nach dem Zeitpunkt ordnet.
+	 * Eine Liste, die erst alle Aufgaben und dann alle Termine zeigte, wäre in
+	 * jeder Hälfte für sich richtig sortiert und als Ganzes falsch, und die
+	 * Monatsgruppen der Komponente zerfielen in Dubletten.
 	 *
 	 * Der Block sät sein eigenes Mitglied und seine eigenen Zeilen. Die Blöcke
 	 * davor haken selbst ab — das Archiv ist an dieser Stelle also längst nicht
@@ -9465,28 +9476,88 @@ try {
 		.where(eq(tasks.id, archivFrueh))
 		.run();
 
-	const archivStand = await routenausgang(() => archiv.load());
-	const archivZeilen = ((wertVon(archivStand).erledigte ?? []) as { id: number }[]).map(
-		(zeile) => zeile.id
+	/*
+	 * Ein Termin dazu: übernommen und abgeschlossen von derselben Person, dazu
+	 * einer, der offen bleibt. Sein Abschluss liegt zwangsläufig **nach** den zwei
+	 * Aufgaben oben — er passiert jetzt, und die frühere trägt einen Zeitpunkt aus
+	 * dem Vormonat. Damit ist die gemischte Ordnung überhaupt prüfbar: die zwei
+	 * Arten müssen einander durchdringen und nicht blockweise hintereinanderstehen.
+	 */
+	const archivTermin = einzelaufgabeAusschreiben(
+		'Schattennetz über dem Frühbeet spannen',
+		archivJetzt + 3 * TAG_SEKUNDEN
 	);
+	const archivTerminOffen = einzelaufgabeAusschreiben(
+		'Regentonne am Geräteschuppen entleeren',
+		archivJetzt + 4 * TAG_SEKUNDEN
+	);
+	einzelaufgabeUebernehmen(archivTermin.id, { id: archivMitglied.id, name: archivMitglied.name });
+	einzelaufgabeUebernehmen(archivTerminOffen.id, {
+		id: archivMitglied.id,
+		name: archivMitglied.name,
+	});
+	einzelaufgabeAbschliessen(archivTermin.id, archivMitglied.id);
+
+	type Archivzeile = { schluessel: string; erledigtAm: number; uebernehmer: string | null };
+	const archivStand = await routenausgang(() => archiv.load());
+	const archivListe = (wertVon(archivStand).erledigte ?? []) as Archivzeile[];
+	const archivSchluessel = archivListe.map((zeile) => zeile.schluessel);
 	pruefen(
-		'die load von /archiv läuft ohne Ereignis und gibt dieselbe Liste wie die Abfrage',
+		'die load von /archiv läuft ohne Ereignis und ordnet beide Quellen durchgehend nach dem Zeitpunkt',
 		archivStand.art === 'wert' &&
-			JSON.stringify(wertVon(archivStand).erledigte) ===
-				JSON.stringify(erledigteAufgabenAuflisten()),
-		`Ausgang ${archivStand.art}`
+			archivListe.length ===
+				erledigteAufgabenAuflisten().length + abgeschlosseneEinzelaufgabenLesen().length &&
+			archivListe.every(
+				(zeile, stelle) =>
+					stelle === 0 || (archivListe[stelle - 1]?.erledigtAm ?? 0) >= zeile.erledigtAm
+			),
+		`Ausgang ${archivStand.art}, ${archivListe.length} Zeilen`
 	);
 	pruefen(
 		'eine abgehakte Aufgabe steht im Archiv, eine offene nicht',
-		archivZeilen.includes(archivFrueh) &&
-			archivZeilen.includes(archivSpaet) &&
-			!archivZeilen.includes(archivOffen),
-		`Archiv: ${archivZeilen.join(' | ')}, offen gesät: ${archivOffen}`
+		archivSchluessel.includes(`aufgabe-${archivFrueh}`) &&
+			archivSchluessel.includes(`aufgabe-${archivSpaet}`) &&
+			!archivSchluessel.includes(`aufgabe-${archivOffen}`),
+		`Archiv: ${archivSchluessel.join(' | ')}, offen gesät: ${archivOffen}`
 	);
 	pruefenGleich(
 		'das zuletzt Abgehakte steht vorn — die Ordnung ist die umgekehrte der offenen Liste',
-		archivZeilen.filter((id) => id === archivFrueh || id === archivSpaet).join(' | '),
-		`${archivSpaet} | ${archivFrueh}`
+		archivSchluessel
+			.filter((schluessel) =>
+				[`aufgabe-${archivFrueh}`, `aufgabe-${archivSpaet}`].includes(schluessel)
+			)
+			.join(' | '),
+		`aufgabe-${archivSpaet} | aufgabe-${archivFrueh}`
+	);
+	/*
+	 * **Der Termin und sein Name — die Zeilen, an denen der Unterschied der Arten
+	 * sichtbar wird.** Eine Poolzeile ist namenlos (AD-5), eine Terminzeile trägt
+	 * ihren Übernehmer; beides steht in derselben Liste nebeneinander, und beides
+	 * soll so sein. Die zweite Zeile ist die Gegenprobe zur ersten: ohne sie
+	 * bewiese der Block nur, dass irgendwo ein Name steht, nicht dass er an der
+	 * **richtigen** Zeile steht.
+	 */
+	const archivTerminZeile = archivListe.find(
+		(zeile) => zeile.schluessel === `termin-${archivTermin.id}`
+	);
+	pruefen(
+		'ein abgeschlossener Termin steht mit seinem Übernehmer im Archiv, ein offener gar nicht',
+		archivTerminZeile?.uebernehmer === archivMitglied.name &&
+			!archivSchluessel.includes(`termin-${archivTerminOffen.id}`),
+		`Terminzeile: ${JSON.stringify(archivTerminZeile ?? null)}`
+	);
+	pruefen(
+		'und die Poolzeilen daneben bleiben namenlos',
+		archivListe
+			.filter((zeile) => zeile.schluessel.startsWith('aufgabe-'))
+			.every((zeile) => zeile.uebernehmer === null),
+		JSON.stringify(archivListe.filter((zeile) => zeile.uebernehmer !== null).slice(0, 3))
+	);
+	pruefen(
+		'derselbe Termin ist damit aus `Alle Termine` verschwunden, der offene steht dort',
+		!einzelaufgabenLesen().some((zeile) => zeile.id === archivTermin.id) &&
+			einzelaufgabenLesen().some((zeile) => zeile.id === archivTerminOffen.id),
+		JSON.stringify(einzelaufgabenLesen().map((zeile) => zeile.id))
 	);
 	/*
 	 * **Die zwei Behauptungen, die zusammengehören.** Die erste allein erfüllte
@@ -9500,12 +9571,9 @@ try {
 		!nenntErledigt(wertVon(archivStand)),
 		JSON.stringify(wertVon(archivStand)).slice(0, 160)
 	);
-	const archivZeileSpaet = (
-		(wertVon(archivStand).erledigte ?? []) as {
-			id: number;
-			erledigtAm?: number;
-		}[]
-	).find((zeile) => zeile.id === archivSpaet);
+	const archivZeileSpaet = archivListe.find(
+		(zeile) => zeile.schluessel === `aufgabe-${archivSpaet}`
+	);
 	pruefenGleich(
 		'und der Zeitpunkt reist trotzdem mit — als erledigtAm, nicht als completedAt',
 		archivZeileSpaet?.erledigtAm ?? -1,

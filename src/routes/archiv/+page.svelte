@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { monatUndJahr } from '$lib/client/utils/date';
+	import { datumLang, monatUndJahr } from '$lib/client/utils/date';
 	import type { PageProps } from './$types';
 
 	const { data }: PageProps = $props();
@@ -17,26 +17,26 @@
 		und sie laufen am Monatsanfang auseinander).
 
 		**Ein Durchlauf und kein Sortieren.** Die Liste kommt absteigend nach dem
-		Zeitpunkt des Abhakens aus der Abfrage, und damit stehen die Zeilen eines
-		Monats zwangsläufig beieinander: es genügt, die laufende Gruppe
-		weiterzuführen, solange der Name derselbe bleibt. Das ist die eine Stelle,
-		an der diese Komponente sich auf die Ordnung der Abfrage verlässt, und
-		darum steht es hier ausgeschrieben — wer dort das `desc` gegen ein `asc`
-		tauscht, dreht hier nicht bloss die Reihenfolge um, sondern bekommt
-		dieselbe Gruppierung in der anderen Richtung; wer die Ordnung ganz
-		herausnimmt, bekommt denselben Monat mehrfach.
+		Zeitpunkt des Erledigens aus der load — die beide Quellen dort
+		zusammensortiert —, und damit stehen die Zeilen eines Monats zwangsläufig
+		beieinander: es genügt, die laufende Gruppe weiterzuführen, solange der
+		Name derselbe bleibt. Das ist die eine Stelle, an der diese Komponente sich
+		auf jene Ordnung verlässt, und darum steht es hier ausgeschrieben — wer den
+		Vergleich in der load umdreht, dreht hier nicht bloss die Reihenfolge um,
+		sondern bekommt dieselbe Gruppierung in der anderen Richtung; wer die
+		Sortierung ganz herausnimmt, bekommt denselben Monat mehrfach.
 
 		Der Monatsname trägt sein Jahr und ist darum als Schlüssel eindeutig —
 		anders als ein blosses `September`, das im zweiten Gartenjahr zwei Gruppen
 		zusammenlegte. Die Begründung steht an monatUndJahr.
 	*/
 	const gruppen = $derived.by(() => {
-		const liste: { monat: string; aufgaben: typeof data.erledigte }[] = [];
-		for (const aufgabe of data.erledigte) {
-			const monat = monatUndJahr(aufgabe.erledigtAm);
+		const liste: { monat: string; zeilen: typeof data.erledigte }[] = [];
+		for (const zeile of data.erledigte) {
+			const monat = monatUndJahr(zeile.erledigtAm);
 			const laufende = liste.at(-1);
-			if (laufende !== undefined && laufende.monat === monat) laufende.aufgaben.push(aufgabe);
-			else liste.push({ monat, aufgaben: [aufgabe] });
+			if (laufende !== undefined && laufende.monat === monat) laufende.zeilen.push(zeile);
+			else liste.push({ monat, zeilen: [zeile] });
 		}
 		return liste;
 	});
@@ -50,11 +50,17 @@
 	/archiv — die abgehakten Aufgaben, nach Monat, das Neueste zuerst.
 
 	**Keine Aktion auf dieser Seite**, und der Grund steht in der Nachbardatei:
-	eine abgehakte Zeile ist Historie. Die Seite beantwortet die eine Frage, die
-	das Produkt bis dahin nirgends beantwortete — was ist schon getan —, und sie
-	beantwortet sie **ohne Namen**: die Abfrage reicht `completed_by` nicht heraus,
-	der Zeilentyp verbietet es, und darum kann hier auch dann keiner stehen, wenn
-	eine spätere Änderung ihn zeigen wollte (AD-5).
+	eine erledigte Zeile ist Historie. Die Seite beantwortet die eine Frage, die
+	das Produkt bis dahin nirgends beantwortete — was ist schon getan.
+
+	**Zwei Arten in einer Liste** seit dem 2026-09-17: abgehakte Poolaufgaben und
+	abgeschlossene Termine, zusammengeführt in der load und hier nur noch nach
+	Monat gebündelt. Eine Poolzeile steht **ohne Namen** da — die Abfrage reicht
+	`completed_by` nicht heraus, der Zeilentyp verbietet es, und darum kann dort
+	auch dann keiner stehen, wenn eine spätere Änderung ihn zeigen wollte (AD-5).
+	Eine Terminzeile trägt ihren Übernehmer, weil bei ihr jemand vor allen
+	zugesagt hat; dieselbe Darstellung wie auf `Alle Termine`, aus der sie mit dem
+	Abschliessen verschwindet.
 
 	**Kein Zähler, keine Summe, kein Vergleich zwischen Monaten.** Eine Zahl je
 	Monat wäre der erste Schritt zu einer Bilanz über eine Nachbarschaft, und der
@@ -73,13 +79,14 @@
 		resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve).
 	-->
 	<p class="hinweis">
-		Was abgehakt wurde, bleibt hier stehen — ohne Namen und unveränderlich. Ein Fehlgriff lässt sich
-		auf der <a href={resolve('/')}>Startseite</a> zurücknehmen, solange die Zeile noch dasteht.
+		Erledigte Aufgaben und abgeschlossene Termine, nach Monat. Hier lässt sich nichts ändern; ein
+		fälschlich abgehaktes Kästchen nimmt die <a href={resolve('/')}>Startseite</a> zurück, solange die
+		Zeile noch dasteht.
 	</p>
 
 	{#if gruppen.length === 0}
 		<!-- Der leere Zustand sagt, was gilt. Ein Weg heraus gehört hier nicht hin: er führte zum Abhaken, und das tut man im Garten und nicht im Archiv. -->
-		<p class="leer">Noch nichts abgehakt.</p>
+		<p class="leer">Noch nichts erledigt.</p>
 	{:else}
 		{#each gruppen as gruppe (gruppe.monat)}
 			<!--
@@ -98,21 +105,38 @@
 			{@const marke = `monat-${gruppe.monat.replace(' ', '-')}`}
 			<h2 class="marke" id={marke}>{gruppe.monat}</h2>
 			<ul class="liste liste--getrennt" aria-labelledby={marke}>
-				{#each gruppe.aufgaben as aufgabe (aufgabe.id)}
+				{#each gruppe.zeilen as zeile (zeile.schluessel)}
 					<li class="karte karte--eng">
 						<!--
 							`.zeile__text` bringt den Umbruch für getippten Text aus dem
 							geteilten Stilblatt mit: zweihundert Zeichen ohne Leerzeichen
 							liefen bei 375px sonst aus der Box.
-
-							Nur der Text, kein Datum daneben. Der Monat steht über der Gruppe,
-							und das ist die Auflösung, die diese Seite braucht — wer im Oktober
-							den Monatsplan schreibt, will wissen, was der September gebracht
-							hat, nicht an welchem Dienstag. Ein Tagesdatum an jeder Zeile
-							machte die Liste unruhig und beantwortete keine Frage, die jemand
-							stellt.
 						-->
-						<p class="fliesstext zeile__text">{aufgabe.text}</p>
+						<p class="fliesstext zeile__text">{zeile.text}</p>
+						<!--
+							Das Datum steht seit dem 2026-09-17 an jeder Zeile (Entscheid
+							Manuel). Die erste Fassung liess es weg und verwies auf die
+							Monatsüberschrift; das trägt nicht, sobald jemand eine Zeile
+							wiederfinden will — `Mitte September` ist die Auskunft, nach der man
+							sucht, und der Monat allein gibt sie nicht.
+
+							Ausgeschrieben **mit** Jahr, obwohl es über der Gruppe schon steht:
+							`datumLang` ist die eine Datumsform dieses Produkts, und dieselbe
+							Zeile trägt sie auf `Alle Termine`. Zwei Schreibweisen desselben
+							Datums wären der teurere Handel als eine Wiederholung.
+							`.hinweis--ziffern` setzt sie in die Ziffernrolle, wie dort.
+						-->
+						<p class="hinweis hinweis--ziffern">{datumLang(zeile.erledigtAm)}</p>
+						<!--
+							Der Name steht nur an einer Terminzeile — eine Poolaufgabe ist
+							namenlos, und zwar im Typ und nicht bloss in der Anzeige. Es gibt
+							darum auch keinen {:else}-Zweig mit einem Ersatzwort: `noch niemand`
+							wie auf `Alle Termine` wäre hier eine Falschaussage über etwas, das
+							getan ist, und `unbekannt` erklärte einen Zustand, der keiner ist.
+						-->
+						{#if zeile.uebernehmer !== null}
+							<p class="fliesstext">{zeile.uebernehmer}</p>
+						{/if}
 					</li>
 				{/each}
 			</ul>

@@ -6,6 +6,13 @@ import {
 /*
  * /einzelaufgaben — wer was übernommen hat, und was noch frei ist.
  *
+ * **Nur das Offene, seit dem 2026-09-17** (Entscheid Manuel). Ein
+ * abgeschlossener Termin steht im Archiv; hier stand er vorher mitten unter den
+ * offenen und war von ihnen nicht zu unterscheiden, weil die Komponente
+ * `erledigt` nirgends anzeigt. Gefiltert wird in der Abfrage und nicht danach in
+ * JavaScript — dieselbe Regel wie bei `frei()`: wo eine Zeile als offen gilt,
+ * entscheidet die Datenschicht.
+ *
  * Die Importe stehen relativ und mit .ts-Endung, und die Typen kommen aus
  * @sveltejs/kit statt aus ./$types. Der Grund ist derselbe wie in
  * src/routes/einzelaufgabe/+page.server.ts und geprüft, nicht vermutet:
