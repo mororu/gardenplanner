@@ -116,7 +116,7 @@ import {
  * Stellen, von denen eine niemand rot macht, ist schlechter als eine Zahl an
  * einer — die Schlussmeldung des Laufs nennt sie ohnehin bei jedem Durchgang.
  */
-const ERWARTETE_BEHAUPTUNGEN = 169;
+const ERWARTETE_BEHAUPTUNGEN = 183;
 
 /**
  * Ein Jahr in Sekunden — die Laufzeit aus src/lib/server/auth.ts.
@@ -434,6 +434,17 @@ try {
 		{ pfad: '/einzelaufgaben', titel: 'Alle Termine' },
 		{ pfad: '/wissen', titel: 'Wissen' },
 		{ pfad: '/archiv', titel: 'Archiv' },
+		{ pfad: '/sitzungen', titel: 'Protokolle und Traktanden' },
+		/*
+		 * **Die Ernte fehlte hier vom 2026-09-13 bis zum 2026-09-17** — vier Tage
+		 * lang ging die Seite ohne gemessenen `<title>` in Betrieb, genau der
+		 * Vorfall, den der Absatz darüber für den Tränkeplan beschreibt. Er hat
+		 * sich wiederholt, und das sagt etwas über die Liste: sie ist von Hand
+		 * geführt, und eine von Hand geführte Liste vergisst. Sie bleibt es
+		 * trotzdem — der Titel je Seite ist die Aussage, die sich nicht ableiten
+		 * lässt.
+		 */
+		{ pfad: '/ernte', titel: 'Ernte' },
 	];
 
 	for (const seite of seiten) {

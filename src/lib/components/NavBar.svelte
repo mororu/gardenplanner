@@ -42,8 +42,14 @@
 	 * Zugeordnet wird nach dem **Weg dorthin**, nicht nach dem Thema: /aufgabe
 	 * wird vom Knopf `+ Aufgabe` unter dem Pool erreicht und /einzelaufgabe wie
 	 * /einzelaufgaben von den zwei Wegen unter Block 2 — alle drei gehören darum
-	 * zu `/`. /monatsplan, /verwaltung, /wissen und
-	 * /archiv stehen als Einträge auf /mehr.
+	 * zu `/`. /monatsplan, /verwaltung, /wissen, /archiv und /sitzungen stehen
+	 * als Einträge auf /mehr.
+	 *
+	 * **`/sitzungen/[id]` braucht dort keinen eigenen Eintrag** — dieselbe Lage
+	 * wie bei /wissen/[id]: die Route liegt unter dem Pfad ihres Ziels, und
+	 * `trifft` unten vergleicht an der Segmentgrenze. Sie liefert ohnehin eine
+	 * Datei aus und rendert keine Leiste; eingetragen ist sie, damit die Zusage
+	 * „jede Route gehört zu genau einem Eintrag" ohne Ausnahme gilt.
 	 * Wer die Leiste liest, soll dort stehen sehen, woher er kam.
 	 *
 	 * **Die Ernte-Zeile auf `/` ändert daran nichts.** Die Startseite führt eine
@@ -89,7 +95,7 @@
 		{
 			href: '/mehr',
 			beschriftung: 'Mehr',
-			gehoertDazu: ['/archiv', '/monatsplan', '/verwaltung', '/wissen'],
+			gehoertDazu: ['/archiv', '/monatsplan', '/sitzungen', '/verwaltung', '/wissen'],
 		},
 	];
 

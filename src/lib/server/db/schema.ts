@@ -8,10 +8,10 @@ import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core
  * Drizzle. Zeitstempel sind Integer in Unix-Sekunden, nie ISO-Strings und nie
  * Date-Objekte.
  *
- * In diesem Stand gibt es sechs Tabellen: members aus Story 1.2, tasks aus
+ * In diesem Stand gibt es acht Tabellen: members aus Story 1.2, tasks aus
  * Story 1.4 (seit Story 2.1 um due_at erweitert), duty_weeks aus Story 3.1,
- * signup_tasks aus Story 3.2, sheets aus Story 4.1 und harvests vom
- * 2026-09-13. Story 2.2 hat an tasks
+ * signup_tasks aus Story 3.2, sheets aus Story 4.1, harvests vom 2026-09-13
+ * und agenda_items wie minutes vom 2026-09-17. Story 2.2 hat an tasks
  * **nichts** geändert: die Überfälligkeit wird gerechnet und nicht gespeichert,
  * und die Rechnung steht in src/lib/zeit.ts. Getrennte Tabellen ohne gemeinsame
  * Zuständigkeitsspalte, keine Basistabelle und keine Typspalte darüber (AD-3):
@@ -593,3 +593,99 @@ export const harvests = sqliteTable('harvests', {
 
 export type Harvest = typeof harvests.$inferSelect;
 export type NewHarvest = typeof harvests.$inferInsert;
+
+/*
+ * Die Traktanden einer Sitzung — was an der nächsten Zusammenkunft besprochen
+ * werden soll.
+ *
+ * **Eine Sitzung ist ein Datum und keine Zeile.** Es gibt bewusst keine Tabelle
+ * `meetings`, der ein Traktandum über einen Fremdschlüssel hinge. Eine
+ * Gartengruppe trifft sich ein paar Mal im Jahr; eine Sitzung anzulegen, bevor
+ * man ihr etwas zuordnen darf, wäre ein Formular vor der Handlung, die diese
+ * Seite ermöglichen soll. Wer ein Traktandum erfasst, wählt das Datum — und
+ * alle Traktanden mit demselben Datum **sind** die Liste dieser Sitzung.
+ *
+ * Der Preis ist benannt: eine Sitzung hat keinen Titel, keinen Ort und keine
+ * Uhrzeit, und ein vertipptes Datum legt lautlos eine zweite Sitzung an. Das
+ * erste ist kein Verlust — das Datum benennt die Sitzung eindeutig genug —, das
+ * zweite fällt beim Lesen der Liste auf, weil dort dann zwei Überschriften
+ * stehen, wo eine sein sollte. Die Auslösebedingung für eine echte
+ * Sitzungstabelle ist damit ausgeschrieben: sobald eine Sitzung mehr als ein
+ * Datum trägt.
+ *
+ * Entscheid Manuel, 2026-09-17.
+ */
+export const agendaItems = sqliteTable('agenda_items', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	/*
+	 * Was besprochen werden soll, als Freitext — wie tasks.text und aus demselben
+	 * Grund: ein Traktandum ist ein Satz, keine Struktur.
+	 */
+	text: text('text').notNull(),
+	/*
+	 * Das Datum der Sitzung, als Tagesende in Unix-Sekunden.
+	 *
+	 * **Tagesende und nicht Mitternacht**, dieselbe Fassung wie tasks.due_at und
+	 * signup_tasks.termin_at: die Umrechnung steht einmal in
+	 * tagesendeInUnixSekunden (src/lib/zeit.ts), und drei Spalten mit zwei
+	 * Auffassungen desselben Feldwerts wären der Fehler, den man erst im Oktober
+	 * bemerkt.
+	 */
+	sitzungAm: integer('sitzung_am').notNull(),
+	/* Wer es aufgeschrieben hat — als Herkunft, nicht als Zuständigkeit. */
+	memberId: integer('member_id')
+		.notNull()
+		.references(() => members.id),
+	createdAt: integer('created_at')
+		.notNull()
+		.$defaultFn(() => Math.floor(Date.now() / 1000)),
+});
+
+export type AgendaItem = typeof agendaItems.$inferSelect;
+export type NewAgendaItem = typeof agendaItems.$inferInsert;
+
+/*
+ * Die abgelegten Protokolle — je Zeile eine PDF-Datei.
+ *
+ * **Die Datei liegt nicht hier.** Die Tabelle trägt ihren Namen, nicht ihren
+ * Inhalt; das PDF selbst steht im Dateisystem neben der Datenbank (siehe
+ * ../protokollablage.ts). Entscheid Manuel, 2026-09-17, und die Begründung ist
+ * die Grösse: ein Protokoll wiegt ein paar hundert Kilobyte, und eine
+ * SQLite-Datei, die mit jeder Sitzung um so viel wächst, wird bei jeder
+ * Sicherung ganz kopiert — auch der Teil, der sich nie wieder ändert.
+ *
+ * Der Preis ist ebenso benannt: Datenbank und Ablage können auseinanderlaufen.
+ * Eine Zeile ohne Datei ist der Fall, den die Ausgabe abfangen muss, und sie
+ * tut es mit einem 404. Eine Datei ohne Zeile ist unsichtbar und schadet nicht.
+ * Gegen den ersten Fall hilft, dass **nichts gelöscht wird**: es gibt keine
+ * Löschen-Aktion, weder für die Zeile noch für die Datei.
+ */
+export const minutes = sqliteTable('minutes', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	/*
+	 * Zu welcher Sitzung es gehört — dieselbe Fassung wie agenda_items.sitzung_am
+	 * und ausdrücklich **ohne** Fremdschlüssel dorthin: eine Sitzung ist ein
+	 * Datum, und ein Protokoll kann es auch dann geben, wenn nie ein Traktandum
+	 * erfasst wurde.
+	 */
+	sitzungAm: integer('sitzung_am').notNull(),
+	/*
+	 * Der Name der Datei in der Ablage — erzeugt, nicht übernommen.
+	 *
+	 * Der hochgeladene Name reist **nicht** mit: er kommt vom Gerät der
+	 * hochladenden Person, kann Pfadanteile tragen und ist damit die klassische
+	 * Stelle, an der ein Schreibvorgang das Verzeichnis verlässt. Was hier steht,
+	 * hat die Ablage vergeben.
+	 */
+	datei: text('datei').notNull().unique(),
+	/* Wer es abgelegt hat. Wie überall Herkunft, nicht Zuständigkeit. */
+	memberId: integer('member_id')
+		.notNull()
+		.references(() => members.id),
+	createdAt: integer('created_at')
+		.notNull()
+		.$defaultFn(() => Math.floor(Date.now() / 1000)),
+});
+
+export type Minute = typeof minutes.$inferSelect;
+export type NewMinute = typeof minutes.$inferInsert;

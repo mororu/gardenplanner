@@ -1673,13 +1673,13 @@ try {
 		...new Set(seitenVerzeichnisse.flatMap((pfad) => pfad.match(/\[[^\]]+\]/g) ?? [])),
 	].sort();
 	pruefen(
-		`alle zwölf Seiten sind aus dem Verzeichnisbaum abgeleitet (gefunden: ${seitenVerzeichnisse.length}), und jeder dynamische Abschnitt hat einen Wert`,
-		seitenVerzeichnisse.length === 12 &&
+		`alle dreizehn Seiten sind aus dem Verzeichnisbaum abgeleitet (gefunden: ${seitenVerzeichnisse.length}), und jeder dynamische Abschnitt hat einen Wert`,
+		seitenVerzeichnisse.length === 13 &&
 			platzhalter.join(' ') === Object.keys(EINSETZUNGEN).sort().join(' '),
 		`Platzhalter im Baum: ${platzhalter.join(' ') || '(keine)'}, eingesetzt: ${Object.keys(EINSETZUNGEN).join(' ')}`
 	);
 	/*
-	 * Die Fehlerseite steht als dreizehnte, über einen Pfad, den es nicht gibt. Sie
+	 * Die Fehlerseite steht als vierzehnte, über einen Pfad, den es nicht gibt. Sie
 	 * ist keine `+page.svelte` und käme aus dem Verzeichnisbaum darum nie —
 	 * gestaltet ist sie trotzdem, und ihre Zusage („lesbarer Kontrast auch für
 	 * die Statuszeile", Spec 1.2) hat bis heute nichts gemessen.

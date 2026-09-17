@@ -126,6 +126,7 @@ import {
  * nicht der Oberfläche.
  */
 import {
+	abgeschlosseneEinzelaufgabenLesen,
 	eigeneEinzelaufgabenLesen,
 	einzelaufgabeAbschliessen,
 	einzelaufgabeAusschreiben,
@@ -3646,18 +3647,19 @@ try {
 		 * Verlust.
 		 */
 		[
-			`alle zwölf Seitenkomponenten sind eingesammelt (gefunden: ${seitenPfade.length})`,
-			seitenPfade.length === 12,
+			`alle dreizehn Seitenkomponenten sind eingesammelt (gefunden: ${seitenPfade.length})`,
+			seitenPfade.length === 13,
 		] as const,
-		// Vier bis zum 2026-09-13, fünf seit /ernte: die neue Seite trägt dieselbe
-		// höfliche Region wie /, /traenkeplan, /verwaltung und /wissen.
+		// Vier bis zum 2026-09-13, fünf seit /ernte, sechs seit /sitzungen: jede
+		// dieser Seiten trägt dieselbe höfliche Region wie /, /traenkeplan,
+		// /verwaltung und /wissen.
 		//
-		// **Fünf und nicht sechs, obwohl am 2026-09-17 eine zwölfte Seite dazukam.**
-		// /archiv hat keine Meldungsregion, weil es nichts zu melden hat: die Seite
-		// liest nur, sie exportiert kein `actions`, und eine Region ohne Vorgang
-		// wäre eine Ansage, die nie kommt. Die zwei Zahlen dieser Wache zählen
-		// darum Verschiedenes und bewegen sich nicht gemeinsam.
-		['es gibt genau fünf Meldungsregionen im Baum', meldungsTags.length === 5] as const,
+		// **Sechs und nicht dreizehn, obwohl es dreizehn Seiten sind.** /archiv und
+		// /einzelaufgaben haben keine Meldungsregion, weil sie nichts zu melden
+		// haben: sie lesen nur, exportieren kein `actions`, und eine Region ohne
+		// Vorgang wäre eine Ansage, die nie kommt. Die zwei Zahlen dieser Wache
+		// zählen darum Verschiedenes und bewegen sich nicht gemeinsam.
+		['es gibt genau sechs Meldungsregionen im Baum', meldungsTags.length === 6] as const,
 		...meldungsTags.map(
 			([name, tag]) =>
 				[
@@ -3730,7 +3732,7 @@ try {
 		`verletzt: ${fehlendeTeile(regionenTeile).join(', ')}`
 	);
 	pruefenGleich(
-		'und es sind vier höfliche, fünfzehn unterbrechende und genau eine, die nur die CSS-Rolle braucht',
+		'und es sind sechs höfliche, vierundzwanzig unterbrechende und genau eine, die nur die CSS-Rolle braucht',
 		JSON.stringify(
 			liveTags
 				.map(([, roh]) => /class="([^"]*)"/.exec(roh.replace(/\s+/g, ' '))?.[1] ?? '')
@@ -3747,7 +3749,7 @@ try {
 		// +1 höflich und +4 unterbrechend seit dem 2026-09-13: /ernte bringt eine
 		// Rückmeldung, eine Fehlerregion oben und drei Feldmeldungen mit — Kultur,
 		// Ort und Status.
-		JSON.stringify({ hoeflich: 5, unterbrechend: 19, keineRegion: 1 })
+		JSON.stringify({ hoeflich: 6, unterbrechend: 24, keineRegion: 1 })
 	);
 
 	const rueckmeldungRumpf = glatterRumpf(
@@ -7724,10 +7726,16 @@ try {
 	 *
 	 * Beide stehen in der where-Klausel von einzelaufgabeAbschliessen, also im
 	 * selben Statement wie das Schreiben: die Zeile gehoert mir, und sie ist noch
-	 * offen. Die dritte Zeile unten ist die wichtigste des Blocks — ein
-	 * abgeschlossener Termin faellt aus der freien Liste, aber **nicht** aus der
-	 * Gesamtliste. Verschwaende er dort, waere `Alle Termine` eine Liste, die die
-	 * Haelfte verschweigt, und FR14 haette an den Terminen kein Gegenstueck.
+	 * offen.
+	 *
+	 * **Die Zusage der Historie ist am 2026-09-17 umgezogen** (Entscheid Manuel).
+	 * Bis dahin galt: ein abgeschlossener Termin faellt aus der freien Liste, aber
+	 * nicht aus der Gesamtliste — und eine Zeile unten mass genau das. Jetzt
+	 * faellt er aus **jeder** Liste der offenen und steht im Archiv, mit Namen und
+	 * mit dem Zeitpunkt. FR14 hat damit an den Terminen weiter ein Gegenstueck; es
+	 * liegt nur woanders. Die zwei Zeilen unten messen beide Haelften: dass er
+	 * geht, und dass er ankommt — eine allein liesse offen, ob er unterwegs
+	 * verlorengeht.
 	 */
 	const meinerZumSchliessen = einzelaufgabeAusschreiben(
 		'Schneckenzaun kontrollieren',
@@ -7738,14 +7746,20 @@ try {
 	const fremderVersuch = einzelaufgabeAbschliessen(meinerZumSchliessen.id, vera.id);
 	const eigenerVersuch = einzelaufgabeAbschliessen(meinerZumSchliessen.id, nico.id);
 	const zweiterVersuch = einzelaufgabeAbschliessen(meinerZumSchliessen.id, nico.id);
-	const inAllen = einzelaufgabenLesen().find((zeile) => zeile.id === meinerZumSchliessen.id);
+	const imArchiv = abgeschlosseneEinzelaufgabenLesen().find(
+		(zeile) => zeile.id === meinerZumSchliessen.id
+	);
 	const schliessenTeile = [
 		['wer nicht uebernommen hat, trifft keine Zeile', fremderVersuch === null],
 		['wer uebernommen hat, schliesst ab', eigenerVersuch?.erledigt === true],
 		['ein zweites Abschliessen trifft nichts mehr', zweiterVersuch === null],
 		[
-			'die Zeile steht weiter in der Gesamtliste, mit Namen und als erledigt',
-			inAllen?.erledigt === true && inAllen?.uebernehmer === nico.name,
+			'die Zeile verlaesst die Liste der offenen Termine',
+			!einzelaufgabenLesen().some((zeile) => zeile.id === meinerZumSchliessen.id),
+		],
+		[
+			'und steht im Archiv, mit Namen und mit dem Zeitpunkt',
+			imArchiv?.uebernehmer === nico.name && Number.isInteger(imArchiv?.erledigtAm),
 		],
 		[
 			'aber in keiner freien Liste mehr',
