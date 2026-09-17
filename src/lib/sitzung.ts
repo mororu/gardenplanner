@@ -1,4 +1,13 @@
 import { aufgabentextFalten } from './aufgabentext.ts';
+/*
+ * **Ein Import aus client/ in einem Modul, das auch der Server lädt** — und das
+ * trägt, weil `datumLang` nichts Browserhaftes tut: es formatiert über `Intl`
+ * mit fester Zone. Der Ordnername sagt, wo die Datumsformen **wohnen**, nicht
+ * wer sie rufen darf; sie sind die eine Datumsform dieses Produkts, und eine
+ * zweite Rechnung für die Traktandenliste schriebe in der Datei ein anderes
+ * Datum als auf der Seite daneben steht.
+ */
+import { datumLang } from './client/utils/date.ts';
 
 /*
  * Was ein Traktandum und was ein Protokoll ist — **die eine Stelle**, an der
@@ -45,6 +54,29 @@ export const TRAKTANDUM_ZU_LANG = `Das ist zu lang für ein Traktandum. Höchste
  * Termin. Dieselbe Trennung, die /einzelaufgabe schon macht.
  */
 export const SITZUNGSDATUM_FEHLT = 'Wähle das Datum der Sitzung.';
+
+/**
+ * Das Traktandum, das keine Zeile trifft.
+ *
+ * **Ein Satz für drei Zustände** — keine Kennung im Formular, keine Zahl, keine
+ * Zeile dazu —, dieselbe Form und dieselbe Begründung wie
+ * AUFGABE_NICHT_ANSPRECHBAR in ./texte.ts: jede Unterscheidung wäre eine
+ * Auskunft darüber, welche Kennungen es gibt.
+ *
+ * Er steht hier und nicht dort, weil er eine Sache dieser Seite ist — wie
+ * ERNTEZEILE_NICHT_ANSPRECHBAR, das aus demselben Grund in ./ernte.ts steht.
+ */
+export const TRAKTANDUM_NICHT_ANSPRECHBAR =
+	'Dieses Traktandum gibt es nicht mehr. Lade die Seite neu.';
+
+/**
+ * Die leere Sammlung, aus der jemand eine Liste ziehen will.
+ *
+ * Der Satz nennt die Handlung, die fehlt, und nicht den Zustand: `Keine
+ * Traktanden` sagte dasselbe und liesse offen, was zu tun ist.
+ */
+export const TRAKTANDEN_LEER =
+	'Es steht nichts an. Schreib zuerst auf, was besprochen werden soll.';
 
 /**
  * Die Höchstgrösse eines Protokolls, in Bytes.
@@ -121,4 +153,60 @@ export function istPdf(bytes: Uint8Array): boolean {
 		if (bytes[i] !== PDF_KENNUNG.charCodeAt(i)) return false;
 	}
 	return true;
+}
+
+/**
+ * Die Traktandenliste als Text, so wie sie in der Ablage liegt.
+ *
+ * **Die eine Stelle, an der aus der Sammlung ein Dokument wird** — seit dem
+ * 2026-09-17. Sie steht hier und nicht in der action, weil sie eine Auslegung
+ * ist und keine Ablaufsteuerung: was auf einer Traktandenliste steht und in
+ * welcher Ordnung, ist dieselbe Art Entscheidung wie die Längengrenze darüber,
+ * und scripts/smoke-zugang.ts prüft sie hier gegen dieselben Eingaben, mit denen
+ * die action sie füttert.
+ *
+ * **Reiner Text und keine PDF.** Eine PDF verlangte eine Bibliothek, die dieses
+ * Projekt nicht hat und für ein Dokument aus fünf Zeilen auch nicht bekommen
+ * sollte; was hier entsteht, lässt sich lesen, ausdrucken, in eine Mail kopieren
+ * und in zehn Jahren noch öffnen. Die Protokolle daneben bleiben PDF, weil sie
+ * von aussen kommen und unterschrieben sind.
+ *
+ * **Kein Sitzungsdatum** (Entscheid Manuel): die Liste trägt den Tag, an dem sie
+ * gezogen wurde, und sonst keinen. Wann die Sitzung stattfindet, weiss die
+ * Einladung — dieses Werkzeug verwaltet keine Sitzungstermine, und ein Feld
+ * dafür stellte eine Frage, die beim Aufschreiben eines Punktes niemand
+ * beantworten kann.
+ *
+ * Die Herkunft steht an jedem Punkt, in derselben Fassung wie auf der Seite:
+ * `Name · Datum`. Wer am Tisch sitzt und einen Punkt nicht versteht, sieht,
+ * wen er fragen kann.
+ *
+ * @param punkte In der Ordnung, in der sie auf der Seite stehen — zuerst
+ *   Aufgeschriebenes zuoberst. Diese Funktion sortiert **nicht**: zwei
+ *   Ordnungen über derselben Liste liefen auseinander, und die der Abfrage ist
+ *   die, die alle sehen.
+ * @param gezogenAm Der Zeitpunkt in Unix-**Sekunden**.
+ */
+export function traktandenlisteSchreiben(
+	punkte: readonly { text: string; name: string | null; createdAt: number }[],
+	gezogenAm: number
+): string {
+	const kopf = `Traktanden\nGezogen am ${datumLang(gezogenAm)}\n`;
+	/*
+	 * Nummeriert, weil an einer Sitzung jemand sagt „zum dritten Punkt" — eine
+	 * Liste mit Strichen zwingt dazu, mit dem Finger mitzuzählen. Die Zahl steht
+	 * an der ersten Zeile, die Herkunft eingerückt darunter; ein Punkt ohne
+	 * Namen kann nur aus einem Eingriff von Hand an der Datenbank stammen und
+	 * wird wie auf der Seite als `unbekannt` geschrieben.
+	 */
+	const zeilen = punkte.map(
+		(punkt, stelle) =>
+			`${stelle + 1}. ${punkt.text}\n   ${punkt.name ?? 'unbekannt'} · ${datumLang(punkt.createdAt)}`
+	);
+	/*
+	 * Der abschliessende Umbruch ist kein Zierrat: eine Textdatei ohne ihn endet
+	 * mitten in der Zeile, und mancher Editor hängt beim nächsten Öffnen still
+	 * einen an — dann unterscheidet sich die Datei von dem, was hier stand.
+	 */
+	return `${kopf}\n${zeilen.join('\n\n')}\n`;
 }

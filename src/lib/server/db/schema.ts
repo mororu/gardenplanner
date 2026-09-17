@@ -8,10 +8,10 @@ import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core
  * Drizzle. Zeitstempel sind Integer in Unix-Sekunden, nie ISO-Strings und nie
  * Date-Objekte.
  *
- * In diesem Stand gibt es acht Tabellen: members aus Story 1.2, tasks aus
+ * In diesem Stand gibt es neun Tabellen: members aus Story 1.2, tasks aus
  * Story 1.4 (seit Story 2.1 um due_at erweitert), duty_weeks aus Story 3.1,
  * signup_tasks aus Story 3.2, sheets aus Story 4.1, harvests vom 2026-09-13
- * und agenda_items wie minutes vom 2026-09-17. Story 2.2 hat an tasks
+ * und agenda_items, minutes wie agenda_lists vom 2026-09-17. Story 2.2 hat an tasks
  * **nichts** geändert: die Überfälligkeit wird gerechnet und nicht gespeichert,
  * und die Rechnung steht in src/lib/zeit.ts. Getrennte Tabellen ohne gemeinsame
  * Zuständigkeitsspalte, keine Basistabelle und keine Typspalte darüber (AD-3):
@@ -633,15 +633,18 @@ export const agendaItems = sqliteTable('agenda_items', {
 	 */
 	text: text('text').notNull(),
 	/*
-	 * Das Datum der Sitzung, als Tagesende in Unix-Sekunden.
+	 * **Kein Sitzungsdatum, seit dem 2026-09-17** (Entscheid Manuel). Die Spalte
+	 * stand hier einen Tag lang, und sie hat eine Frage gestellt, die im Garten
+	 * niemand beantworten kann: wer einen Punkt aufschreibt, weiss, **dass** er an
+	 * die nächste Sitzung soll, und nicht, wann die ist. Traktanden sind seither
+	 * **eine** Sammlung — ein Stand wie der Erntestand und kein Tagebuch —, und
+	 * sie ist bei der nächsten Sitzung verbraucht: `traktandenlisteErzeugen`
+	 * schreibt sie in die Ablage und räumt die Tabelle leer.
 	 *
-	 * **Tagesende und nicht Mitternacht**, dieselbe Fassung wie tasks.due_at und
-	 * signup_tasks.termin_at: die Umrechnung steht einmal in
-	 * tagesendeInUnixSekunden (src/lib/zeit.ts), und drei Spalten mit zwei
-	 * Auffassungen desselben Feldwerts wären der Fehler, den man erst im Oktober
-	 * bemerkt.
+	 * Damit gibt es hier auch **keine Gruppierung und kein Fenster** mehr. Was in
+	 * der Tabelle steht, steht an, und was abgeräumt ist, steht in der erzeugten
+	 * Liste.
 	 */
-	sitzungAm: integer('sitzung_am').notNull(),
 	/* Wer es aufgeschrieben hat — als Herkunft, nicht als Zuständigkeit. */
 	memberId: integer('member_id')
 		.notNull()
@@ -650,6 +653,46 @@ export const agendaItems = sqliteTable('agenda_items', {
 		.notNull()
 		.$defaultFn(() => Math.floor(Date.now() / 1000)),
 });
+
+/**
+ * Eine erzeugte Traktandenliste — die Sammlung, wie sie an einem Tag aussah.
+ *
+ * **Eine eigene Tabelle neben `minutes` und nicht eine Artspalte darin**, und
+ * das ist dieselbe Entscheidung wie AD-3 sie über den drei Aufgabenarten trifft:
+ * die zwei sind verschiedene Dinge, und das Schema soll es zeigen. Ein Protokoll
+ * entsteht **nach** einer Sitzung und gehört zu ihrem Datum; eine
+ * Traktandenliste entsteht **vorher** und gehört zu gar keinem — sie trägt nur
+ * den Tag, an dem jemand sie gezogen hat. Genau darum fehlt hier `sitzung_am`,
+ * das in `minutes` notNull ist: eine gemeinsame Tabelle müsste die Spalte
+ * nullbar machen und damit für beide Arten ihre Aussage verlieren.
+ *
+ * **Was hier steht, ist der Beleg, nicht der Inhalt.** Die Punkte selbst liegen
+ * in der abgelegten Datei; `agenda_items` ist nach dem Erzeugen leer. Die Zeile
+ * beantwortet: wann wurde eine Liste gezogen, von wem, und wo liegt sie.
+ */
+export const agendaLists = sqliteTable('agenda_lists', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	/*
+	 * Der Name der Datei in der Ablage — erzeugt, nicht übernommen, wie bei
+	 * minutes.datei. Hier kommt der Name nicht einmal von einem Gerät, sondern
+	 * aus randomUUID daneben; die Begründung bleibt trotzdem dieselbe, weil die
+	 * Spalte den Pfad bildet, den eine Ausgabe-Route zusammensetzt.
+	 *
+	 * `.txt` und nicht `.pdf`: die Liste ist getippter Text, und eine PDF daraus
+	 * zu bauen hiesse, eine Bibliothek dafür in dieses Projekt zu holen.
+	 */
+	datei: text('datei').notNull().unique(),
+	/* Wer sie gezogen hat. Wie überall Herkunft, nicht Zuständigkeit. */
+	memberId: integer('member_id')
+		.notNull()
+		.references(() => members.id),
+	createdAt: integer('created_at')
+		.notNull()
+		.$defaultFn(() => Math.floor(Date.now() / 1000)),
+});
+
+export type AgendaList = typeof agendaLists.$inferSelect;
+export type NewAgendaList = typeof agendaLists.$inferInsert;
 
 export type AgendaItem = typeof agendaItems.$inferSelect;
 export type NewAgendaItem = typeof agendaItems.$inferInsert;

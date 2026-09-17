@@ -1,13 +1,18 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, RequestEvent, ServerLoadEvent } from '@sveltejs/kit';
 import { abweisen } from '../../lib/server/abweisen.ts';
-import { protokollAblegen } from '../../lib/server/protokollablage.ts';
+import { protokollAblegen, traktandenlisteAblegen } from '../../lib/server/protokollablage.ts';
 import {
 	protokolleLesen,
 	protokollVermerken,
+	traktandenAbraeumen,
 	traktandenLesen,
+	traktandenlistenLesen,
+	traktandenlisteVermerken,
+	traktandumAendern,
 	traktandumErfassen,
 	type Protokoll,
+	type Traktandenliste,
 	type Traktandum,
 } from '../../lib/server/db/queries/meetings.ts';
 import {
@@ -16,8 +21,11 @@ import {
 	PROTOKOLL_KEIN_PDF,
 	PROTOKOLL_ZU_GROSS,
 	SITZUNGSDATUM_FEHLT,
+	TRAKTANDEN_LEER,
 	TRAKTANDUM_HOECHSTLAENGE,
+	TRAKTANDUM_NICHT_ANSPRECHBAR,
 	istPdf,
+	traktandenlisteSchreiben,
 	traktandumPruefen,
 } from '../../lib/sitzung.ts';
 import { FRIST_AUSSERHALB } from '../../lib/texte.ts';
@@ -59,6 +67,7 @@ import { fristfenster, istImFristfenster, tagesendeInUnixSekunden } from '../../
 
 export function load({ locals, url }: ServerLoadEvent): {
 	traktanden: Traktandum[];
+	traktandenlisten: Traktandenliste[];
 	protokolle: Protokoll[];
 	traktandumgrenze: number;
 	frueheste: string;
@@ -88,6 +97,12 @@ export function load({ locals, url }: ServerLoadEvent): {
 
 	return {
 		traktanden: traktandenLesen(),
+		/*
+		 * Die gezogenen Listen. Sie stehen neben den Protokollen und nicht bei den
+		 * Traktanden: beides sind abgelegte Dateien, die man nachschlägt, und die
+		 * Sammlung darüber ist das, woran gerade gearbeitet wird.
+		 */
+		traktandenlisten: traktandenlistenLesen(),
 		protokolle: protokolleLesen(),
 		/*
 		 * Die Längengrenze reist mit, statt im Markup als Literal zu stehen —
@@ -109,6 +124,24 @@ export function load({ locals, url }: ServerLoadEvent): {
 		 */
 		abgelegt: url.searchParams.has('abgelegt'),
 	};
+}
+
+/**
+ * Liest eine Zahl aus dem Formular, oder null.
+ *
+ * Die sechste bewusste Kopie von `idLesen`/`zahlLesen` (siehe ../verwaltung,
+ * ../+page.server.ts, ../einzelaufgabe, ../traenkeplan und ../ernte). Die
+ * Verdopplung bleibt billiger als eine gemeinsame Stelle: fünf Zeilen ohne
+ * Domänenwissen, und ein geteiltes Modul dafür hiesse, dass eine Änderung an
+ * der einen Seite still die anderen trifft.
+ */
+function zahlLesen(roh: unknown): number | null {
+	// `unknown` und nicht FormDataEntryValue: das Typprüf-Programm der Skripte
+	// (tsconfig.scripts.json) zieht bewusst kein DOM-lib, und dieses Modul liegt
+	// in seinem Programm.
+	if (typeof roh !== 'string' || !/^[0-9]+$/.test(roh)) return null;
+	const zahl = Number(roh);
+	return Number.isSafeInteger(zahl) && zahl > 0 ? zahl : null;
 }
 
 /**
@@ -152,23 +185,88 @@ export const actions = {
 			return abweisen(geprueft.fehler, 'text', getippt);
 		}
 
-		const sitzungAm = sitzungsdatumLesen(formular.get('sitzungAm'));
-		if (sitzungAm === null) {
-			return abweisen(SITZUNGSDATUM_FEHLT, 'sitzungAm', getippt);
-		}
-		/*
-		 * Gleiches Feld, gleicher Platz in der Kette, ein zweiter Satz: erst ob
-		 * überhaupt ein Datum dasteht, dann ob es plausibel ist. Ein vertipptes
-		 * Jahr — `2016` statt `2026` — ist der Anschlag daneben, den ein Datumsfeld
-		 * nicht abfängt, und FRIST_AUSSERHALB sagt genau das.
-		 */
-		if (!istImFristfenster(sitzungAm, Math.floor(Date.now() / 1000))) {
-			return abweisen(FRIST_AUSSERHALB, 'sitzungAm', getippt);
-		}
-
-		traktandumErfassen({ text: geprueft.text, sitzungAm, memberId: mitglied.id });
+		traktandumErfassen({ text: geprueft.text, memberId: mitglied.id });
 
 		return { art: 'erfasst' as const, meldung: 'Aufgeschrieben.', text: geprueft.text };
+	},
+
+	/**
+	 * Ergänzt ein Traktandum.
+	 *
+	 * **Ohne Schranke auf die schreibende Person** (Entscheid Manuel,
+	 * 2026-09-17): wer merkt, dass ein Punkt unvollständig ist, zieht ihn gerade,
+	 * ohne die aufschreibende Person zu suchen. Dieselbe Haltung wie beim
+	 * Umstufen einer Erntezeile, und der Unterschied zum Abschliessen eines
+	 * Termins, wo `member_id` in der where-Klausel steht.
+	 *
+	 * Die Kennung fällt auf denselben Satz wie eine Zeile, die es nicht mehr
+	 * gibt: die Unterscheidung wäre eine Auskunft darüber, welche Kennungen es
+	 * gibt.
+	 */
+	aendern: async ({ locals, request }: RequestEvent) => {
+		if (locals.mitglied === null) {
+			redirect(303, '/');
+		}
+
+		const formular = await request.formData();
+		const id = zahlLesen(formular.get('traktandumId'));
+		const rohText = formular.get('text');
+		const getippt = typeof rohText === 'string' ? rohText : '';
+
+		const geprueft = traktandumPruefen(getippt);
+		if ('fehler' in geprueft) {
+			return abweisen(geprueft.fehler, 'text', getippt, id);
+		}
+		if (id === null || !traktandumAendern(id, geprueft.text)) {
+			return abweisen(TRAKTANDUM_NICHT_ANSPRECHBAR, null, getippt, id);
+		}
+
+		return { art: 'erfasst' as const, meldung: 'Geändert.', text: geprueft.text };
+	},
+
+	/**
+	 * Zieht die Traktandenliste: schreibt sie in die Ablage und räumt die
+	 * Sammlung leer.
+	 *
+	 * **Drei Schritte in dieser Reihenfolge, und die Reihenfolge ist die ganze
+	 * Zusage**: erst die Datei, dann die Zeile, dann das Abräumen. Bricht es nach
+	 * dem ersten ab, liegt eine Datei ohne Zeile in der Ablage — unsichtbar, und
+	 * sie schadet nicht; die Sammlung steht noch. Bricht es nach dem zweiten ab,
+	 * steht die Liste da und die Punkte auch — doppelt, aber nichts ist fort. Die
+	 * umgekehrte Reihenfolge hätte einen Zustand, in dem beides weg ist, und
+	 * genau den darf es nicht geben. Dieselbe Abwägung wie beim Ablegen eines
+	 * Protokolls, mit einem Schritt mehr.
+	 *
+	 * **Kein Bestätigungsdialog**, anders als beim Abernten — und das ist kein
+	 * Versehen. Abernten löscht eine Auskunft, die es nur einmal gibt; hier
+	 * wandert der Inhalt in eine Datei, die danebensteht und bleibt. Was diese
+	 * Handlung kostet, wenn sie versehentlich läuft, ist eine Liste zu viel in
+	 * der Ablage.
+	 */
+	ziehen: async ({ locals }: RequestEvent) => {
+		const mitglied = locals.mitglied;
+		if (mitglied === null) {
+			redirect(303, '/');
+		}
+
+		const punkte = traktandenLesen();
+		if (punkte.length === 0) {
+			return abweisen(TRAKTANDEN_LEER, null);
+		}
+
+		const text = traktandenlisteSchreiben(punkte, Math.floor(Date.now() / 1000));
+		const datei = traktandenlisteAblegen(text);
+		traktandenlisteVermerken({ datei, memberId: mitglied.id });
+		const abgeraeumt = traktandenAbraeumen();
+
+		return {
+			art: 'erfasst' as const,
+			// Die Zahl kommt aus dem Abräumen und nicht aus `punkte.length`: sie sagt,
+			// was wirklich verschwunden ist.
+			meldung:
+				abgeraeumt === 1 ? 'Liste gezogen, 1 Punkt.' : `Liste gezogen, ${abgeraeumt} Punkte.`,
+			text: '',
+		};
 	},
 
 	/**

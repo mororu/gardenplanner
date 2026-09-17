@@ -7,6 +7,7 @@
 	import { datumKurz, datumLang } from '$lib/client/utils/date';
 	import { PROTOKOLL_HOECHSTGROESSE_MB } from '$lib/sitzung';
 	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
+	import ZeichenStift from '$lib/components/ZeichenStift.svelte';
 	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
 
 	/*
@@ -27,38 +28,12 @@
 	const { data, form }: PageProps = $props();
 
 	/*
-		Die Traktanden nach Sitzung gebündelt.
-
-		**Die Gruppen entstehen hier und nicht in der load**, aus demselben Grund
-		wie im Archiv nebenan: der Datumstext ist Text für die Anzeige, und die
-		eine Stelle, die einen Zeitstempel in Text verwandelt, ist
-		$lib/client/utils/date.
-
-		**Ein Durchlauf und kein Sortieren.** Die Liste kommt aufsteigend nach
-		`sitzungAm` aus der Abfrage, und damit stehen die Punkte einer Sitzung
-		zwangsläufig beieinander: es genügt, die laufende Gruppe weiterzuführen,
-		solange das Datum dasselbe bleibt. Das ist die eine Stelle, an der diese
-		Komponente sich auf die Ordnung der Abfrage verlässt, und darum steht es
-		hier ausgeschrieben — wer dort das `asc` herausnimmt, bekommt dieselbe
-		Sitzung mehrfach.
-
-		Gruppiert wird über den **Zeitstempel** und nicht über den gerenderten
-		Satz: zwei Sitzungen desselben Tages gibt es nicht, aber ein Datumstext ist
-		eine Anzeigeentscheidung, und eine Gruppierung, die daran hinge, liefe beim
-		nächsten Formatwechsel still anders.
+		**Keine Gruppierung mehr, seit dem 2026-09-17** (Entscheid Manuel). Sie
+		bündelte die Punkte nach `sitzungAm`; die Spalte ist weg, weil ein
+		Traktandum an keine bestimmte Sitzung geht, sondern an die nächste. Was hier
+		steht, ist **eine** Sammlung, und sie ist bei der nächsten Sitzung
+		verbraucht: `Liste ziehen` schreibt sie in die Ablage und räumt sie leer.
 	*/
-	const gruppen = $derived.by(() => {
-		const liste: { sitzungAm: number; punkte: typeof data.traktanden }[] = [];
-		for (const punkt of data.traktanden) {
-			const laufende = liste.at(-1);
-			if (laufende !== undefined && laufende.sitzungAm === punkt.sitzungAm) {
-				laufende.punkte.push(punkt);
-			} else {
-				liste.push({ sitzungAm: punkt.sitzungAm, punkte: [punkt] });
-			}
-		}
-		return liste;
-	});
 
 	/**
 	 * Die Rückmeldung in der höflichen Live-Region.
@@ -85,14 +60,35 @@
 	*/
 	let versandFehler = $state('');
 
-	/** Die Meldung an einem der vier Felder der Seite. */
-	const fehlerAm = (feld: 'text' | 'sitzungAm' | 'protokollDatum' | 'datei'): string =>
+	/**
+	 * Die Meldung an einem der drei Felder der Seite.
+	 *
+	 * **Drei und nicht mehr vier**: das Datumsfeld am Traktandum ist am
+	 * 2026-09-17 weggefallen. Die zwei übrigen Datumssachen gehören beide zum
+	 * Protokoll.
+	 */
+	const fehlerAm = (feld: 'text' | 'protokollDatum' | 'datei'): string =>
 		form !== null && form.art === 'fehler' && form.feld === feld ? form.meldung : '';
 
 	const fehlerAmText = $derived(fehlerAm('text'));
-	const fehlerAmDatum = $derived(fehlerAm('sitzungAm'));
 	const fehlerAmProtokollDatum = $derived(fehlerAm('protokollDatum'));
 	const fehlerAmDatei = $derived(fehlerAm('datei'));
+
+	/**
+	 * Die Kennung der Zeile, an der eine Abweisung hängt — oder null.
+	 *
+	 * Das Ändern steht an **jeder** Zeile, und ein Fehlersatz ohne diese Angabe
+	 * stünde an allen zugleich. Dieselbe Bauform wie `zeile` auf /verwaltung und
+	 * /traenkeplan, und derselbe Weg: `abweisen` trägt sie als viertes Feld
+	 * zurück.
+	 */
+	const fehlerZeile = $derived(
+		form !== null && form.art === 'fehler' && typeof form.zeile === 'number' ? form.zeile : null
+	);
+
+	/** Die Meldung am Ändern-Feld einer bestimmten Zeile. */
+	const fehlerAnZeile = (id: number): string =>
+		form !== null && form.art === 'fehler' && fehlerZeile === id ? form.meldung : '';
 
 	/*
 		Jedes Formular steht offen, sobald es etwas zurückzutragen hat — und nur
@@ -105,7 +101,7 @@
 		das Traktandenformular auf — und damit ein leeres Formular als Antwort auf
 		einen Fehler, der woanders passiert ist.
 	*/
-	const traktandumOffen = $derived(fehlerAmText !== '' || fehlerAmDatum !== '');
+	const traktandumOffen = $derived(fehlerAmText !== '' && fehlerZeile === null);
 	const protokollOffen = $derived(fehlerAmProtokollDatum !== '' || fehlerAmDatei !== '');
 
 	/*
@@ -155,12 +151,22 @@
 		*/
 		if (ergebnis.type !== 'success' && ergebnis.type !== 'failure') return;
 
-		const daten = ergebnis.data as { art?: unknown; feld?: unknown } | undefined;
+		const daten = ergebnis.data as { art?: unknown; feld?: unknown; zeile?: unknown } | undefined;
 		if (typeof daten?.art === 'string' && daten.art === 'fehler') {
 			const feld = typeof daten.feld === 'string' ? daten.feld : '';
+			/*
+				Das Ändern einer Zeile trägt `text` wie das Aufschreiben, zielt aber auf
+				ein anderes Feld: die Kennung der Zeile entscheidet. Ohne diesen Zweig
+				spränge der Fokus nach einer abgewiesenen Ergänzung in das leere
+				Formular oben — an ein Feld, in dem nichts steht, was abgewiesen wurde.
+			*/
+			const zeile = typeof daten?.zeile === 'number' ? daten.zeile : null;
+			if (feld === 'text' && zeile !== null) {
+				document.getElementById(`aendern-text-${zeile}`)?.focus();
+				return;
+			}
 			const ziel: Record<string, string> = {
 				text: 'neu-text',
-				sitzungAm: 'neu-sitzung',
 				protokollDatum: 'protokoll-sitzung',
 				datei: 'protokoll-datei',
 			};
@@ -241,10 +247,26 @@
 		leitet die Route aus dem Verzeichnis der Datei ab und hält den Namen gegen
 		die actions der Nachbardatei. Ein dynamisches action={…} machte sie blind.
 	-->
+	<!--
+		**Die grüne Aufforderung mit `+`**, seit dem 2026-09-17 (Entscheid Manuel) —
+		dieselbe Bauform wie `+ Reifes eintragen` auf /ernte und dieselbe Rolle wie
+		`+ Aufgabe` und `+ Termin planen` auf `/`. Sie stand vorher als stiller
+		Zeilenform-Griff da und sah aus wie ein Abschnitt, der sich aufklappen
+		lässt; sie ist aber die eine Handlung dieser Seite, die alle angeht.
+
+		Das `+` trägt `aufklapp` — Gate-Regel 15 liest die Klasse im Markup und
+		lässt nur dann zu, dass der Griff sein Dreieck verliert. Was ein `<summary>`
+		zusätzlich zu `.button-primary` braucht, steht als `.button-primary--griff`
+		im geteilten Stilblatt.
+
+		**Ein Feld und kein zweites.** Das Datum der Sitzung ist weggefallen: wer
+		einen Punkt aufschreibt, weiss, **dass** er an die nächste Sitzung soll, und
+		nicht, wann die ist.
+	-->
 	<details class="zeilenform" open={traktandumOffen}>
-		<summary class="zeilenform__griff">
+		<summary class="button-primary button-primary--griff">
+			<span class="aufklapp">+</span>
 			<span>Traktandum aufschreiben</span>
-			<ZeichenWinkel class="aufklapp" />
 		</summary>
 		<form class="zeilenform__formular" method="POST" action="?/aufschreiben" use:enhance={versand}>
 			<div>
@@ -270,30 +292,6 @@
 				</p>
 			</div>
 
-			<div>
-				<label class="feld__beschriftung" for="neu-sitzung">Datum der Sitzung</label>
-				<!--
-					`min` und `max` kommen aus derselben Rechnung wie auf /einzelaufgabe
-					und /monatsplan — ein Jahr in jede Richtung. Der Browser fängt damit
-					ab, was sonst erst die action abwiese; die action prüft es trotzdem,
-					weil ein POST kein Feld braucht.
-				-->
-				<input
-					class="feld"
-					id="neu-sitzung"
-					name="sitzungAm"
-					type="date"
-					required
-					min={data.frueheste}
-					max={data.spaeteste}
-					aria-invalid={fehlerAmDatum !== '' ? 'true' : undefined}
-					aria-describedby={fehlerAmDatum !== '' ? 'neu-sitzung-fehler' : undefined}
-				/>
-				<p class="fehler live" id="neu-sitzung-fehler" role="alert" aria-live="assertive">
-					{fehlerAmDatum}
-				</p>
-			</div>
-
 			<button class="button-quiet" type="submit" disabled={imFlug}>Aufschreiben</button>
 		</form>
 	</details>
@@ -308,35 +306,109 @@
 		damit dieselbe, wenn eine Gruppe dazukommt.
 	-->
 	<h2 class="abschnittstitel" id="traktanden-marke">Was ansteht</h2>
-	{#if gruppen.length === 0}
+	{#if data.traktanden.length === 0}
 		<!-- Der leere Zustand nennt den Grund und nicht den Zustand: `Keine Sitzung` wäre eine Behauptung über die Gartengruppe, die diese Anwendung nicht aufstellen kann. -->
 		<p class="leer">Nichts aufgeschrieben.</p>
 	{:else}
-		{#each gruppen as gruppe (gruppe.sitzungAm)}
-			{@const marke = `sitzung-${gruppe.sitzungAm}`}
-			<h3 class="abschnittstitel" id={marke}>Sitzung vom {datumLang(gruppe.sitzungAm)}</h3>
-			<ul class="liste liste--getrennt" aria-labelledby={marke}>
-				{#each gruppe.punkte as punkt (punkt.id)}
-					<li class="karte karte--eng">
-						<!--
-							`.zeile__text` bringt den Umbruch für getippten Text aus dem
-							geteilten Stilblatt mit: zweihundert Zeichen ohne Leerzeichen
-							liefen bei 375px sonst aus der Box.
-						-->
-						<p class="fliesstext zeile__text">{punkt.text}</p>
-						<!--
-							Name und Datum: nicht als Zuständigkeit, sondern als Herkunft —
-							wer es aufgeschrieben hat und wann. Ein fehlender Name kann nur
-							aus einem Eingriff von Hand an der Datenbank stammen; die Zeile
-							bleibt dann trotzdem lesbar.
-						-->
-						<p class="hinweis hinweis--ziffern">
-							{punkt.name ?? 'unbekannt'} · {datumKurz(punkt.createdAt)}
-						</p>
-					</li>
-				{/each}
-			</ul>
-		{/each}
+		<ul class="liste liste--getrennt" aria-labelledby="traktanden-marke">
+			{#each data.traktanden as punkt (punkt.id)}
+				{@const fehlerHier = fehlerAnZeile(punkt.id)}
+				<li class="karte karte--eng">
+					<!--
+						`.zeile__text` bringt den Umbruch für getippten Text aus dem
+						geteilten Stilblatt mit: zweihundert Zeichen ohne Leerzeichen
+						liefen bei 375px sonst aus der Box.
+					-->
+					<p class="fliesstext zeile__text">{punkt.text}</p>
+					<!--
+						Name und Datum: nicht als Zuständigkeit, sondern als Herkunft —
+						wer es aufgeschrieben hat und wann. Ein fehlender Name kann nur
+						aus einem Eingriff von Hand an der Datenbank stammen; die Zeile
+						bleibt dann trotzdem lesbar.
+
+						**Die Angabe bleibt beim Ändern stehen und wandert nicht auf die
+						ändernde Person** (Entscheid Manuel, 2026-09-17): sie sagt, wer den
+						Punkt aufgebracht hat, und das bleibt wahr. Die Begründung steht an
+						`traktandumAendern`.
+					-->
+					<p class="hinweis hinweis--ziffern">
+						{punkt.name ?? 'unbekannt'} · {datumKurz(punkt.createdAt)}
+					</p>
+					<!--
+						**Der Stift**, seit dem 2026-09-17: ein Punkt lässt sich ergänzen,
+						solange er auf der Sammlung steht. Dieselbe Bauform wie an einer
+						Aufgabenzeile auf `/` — Zeichen statt Wort, das Wort in
+						`.nur-vorgelesen` daneben —, und dieselbe Komponente; die
+						Begründung in ganzer Länge steht an $lib/components/ZeichenStift.svelte.
+
+						`open` hängt am Ausgang des **Servers** und an dieser Zeile: ohne
+						JavaScript läuft kein use:enhance-Rückruf, und ein zugeklapptes
+						Formular mit einem Fehlersatz darunter wäre eine Meldung über etwas,
+						das man nicht sieht.
+
+						Das <form> trägt ein **literales** action="?/aendern" — ein
+						dynamisches action={…} machte Gate-Regel 11 blind.
+					-->
+					<details class="aendern" open={fehlerHier !== ''}>
+						<summary class="aendern__griff">
+							<ZeichenStift class="aufklapp" />
+							<span class="nur-vorgelesen">Ergänzen</span>
+						</summary>
+						<form class="aendern__formulare" method="POST" action="?/aendern" use:enhance={versand}>
+							<input type="hidden" name="traktandumId" value={punkt.id} />
+							<label class="nur-vorgelesen" for="aendern-text-{punkt.id}">
+								Was besprochen werden soll
+							</label>
+							<input
+								class="feld"
+								id="aendern-text-{punkt.id}"
+								name="text"
+								type="text"
+								required
+								maxlength={data.traktandumgrenze}
+								value={fehlerHier !== '' ? textWert : punkt.text}
+								aria-invalid={fehlerHier !== '' ? 'true' : undefined}
+								aria-describedby={fehlerHier !== '' ? `aendern-fehler-${punkt.id}` : undefined}
+							/>
+							<p
+								class="fehler live"
+								id="aendern-fehler-{punkt.id}"
+								role="alert"
+								aria-live="assertive"
+							>
+								{fehlerHier}
+							</p>
+							<button class="button-quiet button-quiet--kompakt" type="submit" disabled={imFlug}>
+								Speichern
+							</button>
+						</form>
+					</details>
+				</li>
+			{/each}
+		</ul>
+
+		<!--
+			**Die Liste ziehen** — die Sammlung wandert als Textdatei in die Ablage
+			und ist hier danach leer (Entscheid Manuel, 2026-09-17).
+
+			`.button-quiet` und nicht `.button-primary`: der primäre Knopf dieses
+			Abschnitts ist die Aufforderung darüber, und zwei gefüllte Flächen
+			untereinander stritten um dieselbe Aufmerksamkeit. Der Satz daneben sagt,
+			was passiert — **vorher**, denn danach ist es geschehen; einen
+			Bestätigungsdialog gibt es nicht, und warum, steht an der action.
+
+			Der Knopf steht im {:else}-Zweig: aus einer leeren Sammlung lässt sich
+			nichts ziehen, und ein Knopf, der nur einen Fehlersatz erzeugen kann, ist
+			eine Einladung zum Fehlgriff. Die action prüft es trotzdem — ein POST
+			braucht kein Formular.
+		-->
+		<form class="ziehen" method="POST" action="?/ziehen" use:enhance={versand}>
+			<p class="hinweis">
+				Die Punkte wandern in eine Textdatei und verschwinden aus dieser Liste. Die Datei bleibt
+				unten stehen.
+			</p>
+			<button class="button-quiet" type="submit" disabled={imFlug}>Liste ziehen</button>
+		</form>
 	{/if}
 
 	<!--
@@ -406,6 +478,46 @@
 		</form>
 	</details>
 
+	<!--
+		**Die gezogenen Listen stehen zwischen der Sammlung und den Protokollen**,
+		und die Stelle ist die Aussage: sie sind der Schritt dazwischen. Oben steht,
+		was noch zu besprechen ist, hier, was zur Sprache kam, unten, was
+		beschlossen wurde.
+
+		Kein leerer Zustand mit eigenem Satz: solange nie eine Liste gezogen wurde,
+		fehlt der Abschnitt **ganz**. `Noch keine gezogen` erklärte eine Handlung,
+		die einen Griff weiter oben ohnehin dasteht — anders als bei den
+		Protokollen, wo der leere Zustand die einzige Stelle ist, an der die Seite
+		überhaupt sagt, dass es sie gibt.
+	-->
+	{#if data.traktandenlisten.length > 0}
+		<h2 class="abschnittstitel" id="listen-marke">Gezogene Traktandenlisten</h2>
+		<ul class="liste liste--getrennt" aria-labelledby="listen-marke">
+			{#each data.traktandenlisten as liste (liste.id)}
+				<li class="karte karte--eng">
+					<!--
+						Ein gewöhnlicher Link und kein `download`-Attribut, aus demselben
+						Grund wie bei den Protokollen darunter: die Ausgabe schickt
+						`Content-Disposition: attachment`.
+
+						**Eine eigene Route und nicht `/sitzungen/[id]`**: die Kennungen
+						kommen aus zwei Tabellen und überdeckten einander — die Liste 3 und
+						das Protokoll 3 gibt es beide.
+
+						resolve() ist Pflicht für interne Ziele
+						(svelte/no-navigation-without-resolve).
+					-->
+					<a class="eintrag" href={resolve(`/sitzungen/liste/${liste.id}`)}>
+						Traktandenliste vom {datumLang(liste.createdAt)}
+					</a>
+					<p class="hinweis hinweis--ziffern">
+						{liste.name ?? 'unbekannt'} · {datumKurz(liste.createdAt)}
+					</p>
+				</li>
+			{/each}
+		</ul>
+	{/if}
+
 	<h2 class="abschnittstitel" id="protokolle-marke">Abgelegte Protokolle</h2>
 	{#if data.protokolle.length === 0}
 		<p class="leer">Noch keines abgelegt.</p>
@@ -433,3 +545,21 @@
 		</ul>
 	{/if}
 </div>
+
+<style>
+	/*
+		Der Abstand über dem Ziehen-Formular.
+
+		**Die einzige lokale Regel dieser Seite**, und sie ist eine Deklaration:
+		alles andere kommt aus dem geteilten Stilblatt. Ohne sie klebte der Knopf an
+		der letzten Karte der Sammlung, als gehörte er zu ihr — er gehört zur Liste
+		als Ganzem.
+
+		`.zeilenform__formular` daneben bringt Abstände für ein aufgeklapptes
+		Formular mit; hier ist nichts aufgeklappt, und die Klasse zweckentfremdet
+		hiesse, dass eine Änderung an den Aufklappern still diese Stelle trifft.
+	*/
+	.ziehen {
+		margin-block-start: var(--space-4);
+	}
+</style>

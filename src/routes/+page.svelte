@@ -9,6 +9,7 @@
 	import { datumKasten, datumKurz, datumLang } from '$lib/client/utils/date';
 	import { AUFGABE_HOECHSTLAENGE } from '$lib/aufgabentext';
 	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
+	import ZeichenStift from '$lib/components/ZeichenStift.svelte';
 	import {
 		EINZELAUFGABE_NICHT_ANSPRECHBAR,
 		fristZusatz,
@@ -1205,45 +1206,18 @@
 								<details class="aendern" open={fehlerHier}>
 									<!--
 										**Ein Zeichen statt des Wortes**, auf Manuels Entscheid vom
-										2026-09-15: `Ändern` kostete 59px Zeilenbreite, und die fehlten
-										dem Aufgabentext — gemessen brachen drei von fünf Zeilen dadurch
-										um, die Liste wuchs um 27 Prozent.
+										2026-09-15 — die Begründung in ganzer Länge steht seit dem
+										2026-09-17 an der Komponente $lib/components/ZeichenStift.svelte,
+										wohin der Stift gezogen ist, als /sitzungen ihn ebenfalls brauchte.
 
-										**Der Einwand ist benannt und nicht übergangen.** DESIGN.md
-										begründet `Keine Symbole ohne Text` damit, dass bei zwanzig Leuten
-										mit sehr unterschiedlicher Vertrautheit ein Wort verlässlicher ist
-										als ein Piktogramm; der Satz steht dort für die Navigationsleiste,
-										das Argument gilt hier genauso. Getragen wird die Ausnahme davon,
-										dass das Wort **nicht weg ist**, sondern nur nicht gemalt wird:
-										`.nur-vorgelesen` hält es für Screenreader und für die
-										Tastaturausgabe.
-
-										**Seit dem 2026-09-16 steht der Stift allein**, ohne das Dreieck
-										des Aufklappers davor. Befund von Manuel: `▸` und Stift sind zwei
-										Aufforderungen an derselben Stelle, und die zweite sagt genauer,
-										was passiert. Der Stift trägt die Anzeige damit allein — darum
-										`aufklapp`: die Klasse markiert das Zeichen, das an diesem Griff
-										die Stelle des Dreiecks einnimmt, und Gate-Regel 15 liest sie.
-										Ohne sie darf keine Regel dem Griff sein Dreieck nehmen.
-
-										Derselbe Zeichensatz wie am Übernehmen-Knopf: 24er-Raster, Strich
-										in currentColor, keine Füllung, `aria-hidden` — das Wort steht
-										daneben, wenn auch ungemalt.
+										Das Wort steht **hier** und nicht dort: die Komponente malt, und
+										an dieser Stelle heisst die Handlung `Ändern`. `aufklapp` markiert
+										das Zeichen, das an diesem Griff die Stelle des Dreiecks einnimmt —
+										Gate-Regel 15 liest die Klasse im Markup, und ohne sie darf keine
+										Regel dem Griff sein Dreieck nehmen.
 									-->
 									<summary class="aendern__griff">
-										<svg
-											class="zeichen aufklapp"
-											viewBox="0 0 24 24"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											aria-hidden="true"
-										>
-											<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Z" />
-											<path d="M14.5 5.5l4 4" />
-										</svg>
+										<ZeichenStift class="aufklapp" />
 										<span class="nur-vorgelesen">Ändern</span>
 									</summary>
 									<div class="aendern__formulare">
@@ -2242,64 +2216,13 @@
 	}
 
 	/*
-		Der Griff.
-
-		**Kein `display`, und das Dreieck ist trotzdem fort.** `list-style: none`
-		nimmt es, ohne die Vorgabe `list-item` anzutasten — der Stift daneben ist
-		seit dem 2026-09-16 die ganze Anzeige (Entscheid Manuel: zwei
-		Aufforderungen an derselben Stelle, und der Stift sagt genauer, was
-		passiert). Gate-Regel 15 lässt das genau dann durch, wenn im Markup
-		desselben `<summary>` ein Zeichen mit der Klasse `aufklapp` steht; der
-		Stift trägt sie.
-
-		Das `list-style-position: inside` von vorher ist damit gegenstandslos und
-		fort: es rückte das Dreieck in den Textfluss, und es gibt kein Dreieck
-		mehr.
-
-		**Die negativen Aussenabstände sind der Punkt.** Das Trefferfeld hält
-		`--touch`, ohne die Zeile höher zu machen: die 44px ziehen sich über die
-		12px Polsterung der Zeile hinaus, oben wie unten. Dieselbe Rechnung und
-		dieselbe Begründung wie bei `.treffer` am Kästchen — nur dass dort die
-		Differenz zweier Masse steht und hier die Polsterung der Zeile.
-
-		Gemessen am 2026-09-14 im gerenderten Baum: der Griff ist 44px hoch, die
-		einzeilige Aufgabenzeile bleibt bei 48px.
+		**Griff und Formularbereich stehen seit dem 2026-09-17 im geteilten
+		Stilblatt** als `.aendern__griff` und `.aendern__formulare`: /sitzungen
+		trägt denselben Stift an jedem Traktandum, und die zweite Kopie derselben
+		zwölf Deklarationen wäre Retro-Posten D1. Die Begründung samt Safari-Fall
+		steht dort. Hier bleibt allein, was diese Zeile angeht — wo der Griff in
+		ihrer Flex-Zeile sitzt.
 	*/
-	.aendern__griff {
-		min-height: var(--touch);
-		margin-block: calc(var(--space-3) * -1);
-		/*
-			Seitlicher Innenabstand seit dem 2026-09-15: der Griff trägt nur noch
-			ein Zeichen, und ohne ihn bliebe das Trefferfeld schmaler als die 44px
-			aus NFR5. Die Höhe besorgt der Abstand oben und unten wie zuvor.
-		*/
-		padding-block: var(--space-3);
-		padding-inline: var(--space-2);
-		color: var(--accent);
-		font-family: var(--meta-font);
-		font-size: var(--meta-size);
-		font-weight: var(--meta-weight);
-		line-height: var(--meta-line);
-		cursor: pointer;
-		list-style: none;
-	}
-
-	/*
-		Safari vor 18.4 kennt `list-style: none` an einem `<summary>` nicht und
-		malt sein Dreieck aus einem eigenen Pseudoelement. Ohne diese Regel stünde
-		es dort weiter — auf genau den Geräten, auf denen diese Anwendung
-		überwiegend bedient wird.
-	*/
-	.aendern__griff::-webkit-details-marker {
-		display: none;
-	}
-
-	.aendern__formulare {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-3);
-		padding-block-start: var(--space-3);
-	}
 
 	.zeile:first-child {
 		border-top: 0;

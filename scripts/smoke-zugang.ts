@@ -220,8 +220,24 @@ import {
 	WOCHE_NICHT_ANSPRECHBAR,
 } from '../src/lib/texte.ts';
 import { handle, handleError, startPruefen } from '../src/hooks.server.ts';
-import { TRAKTANDUM_HOECHSTLAENGE, istPdf, traktandumPruefen } from '../src/lib/sitzung.ts';
-import { protokollAblegen, protokollLesen } from '../src/lib/server/protokollablage.ts';
+import {
+	TRAKTANDEN_LEER,
+	TRAKTANDUM_HOECHSTLAENGE,
+	TRAKTANDUM_NICHT_ANSPRECHBAR,
+	istPdf,
+	traktandenlisteSchreiben,
+	traktandumPruefen,
+} from '../src/lib/sitzung.ts';
+import {
+	protokollAblegen,
+	protokollLesen,
+	traktandenlisteLesen,
+} from '../src/lib/server/protokollablage.ts';
+import {
+	traktandenLesen,
+	traktandenlistedateiLesen,
+	traktandenlistenLesen,
+} from '../src/lib/server/db/queries/meetings.ts';
 
 /**
  * So viele Behauptungen muss ein vollständiger Lauf ablegen, die Schlusszählung
@@ -230,7 +246,7 @@ import { protokollAblegen, protokollLesen } from '../src/lib/server/protokollabl
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 667;
+const ERWARTETE_BEHAUPTUNGEN = 675;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -727,6 +743,23 @@ async function einzelaufgabenLaden(): Promise<EinzelaufgabenModul> {
  */
 type ArchivModul = { load: () => unknown };
 let archivModul: ArchivModul | null = null;
+
+/*
+ * Die Sitzungsseite vom 2026-09-17. Ihre load **braucht** ein Ereignis: sie
+ * liest locals (der Wächter hat schon abgewiesen, die Prüfung steht wegen des
+ * Typs da) und die Adresse für `?abgelegt`.
+ */
+type SitzungenModul = {
+	load: (ereignis: ServerLoadEvent) => unknown;
+	actions: Record<string, Aktion>;
+};
+let sitzungenModul: SitzungenModul | null = null;
+
+async function sitzungenLaden(): Promise<SitzungenModul> {
+	sitzungenModul ??=
+		(await import('../src/routes/sitzungen/+page.server.ts')) as unknown as SitzungenModul;
+	return sitzungenModul;
+}
 
 async function archivLaden(): Promise<ArchivModul> {
 	archivModul ??= (await import('../src/routes/archiv/+page.server.ts')) as unknown as ArchivModul;
@@ -9772,6 +9805,215 @@ try {
 		fehlendeTeile(ablageTeile).length === 0,
 		`fehlt: ${fehlendeTeile(ablageTeile).join(', ')}`
 	);
+
+	// -----------------------------------------------------------------------
+	// /sitzungen — die Sammlung, der Stift und die gezogene Liste (2026-09-17)
+	// -----------------------------------------------------------------------
+	/*
+	 * **Drei Änderungen an einer Sache** (Entscheid Manuel): ein Traktandum geht
+	 * an die nächste Sitzung und trägt darum kein Datum mehr; jedes Mitglied darf
+	 * jeden Punkt ergänzen; und aus der Sammlung lässt sich eine Liste ziehen,
+	 * die als Datei bleibt, während die Punkte verschwinden.
+	 *
+	 * **Der Block liest nach dem Ziehen beide Hälften**: die Sammlung ist leer,
+	 * **und** die Datei trägt, was darin stand. Eine allein liesse offen, ob der
+	 * Inhalt unterwegs verlorengeht. Was er **nicht** misst, ist die Reihenfolge
+	 * der drei Schritte in der action — die Grenze steht ausgeschrieben an der
+	 * Behauptung selbst.
+	 */
+	const sitzungenSeite = await sitzungenLaden();
+	const traktandenMitglied = mitgliedAnlegen({
+		name: 'Ruth',
+		inviteTokenHash: tokenHashen(tokenErzeugen()),
+		isAdmin: false,
+	});
+	const traktandenZweite = mitgliedAnlegen({
+		name: 'Pia',
+		inviteTokenHash: tokenHashen(tokenErzeugen()),
+		isAdmin: false,
+	});
+	const traktandenLocals = ohneTokenHash(traktandenMitglied);
+	const zweiteLocals = ohneTokenHash(traktandenZweite);
+
+	/*
+	 * Aufschreiben **ohne Datumsfeld**: das Formular trägt nur noch `text`. Vor
+	 * dem 2026-09-17 hätte derselbe Versand an SITZUNGSDATUM_FEHLT scheitern
+	 * müssen — genau darum steht hier kein `sitzungAm`.
+	 */
+	const erstesTraktandum = await routenausgang(() =>
+		sitzungenSeite.actions.aufschreiben(
+			alsMitglied('/sitzungen', traktandenLocals, {
+				text: '  Wasseranschluss  beim oberen Beet  reparieren lassen ',
+			}).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'ein Traktandum entsteht aus einem Satz allein — ohne Datum der Sitzung',
+		erstesTraktandum.art === 'wert' && traktandenLesen().length === 1,
+		`Ausgang ${erstesTraktandum.art}, ${traktandenLesen().length} in der Sammlung`
+	);
+	const gesaet = traktandenLesen()[0];
+	pruefen(
+		'gespeichert ist die gefaltete Fassung, mit Name und Zeitpunkt als Herkunft',
+		gesaet?.text === 'Wasseranschluss beim oberen Beet reparieren lassen' &&
+			gesaet?.name === traktandenMitglied.name &&
+			Number.isInteger(gesaet?.createdAt),
+		JSON.stringify(gesaet ?? null)
+	);
+
+	/*
+	 * **Ergänzen darf jede, auch an einer fremden Zeile** — der Kern der zweiten
+	 * Änderung. Pia hat den Punkt nicht aufgeschrieben und zieht ihn trotzdem
+	 * gerade; der Name daran bleibt Ruths, denn er sagt, wer ihn aufgebracht hat.
+	 */
+	const fremdErgaenzt = await routenausgang(() =>
+		sitzungenSeite.actions.aendern(
+			alsMitglied('/sitzungen', zweiteLocals, {
+				traktandumId: String(gesaet?.id ?? 0),
+				text: 'Wasseranschluss beim oberen Beet reparieren lassen, Offerte liegt vor',
+			}).alsRequestEvent()
+		)
+	);
+	const ergaenzt = traktandenLesen()[0];
+	pruefen(
+		'jedes Mitglied ergänzt jedes Traktandum — und der Name daran bleibt der erste',
+		fremdErgaenzt.art === 'wert' &&
+			ergaenzt?.text === 'Wasseranschluss beim oberen Beet reparieren lassen, Offerte liegt vor' &&
+			ergaenzt?.name === traktandenMitglied.name,
+		JSON.stringify(ergaenzt ?? null)
+	);
+	abgewiesen(
+		'ein Traktandum, das es nicht gibt, fällt mit einem Satz und ohne Auskunft',
+		await routenausgang(() =>
+			sitzungenSeite.actions.aendern(
+				alsMitglied('/sitzungen', traktandenLocals, {
+					traktandumId: '999999',
+					text: 'Etwas, das nirgends steht',
+				}).alsRequestEvent()
+			)
+		),
+		TRAKTANDUM_NICHT_ANSPRECHBAR
+	);
+
+	/*
+	 * Ein zweiter Punkt, damit die gezogene Liste zwei Zeilen trägt und die
+	 * Nummerierung überhaupt etwas zu zählen hat.
+	 */
+	await routenausgang(() =>
+		sitzungenSeite.actions.aufschreiben(
+			alsMitglied('/sitzungen', zweiteLocals, {
+				text: 'Termin für den Herbstbummel festlegen',
+			}).alsRequestEvent()
+		)
+	);
+
+	const vorDemZiehen = traktandenLesen();
+	const gezogen = await routenausgang(() =>
+		sitzungenSeite.actions.ziehen(alsMitglied('/sitzungen', traktandenLocals).alsRequestEvent())
+	);
+	const listen = traktandenlistenLesen();
+	/*
+	 * Der Inhalt über **beide** Schichten gelesen: die Zeile nennt die Datei, die
+	 * Ablage gibt die Bytes. Ein Blick allein in die Ablage sagte nichts darüber,
+	 * ob die Zeile auf dieselbe Datei zeigt.
+	 */
+	const listendatei = listen[0] === undefined ? null : traktandenlistedateiLesen(listen[0].id);
+	const listeninhalt = new TextDecoder().decode(
+		(listendatei === null ? null : traktandenlisteLesen(listendatei)) ?? new Uint8Array(0)
+	);
+	const ziehenTeile = [
+		['die action meldet, wie viele Punkte gewandert sind', gezogen.art === 'wert'],
+		['die Sammlung ist danach leer', traktandenLesen().length === 0],
+		['und es steht genau eine gezogene Liste da', listen.length === 1],
+		['sie trägt den Namen dessen, der gezogen hat', listen[0]?.name === traktandenMitglied.name],
+		[
+			'die Datei trägt beide Punkte, nummeriert',
+			listeninhalt.includes(
+				'1. Wasseranschluss beim oberen Beet reparieren lassen, Offerte liegt vor'
+			) && listeninhalt.includes('2. Termin für den Herbstbummel festlegen'),
+		],
+		[
+			'und die Herkunft jedes Punktes steht darunter',
+			listeninhalt.includes(traktandenMitglied.name) &&
+				listeninhalt.includes(traktandenZweite.name),
+		],
+		[
+			'der Text der Datei ist der, den traktandenlisteSchreiben baut — nicht ein zweiter daneben',
+			listeninhalt.startsWith('Traktanden\nGezogen am '),
+		],
+	] as const;
+	/*
+	 * **Die Reihenfolge der drei Schritte misst diese Zeile ausdrücklich nicht**,
+	 * und das steht hier, weil der Name sie beinahe behauptet hätte. Vorgeführt am
+	 * 2026-09-17: das Abräumen an den Anfang der action gestellt — also vor das
+	 * Schreiben der Datei — lässt den ganzen Block **grün**. Der Grund ist, dass
+	 * `punkte` schon gelesen ist, bevor einer der drei Schritte läuft; im
+	 * geglückten Fall kommt dasselbe heraus. Die Reihenfolge trägt allein im
+	 * Fehlerfall, und den stellt dieses Skript nicht her: dafür müsste ein
+	 * Schreibfehler in der Ablage erzwungen werden.
+	 *
+	 * Was hier steht, ist darum das **Ergebnis**: die Datei liegt, die Zeile zeigt
+	 * darauf, die Sammlung ist leer. Die Begründung der Reihenfolge steht an der
+	 * action, und sie ist eine Vorsichtsmassnahme ohne Wache — wer sie umstellt,
+	 * merkt es hier nicht.
+	 */
+	pruefen(
+		'Ziehen legt die Liste ab, die Zeile zeigt darauf, und die Sammlung ist leer',
+		fehlendeTeile(ziehenTeile).length === 0,
+		`fehlt: ${fehlendeTeile(ziehenTeile).join(', ')}, Datei: ${JSON.stringify(listeninhalt.slice(0, 120))}`
+	);
+	/*
+	 * **Die leere Sammlung fällt, und sie legt nichts ab.** Ohne die zweite Hälfte
+	 * bliebe offen, ob der Abbruch vor oder nach dem Schreiben der Datei kommt —
+	 * eine Ablage, die sich mit leeren Listen füllt, wäre der stille Schaden.
+	 */
+	abgewiesen(
+		'aus einer leeren Sammlung lässt sich keine Liste ziehen',
+		await routenausgang(() =>
+			sitzungenSeite.actions.ziehen(alsMitglied('/sitzungen', traktandenLocals).alsRequestEvent())
+		),
+		TRAKTANDEN_LEER
+	);
+	pruefenGleich(
+		'und die Ablage hat dabei keine zweite Datei bekommen',
+		traktandenlistenLesen().length,
+		1
+	);
+
+	/*
+	 * Die Textfassung gegen dieselben Eingaben, mit denen die action sie füttert —
+	 * hier ohne Datenbank und darum mit festen Werten. Geprüft wird die **Form**:
+	 * Kopf, Nummerierung, Herkunft, Schlussumbruch.
+	 */
+	const probeText = traktandenlisteSchreiben(
+		[
+			{ text: 'Erster Punkt', name: 'Ruth', createdAt: 1_757_000_000 },
+			{ text: 'Zweiter Punkt', name: null, createdAt: 1_757_100_000 },
+		],
+		1_757_200_000
+	);
+	const textTeile = [
+		['der Kopf nennt die Sache und den Tag', probeText.startsWith('Traktanden\nGezogen am ')],
+		[
+			'die Punkte sind nummeriert',
+			probeText.includes('1. Erster Punkt') && probeText.includes('2. Zweiter Punkt'),
+		],
+		['die Herkunft steht eingerückt darunter', probeText.includes('\n   Ruth · ')],
+		['ein fehlender Name wird zu `unbekannt`', probeText.includes('\n   unbekannt · ')],
+		['die Datei endet mit einem Umbruch', probeText.endsWith('\n')],
+		[
+			'und sie sortiert nicht um — die Ordnung kommt von der Abfrage',
+			probeText.indexOf('1. Erster Punkt') < probeText.indexOf('2. Zweiter Punkt'),
+		],
+	] as const;
+	pruefen(
+		'die Traktandenliste hat eine Form, und sie steht an einer Stelle',
+		fehlendeTeile(textTeile).length === 0,
+		`fehlt: ${fehlendeTeile(textTeile).join(', ')}`
+	);
+	// Die zwei gesäten Punkte sind damit verbraucht; der Zähler oben hält fest,
+	// dass sie es waren.
+	void vorDemZiehen;
 } catch (fehler) {
 	unerwarteterWurf('smoke', fehler);
 } finally {

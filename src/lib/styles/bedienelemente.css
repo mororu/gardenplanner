@@ -88,6 +88,96 @@ a {
 }
 
 /*
+	Ein `<summary>`, das wie der primäre Knopf aussieht — die Aufforderung, hinter
+	der ein Formular aufklappt.
+
+	**Zwei Träger seit dem 2026-09-17**: `+ Reifes eintragen` auf /ernte und
+	`+ Traktandum aufschreiben` auf /sitzungen. Sie stand bis dahin lokal in
+	/ernte als `.eintragen-griff`; mit dem zweiten Träger wäre sie eine Kopie
+	geworden, und zwei gleiche Regelkörper in zwei Komponenten sieht keine Wache —
+	Retro-Posten D1, derselbe Weg, den `.textfeld` schon gegangen ist.
+
+	Was hier steht, ist genau das, was ein `<summary>` **zusätzlich** zu
+	`.button-primary` braucht: den Abstand zwischen `+` und Wort — die Knopfklasse
+	kennt keinen, weil ihre übrigen Träger einen einzigen Textknoten haben — und
+	den Marker fort. `list-style` allein reicht nicht: Safari vor 18.4 malt sein
+	Dreieck aus einem eigenen Pseudoelement, und auf dem Telefon wird diese
+	Anwendung überwiegend bedient.
+
+	**Das `+` im Markup trägt `aufklapp`.** `.button-primary` bringt ein `display`
+	mit, und damit ist der Marker ohnehin fort; Gate-Regel 15 lässt das genau dann
+	durch, wenn im selben `<summary>` ein solches Zeichen steht. Ohne das `+`
+	fällt der Lauf — und das ist der Zweck der Regel: ein Griff ohne Anzeige, dass
+	er aufklappt, sieht aus wie ein Knopf, der etwas tut.
+*/
+.button-primary--griff {
+	gap: var(--space-1);
+	list-style: none;
+}
+
+.button-primary--griff::-webkit-details-marker {
+	display: none;
+}
+
+/*
+	Der Ändern-Griff — ein `<summary>`, das nur ein Zeichen trägt.
+
+	**Zwei Träger seit dem 2026-09-17**: jede Aufgabenzeile auf `/` und jedes
+	Traktandum auf /sitzungen. Sie stand bis dahin lokal auf `/`; mit dem zweiten
+	Träger wäre sie eine Kopie geworden, und zwei gleiche Regelkörper in zwei
+	Komponenten sieht keine Wache — Retro-Posten D1, derselbe Weg wie bei
+	`.textfeld` und `.button-primary--griff`.
+
+	**Kein `display`, und das Dreieck ist trotzdem fort.** `list-style: none`
+	nimmt es, ohne die Vorgabe `list-item` anzutasten — das Zeichen daneben ist
+	seit dem 2026-09-16 die ganze Anzeige (Entscheid Manuel: zwei Aufforderungen
+	an derselben Stelle, und der Stift sagt genauer, was passiert). Gate-Regel 15
+	lässt das genau dann durch, wenn im Markup desselben `<summary>` ein Zeichen
+	mit der Klasse `aufklapp` steht; der Stift trägt sie.
+
+	Der seitliche Innenabstand ist seit dem 2026-09-15 dabei: der Griff trägt nur
+	noch ein Zeichen, und ohne ihn bliebe das Trefferfeld schmaler als die 44px
+	aus NFR5. Die Höhe besorgt der Abstand oben und unten, und die negativen
+	Aussenabstände ziehen ihn wieder heraus, damit die Zeile nicht wächst.
+
+	**Wo der Griff sitzt, steht nicht hier.** Auf `/` schiebt ihn ein
+	`margin-inline-start: auto` ans Ende der Flex-Zeile; auf /sitzungen steht er
+	unter dem Text. Das ist Sache der Seite, und eine Vorgabe dafür im Blatt
+	machte die zweite Seite zur Ausnahme.
+*/
+.aendern__griff {
+	min-height: var(--touch);
+	margin-block: calc(var(--space-3) * -1);
+	padding-block: var(--space-3);
+	padding-inline: var(--space-2);
+	color: var(--accent);
+	font-family: var(--meta-font);
+	font-size: var(--meta-size);
+	font-weight: var(--meta-weight);
+	line-height: var(--meta-line);
+	cursor: pointer;
+	list-style: none;
+}
+
+/*
+	Safari vor 18.4 kennt `list-style: none` an einem `<summary>` nicht und malt
+	sein Dreieck aus einem eigenen Pseudoelement. Ohne diese Regel stünde es dort
+	weiter — auf genau den Geräten, auf denen diese Anwendung überwiegend bedient
+	wird.
+*/
+.aendern__griff::-webkit-details-marker {
+	display: none;
+}
+
+/* Was hinter dem Griff aufklappt: ein oder zwei Formulare untereinander. */
+.aendern__formulare {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	padding-block-start: var(--space-3);
+}
+
+/*
  * Nebenaktionen: durchsichtig, Text im Akzent, Umriss im Nebentext-Ton.
  *
  * Der Umriss lag bis zum 2026-09-11 auf --hairline — NFR9 verlangt 3:1 für den

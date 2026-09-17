@@ -3,7 +3,15 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 /*
- * Die Ablage der Protokoll-PDF.
+ * Die Ablage der Sitzungsdateien.
+ *
+ * **Sie trägt seit dem 2026-09-17 zwei Arten**: die hochgeladenen Protokolle als
+ * PDF und die erzeugten Traktandenlisten als Textdatei. Beide liegen im selben
+ * Verzeichnis, weil beide zur selben Sache gehören und dieselbe Sicherung
+ * brauchen; unterschieden werden sie an der Endung, und die vergibt diese Datei
+ * selbst. Der Modulname sagt weiter `protokollablage` — er ist der Pfad, unter
+ * dem drei Module sie importieren, und eine Umbenennung kostete jede Fundstelle
+ * für nichts als ein treffenderes Wort.
  *
  * **Sie liegt im Dateisystem und nicht in der Datenbank** (Entscheid Manuel,
  * 2026-09-17). Die Begründung steht an der Tabelle `minutes` in
@@ -72,32 +80,78 @@ function ablageverzeichnis(): string {
  * zwischen Frage und Antwort.
  */
 export function protokollAblegen(bytes: Uint8Array): string {
-	const verzeichnis = ablageverzeichnis();
-	mkdirSync(verzeichnis, { recursive: true });
-	const datei = `${randomUUID()}.pdf`;
-	writeFileSync(join(verzeichnis, datei), bytes);
-	return datei;
+	return ablegen(bytes, 'pdf');
 }
 
 /**
- * Liest ein abgelegtes Protokoll, oder null.
+ * Legt eine erzeugte Traktandenliste ab und gibt den Dateinamen zurück.
  *
- * **Der Name wird gegen die erzeugte Form geprüft und nicht bloss auf `..`
- * durchsucht.** Er kommt zwar aus der Datenbank und damit aus dieser Datei
- * selbst — aber „kommt aus der Datenbank" ist eine Annahme über jeden künftigen
- * Schreibweg, und diese Funktion liest eine Datei, deren Pfad sie zusammensetzt.
- * Was hier durchkommt, sind 36 Zeichen UUID plus `.pdf`; ein Schrägstrich, ein
- * Punkt zu viel und eine Endung, die nicht stimmt, fallen raus, ohne dass
+ * Nimmt **Text** und keine Bytes, und das ist der ganze Unterschied zum
+ * Protokoll daneben: die Liste entsteht in diesem Programm und kommt nicht von
+ * einem Gerät. `writeFileSync` schreibt einen String als UTF-8 — Umlaute und das
+ * `·` der Herkunftszeile stehen darum in der Datei so, wie sie auf der Seite
+ * stehen.
+ */
+export function traktandenlisteAblegen(text: string): string {
+	return ablegen(text, 'txt');
+}
+
+/**
+ * Schreibt eine Datei unter einem erzeugten Namen und gibt ihn zurück.
+ *
+ * Die gemeinsame Hälfte der zwei Ablagefunktionen darüber. Der Name kommt aus
+ * randomUUID, die Endung von hier — beides aus dem Grund, der am Modul steht:
+ * ein übernommener Name kann `../../etc/…` heissen.
+ *
+ * Das Verzeichnis entsteht beim ersten Ablegen. `recursive: true` macht den
+ * Aufruf still, wenn es schon da ist — eine Prüfung davor wäre ein Zeitfenster
+ * zwischen Frage und Antwort.
+ */
+function ablegen(inhalt: Uint8Array | string, endung: 'pdf' | 'txt'): string {
+	const verzeichnis = ablageverzeichnis();
+	mkdirSync(verzeichnis, { recursive: true });
+	const datei = `${randomUUID()}.${endung}`;
+	writeFileSync(join(verzeichnis, datei), inhalt);
+	return datei;
+}
+
+/** Liest ein abgelegtes Protokoll, oder null. Die Prüfung steht an `gelesen`. */
+export function protokollLesen(datei: string): Uint8Array | null {
+	return gelesen(datei, 'pdf');
+}
+
+/**
+ * Liest eine abgelegte Traktandenliste, oder null.
+ *
+ * Dieselbe Prüfung und dieselbe Begründung wie beim Protokoll darüber, mit der
+ * anderen Endung — und die Trennung ist Absicht: ein Muster, das beide Endungen
+ * zuliesse, gäbe eine PDF heraus, wo eine Route eine Liste erwartet, und die
+ * Ausgabe setzte den falschen Medientyp.
+ */
+export function traktandenlisteLesen(datei: string): Uint8Array | null {
+	return gelesen(datei, 'txt');
+}
+
+/**
+ * Liest eine Datei der Ablage, wenn ihr Name **genau** die erzeugte Form hat.
+ *
+ * Der Name wird gegen jene Form geprüft und nicht bloss auf `..` durchsucht.
+ * Er kommt zwar aus der Datenbank und damit aus dieser Datei selbst — aber
+ * „kommt aus der Datenbank" ist eine Annahme über jeden künftigen Schreibweg,
+ * und diese Funktion liest eine Datei, deren Pfad sie zusammensetzt. Was hier
+ * durchkommt, sind 36 Zeichen UUID plus die erwartete Endung; ein Schrägstrich,
+ * ein Punkt zu viel und eine Endung, die nicht stimmt, fallen raus, ohne dass
  * jemand die Liste der Angriffe vollständig geraten haben muss.
  *
  * null und kein Wurf, wenn die Datei fehlt: eine Zeile ohne Datei ist der
  * benannte Preis dafür, dass Datenbank und Ablage zwei Dinge sind (siehe
  * ./db/schema.ts). Die Route macht daraus einen 404.
  */
-export function protokollLesen(datei: string): Uint8Array | null {
-	if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$/.test(datei)) {
-		return null;
-	}
+function gelesen(datei: string, endung: 'pdf' | 'txt'): Uint8Array | null {
+	const muster = new RegExp(
+		`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.${endung}$`
+	);
+	if (!muster.test(datei)) return null;
 	const voll = join(ablageverzeichnis(), datei);
 	if (!existsSync(voll)) return null;
 	return readFileSync(voll);
