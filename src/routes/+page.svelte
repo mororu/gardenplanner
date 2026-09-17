@@ -584,12 +584,19 @@
 	einen Seite und der Bügel frei auf der anderen — dieselbe Silhouette, die man
 	von einer Giesskanne im Regal kennt.
 
-	**Das Häkchen am Griff der eigenen Zusagen ist bewusst dasselbe wie am
-	`Erledigt`-Knopf** in dessen Zeilen (2026-09-17, mit dem Umbau zum
-	Aufklapper). Es sagt an beiden Stellen dasselbe: was ich zugesagt habe, hake
-	ich ab. Ein zweites Personenzeichen neben dem von `Wer übernimmt` wäre die
-	Alternative gewesen und die schlechtere — zwei gleiche Zeichen auf einer Seite
-	unterscheiden nichts.
+	**Das Fähnchen am Griff der eigenen Zusagen** (Entscheid Manuel, 2026-09-17,
+	zweite Fassung). Es sagt `ich habe mich gemeldet` und steht damit neben dem
+	Knopf `Ich mach's`, mit dem man sich meldet.
+
+	Der Griff trug dafür einen halben Tag lang das **Häkchen** vom
+	`Erledigt`-Knopf in seinen eigenen Zeilen. Das war konsequent und sagte
+	trotzdem das Falsche: der Abschnitt zeigt, was noch **offen** ist, und ein
+	Häkchen heisst erledigt. Es steht jetzt wieder allein am Knopf, wo es
+	hingehört.
+
+	Ein zweites Personenzeichen neben dem von `Wer übernimmt` wäre die dritte
+	Möglichkeit gewesen und die schlechteste — zwei gleiche Zeichen auf einer
+	Seite unterscheiden nichts.
 -->
 {#snippet zeichenKanne()}
 	<svg
@@ -641,9 +648,9 @@
 	</svg>
 {/snippet}
 
-{#snippet zeichenHaken(zusatz = '')}
+{#snippet zeichenHaken()}
 	<svg
-		class="zeichen {zusatz}"
+		class="zeichen"
 		viewBox="0 0 24 24"
 		fill="none"
 		stroke="currentColor"
@@ -653,6 +660,22 @@
 		aria-hidden="true"
 	>
 		<path d="M4.5 12.5 9.5 17.5 19.5 6.5" />
+	</svg>
+{/snippet}
+
+{#snippet zeichenFahne()}
+	<svg
+		class="zeichen griff__zeichen"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		aria-hidden="true"
+	>
+		<path d="M6 21V3.5" />
+		<path d="M6 4.5h11.5l-2.5 4 2.5 4H6" />
 	</svg>
 {/snippet}
 
@@ -835,7 +858,7 @@
 		<details class="abschnitt meine" open>
 			<summary class="abschnitt__griff">
 				<h2 class="griff__satz" id="meine-marke">
-					{@render zeichenHaken('griff__zeichen')}
+					{@render zeichenFahne()}
 					<span class="kopfzahl">{data.zusagen.length}</span>
 					<span class="griff__titel">{MEINE_MARKE}</span>
 				</h2>
