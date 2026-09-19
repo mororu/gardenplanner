@@ -696,3 +696,94 @@ export function fristlage(terminSekunden: number, jetztSekunden: number): Fristl
 		? 'dieseWoche'
 		: 'spaeter';
 }
+
+/**
+ * Die Spanne, die ein Datumsfeld für eine **zurückliegende** Handlung anbietet:
+ * ein Jahr zurück, und vorne endet sie **heute**.
+ *
+ * Der Unterschied zu `fristfenster` darüber ist die Blickrichtung, und er ist
+ * die ganze Aussage des Feldes. Eine Frist zeigt nach vorn — man setzt sie für
+ * etwas, das noch zu tun ist. Eine Anwendung zeigt nach hinten: sie ist
+ * geschehen, und wer sie einträgt, trägt sie **nach**. `spaeteste` ist darum
+ * der heutige Tag und nicht in einem Jahr; ein Datum in der Zukunft wäre die
+ * Meldung über eine Handlung, die noch niemand getan hat.
+ *
+ * Die Rückschau ist `FRIST_FENSTER_TAGE` lang und hat keine eigene Zahl: die
+ * Grenze ist dieselbe Willkür wie dort, und zwei Zahlen dafür liefen beim
+ * ersten Nachdenken auseinander.
+ *
+ * Wie `fristfenster` entsteht das Paar auf dem **Server** — sonst rechnete der
+ * Server in UTC und das Gerät in der Ortszeit, und um 00:30 stünden zwei
+ * verschiedene Grenzen im Feld.
+ *
+ * @param jetztSekunden Der Bezugszeitpunkt in Unix-Sekunden.
+ */
+export function rueckschaufenster(jetztSekunden: number): {
+	frueheste: string;
+	spaeteste: string;
+} {
+	const heute = tageszahlInZone(jetztSekunden);
+	return {
+		frueheste: feldwertVonTageszahl(heute - FRIST_FENSTER_TAGE),
+		spaeteste: feldwertVonTageszahl(heute),
+	};
+}
+
+/**
+ * Liegt ein Tag in der Rückschau — also höchstens ein Jahr zurück und nicht in
+ * der Zukunft?
+ *
+ * Gerechnet auf **Kalendertagen in der Zone**, aus demselben Grund wie bei
+ * `istImFristfenster`: der übergebene Zeitpunkt ist ein Tagesende, `jetzt`
+ * liegt irgendwann davor, und eine Sekundenrechnung liesse die Grenze im Lauf
+ * des Tages um Stunden wandern. Der heutige Tag ergibt 0 und liegt drinnen.
+ *
+ * **Nicht symmetrisch**, anders als `istImFristfenster`: der Abstand wird
+ * vorzeichenbehaftet gelesen, und ein Tag in der Zukunft fällt heraus. Genau
+ * das ist der Unterschied, den `rueckschaufenster` am Feld als `max` anbietet.
+ *
+ * @param tagSekunden Der Tag als Tagesende in der Zone, wie
+ *   tagesendeInUnixSekunden ihn liefert.
+ * @param jetztSekunden Der Bezugszeitpunkt in Unix-Sekunden.
+ */
+export function istInRueckschau(tagSekunden: number, jetztSekunden: number): boolean {
+	const abstand = tageszahlInZone(jetztSekunden) - tageszahlInZone(tagSekunden);
+	return abstand >= 0 && abstand <= FRIST_FENSTER_TAGE;
+}
+
+/**
+ * Wie viele **Kalendertage in der Zone** ein Tag zurückliegt. Heute ergibt 0,
+ * gestern 1.
+ *
+ * Kalendertage und keine Sekundendifferenz — dieselbe Begründung wie bei
+ * `istInRueckschau` darüber, und hier mit einem zweiten Leser: die Zahl steht
+ * als `vor 11 Tagen` an einer Zeile, und sie darf sich nicht um Mitternacht
+ * anders lesen als am Abend davor.
+ *
+ * Ein Tag in der Zukunft ergibt eine **negative** Zahl. Über das Feld kann er
+ * nicht hereinkommen (siehe `istInRueckschau`), von Hand in die Datenbank
+ * geschrieben schon — und eine Zahl, die dann `vor -3 Tagen` liest, ist
+ * ehrlicher als eine, die auf 0 abgeschnitten so tut, als sei es heute
+ * gewesen.
+ *
+ * @param tagSekunden Der Tag als Tagesende in der Zone.
+ * @param jetztSekunden Der Bezugszeitpunkt in Unix-Sekunden.
+ */
+export function tageZurueck(tagSekunden: number, jetztSekunden: number): number {
+	return tageszahlInZone(jetztSekunden) - tageszahlInZone(tagSekunden);
+}
+
+/**
+ * Der heutige Tag als Feldwert `JJJJ-MM-TT` — die Vorbelegung des
+ * Anwendungsdatums.
+ *
+ * In neun von zehn Fällen wird eingetragen, was gerade getan wurde; wer
+ * nachträgt, ändert das Feld. Dieselbe Abwägung wie bei
+ * `monatsendeAlsFeldwert` und derselbe Zonengrund: in UTC gerechnet zeigte das
+ * Feld am 1. eines Monats um 00:30 noch auf gestern.
+ *
+ * @param jetztSekunden Der Bezugszeitpunkt in Unix-Sekunden.
+ */
+export function heuteAlsFeldwert(jetztSekunden: number): string {
+	return feldwertVonTageszahl(tageszahlInZone(jetztSekunden));
+}
