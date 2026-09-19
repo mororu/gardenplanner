@@ -3693,19 +3693,19 @@ try {
 		 * Verlust.
 		 */
 		[
-			`alle dreizehn Seitenkomponenten sind eingesammelt (gefunden: ${seitenPfade.length})`,
-			seitenPfade.length === 13,
+			`alle vierzehn Seitenkomponenten sind eingesammelt (gefunden: ${seitenPfade.length})`,
+			seitenPfade.length === 14,
 		] as const,
-		// Vier bis zum 2026-09-13, fünf seit /ernte, sechs seit /sitzungen: jede
-		// dieser Seiten trägt dieselbe höfliche Region wie /, /traenkeplan,
-		// /verwaltung und /wissen.
+		// Vier bis zum 2026-09-13, fünf seit /ernte, sechs seit /sitzungen, sieben
+		// seit /wellness: jede dieser Seiten trägt dieselbe höfliche Region wie /,
+		// /traenkeplan, /verwaltung und /wissen.
 		//
-		// **Sechs und nicht dreizehn, obwohl es dreizehn Seiten sind.** /archiv und
-		// /einzelaufgaben haben keine Meldungsregion, weil sie nichts zu melden
+		// **Sieben und nicht vierzehn, obwohl es vierzehn Seiten sind.** /archiv
+		// und /einzelaufgaben haben keine Meldungsregion, weil sie nichts zu melden
 		// haben: sie lesen nur, exportieren kein `actions`, und eine Region ohne
 		// Vorgang wäre eine Ansage, die nie kommt. Die zwei Zahlen dieser Wache
 		// zählen darum Verschiedenes und bewegen sich nicht gemeinsam.
-		['es gibt genau sechs Meldungsregionen im Baum', meldungsTags.length === 6] as const,
+		['es gibt genau sieben Meldungsregionen im Baum', meldungsTags.length === 7] as const,
 		...meldungsTags.map(
 			([name, tag]) =>
 				[
@@ -3778,7 +3778,7 @@ try {
 		`verletzt: ${fehlendeTeile(regionenTeile).join(', ')}`
 	);
 	pruefenGleich(
-		'und es sind sechs höfliche, vierundzwanzig unterbrechende und genau eine, die nur die CSS-Rolle braucht',
+		'und es sind sieben höfliche, neunundzwanzig unterbrechende und genau eine, die nur die CSS-Rolle braucht',
 		JSON.stringify(
 			liveTags
 				.map(([, roh]) => /class="([^"]*)"/.exec(roh.replace(/\s+/g, ' '))?.[1] ?? '')
@@ -3795,7 +3795,11 @@ try {
 		// +1 höflich und +4 unterbrechend seit dem 2026-09-13: /ernte bringt eine
 		// Rückmeldung, eine Fehlerregion oben und drei Feldmeldungen mit — Kultur,
 		// Ort und Status.
-		JSON.stringify({ hoeflich: 6, unterbrechend: 24, keineRegion: 1 })
+		//
+		// Noch einmal +1 höflich und +5 unterbrechend seit dem 2026-09-19:
+		// /wellness ist nach derselben Bauform gebaut und hat **vier** Felder statt
+		// drei — Mittel, Ort, Datum und Wiederholung.
+		JSON.stringify({ hoeflich: 7, unterbrechend: 29, keineRegion: 1 })
 	);
 
 	const rueckmeldungRumpf = glatterRumpf(

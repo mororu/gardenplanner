@@ -116,7 +116,7 @@ import {
  * Stellen, von denen eine niemand rot macht, ist schlechter als eine Zahl an
  * einer — die Schlussmeldung des Laufs nennt sie ohnehin bei jedem Durchgang.
  */
-const ERWARTETE_BEHAUPTUNGEN = 183;
+const ERWARTETE_BEHAUPTUNGEN = 190;
 
 /**
  * Ein Jahr in Sekunden — die Laufzeit aus src/lib/server/auth.ts.
@@ -445,6 +445,16 @@ try {
 		 * lässt.
 		 */
 		{ pfad: '/ernte', titel: 'Ernte' },
+		/*
+		 * **Die Wellnessbehandlung ist am 2026-09-19 zugleich mit der Seite
+		 * eingetragen worden** — zum ersten Mal ohne den Vorfall, den die zwei
+		 * Absätze darüber je einmal beschreiben. Sie ist auch die einzige Zeile,
+		 * deren `pfad` und `titel` nicht dasselbe Wort tragen: die Route heisst
+		 * `/wellness`, die Seite `Wellnessbehandlung`. Die Begründung steht an der
+		 * Route selbst; hier ist sie der Beleg dafür, dass der Titel die Angabe
+		 * ist, die sich nicht aus dem Pfad ableiten lässt.
+		 */
+		{ pfad: '/wellness', titel: 'Wellnessbehandlung' },
 	];
 
 	for (const seite of seiten) {
