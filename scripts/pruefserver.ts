@@ -26,10 +26,11 @@ import { fileURLToPath } from 'node:url';
 import { aufraeumen, pruefen, zaehlerstand } from './pruefhelfer.ts';
 import { datenschichtStarten } from '../src/lib/server/db/index.ts';
 import { ernteEintragen } from '../src/lib/server/db/queries/harvests.ts';
+import { behandlungEintragen } from '../src/lib/server/db/queries/treatments.ts';
 import { mitgliedAnlegen } from '../src/lib/server/db/queries/members.ts';
 import { aufgabenStapelAnlegen } from '../src/lib/server/db/queries/tasks.ts';
 import { tokenErzeugen, tokenHashen } from '../src/lib/server/token.ts';
-import { WOCHE_SEKUNDEN } from '../src/lib/zeit.ts';
+import { WOCHE_SEKUNDEN, heuteAlsFeldwert, tagesendeInUnixSekunden } from '../src/lib/zeit.ts';
 
 export const GUTES_GEHEIMNIS = 'smoke-http-geheimnis-mit-genug-verschiedenen-zeichen-0123456789';
 
@@ -267,6 +268,65 @@ export function saeen(): Saat {
 	ernteEintragen({ kultur: 'Zucchini', ort: 'Hochbeet 3', status: 'sofort', laufend: true }, manu);
 	ernteEintragen({ kultur: 'Kohlrabi', ort: 'Freiland', status: 'stehen', laufend: false }, manu);
 	ernteEintragen({ kultur: 'Kürbis', ort: null, status: 'wachsen', laufend: false }, manu);
+
+	/*
+	 * **Drei Behandlungen, und eine davon überfällig** — aus demselben Grund wie
+	 * die Erntezeilen darüber und mit einem Abschnitt mehr auf dem Spiel.
+	 *
+	 * /wellness rendert `Steht wieder an` nur, wenn eine Zeile eine Wiederholung
+	 * trägt **und** die abgelaufen ist. Ohne diese Saat sähe der Sichtlauf die
+	 * Marke, die Karten jenes Abschnitts und den Griff `Heute gemacht` nie — und
+	 * der HTTP-Lauf bekäme eine Seite, die aus einer Überschrift und einem
+	 * zugeklappten Formular besteht. Das ist genau die Lücke, die AGENTS.md an
+	 * `.dienst` beschreibt: ein Element, das der Sweep nie gemessen hat, weil der
+	 * Lauf seinen Zustand nicht herstellt.
+	 *
+	 * Die erste ist **überfällig** (vor 20 Tagen, Wiederholung 14) und füllt
+	 * damit den oberen Abschnitt. Die zweite trägt eine Wiederholung, die **noch
+	 * läuft** (vor 2 Tagen, Wiederholung 21) — sie steht nur im Tagebuch und
+	 * belegt, dass der obere Abschnitt filtert statt alles zu zeigen. Die dritte
+	 * trägt **keine** Wiederholung und keinen Ort, womit beide Formen der
+	 * Tagebuchzeile im gemessenen Baum stehen.
+	 *
+	 * `angewendet_am` ist ein Tagesende in der Zone, und die Saat rechnet es
+	 * darum aus einem Feldwert statt aus `jetzt - n * TAG`: eine Uhrzeit in der
+	 * Spalte wäre eine Datenlage, die die Anwendung nie herstellt.
+	 *
+	 * Angelegt über die echte Abfrageschicht wie die Saat darüber.
+	 */
+	const jetztSekunden = Math.floor(Date.now() / 1000);
+	const tagVorTagen = (tage: number): number => {
+		const feldwert = heuteAlsFeldwert(jetztSekunden - tage * 24 * 60 * 60);
+		const tagesende = tagesendeInUnixSekunden(feldwert);
+		// Unerreichbar: heuteAlsFeldwert erzeugt genau die Form, die
+		// tagesendeInUnixSekunden liest. Der Zweig steht hier, weil der Typ null
+		// zulässt — ein `!` machte die Saat von einer Annahme über ein anderes
+		// Modul abhängig.
+		if (tagesende === null) throw new Error(`Saatdatum nicht lesbar: ${feldwert}`);
+		return tagesende;
+	};
+	behandlungEintragen(
+		{
+			mittel: 'Schachtelhalmbrühe',
+			ort: 'Beet 7',
+			angewendetAm: tagVorTagen(20),
+			intervallTage: 14,
+		},
+		manu
+	);
+	behandlungEintragen(
+		{
+			mittel: 'Brennnesseljauche',
+			ort: 'Hochbeet 3',
+			angewendetAm: tagVorTagen(2),
+			intervallTage: 21,
+		},
+		manu
+	);
+	behandlungEintragen(
+		{ mittel: 'Kompost', ort: null, angewendetAm: tagVorTagen(40), intervallTage: null },
+		manu
+	);
 
 	return {
 		adminToken,
