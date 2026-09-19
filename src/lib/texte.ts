@@ -466,3 +466,20 @@ export function fristZusatz(lage: Fristlage): string {
  * Bauformen dasselbe.
  */
 export const MEINE_MARKE = 'Meine Aufgaben';
+
+/**
+ * Der Satz an einer Behandlungszeile, die sich nicht ansprechen lässt.
+ *
+ * Eigener Satz und nicht ERNTEZEILE_NICHT_ANSPRECHBAR wiederverwendet: dort
+ * steht `Liste`, und die Wellnessbehandlung hat zwei davon — das Tagebuch und
+ * das, was ansteht. `Seite` trifft beide, und die vier Fälle, die dahinter
+ * liegen, sind dieselben wie dort (nie dagewesen, unlesbare Kennung, fremde
+ * Kennung, in der Zwischenzeit weggenommen). Jede Unterscheidung wäre ein
+ * Aufzählungskanal.
+ *
+ * Der vierte Fall ist hier allerdings der **seltene** und nicht der häufige:
+ * ein Tagebuch ändert sich nicht, während jemand es ansieht. Das ändert am
+ * Wortlaut nichts — was zu tun ist, ist in allen vier Fällen dasselbe.
+ */
+export const BEHANDLUNG_NICHT_ANSPRECHBAR =
+	'Diese Zeile lässt sich nicht ansprechen. Lade die Seite neu.';

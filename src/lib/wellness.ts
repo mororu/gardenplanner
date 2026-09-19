@@ -5,7 +5,7 @@ import { aufgabentextFalten } from './aufgabentext.ts';
  *
  * Gemeint ist, womit die Pflanzen gestärkt werden: Brennnesseljauche giessen,
  * Schachtelhalmbrühe spritzen, Gesteinsmehl stäuben. Der Name ist Manuels
- * (2026-09-19) und bleibt bewusst das umgangssprachliche Wort — `Pflanzen­
+ * (2026-09-19) und bleibt bewusst das umgangssprachliche Wort — `Pflanzen
  * stärkung` wäre das Fachwort und stünde bei zwanzig Leuten mit sehr
  * unterschiedlicher Vertrautheit für nichts.
  *
@@ -83,7 +83,7 @@ export const MITTEL_ZU_LANG = `Das ist zu lang für ein Mittel. Höchstens ${MIT
  * Gefaltet mit aufgabentextFalten — dieselbe Kette wie bei einer Kultur, einem
  * Blatttitel und einem Aufgabensatz, und aus demselben Grund: erst die
  * unsichtbaren Zeichen weg, dann Leerraum zusammenziehen, dann trimmen.
- * Umgekehrt bliebe `​ ​` ein nichtleerer „Name".
+ * Umgekehrt bliebe `\u200B \u200B` ein nichtleerer „Name".
  */
 export function mittelPruefen(eingabe: string): { mittel: string } | { fehler: string } {
 	const mittel = aufgabentextFalten(eingabe);
@@ -172,10 +172,7 @@ export function tageBisWieder(
  * Eine Zeile ohne Wiederholung steht nie an — sie ist Tagebuch und keine
  * Abmachung.
  */
-export function istWiederDran(
-	tageZurueckliegend: number,
-	intervallTage: number | null
-): boolean {
+export function istWiederDran(tageZurueckliegend: number, intervallTage: number | null): boolean {
 	const offen = tageBisWieder(tageZurueckliegend, intervallTage);
 	return offen !== null && offen <= 0;
 }
