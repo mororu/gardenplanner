@@ -7,17 +7,17 @@
 </script>
 
 <!--
-	Die fünf Zeichen der Einträge — 24er-Raster, Strich in `currentColor`, keine
+	Die sechs Zeichen der Einträge — 24er-Raster, Strich in `currentColor`, keine
 	Füllung, `aria-hidden`. Derselbe Zeichensatz wie auf `/`, und aus demselben
 	Grund dort als Ausschnitte und nicht als Komponenten: jedes steht genau
-	einmal, an dieser Seite, und eine Datei je Zeichen wäre fünf Dateien für fünf
-	Pfade. Wer eines an einem zweiten Ort braucht, zieht es dann heraus — so ist
+	einmal, an dieser Seite, und eine Datei je Zeichen wäre sechs Dateien für
+	sechs Pfade. Wer eines an einem zweiten Ort braucht, zieht es dann heraus — so ist
 	es dem Stift am 2026-09-17 ergangen.
 
 	**Sie tragen keine Aussage.** Die steht als Wort daneben, und DESIGN.md
 	verlangt genau das: bei zwanzig Leuten mit sehr unterschiedlicher Vertrautheit
 	ist ein Wort verlässlicher als ein Piktogramm. Was die Zeichen leisten, ist
-	das Wiederfinden beim Blättern — fünf Zeilen, die ohne sie gleich aussehen.
+	das Wiederfinden beim Blättern — sechs Zeilen, die ohne sie gleich aussehen.
 
 	Die Auswahl ist Manuels (2026-09-17), getroffen an einem Blatt mit je zwei
 	Entwürfen je Eintrag: Kalenderblatt, aufgeschlagenes Buch, Dokument, Kiste,
@@ -28,6 +28,14 @@
 	nicht aufbewahrt), zwei Sprechblasen für die Protokolle (die Seite besteht aus
 	Dateien, nicht aus Gesprächen) und Schieberegler für die Verwaltung (heissen
 	`Einstellungen`, und die gibt es dort nicht).
+
+	**Das Blatt der Wellnessbehandlung ist am 2026-09-19 dazugekommen und als
+	einziges nicht von Manuel gewählt** — das steht hier, damit es nachgeholt und
+	nicht für abgenommen gehalten wird. Verworfen sind ein Tropfen und eine
+	Giesskanne: beide lesen sich als Wasser, und Wasser ist in diesem Produkt der
+	Tränkeplan. Was das Blatt leistet, ist das, was der Absatz darüber von einem
+	Zeichen verlangt — es ist das einzige organische unter fünf gebauten Dingen
+	und darum beim Blättern sofort wieder da.
 -->
 {#snippet zeichenKalender()}
 	<svg
@@ -102,6 +110,22 @@
 	</svg>
 {/snippet}
 
+{#snippet zeichenBlatt()}
+	<svg
+		class="zeichen zeichen--gross"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		aria-hidden="true"
+	>
+		<path d="M11 20.5A7 7 0 0 1 9.8 6.6C15.5 5.5 17 5 19 2.5c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10Z" />
+		<path d="M2.5 21.5c0-3 1.9-5.4 5.1-6 2.4-.5 4.9-2 5.9-3" />
+	</svg>
+{/snippet}
+
 {#snippet zeichenSchluessel()}
 	<svg
 		class="zeichen zeichen--gross"
@@ -159,6 +183,27 @@
 			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
 			<a class="eintrag" href={resolve('/monatsplan')}>
 				{@render zeichenKalender()}Monatsplan ablegen<ZeichenWinkel class="eintrag__weiter" />
+			</a>
+		</li>
+		<li>
+			<!--
+				`Wellnessbehandlung` steht seit dem 2026-09-19 hier und nicht in der
+				Leiste, nach demselben Massstab wie die Einträge darunter: wie oft man
+				hingeht. Sie ist damit der Grenzfall dieser Seite — in der Saison wird
+				alle ein bis zwei Wochen etwas ausgebracht, und damit häufiger als alles
+				andere hier, aber seltener als der Gang durch den Garten, der `Ernte` in
+				der Leiste hält.
+
+				**Der zweite Platz und nicht der erste**: `Monatsplan ablegen` bleibt
+				oben, weil es der etablierte Einstieg dieser Seite ist und eine
+				Umsortierung von vier Zeilen mehr kostet, als die genauere Rangfolge
+				wert wäre.
+
+				Damit ist dies der **einzige** Weg dorthin — wie bei `Wissen` darunter.
+			-->
+			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+			<a class="eintrag" href={resolve('/wellness')}>
+				{@render zeichenBlatt()}Wellnessbehandlung<ZeichenWinkel class="eintrag__weiter" />
 			</a>
 		</li>
 		<li>

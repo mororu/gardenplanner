@@ -95,7 +95,7 @@
 		{
 			href: '/mehr',
 			beschriftung: 'Mehr',
-			gehoertDazu: ['/archiv', '/monatsplan', '/sitzungen', '/verwaltung', '/wissen'],
+			gehoertDazu: ['/archiv', '/monatsplan', '/sitzungen', '/verwaltung', '/wellness', '/wissen'],
 		},
 	];
 
