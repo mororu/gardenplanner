@@ -742,3 +742,124 @@ export const minutes = sqliteTable('minutes', {
 
 export type Minute = typeof minutes.$inferSelect;
 export type NewMinute = typeof minutes.$inferInsert;
+
+/**
+ * Was zur Stärkung der Pflanzen ausgebracht wurde — Jauche gegossen,
+ * Schachtelhalm gespritzt, Gesteinsmehl gestäubt.
+ *
+ * **Ein Tagebuch, und damit die Gegenentscheidung zu harvests.** Dort wird
+ * gelöscht, was abgeerntet ist, und die Begründung steht an jener Tabelle. Hier
+ * bleibt jede Zeile stehen, und zwar nicht aus Sammellust: diese Mittel wirken
+ * nur in Wiederholung — Schachtelhalm vorbeugend alle zehn bis vierzehn Tage,
+ * Jauche alle zwei bis drei Wochen. Ohne `wann zuletzt` lässt sich `wann
+ * wieder` nicht sagen. Beim Erntestand ist die Vergangenheit wertlos, hier ist
+ * sie die ganze Auskunft.
+ *
+ * **Keine Spalte `naechste_anwendung`.** Wann etwas wieder ansteht, wird aus
+ * `angewendet_am` und `intervall_tage` gerechnet — dieselbe Entscheidung wie
+ * bei der Überfälligkeit einer Aufgabe (Story 2.2), und aus demselben Grund:
+ * ein gespeicherter zweiter Wert für dieselbe Aussage läuft beim ersten
+ * nachgetragenen Datum gegen den ersten.
+ *
+ * **Keine Verbindung zu einem Ansatz.** Wer selbst ansetzt, hat ein Fass
+ * stehen; wer Schachtelhalm kauft, hat eine Flasche. Beides kommt vor
+ * (Manuel, 2026-09-19), und eine Fremdschlüsselspalte, die bei der Hälfte der
+ * Zeilen leer bliebe, stellte an jeder Eingabe eine Frage, die niemand
+ * beantworten will. Ob die Fässer je eine eigene Tabelle bekommen, ist offen
+ * und hinge nicht an dieser hier.
+ *
+ * Die Spaltennamen folgen dem Entscheid vom 2026-08-30
+ * (ARCHITECTURE-SPINE.md, *Consistency Conventions*): Domänenspalten deutsch,
+ * Infrastrukturspalten englisch.
+ */
+export const treatments = sqliteTable('treatments', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	/*
+	 * Womit behandelt wurde — ein Name, kein Satz. Geprüft über mittelPruefen in
+	 * src/lib/wellness.ts gegen MITTEL_HOECHSTLAENGE (60 Codepoints), dieselbe
+	 * Grenze wie bei harvests.kultur.
+	 *
+	 * Die Auswahl auf der Seite schlägt elf Mittel vor, aber gespeichert wird
+	 * **Text und kein Schlüssel** — wie bei der Kultur und aus demselben Grund:
+	 * wer etwas anderes ausbringt, schreibt es hin, und eine Fremdschlüsselspalte
+	 * könnte das nicht tragen.
+	 */
+	mittel: text('mittel').notNull(),
+	/*
+	 * Wo — **nullbar**, freiwillig, leer wird als null gespeichert und nicht als
+	 * leerer String. Dieselbe Spalte wie harvests.ort, dieselbe Prüfung
+	 * (ortPruefen), und ohne Beet-Tabelle aus demselben Grund: jeder Aufwand pro
+	 * Beet ist bei 40+ Beeten Ausschlusskriterium.
+	 */
+	ort: text('ort'),
+	/*
+	 * Der Tag der Anwendung, als **Tagesende in Europe/Zurich** in Unix-Sekunden
+	 * — dieselbe Fassung wie tasks.due_at und über dieselbe Funktion erzeugt
+	 * (tagesendeInUnixSekunden in src/lib/zeit.ts).
+	 *
+	 * **Eine eigene Spalte und nicht created_at**, obwohl beide meistens
+	 * denselben Tag meinen. Der Unterschied ist genau der Fall, für den die
+	 * Spalte da ist: man spritzt am Morgen im Garten und trägt es am Abend am
+	 * Küchentisch ein, manchmal auch erst am nächsten Tag. Läge die Rechnung auf
+	 * created_at, verschöbe jedes Nachtragen die nächste Fälligkeit — und zwar
+	 * lautlos und immer in dieselbe Richtung.
+	 */
+	angewendetAm: integer('angewendet_am').notNull(),
+	/*
+	 * Nach wie vielen Tagen es wieder ansteht — **nullbar, und leer ist der
+	 * Normalfall.**
+	 *
+	 * Die Zahl steht an der **Zeile** und nicht als Liste je Mittel im Code
+	 * (Entscheid Manuel, 2026-09-19). Dieselbe Begründung wie bei
+	 * harvests.laufend: nicht jede Jauche will denselben Abstand, wer die Zeile
+	 * schreibt, weiss es besser als eine Liste — und ein selbst getipptes Mittel
+	 * bekäme aus einer Liste im Code überhaupt kein Intervall und tauchte nie
+	 * unter dem auf, was ansteht.
+	 *
+	 * Null heisst „wiederholt sich nicht nach Tagen": Kompost richtet sich nach
+	 * der Jahreszeit. Eine solche Zeile steht im Tagebuch und mahnt nie.
+	 *
+	 * **Kein CHECK in der Migration.** Die Grenze (INTERVALL_HOECHST) ist eine
+	 * Auslegung des Produkts und keine Eigenschaft der Daten — dieselbe
+	 * Begründung wie bei harvests.status und AUFGABE_HOECHSTLAENGE.
+	 */
+	intervallTage: integer('intervall_tage'),
+	/*
+	 * Wer behandelt hat. Herkunft und nicht Zuständigkeit — wie bei
+	 * harvests.member_id, und notNull aus demselben Grund: hier gibt es nichts zu
+	 * übernehmen. Der Fremdschlüssel ist tragfähig, weil Zugang beenden
+	 * deaktiviert statt löscht.
+	 */
+	memberId: integer('member_id')
+		.notNull()
+		.references(() => members.id),
+	/*
+	 * Wann die Zeile geschrieben wurde — wie überall über $defaultFn.
+	 *
+	 * **Ohne Leser in der Oberfläche**, anders als bei harvests: an der Zeile
+	 * steht `angewendet_am`, und das ist das Datum, nach dem gefragt wird. Die
+	 * Spalte bleibt trotzdem, weil sie die einzige Auskunft darüber ist, wann
+	 * etwas nachgetragen wurde — eine Frage, die erst auffällt, wenn zwei Zeilen
+	 * sich widersprechen.
+	 */
+	createdAt: integer('created_at')
+		.notNull()
+		.$defaultFn(() => Math.floor(Date.now() / 1000)),
+});
+
+/*
+ * **Kein Index.** Die Liste liest die Tabelle ganz und sortiert sie, wie bei
+ * harvests, tasks und signup_tasks — aber die Begründung ist hier eine andere
+ * und soll nicht verwechselt werden: dort bleibt die Tabelle klein, weil
+ * abgeerntet wird. Diese hier **wächst**, ein Tagebuch wird nie kürzer. Sie
+ * wächst nur langsam: eine Gartengruppe bringt ein paar Dutzend Mal im Jahr
+ * etwas aus, und ein Index auf angewendet_am spart bei vierhundert Zeilen die
+ * Sortierung einer Speicherseite.
+ *
+ * Die Auslösebedingung ist damit ausgeschrieben: wenn die Liste spürbar
+ * langsam wird, braucht sie zuerst eine Begrenzung auf das laufende Jahr und
+ * erst danach einen Index.
+ */
+
+export type Treatment = typeof treatments.$inferSelect;
+export type NewTreatment = typeof treatments.$inferInsert;
