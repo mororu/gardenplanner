@@ -4,10 +4,27 @@ import { AUFGABE_HOECHSTLAENGE } from '../../lib/aufgabentext.ts';
 import { BLATT_HOECHSTLAENGE, blattTextPruefen, blattTitelPruefen } from '../../lib/blatttext.ts';
 import { abweisen } from '../../lib/server/abweisen.ts';
 import {
+	DOKUMENT_DATEI_FEHLT,
+	DOKUMENT_HOECHSTGROESSE,
+	DOKUMENT_HOECHSTGROESSE_MB,
+	DOKUMENT_KEIN_PDF,
+	DOKUMENT_ZU_GROSS,
+	PDF_TYP,
+	dateinamenFalten,
+	dokumentTitelPruefen,
+	istPdfAnfang,
+} from '../../lib/dokument.ts';
+import { ablagenamenErzeugen, dateiAblegen } from '../../lib/server/ablage.ts';
+import {
 	blaetterLesen,
 	blattAnlegen,
 	type Blattzeile,
 } from '../../lib/server/db/queries/sheets.ts';
+import {
+	dokumentAnlegen,
+	dokumenteLesen,
+	type Dokumentzeile,
+} from '../../lib/server/db/queries/documents.ts';
 
 /*
  * /wissen — die Blätter, alphabetisch, und das Formular für ein neues.
@@ -75,14 +92,37 @@ import {
  */
 export function load({ url }: ServerLoadEvent): {
 	blaetter: Blattzeile[];
+	dokumente: Dokumentzeile[];
 	titelGrenze: number;
 	textGrenze: number;
+	dateigrenzeMb: number;
 	geloescht: boolean;
 } {
 	return {
 		blaetter: blaetterLesen(),
+		/*
+		 * **Die zweite Art auf dieser Seite, seit dem 2026-09-20** (Entscheid
+		 * Manuel: gleichberechtigt neben den Blättern).
+		 *
+		 * Zwei Abfragen und keine, die beide zusammenführte: die zwei Arten haben
+		 * getrennte Tabellen ohne Basistabelle (siehe documents in
+		 * ../../lib/server/db/schema.ts), und eine Abfrage über beide ebnete
+		 * genau den Unterschied ein, den das Schema zeigen soll. Zusammengeführt
+		 * wird in der Komponente und nur für die Anzeige — dieselbe Bauform wie
+		 * auf /archiv, wo abgehakte Aufgaben und abgeschlossene Termine in einer
+		 * Liste stehen.
+		 */
+		dokumente: dokumenteLesen(),
 		titelGrenze: AUFGABE_HOECHSTLAENGE,
 		textGrenze: BLATT_HOECHSTLAENGE,
+		/*
+		 * Die Dateigrenze reist als **Megabyte-Zahl** mit und nicht als Bytes:
+		 * sie steht am Feld in einem Satz, den ein Mensch liest. Dieselbe Bauform
+		 * wie die zwei Längengrenzen darüber und derselbe Grund — eine Zahl im
+		 * Markup neben einem Server, der aus der Konstante prüft, sind zwei
+		 * Zahlen über eine Regel.
+		 */
+		dateigrenzeMb: DOKUMENT_HOECHSTGROESSE_MB,
 		/*
 		 * **Die einzige Rückmeldung, die auf dieser Seite landet** — seit dem
 		 * 2026-09-20 und dem Löschen auf /wissen/[id].
@@ -163,5 +203,91 @@ export const actions = {
 
 		// Nach dem redirect läuft hier nichts mehr: redirect() wirft.
 		redirect(303, `/wissen/${id}?angelegt`);
+	},
+
+	/**
+	 * Legt ein PDF ab und leitet auf **das Dokument** weiter.
+	 *
+	 * **Die eigenen Feldnamen `dokumenttitel` und `datei`** und nicht `titel`
+	 * und `text`: die Seite trägt zwei Formulare, und `feld` in der Abweisung
+	 * entscheidet, welches davon aufklappt und wo der Satz steht. Zwei
+	 * Formulare mit einem Feld namens `titel` hiessen, dass eine Abweisung des
+	 * einen den Satz am anderen zeigt.
+	 *
+	 * **Vier Prüfungen in dieser Reihenfolge**, und die Reihenfolge ist keine
+	 * Geschmacksfrage:
+	 *
+	 *   1. **Der Titel**, weil er oben steht — dieselbe Ordnung wie überall,
+	 *      der Satz soll da sein, wo das Auge ohnehin ist.
+	 *   2. **Ist überhaupt eine Datei da**, und ist sie nicht leer. Eine leere
+	 *      Datei fällt auf denselben Satz wie gar keine: beide Male hat die
+	 *      Person nichts gewählt, was sich ablegen liesse.
+	 *   3. **Die Grösse**, und zwar **vor** dem Lesen. `File.size` steht ohne
+	 *      Zugriff auf den Inhalt fest, und ein 200-MB-Rumpf soll nicht erst
+	 *      vollständig in den Arbeitsspeicher wandern, um dann abgewiesen zu
+	 *      werden.
+	 *   4. **Der Typ, und dann der Inhalt.** Der gemeldete Medientyp kommt aus
+	 *      der Endung des Dateinamens und ist eine Behauptung der Gegenseite;
+	 *      die ersten fünf Bytes sind es nicht. Beide fallen auf denselben
+	 *      Satz — die Unterscheidung wäre eine Auskunft über die Prüfung und
+	 *      keine über die Handlung, die hilft.
+	 *
+	 * **Zuerst die Datei, dann die Zeile.** Die Begründung steht an
+	 * `documents.ablage` im Schema: bricht es dazwischen ab, bleibt eine Datei
+	 * ohne Zeile liegen — unerreichbar, aber harmlos. Andersherum stünde in der
+	 * Liste ein Dokument, das beim Antippen nicht da ist.
+	 *
+	 * **Der Titel reist bei jeder Abweisung zurück, die Datei nicht.** Das ist
+	 * keine Nachlässigkeit, sondern eine Eigenschaft des Browsers: ein
+	 * Dateifeld lässt sich aus Sicherheitsgründen von keiner Seite vorbelegen.
+	 * Wer abgewiesen wird, wählt die Datei erneut — und liest daneben den
+	 * getippten Titel, damit wenigstens der nicht verloren ist.
+	 */
+	hochladen: async ({ request }: RequestEvent) => {
+		const formular = await request.formData();
+
+		const rohTitel = formular.get('dokumenttitel');
+		const getippterTitel = typeof rohTitel === 'string' ? rohTitel : '';
+
+		const gepruefterTitel = dokumentTitelPruefen(getippterTitel);
+		if ('fehler' in gepruefterTitel) {
+			return abweisen(gepruefterTitel.fehler, 'dokumenttitel', getippterTitel);
+		}
+
+		/*
+		 * `instanceof File` und nicht `typeof !== 'string'`: ein fehlendes Feld
+		 * gibt null, ein leer abgeschicktes Dateifeld gibt in manchen Browsern
+		 * eine File mit dem Namen `""` und der Grösse 0. Beide Fälle laufen über
+		 * die eine Bedingung darunter in denselben Satz.
+		 */
+		const rohDatei = formular.get('datei');
+		if (!(rohDatei instanceof File) || rohDatei.size === 0) {
+			return abweisen(DOKUMENT_DATEI_FEHLT, 'datei', getippterTitel);
+		}
+
+		if (rohDatei.size > DOKUMENT_HOECHSTGROESSE) {
+			return abweisen(DOKUMENT_ZU_GROSS, 'datei', getippterTitel);
+		}
+
+		if (rohDatei.type !== PDF_TYP) {
+			return abweisen(DOKUMENT_KEIN_PDF, 'datei', getippterTitel);
+		}
+
+		const inhalt = new Uint8Array(await rohDatei.arrayBuffer());
+		if (!istPdfAnfang(inhalt)) {
+			return abweisen(DOKUMENT_KEIN_PDF, 'datei', getippterTitel);
+		}
+
+		const ablagename = ablagenamenErzeugen();
+		dateiAblegen(ablagename, inhalt);
+		const id = dokumentAnlegen(
+			gepruefterTitel.titel,
+			dateinamenFalten(rohDatei.name),
+			ablagename,
+			inhalt.byteLength
+		);
+
+		// Nach dem redirect läuft hier nichts mehr: redirect() wirft.
+		redirect(303, `/wissen/dokument/${id}?angelegt`);
 	},
 } satisfies Actions;

@@ -193,6 +193,19 @@ import {
 	blattTitelPruefen,
 	blatttextFalten,
 } from '../src/lib/blatttext.ts';
+import {
+	DOKUMENT_DATEI_FEHLT,
+	DOKUMENT_HOECHSTGROESSE,
+	DOKUMENT_KEIN_PDF,
+	DOKUMENT_TITEL_FEHLT,
+	DOKUMENT_ZU_GROSS,
+	PDF_TYP,
+	dateinamenFalten,
+	groesseAlsSatz,
+	istPdfAnfang,
+} from '../src/lib/dokument.ts';
+import { dateiLesen } from '../src/lib/server/ablage.ts';
+import { dokumentAblageLesen, dokumenteLesen } from '../src/lib/server/db/queries/documents.ts';
 /*
  * Die Namensregel kommt als **Wert** herein und nicht als abgeschriebener Satz.
  *
@@ -248,7 +261,7 @@ import {
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 682;
+const ERWARTETE_BEHAUPTUNGEN = 701;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -433,7 +446,8 @@ class Ereignis {
 		}
 		/*
 		 * Die Pfadparameter. `token` seit Story 1.2 für /i/[token], `id` seit
-		 * Story 4.1 für /wissen/[id].
+		 * Story 4.1 für /wissen/[id] und seit dem 2026-09-20 auch für
+		 * /wissen/dokument/[id].
 		 *
 		 * Beide werden aus dem Pfad **gerechnet** und nicht als Argument
 		 * mitgegeben: das Ereignis soll die Adresse abbilden, und ein Parameter,
@@ -441,13 +455,22 @@ class Ereignis {
 		 * Genau die Verwechslung wäre in der action `aendern` ein geändertes
 		 * Blatt, das nicht das angezeigte ist.
 		 *
+		 * **Der längere Pfad wird zuerst geprüft**, und das ist keine Feinheit:
+		 * das alte Muster allein läse aus `/wissen/dokument/5` die Id `dokument`
+		 * — eine nicht numerische, also ein 404, und jede Behauptung über die
+		 * Dokumentseite wäre still an der Fehlerseite gescheitert statt an der
+		 * Sache.
+		 *
 		 * Ein Pfad ohne das jeweilige Muster ergibt eine leere Zeichenkette, und
 		 * die deutet `idLesen` in der Route als „keine Id" — dieselbe Antwort wie
 		 * auf `/wissen/abc`.
 		 */
 		this.params = {
 			token: pfad.replace(/^\/i\//, '').replace(/\/+$/, ''),
-			id: (/^\/wissen\/([^/?]*)/.exec(pfad) ?? ['', ''])[1] ?? '',
+			id:
+				(/^\/wissen\/dokument\/([^/?]*)/.exec(pfad) ?? [])[1] ??
+				(/^\/wissen\/([^/?]*)/.exec(pfad) ?? ['', ''])[1] ??
+				'',
 		};
 		this.cookies = this.kekse.alsCookies();
 		if (keks !== undefined) this.kekse.saat('sitzung', keks);
@@ -815,6 +838,35 @@ async function blattseiteLaden(): Promise<BlattseitenModul> {
 	blattseitenModul ??=
 		(await import('../src/routes/wissen/[id]/+page.server.ts')) as unknown as BlattseitenModul;
 	return blattseitenModul;
+}
+
+/*
+ * Die Dokumentseite und ihre Dateiroute, seit dem 2026-09-20.
+ *
+ * Die Seite braucht ein Ereignis wie das Blatt — Kennung aus `params`,
+ * `?angelegt` aus `url`, `istAdmin` aus `locals`. Die Dateiroute ist **kein**
+ * `+page.server.ts`, sondern ein `+server.ts`: sie hat keine load und keine
+ * actions, sondern ein GET, und der Typ hier sagt genau das.
+ */
+type DokumentseitenModul = {
+	load: (ereignis: ServerLoadEvent) => unknown;
+	actions: Record<string, Aktion>;
+};
+let dokumentseitenModul: DokumentseitenModul | null = null;
+
+async function dokumentseiteLaden(): Promise<DokumentseitenModul> {
+	dokumentseitenModul ??=
+		(await import('../src/routes/wissen/dokument/[id]/+page.server.ts')) as unknown as DokumentseitenModul;
+	return dokumentseitenModul;
+}
+
+type DateiroutenModul = { GET: (ereignis: { params: Record<string, string> }) => Response };
+let dateiroutenModul: DateiroutenModul | null = null;
+
+async function dateirouteLaden(): Promise<DateiroutenModul> {
+	dateiroutenModul ??=
+		(await import('../src/routes/wissen/dokument/[id]/datei/+server.ts')) as unknown as DateiroutenModul;
+	return dateiroutenModul;
 }
 
 /*
@@ -3745,8 +3797,8 @@ try {
 		 * Verlust.
 		 */
 		[
-			`alle vierzehn Seitenkomponenten sind eingesammelt (gefunden: ${seitenPfade.length})`,
-			seitenPfade.length === 14,
+			`alle fünfzehn Seitenkomponenten sind eingesammelt (gefunden: ${seitenPfade.length})`,
+			seitenPfade.length === 15,
 		] as const,
 		// Vier bis zum 2026-09-13, fünf seit /ernte, sechs seit /sitzungen, sieben
 		// seit /wellness, acht seit dem Löschen auf /wissen: jede dieser Seiten
@@ -3758,12 +3810,18 @@ try {
 		// hierher, weil das Blatt, auf dem es sonst melden würde, gerade
 		// verschwunden ist.
 		//
-		// **Acht und nicht vierzehn, obwohl es vierzehn Seiten sind.** /archiv
+		// **Neun und nicht fünfzehn, obwohl es fünfzehn Seiten sind.** /archiv
 		// und /einzelaufgaben haben keine Meldungsregion, weil sie nichts zu melden
 		// haben: sie lesen nur, exportieren kein `actions`, und eine Region ohne
 		// Vorgang wäre eine Ansage, die nie kommt. Die zwei Zahlen dieser Wache
 		// zählen darum Verschiedenes und bewegen sich nicht gemeinsam.
-		['es gibt genau acht Meldungsregionen im Baum', meldungsTags.length === 8] as const,
+		//
+		// **Die neunte ist /wissen/dokument/[id]**, seit dem 2026-09-20: sie meldet
+		// `Abgelegt.` nach der Weiterleitung aus dem Hochladen. Dass sie den
+		// Fokusgriff trägt, obwohl nach einer Weiterleitung niemand dorthin
+		// springt, ist dieselbe Entscheidung wie bei der Liste /wissen — die
+		// Begründung steht dort am Markup.
+		['es gibt genau neun Meldungsregionen im Baum', meldungsTags.length === 9] as const,
 		...meldungsTags.map(
 			([name, tag]) =>
 				[
@@ -3866,7 +3924,7 @@ try {
 		`verletzt: ${fehlendeTeile(regionenTeile).join(', ')}`
 	);
 	pruefenGleich(
-		'und es sind acht höfliche, einunddreissig unterbrechende, eine Ansage und genau eine, die nur die CSS-Rolle braucht',
+		'und es sind neun höfliche, vierunddreissig unterbrechende, eine Ansage und genau eine, die nur die CSS-Rolle braucht',
 		JSON.stringify(
 			liveTags
 				.map(([, roh]) => roh.replace(/\s+/g, ' '))
@@ -3908,7 +3966,12 @@ try {
 		// Trefferzahl höflich an, ohne eine Meldung über einen Vorgang zu sein.
 		// Sie ist die einzige ihrer Art, und die Zahl hält das fest — wächst sie,
 		// hat jemand eine Meldungsregion gebaut und ihr den Fokusgriff genommen.
-		JSON.stringify({ hoeflich: 8, unterbrechend: 31, ansage: 1, keineRegion: 1 })
+		//
+		// +1 höflich und +3 unterbrechend seit dem 2026-09-20 und den Dokumenten:
+		// /wissen hat zwei Feldmeldungen dazubekommen (Titel und Datei des
+		// Ablegen-Formulars), /wissen/dokument/[id] bringt eine Meldungs- und eine
+		// Fehlerregion mit.
+		JSON.stringify({ hoeflich: 9, unterbrechend: 34, ansage: 1, keineRegion: 1 })
 	);
 
 	const rueckmeldungRumpf = glatterRumpf(
@@ -9488,6 +9551,353 @@ try {
 		JSON.stringify(datenVon(fortgekommen))
 	);
 
+	// =======================================================================
+	// Die Dokumente auf /wissen — ablegen, ausliefern, wegnehmen
+	// =======================================================================
+	/*
+	 * **Die zweite Art auf /wissen, seit dem 2026-09-20** (Entscheid Manuel:
+	 * gleichberechtigt neben den Blättern).
+	 *
+	 * Was hier geprüft wird, teilt sich in drei Lagen, und jede hat ihren
+	 * eigenen Grund, nicht bloss die nächste Zeile in einer Liste zu sein:
+	 *
+	 *   **Die Regeln** (dateinamenFalten, istPdfAnfang) an Beispielen, die keine
+	 *   Datei brauchen. Sie sind der Grund, warum das Modul ../src/lib/dokument.ts
+	 *   ohne `node:fs` auskommt: so lassen sie sich hier prüfen wie jede andere
+	 *   reine Funktion.
+	 *
+	 *   **Der Weg durch die action**, mit einer echten `File`. Fünf Abweisungen
+	 *   und ein Durchlauf — und der Durchlauf prüft das, was keine Route allein
+	 *   sagt: dass Datei und Zeile zusammen entstehen.
+	 *
+	 *   **Die Auslieferung**, weil eine Datei hinter einem Wächter nur dann
+	 *   etwas wert ist, wenn sie auch ankommt — mit dem richtigen Typ und ohne
+	 *   dass der Ablagename dabei nach draussen gerät.
+	 */
+	const pdfBytes = (rest = '% Prüfsaat\n') => new TextEncoder().encode(`%PDF-1.4\n${rest}`);
+	const alsDatei = (inhalt: Uint8Array, name: string, typ = PDF_TYP) =>
+		new File([inhalt], name, { type: typ });
+
+	const dokRegelTeile = [
+		[
+			'ein mitgeschickter Pfad fällt bis auf den Dateinamen weg',
+			dateinamenFalten('C:\\Ablage\\Unterordner\\merkblatt.pdf') === 'merkblatt.pdf' &&
+				dateinamenFalten('/tmp/../etc/passwd') === 'passwd',
+		],
+		[
+			'ein Steuerzeichen im Namen fällt weg — keine eingeschleuste Kopfzeile',
+			dateinamenFalten('merk\r\nblatt.pdf') === 'merkblatt.pdf',
+		],
+		[
+			'ein Name, von dem nichts übrig bleibt, bekommt einen',
+			dateinamenFalten('   ') === 'dokument.pdf' && dateinamenFalten('/') === 'dokument.pdf',
+		],
+		['der Umlaut bleibt, wie er war', dateinamenFalten('Blattläuse.pdf') === 'Blattläuse.pdf'],
+		['die PDF-Kennung wird erkannt', istPdfAnfang(pdfBytes())],
+		[
+			'und alles andere nicht — auch das, was nur fast passt',
+			!istPdfAnfang(new TextEncoder().encode('%PDF')) &&
+				!istPdfAnfang(new TextEncoder().encode('<html>')) &&
+				!istPdfAnfang(new Uint8Array(0)),
+		],
+		[
+			'die Grösse wird als Satz gesetzt, mit einer Nachkommastelle erst ab MB',
+			groesseAlsSatz(512) === '512 Bytes' &&
+				groesseAlsSatz(2048) === '2 KB' &&
+				groesseAlsSatz(1_500_000) === '1.4 MB',
+		],
+	] as const;
+	pruefen(
+		'die Dokumentregeln falten den Namen und erkennen das Format',
+		fehlendeTeile(dokRegelTeile).length === 0,
+		`fehlt: ${fehlendeTeile(dokRegelTeile).join(', ')}`
+	);
+
+	/*
+	 * Die fünf Abweisungen. Jede prüft **einen** Satz, und jede wird mit einer
+	 * Eingabe erzeugt, die nur an dieser einen Stelle falsch ist — sonst sagte
+	 * ein grüner Lauf nicht, welche Prüfung gegriffen hat.
+	 */
+	abgewiesen(
+		'hochladen ohne Titel fällt mit DOKUMENT_TITEL_FEHLT',
+		await routenausgang(() =>
+			wissen.actions.hochladen(
+				alsMitglied('/wissen', null, {
+					dokumenttitel: '   ',
+					datei: alsDatei(pdfBytes(), 'merkblatt.pdf'),
+				}).alsRequestEvent()
+			)
+		),
+		DOKUMENT_TITEL_FEHLT
+	);
+	abgewiesen(
+		'hochladen ohne Datei fällt mit DOKUMENT_DATEI_FEHLT',
+		await routenausgang(() =>
+			wissen.actions.hochladen(
+				alsMitglied('/wissen', null, { dokumenttitel: 'Merkblatt' }).alsRequestEvent()
+			)
+		),
+		DOKUMENT_DATEI_FEHLT
+	);
+	abgewiesen(
+		'eine leere Datei fällt auf denselben Satz wie gar keine',
+		await routenausgang(() =>
+			wissen.actions.hochladen(
+				alsMitglied('/wissen', null, {
+					dokumenttitel: 'Merkblatt',
+					datei: alsDatei(new Uint8Array(0), 'leer.pdf'),
+				}).alsRequestEvent()
+			)
+		),
+		DOKUMENT_DATEI_FEHLT
+	);
+	abgewiesen(
+		'ein fremder Medientyp fällt mit DOKUMENT_KEIN_PDF',
+		await routenausgang(() =>
+			wissen.actions.hochladen(
+				alsMitglied('/wissen', null, {
+					dokumenttitel: 'Tabelle',
+					datei: alsDatei(pdfBytes(), 'tabelle.csv', 'text/csv'),
+				}).alsRequestEvent()
+			)
+		),
+		DOKUMENT_KEIN_PDF
+	);
+	/*
+	 * **Die schärfste der fünf**: der gemeldete Typ stimmt, der Inhalt nicht.
+	 * Genau so reist eine umbenannte Datei an, und ohne die Byteprüfung läge sie
+	 * danach als `application/pdf` in der Ablage. Die Wache ist damit der Beleg
+	 * für den Absatz an PDF_ANFANG — nicht bloss seine Wiederholung.
+	 */
+	abgewiesen(
+		'ein falscher Inhalt unter richtigem Typ fällt ebenso',
+		await routenausgang(() =>
+			wissen.actions.hochladen(
+				alsMitglied('/wissen', null, {
+					dokumenttitel: 'Angeblich ein PDF',
+					datei: alsDatei(new TextEncoder().encode('<html>Hallo</html>'), 'merkblatt.pdf'),
+				}).alsRequestEvent()
+			)
+		),
+		DOKUMENT_KEIN_PDF
+	);
+	abgewiesen(
+		'und eine zu grosse Datei fällt mit DOKUMENT_ZU_GROSS',
+		await routenausgang(() =>
+			wissen.actions.hochladen(
+				alsMitglied('/wissen', null, {
+					dokumenttitel: 'Fotoalbum',
+					datei: alsDatei(new Uint8Array(DOKUMENT_HOECHSTGROESSE + 1), 'gross.pdf'),
+				}).alsRequestEvent()
+			)
+		),
+		DOKUMENT_ZU_GROSS
+	);
+
+	/*
+	 * Und keiner der sechs hat etwas dokAbgelegt. Das ist die Zusage, die die
+	 * einzelnen Sätze **nicht** machen: ein Fehlschlag, der die Datei trotzdem
+	 * schreibt, füllte das Verzeichnis mit Unrat, den keine Zeile mehr findet.
+	 */
+	pruefenGleich('keine der sechs Abweisungen hat eine Zeile angelegt', dokumenteLesen().length, 0);
+
+	const dokAbgelegt = await routenausgang(() =>
+		wissen.actions.hochladen(
+			alsMitglied('/wissen', null, {
+				dokumenttitel: '  Merkblatt   Brennnesseljauche  ',
+				datei: alsDatei(pdfBytes('% Inhalt des Merkblatts\n'), 'bj-2024-final.pdf'),
+			}).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'hochladen leitet mit 303 auf das frische Dokument weiter',
+		dokAbgelegt.art === 'weiter' &&
+			dokAbgelegt.status === 303 &&
+			/^\/wissen\/dokument\/[0-9]+\?angelegt$/.test(dokAbgelegt.ort),
+		dokAbgelegt.art === 'weiter'
+			? `${dokAbgelegt.status} auf ${dokAbgelegt.ort}`
+			: `Ausgang ${dokAbgelegt.art}`
+	);
+
+	const dokumentzeilen = dokumenteLesen();
+	const abgelegteId = dokumentzeilen[0]?.id ?? 0;
+	const dokAblageTeile = [
+		['genau eine Zeile ist entstanden', dokumentzeilen.length === 1],
+		[
+			'der Titel ist gefaltet — wie bei einem Blatt',
+			dokumentzeilen[0]?.titel === 'Merkblatt Brennnesseljauche',
+		],
+		[
+			'die Grösse steht an der Zeile',
+			dokumentzeilen[0]?.groesse === pdfBytes('% Inhalt des Merkblatts\n').byteLength,
+		],
+		/*
+		 * **Der Ablagename verlässt die Abfrageschicht nicht.** Er ist der
+		 * Schlüssel zur Datei und hat in keinem ausgelieferten HTML etwas zu
+		 * suchen — dieselbe Kette wie bei `completed_by` (AD-5), mit einem anderen
+		 * Grund. Gemessen am JSON der ganzen Liste, nicht an einem Feldnamen: so
+		 * fällt auch auf, wenn er eines Tages unter anderem Namen mitreist.
+		 */
+		[
+			'und der Ablagename ist nirgends in der Liste',
+			!/[0-9a-f]{32}\.pdf/.test(JSON.stringify(dokumentzeilen)),
+		],
+		[
+			'die Datei liegt wirklich da, mit genau diesem Inhalt',
+			(() => {
+				const ablage = dokumentAblageLesen(abgelegteId);
+				if (ablage === null) return false;
+				const inhalt = dateiLesen(ablage.ablage);
+				return (
+					inhalt !== null &&
+					new TextDecoder().decode(inhalt) ===
+						new TextDecoder().decode(pdfBytes('% Inhalt des Merkblatts\n'))
+				);
+			})(),
+		],
+		[
+			'und sie liegt unter einem Zufallsnamen, nicht unter dem hochgeladenen',
+			/^[0-9a-f]{32}\.pdf$/.test(dokumentAblageLesen(abgelegteId)?.ablage ?? ''),
+		],
+		[
+			'der hochgeladene Name bleibt trotzdem erhalten — für den Download',
+			dokumentAblageLesen(abgelegteId)?.dateiname === 'bj-2024-final.pdf',
+		],
+	] as const;
+	pruefen(
+		'das Abgelegte steht als Zeile da, und die Datei liegt daneben',
+		fehlendeTeile(dokAblageTeile).length === 0,
+		`fehlt: ${fehlendeTeile(dokAblageTeile).join(', ')}`
+	);
+
+	/*
+	 * Die Auslieferung. Sie ist die eine Route dieses Produkts, deren Antwort
+	 * kein HTML ist — und darum die eine, deren Kopfzeilen selbst der Gegenstand
+	 * sind.
+	 */
+	const dateiroute = await dateirouteLaden();
+	const dokAntwort = dateiroute.GET({ params: { id: String(abgelegteId) } });
+	const dokGeliefert = new Uint8Array(await dokAntwort.arrayBuffer());
+	const dokKopfTeile = [
+		['sie antwortet mit 200', dokAntwort.status === 200],
+		[
+			'und mit genau den Bytes der Datei',
+			istPdfAnfang(dokGeliefert) && dokGeliefert.byteLength > 0,
+		],
+		['als application/pdf', dokAntwort.headers.get('content-type') === PDF_TYP],
+		[
+			'inline und mit dem hochgeladenen Namen, zweimal geschrieben',
+			(dokAntwort.headers.get('content-disposition') ?? '').startsWith(
+				'inline; filename="bj-2024-final.pdf"'
+			) && (dokAntwort.headers.get('content-disposition') ?? '').includes("filename*=UTF-8''"),
+		],
+		/*
+		 * Die zwei Schutzkopfzeilen. `nosniff` verbietet dem Browser, den Typ zu
+		 * erraten, `sandbox` nimmt dem Dokument Skripte und Formulare — beides
+		 * gehört zu einem Format mit eigener Ausführungsschicht, und beides fiele
+		 * still weg, wenn niemand danach sähe.
+		 */
+		[
+			'mit nosniff und sandbox',
+			dokAntwort.headers.get('x-content-type-options') === 'nosniff' &&
+				dokAntwort.headers.get('content-security-policy') === 'sandbox',
+		],
+		[
+			'und als private, damit kein Zwischenspeicher sie weitergibt',
+			(dokAntwort.headers.get('cache-control') ?? '').includes('private'),
+		],
+	] as const;
+	pruefen(
+		'die Dateiroute liefert das PDF mit den Kopfzeilen, die es braucht',
+		fehlendeTeile(dokKopfTeile).length === 0,
+		`fehlt: ${fehlendeTeile(dokKopfTeile).join(', ')}`
+	);
+
+	/*
+	 * Und die zwei Wege ins Leere. Eine erfundene Kennung und eine nicht
+	 * numerische fallen auf denselben 404 — jede Unterscheidung wäre ein Kanal,
+	 * an dem sich ablesen liesse, welche Dokumente es gibt.
+	 */
+	const dateiNichtGefunden = (name: string, id: string) => {
+		let status = 0;
+		try {
+			dateiroute.GET({ params: { id } });
+		} catch (fehler) {
+			if (isHttpError(fehler)) status = fehler.status;
+			else throw fehler;
+		}
+		pruefen(name, status === 404, `Status ${status}`);
+	};
+	dateiNichtGefunden('eine erfundene Kennung gibt einen 404', String(abgelegteId + 999));
+	dateiNichtGefunden('eine nicht numerische ebenso', 'abc');
+
+	/*
+	 * Das Löschen. Dieselbe dreiteilige Zusage wie beim Blatt — die Schranke,
+	 * die Rückfrage, der Vollzug —, und eine vierte, die es beim Blatt nicht
+	 * gibt: die **Datei** muss mit verschwinden.
+	 */
+	const dokumentseite = await dokumentseiteLaden();
+	const dokumentPfad = `/wissen/dokument/${abgelegteId}`;
+	const ablageVorDemLoeschen = dokumentAblageLesen(abgelegteId)?.ablage ?? '';
+
+	wegGeleitet(
+		'löschen ohne Adminrechte führt auf / — ohne zu verraten, ob es die Kennung gibt',
+		await routenausgang(() =>
+			dokumentseite.actions.loeschen(
+				alsMitglied(dokumentPfad, nico, { bestaetigt: '1' }).alsRequestEvent()
+			)
+		)
+	);
+	pruefen(
+		'und das Dokument steht noch da',
+		dokumenteLesen().length === 1 && dateiLesen(ablageVorDemLoeschen) !== null,
+		`${dokumenteLesen().length} Zeile(n)`
+	);
+
+	const dokGefragt = await routenausgang(() =>
+		dokumentseite.actions.loeschen(alsMitglied(dokumentPfad, vera, {}).alsRequestEvent())
+	);
+	pruefen(
+		'der erste POST fragt zurück und nennt Titel und Dateinamen',
+		dokGefragt.art === 'wert' &&
+			textFeld(wertVon(dokGefragt), 'art') === 'fragenLoeschen' &&
+			textFeld(wertVon(dokGefragt), 'titel') === 'Merkblatt Brennnesseljauche' &&
+			textFeld(wertVon(dokGefragt), 'dateiname') === 'bj-2024-final.pdf',
+		JSON.stringify(wertVon(dokGefragt))
+	);
+	pruefen(
+		'und er hat nichts weggenommen',
+		dokumenteLesen().length === 1 && dateiLesen(ablageVorDemLoeschen) !== null,
+		`${dokumenteLesen().length} Zeile(n)`
+	);
+
+	const dokGeloescht = await routenausgang(() =>
+		dokumentseite.actions.loeschen(
+			alsMitglied(dokumentPfad, vera, { bestaetigt: '1' }).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'der zweite POST löscht und leitet auf die Liste mit ?geloescht',
+		dokGeloescht.art === 'weiter' &&
+			dokGeloescht.status === 303 &&
+			dokGeloescht.ort === '/wissen?geloescht',
+		dokGeloescht.art === 'weiter'
+			? `${dokGeloescht.status} auf ${dokGeloescht.ort}`
+			: `Ausgang ${dokGeloescht.art}`
+	);
+	/*
+	 * **Die Zeile und die Datei, beide.** Das ist die Zusage, die diese Wache
+	 * hat und keine andere haben kann: eine gelöschte Zeile über einer
+	 * liegengebliebenen Datei sähe in jeder Oberfläche richtig aus, und das
+	 * Verzeichnis füllte sich über Jahre mit Inhalten, die niemand mehr
+	 * zuordnen kann.
+	 */
+	pruefen(
+		'die Zeile ist fort — und die Datei mit ihr',
+		dokumenteLesen().length === 0 && dateiLesen(ablageVorDemLoeschen) === null,
+		`${dokumenteLesen().length} Zeile(n), Datei ${dateiLesen(ablageVorDemLoeschen) === null ? 'fort' : 'noch da'}`
+	);
+
 	/*
 	 * Und die zwei Seiten selbst: die Grenzen kommen aus der load und nicht als
 	 * Literal ins Markup, beide Felder sind Pflicht, und der Freitext wird als
@@ -9513,8 +9923,12 @@ try {
 				!/maxlength="[0-9]/.test(blattKomponente),
 		],
 		[
-			'beide Felder sind Pflicht — auf /wissen',
-			(nurMarkup(wissenKomponente).match(/\brequired\b/g) ?? []).length === 2,
+			// **Vier seit dem 2026-09-20**: die Seite trägt zwei Formulare, und das
+			// zweite hat ebenfalls zwei Pflichtfelder — Titel und Datei. Die Zahl
+			// steht weiter von Hand: sie ist die Stelle, an der ein fünftes Feld
+			// auffällt, statt still ohne `required` danebenzustehen.
+			'alle vier Felder sind Pflicht — auf /wissen',
+			(nurMarkup(wissenKomponente).match(/\brequired\b/g) ?? []).length === 4,
 		],
 		['und am Blatt', (nurMarkup(blattKomponente).match(/\brequired\b/g) ?? []).length === 2],
 		[
@@ -9528,6 +9942,33 @@ try {
 		[
 			'beide Formulare tragen ein literales action="?/…"',
 			/action="\?\/anlegen"/.test(wissenKomponente) && /action="\?\/aendern"/.test(blattKomponente),
+		],
+		/*
+		 * **Das Ablegen-Formular, seit dem 2026-09-20.** Die vier Teile sind
+		 * einzeln klein und zusammen die Zusage, dass ein Upload überhaupt
+		 * ankommt:
+		 *
+		 *   enctype   ohne ihn schickt der Browser vom Dateifeld nur den **Namen**
+		 *             als Text. Der Fehlschlag sähe aus wie „keine Datei gewählt",
+		 *             obwohl eine gewählt war — die Sorte Fehler, die man an der
+		 *             Oberfläche sucht und im Markup findet.
+		 *   action    literal, wie überall, wegen Gate-Regel 11.
+		 *   accept    filtert den Dateidialog. Es prüft nichts — geprüft wird auf
+		 *             dem Server —, aber es ist der Unterschied zwischen einem
+		 *             Griff und einer Suche durch den ganzen Speicher des Telefons.
+		 *   Grenze    kommt aus der load und steht nicht als Literal im Markup,
+		 *             wie die zwei Längengrenzen darüber und aus demselben Grund.
+		 */
+		[
+			'das Ablegen-Formular trägt enctype, literales action und accept',
+			/enctype="multipart\/form-data"/.test(wissenKomponente) &&
+				/action="\?\/hochladen"/.test(wissenKomponente) &&
+				/accept="application\/pdf"/.test(wissenKomponente),
+		],
+		[
+			'und die Dateigrenze kommt aus der load, nicht als Literal ins Markup',
+			/\{data\.dateigrenzeMb\} MB/.test(wissenKomponente) &&
+				!/[0-9]+ MB\b/.test(nurMarkup(wissenKomponente)),
 		],
 		[
 			'und beide benutzen die geteilte Zeilenform statt einer eigenen Hülle',

@@ -30,6 +30,18 @@ services:
       # und ein gesetztes PORT=8080 liesse app stumm nie `healthy` werden,
       # womit nginx wegen service_healthy gar nicht erst startete.
       PORT: '3000'
+      # **Die Rumpfgrenze des Node-Adapters**, seit dem 2026-09-20 und den
+      # Dokumenten auf /wissen. Ohne sie gilt der Vorgabewert von 512 KB, und
+      # ein PDF von zwei Megabyte prallte mit einem rohen 413 ab — nicht an der
+      # Anwendung, sondern an ihrem Server, also ohne den Satz, der erklärt,
+      # was zu gross ist.
+      #
+      # 21 MB wie client_max_body_size in nginx/nginx.conf und aus demselben
+      # Grund: die eigentliche Grenze sind die 20 MB in src/lib/dokument.ts,
+      # und die zwei Schichten davor lassen bewusst etwas mehr durch, damit die
+      # Anwendung die Meldung schreibt und nicht das Netzwerkstück davor. Die
+      # Zahl steht hier als Byte-Wert, weil der Adapter keine Einheiten liest.
+      BODY_SIZE_LIMIT: '22020096'
     volumes:
       # Die SQLite-Datei, unter /data/db/db.sqlite — eine Ebene unter dem
       # Mountpunkt, damit ein Volume-Verlust laut wird. Vollständige Begründung

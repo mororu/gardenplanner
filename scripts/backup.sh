@@ -1,6 +1,11 @@
 #!/bin/sh
 #
-# Sicherung der SQLite-Datei aus dem Named Volume.
+# Sicherung der SQLite-Datei und der Dokumentablage aus dem Named Volume.
+#
+# **Zwei Dateien je Lauf, seit dem 2026-09-20**: die Datenbank und ein tar der
+# abgelegten PDF. Sie tragen denselben Zeitstempel im Namen und gehören
+# zusammen — eine Datenbank ohne ihre Dateien zeigt auf /wissen Dokumente an,
+# die beim Antippen nicht da sind.
 #
 # Cron-Zeile auf dem Host, jede Nacht um 02:00 (`crontab -e`):
 #
@@ -33,6 +38,11 @@ cd "$wurzel"
 
 QUELLE=/data/db/db.sqlite
 TEMP=/data/db/backup.tmp
+# Die Dokumentablage liegt neben der Datenbank — so leitet sie
+# src/lib/server/ablage.ts aus DATABASE_PATH ab, und darum steht sie hier
+# nicht als eigene Einstellung, sondern als derselbe Pfad plus einem Ordner.
+DOKUMENTE=dokumente
+DOKUMENTE_ELTERN=/data/db
 
 # ---------------------------------------------------------------------------
 # BACKUP_DIR ermitteln
@@ -87,6 +97,7 @@ fi
 
 # Ab hier räumt der Trap alles Halbfertige weg — auch wenn set -e zuschlägt.
 ZIEL=""
+ZIEL_DOK=""
 aufraeumen() {
 	code=$?
 	docker compose exec -T app rm -f \
@@ -96,6 +107,9 @@ aufraeumen() {
 		docker compose exec -T app rm -f \
 			"$ZIEL.teil" "$ZIEL.teil-wal" "$ZIEL.teil-shm" "$ZIEL.teil-journal" \
 			>/dev/null 2>&1 || true
+	fi
+	if [ -n "$ZIEL_DOK" ]; then
+		docker compose exec -T app rm -f "$ZIEL_DOK.teil" >/dev/null 2>&1 || true
 	fi
 	rmdir "$SPERRE" 2>/dev/null || true
 	exit $code
@@ -192,6 +206,62 @@ docker compose exec -T app mv "$ZIEL.teil" "$ZIEL"
 ZIEL=""
 
 # ---------------------------------------------------------------------------
+# Die Dokumentablage
+# ---------------------------------------------------------------------------
+# **Nach der Datenbank und mit demselben Zeitstempel.** Die zwei Dateien eines
+# Laufs gehören zusammen: eine Datenbank ohne ihre Dokumente zeigt auf /wissen
+# Zeilen an, die beim Antippen einen 404 geben.
+#
+# **Die Reihenfolge ist dieselbe wie beim Ablegen selbst** — erst die Zeile,
+# dann die Datei, und hier also erst die Datenbank, dann das Verzeichnis. Wer
+# zwischen den zwei Schritten ein Dokument ablegt, hat es in der Datei und
+# nicht in der Datenbank; das ist die harmlose Richtung, denn eine Datei ohne
+# Zeile ist unerreichbar und sonst nichts. Andersherum fehlte der Inhalt zu
+# einer Zeile, die es gibt.
+#
+# **Ein tar und kein zweites Verzeichnis im Sicherungsordner.** Eine Kopie je
+# Datei liesse den Ordner über Monate mit zehntausenden Dateien volllaufen, und
+# die Rotation müsste dann Verzeichnisse statt Dateien löschen — dieselbe
+# Aufgabe, nur riskanter. Nicht komprimiert: ein PDF ist es schon, und
+# `tar -z` kostete Rechenzeit für ein Prozent.
+#
+# **Fehlt das Verzeichnis, ist das kein Fehlschlag.** Ein Garten, der noch nie
+# ein Dokument abgelegt hat, hat keines — und das Skript soll nicht jede Nacht
+# rot melden, dass etwas fehlt, das es nie gab. Die Meldung am Ende sagt
+# trotzdem, was gesichert wurde und was nicht.
+# Denselben Stempel wie die Datenbank, aus ihrem Namen geschnitten: zwei
+# `date`-Aufrufe fielen über einen Sekundenwechsel auseinander, und dann
+# gehörten die zwei Dateien eines Laufs dem Auge nach nicht mehr zusammen.
+name_dok="dokumente-$(echo "$name" | sed -e 's/^db-//' -e 's/\.sqlite$//').tar"
+
+if docker compose exec -T app test -d "$DOKUMENTE_ELTERN/$DOKUMENTE" >/dev/null 2>&1; then
+	ZIEL_DOK="/sicherungen/$name_dok"
+	# `-C` und ein relativer Name: so steht im Archiv `dokumente/<datei>` und
+	# nicht `/data/db/dokumente/<datei>`. Ein Archiv mit absoluten Pfaden
+	# entpackte beim Wiederherstellen an einen Ort, den niemand gewählt hat.
+	if ! docker compose exec -T app tar -cf "$ZIEL_DOK.teil" -C "$DOKUMENTE_ELTERN" "$DOKUMENTE"; then
+		echo "Die Dokumente liessen sich nicht sichern: tar lief nicht durch." >&2
+		exit 1
+	fi
+	# Gegenprobe, bevor das Archiv seinen endgültigen Namen bekommt: die Zahl
+	# der Dateien darin gegen die Zahl im Verzeichnis. Ein leeres oder halbes
+	# tar endet mit 0 und sieht aus wie eine Sicherung — dieselbe Falle wie die
+	# leere Datenbank weiter oben, und derselbe Ausweg.
+	imBaum=$(docker compose exec -T app sh -c "find '$DOKUMENTE_ELTERN/$DOKUMENTE' -type f | wc -l" 2>/dev/null | tr -d ' \r')
+	imArchiv=$(docker compose exec -T app sh -c "tar -tf '$ZIEL_DOK.teil' | grep -v '/$' | wc -l" 2>/dev/null | tr -d ' \r')
+	if [ "$imBaum" != "$imArchiv" ]; then
+		echo "Das Dokumentarchiv ist unvollständig: $imBaum Datei(en) im Baum, $imArchiv im Archiv." >&2
+		echo "Die unbrauchbare Kopie wird nicht behalten." >&2
+		exit 1
+	fi
+	docker compose exec -T app mv "$ZIEL_DOK.teil" "$ZIEL_DOK"
+	ZIEL_DOK=""
+	dokumentMeldung="$name_dok ($imArchiv Datei(en))"
+else
+	dokumentMeldung="keine Dokumentablage — nichts zu sichern"
+fi
+
+# ---------------------------------------------------------------------------
 # Rotation
 # ---------------------------------------------------------------------------
 # Im Container, nicht auf dem Host: die Dateien gehören der UID 1000, und ein
@@ -204,4 +274,11 @@ ZIEL=""
 docker compose exec -T app \
 	find /sicherungen -maxdepth 1 -type f -name 'db-*.sqlite*' -mtime +30 -delete
 
+# Dieselbe Frist für die Dokumentarchive, und derselbe Grund für das `*` am
+# Ende: eine liegen gebliebene .teil-Datei aus einem abgebrochenen Lauf muss
+# mit erwischt werden.
+docker compose exec -T app \
+	find /sicherungen -maxdepth 1 -type f -name 'dokumente-*.tar*' -mtime +30 -delete
+
 echo "Sicherung: $BACKUP_DIR/$name (integrity_check: ok, $kopieAbdruck)"
+echo "Dokumente: $dokumentMeldung"

@@ -143,18 +143,20 @@ gibt der Server beim Start eine benannte deutsche Meldung aus und endet — kein
 Stacktrace, kein Fallback-Pfad, kein erfundenes Geheimnis. Geprüft wird im
 `init`-Hook, also beim Start und nicht beim Bauen.
 
-| Variable         | Bedeutung                                                                                                                                                                                                                                                                                                                                               |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_PATH`  | **Pflicht.** Pfad zur SQLite-Datei. Lokal etwa `./data/dev.sqlite`, im Container `/data/db/db.sqlite` — eine Ebene unter dem Mountpunkt des Volumes, absichtlich, siehe [Betrieb und Runbook](#betrieb-und-runbook). Das Verzeichnis muss existieren.                                                                                                   |
-| `SESSION_SECRET` | **Pflicht.** Geheimnis für die Signatur des Sitzungs-Cookies (`openssl rand -base64 32`). Mindestens 32 Zeichen und mindestens acht verschiedene — `aaaa…` besteht die Prüfung nicht.                                                                                                                                                                   |
-| `ORIGIN`         | **Pflicht**, für den Server und für `create-admin`. Reine Herkunft als absolute `http(s)`-Adresse — Schema, Host, höchstens ein Port, etwa `https://garten.example.ch`. Ein Pfad oder Abfrageteil wird abgewiesen, weil der Einladungslink sonst unklickbar wäre. Ohne `ORIGIN` weist `adapter-node` jeden POST einer form action als CSRF-Verstoss ab. |
-| `PORT`           | Optional — die einzige Variable mit Vorgabewert: ohne sie nimmt `adapter-node` `3000`. Der Vite-Dev-Server nutzt unabhängig davon `5173`.                                                                                                                                                                                                               |
-| `NODE_ENV`       | Optional, aber wirksam: steuert das `Secure`-Flag des Sitzungs-Cookies und damit das einzige Zugangsmittel. Nur bei `development` fehlt `Secure`; `vite dev` setzt den Wert selbst. Siehe die Warnung oben.                                                                                                                                             |
-| `DOMAIN`         | **Pflicht im Betrieb**, sonst ungenutzt. Öffentlicher Hostname ohne Schema, etwa `garten.example.ch`. nginx setzt ihn über `envsubst` in `server_name` und in beide Zertifikatspfade ein; `docker-compose.yml` bildet daraus `ORIGIN=https://<DOMAIN>`. Im Repository steht kein echter Hostname.                                                       |
-| `CERTBOT_EMAIL`  | **Pflicht im Betrieb**, sonst ungenutzt. Adresse, an die Let's Encrypt warnt, wenn eine Erneuerung ausbleibt. Wird nur beim einmaligen Holen des ersten Zertifikats gebraucht.                                                                                                                                                                          |
-| `BACKUP_DIR`     | **Pflicht im Betrieb**, sonst ungenutzt. Absoluter Pfad auf dem Host, in den `scripts/backup.sh` schreibt. `docker-compose.yml` hängt ihn als Bind-Mount unter `/sicherungen` in den `app`-Container; er muss existieren und der UID 1000 gehören.                                                                                                      |
+| Variable          | Bedeutung                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_PATH`   | **Pflicht.** Pfad zur SQLite-Datei. Lokal etwa `./data/dev.sqlite`, im Container `/data/db/db.sqlite` — eine Ebene unter dem Mountpunkt des Volumes, absichtlich, siehe [Betrieb und Runbook](#betrieb-und-runbook). Das Verzeichnis muss existieren.                                                                                                                                                                         |
+| `SESSION_SECRET`  | **Pflicht.** Geheimnis für die Signatur des Sitzungs-Cookies (`openssl rand -base64 32`). Mindestens 32 Zeichen und mindestens acht verschiedene — `aaaa…` besteht die Prüfung nicht.                                                                                                                                                                                                                                         |
+| `ORIGIN`          | **Pflicht**, für den Server und für `create-admin`. Reine Herkunft als absolute `http(s)`-Adresse — Schema, Host, höchstens ein Port, etwa `https://garten.example.ch`. Ein Pfad oder Abfrageteil wird abgewiesen, weil der Einladungslink sonst unklickbar wäre. Ohne `ORIGIN` weist `adapter-node` jeden POST einer form action als CSRF-Verstoss ab.                                                                       |
+| `PORT`            | Optional — die einzige Variable mit Vorgabewert: ohne sie nimmt `adapter-node` `3000`. Der Vite-Dev-Server nutzt unabhängig davon `5173`.                                                                                                                                                                                                                                                                                     |
+| `NODE_ENV`        | Optional, aber wirksam: steuert das `Secure`-Flag des Sitzungs-Cookies und damit das einzige Zugangsmittel. Nur bei `development` fehlt `Secure`; `vite dev` setzt den Wert selbst. Siehe die Warnung oben.                                                                                                                                                                                                                   |
+| `DOMAIN`          | **Pflicht im Betrieb**, sonst ungenutzt. Öffentlicher Hostname ohne Schema, etwa `garten.example.ch`. nginx setzt ihn über `envsubst` in `server_name` und in beide Zertifikatspfade ein; `docker-compose.yml` bildet daraus `ORIGIN=https://<DOMAIN>`. Im Repository steht kein echter Hostname.                                                                                                                             |
+| `CERTBOT_EMAIL`   | **Pflicht im Betrieb**, sonst ungenutzt. Adresse, an die Let's Encrypt warnt, wenn eine Erneuerung ausbleibt. Wird nur beim einmaligen Holen des ersten Zertifikats gebraucht.                                                                                                                                                                                                                                                |
+| `BACKUP_DIR`      | **Pflicht im Betrieb**, sonst ungenutzt. Absoluter Pfad auf dem Host, in den `scripts/backup.sh` schreibt. `docker-compose.yml` hängt ihn als Bind-Mount unter `/sicherungen` in den `app`-Container; er muss existieren und der UID 1000 gehören.                                                                                                                                                                            |
+| `BODY_SIZE_LIMIT` | Optional, im Betrieb aber gesetzt: `adapter-node` nimmt sonst **512 KB** an, und ein abgelegtes PDF prallte mit einem rohen 413 an seinem Server ab — ohne den Satz, der erklärt, was zu gross ist. `docker-compose.yml` setzt 21 MB, passend zur Grenze in `src/lib/dokument.ts` und zu `client_max_body_size` in nginx. Für `npm run dev` ohne Belang; wer lokal mit `npm start` einen grossen Upload prüft, setzt sie mit. |
 
-Die letzten drei Zeilen betreffen ausschliesslich den Compose-Stapel. Lokal
+Die drei Betriebszeilen `DOMAIN`, `CERTBOT_EMAIL` und `BACKUP_DIR` betreffen
+ausschliesslich den Compose-Stapel. Lokal
 bleiben sie leer — `npm run dev` liest keine davon. Umgekehrt wird `ORIGIN` im
 Stapel **nicht** aus `.env` gelesen: `docker-compose.yml` bildet den Wert aus
 `DOMAIN`, damit Herkunft und Zertifikatsname nicht auseinanderlaufen können.
@@ -517,10 +519,30 @@ Container. Der Ablauf:
    strukturell einwandfrei.
 6. Erst danach das `mv` auf den endgültigen Namen — innerhalb desselben
    Dateisystems atomar.
-7. Rotation, im Container: `find /sicherungen -name 'db-*.sqlite*' -mtime +30
--delete`. Das Muster endet auf `*`, damit es auch `-wal`- und
-   `-shm`-Beiwagen und eine liegen gebliebene `.teil`-Datei erwischt. Eine 31
-   Tage alte Datei geht, eine 29 Tage alte bleibt.
+7. **Die Dokumentablage**, seit dem 2026-09-20: `tar -cf` über
+   `/data/db/dokumente` nach
+   `/sicherungen/dokumente-JJJJ-MM-TT-hhmmss.tar`. Der Zeitstempel ist aus dem
+   Namen der Datenbankkopie geschnitten und nicht neu gerechnet — zwei
+   `date`-Aufrufe fielen über einen Sekundenwechsel auseinander, und dann
+   gehörten die zwei Dateien eines Laufs dem Auge nach nicht mehr zusammen.
+   Auch hier erst `.teil`, dann eine Gegenprobe (Zahl der Dateien im Baum
+   gegen die im Archiv, aus demselben Grund wie der Fingerabdruck oben), dann
+   das `mv`. Gibt es das Verzeichnis nicht, ist das **kein** Fehlschlag: ein
+   Garten ohne abgelegtes Dokument hat keines, und das Skript soll nicht jede
+   Nacht rot melden, was es nie gab.
+8. Rotation, im Container: `find /sicherungen -name 'db-*.sqlite*' -mtime +30
+-delete`, und dasselbe für `dokumente-*.tar*`. Das Muster endet auf `*`, damit
+   es auch `-wal`- und `-shm`-Beiwagen und eine liegen gebliebene
+   `.teil`-Datei erwischt. Eine 31 Tage alte Datei geht, eine 29 Tage alte
+   bleibt.
+
+**Die zwei Dateien eines Laufs gehören zusammen.** Eine Datenbank ohne ihre
+Dokumente zeigt auf `/wissen` Zeilen an, die beim Antippen einen 404 geben —
+wer wiederherstellt, nimmt darum immer beide mit demselben Zeitstempel. Die
+Reihenfolge ist dieselbe wie beim Ablegen selbst: erst die Datenbank, dann die
+Dateien. Wer zwischen den zwei Schritten ein Dokument ablegt, hat es in der
+Datei und nicht in der Datenbank, und das ist die harmlose Richtung — eine
+Datei ohne Zeile ist unerreichbar und sonst nichts.
 
 **Warum die Rotation im Container läuft und nicht auf dem Host:** die Dateien
 gehören der UID 1000, mit der der Container schreibt. Ein Cron-Benutzer mit
@@ -569,6 +591,25 @@ docker compose run --rm --no-deps --entrypoint sh -e SICHERUNG="$SICHERUNG" app 
 docker compose start app
 docker compose ps
 ```
+
+**Und die Dokumente dazu, mit demselben Zeitstempel.** Eine wiederhergestellte
+Datenbank ohne ihre Dateien zeigt auf `/wissen` Dokumente an, die beim Antippen
+einen 404 geben. Der Schritt läuft nach dem oben und vor dem `start`:
+
+```sh
+DOKUMENTE=dokumente-2026-08-27-020001.tar
+docker compose run --rm --no-deps --entrypoint sh -e DOKUMENTE="$DOKUMENTE" app -c '
+  test -f "/sicherungen/$DOKUMENTE" || { echo "Es gibt kein Archiv $DOKUMENTE."; exit 1; }
+  rm -rf /data/db/dokumente.alt &&
+  { mv /data/db/dokumente /data/db/dokumente.alt 2>/dev/null || true; } &&
+  tar -xf "/sicherungen/$DOKUMENTE" -C /data/db &&
+  chown -R node:node /data/db/dokumente'
+```
+
+Die alte Ablage wandert nach `dokumente.alt` statt weggeräumt zu werden:
+schlägt das Entpacken fehl, steht sie noch da. Wer nach einem geglückten Lauf
+aufräumen will, löscht sie von Hand — automatisch geschieht das nicht, und das
+ist Absicht.
 
 Schlägt eine der beiden Prüfungen an, endet der Container mit einer Meldung und
 die alte Datenbank steht unberührt da — `docker compose start app` bringt dann
@@ -2565,6 +2606,58 @@ einer beim nächsten Anfassen zurückbleibt.
 `created_at` ordnet: eine Poolaufgabe trägt keine Frist, und eine Liste, die sich
 zwischen zwei Aufrufen umsortiert, wäre dort der Fehler. Eine Einzelaufgabe trägt
 einen Termin, und danach entscheidet eine Person, ob sie sie nimmt.
+
+## Wissen: Blätter und Dokumente
+
+`/wissen` führt **zwei Listen nebeneinander**, beide alphabetisch und beide
+ohne Autor: die **Blätter** (getippter Freitext) und, seit dem 2026-09-20, die
+**Dokumente** (abgelegte PDF). Sie sind gleichberechtigt — ein Dokument hängt
+nicht an einem Blatt, und es gibt keine Spalte, die das behauptete.
+
+**Warum zwei Listen und nicht eine gemischte.** Auf `/archiv` stehen zwei
+Quellen in _einer_ Liste, weil dort der Zeitpunkt zählt und getan getan ist.
+Hier zählt, wonach man sucht, und die zwei Arten beantworten verschiedene
+Fragen: ein Blatt liest man auf dem Telefon im Beet, ein PDF öffnet man, wenn
+man es genau wissen will. Eine gemischte Liste müsste an jeder Zeile sagen,
+welche Art sie ist; zwei Listen sagen es einmal in der Marke darüber.
+
+**Nur PDF, höchstens 20 MB.** Die Grenze steht in `src/lib/dokument.ts`, und
+die zwei Schichten davor lassen bewusst etwas mehr durch — `client_max_body_size
+21M` in nginx, `BODY_SIZE_LIMIT` im Compose-Stapel —, damit die **Anwendung**
+die Meldung schreibt und nicht das Netzwerkstück davor. Geprüft wird zweimal:
+der gemeldete Medientyp (eine Behauptung der Gegenseite) und die ersten fünf
+Bytes `%PDF-` (keine). Das ist keine Virenprüfung und gibt sich nicht dafür
+aus; es stellt sicher, dass in der Ablage liegt, was die Zeile daneben sagt.
+
+**Wo die Dateien liegen.** Unter `dokumente/` neben der SQLite-Datei, abgeleitet
+aus `DATABASE_PATH` — ohne eigene Umgebungsvariable, damit es keinen zweiten Ort
+gibt, den ein Betrieb vergisst, und damit das Volume, das die Datenbank sichert,
+die Dateien mitnimmt. Der Name auf der Platte ist Zufall (32 Hexzeichen plus
+`.pdf`) und **nie** der hochgeladene: ein Name aus einer Eingabe, der zu einem
+Pfad wird, ist der kürzeste Weg zu einem Schreiben ausserhalb des
+Verzeichnisses.
+
+**Ausgeliefert wird über eine Route und nicht aus `static/`**
+(`/wissen/dokument/<id>/datei`). Unter `static/` läge jedes Dokument ohne jede
+Sitzung im Netz — jener Baum wird ausgeliefert, bevor der Wächter in
+`src/hooks.server.ts` überhaupt läuft. Die Antwort trägt `nosniff` und
+`Content-Security-Policy: sandbox`: PDF ist ein Format mit eigener
+Ausführungsschicht, und die zwei Zeilen kosten nichts.
+
+**Die Reihenfolge beim Ablegen ist Datei, dann Zeile; beim Löschen Zeile, dann
+Datei.** Beide Male bleibt bei einem Abbruch dazwischen eine Datei ohne Zeile
+liegen — unerreichbar, aber harmlos. Andersherum stünde in der Liste ein
+Dokument, das beim Antippen nicht da ist.
+
+**Löschen darf nur eine Adminperson**, wie beim Blatt und mit einer Erwägung
+mehr: was verschwindet, ist nicht bloss ein Text, den jemand neu tippen könnte,
+sondern eine Datei, deren Original vielleicht nirgends sonst mehr liegt. Es
+gibt keine Versionen und keinen Papierkorb; darum fragt die Seite vor dem
+Löschen zurück und nennt dabei Titel **und** Dateinamen.
+
+**Ändern gibt es für ein Dokument nicht.** Eine Datei tauscht man nicht um —
+man legt die neue ab und nimmt die alte weg. Ein `Ersetzen` wäre genau die
+Versionsgeschichte, die `/wissen` ausdrücklich nicht führt.
 
 ## Was noch nicht hier ist
 

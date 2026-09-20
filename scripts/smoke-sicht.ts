@@ -58,6 +58,8 @@ import {
 import { browserStarten, chromeFinden, type Browser } from './kopfbrowser.ts';
 import { aufgabenStapelAnlegen } from '../src/lib/server/db/queries/tasks.ts';
 import { blattAnlegen } from '../src/lib/server/db/queries/sheets.ts';
+import { dokumentAnlegen } from '../src/lib/server/db/queries/documents.ts';
+import { ablagenamenErzeugen, dateiAblegen } from '../src/lib/server/ablage.ts';
 import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-tasks.ts';
 
 /**
@@ -689,6 +691,27 @@ try {
 
 	const blattAbsaetze = blattAnlegen(BLATT_ABSAETZE.titel, BLATT_ABSAETZE.text);
 	const blattLangwort = blattAnlegen(BLATT_LANGWORT.titel, BLATT_LANGWORT.text);
+	/*
+	 * **Ein abgelegtes Dokument, seit dem 2026-09-20** — sonst sähe der Sichtlauf
+	 * die zweite Liste auf /wissen nie und die Seite darüber schon gar nicht.
+	 * Dieselbe Klasse wie die Erntesaat im Prüfserver: eine Zusage über
+	 * Gerendertes, die nichts rendert, ist keine.
+	 *
+	 * **Datei zuerst, dann die Zeile** — dieselbe Reihenfolge, die auch die
+	 * action einhält (siehe `documents.ablage` im Schema). Der Inhalt ist die
+	 * kürzeste Bytefolge, die diese Anwendung als PDF annimmt: die Kennung `%PDF-`
+	 * und eine Zeile Text. Gerendert wird sie nirgends — der Sichtlauf öffnet das
+	 * Dokument nicht, er misst die Seite **über** das Dokument.
+	 */
+	const dokumentAblage = ablagenamenErzeugen();
+	const dokumentInhalt = new TextEncoder().encode('%PDF-1.4\n% Saat des Sichtlaufs\n');
+	dateiAblegen(dokumentAblage, dokumentInhalt);
+	const dokumentMerkblatt = dokumentAnlegen(
+		'Merkblatt Brennnesseljauche',
+		'brennnesseljauche.pdf',
+		dokumentAblage,
+		dokumentInhalt.byteLength
+	);
 	await browser.besuchen(`${adresse}/wissen`);
 
 	await breiteHalten('/wissen');
@@ -727,7 +750,13 @@ try {
 				return Math.round(r.width) + 'x' + Math.round(r.height);
 			}),
 		};`);
-	pruefen('/wissen trägt genau einen Aufklappgriff', griffe.zahl === 1, `${griffe.zahl} Griff(e)`);
+	/*
+	 * **Zwei seit dem 2026-09-20**: `Neues Blatt` und `Dokument ablegen`. Die Zahl
+	 * steht von Hand, wie überall in dieser Kette — sie ist die Stelle, an der ein
+	 * dritter Aufklapper auffällt, statt still ungemessen danebenzustehen. Die
+	 * drei Behauptungen darunter messen jeden der zwei einzeln (`every`).
+	 */
+	pruefen('/wissen trägt genau zwei Aufklappgriffe', griffe.zahl === 2, `${griffe.zahl} Griff(e)`);
 	pruefen(
 		'und er trägt genau ein Aufklappzeichen mit Ausdehnung — das Dreieck ist abgelöst',
 		griffe.zeichen.every((mass) => /^[1-9]\d*x[1-9]\d*$/.test(mass)) &&
@@ -744,12 +773,19 @@ try {
 	 * Jeder Blattlink ist ein Trefferfeld. Er ist kein Knopf und sieht auch nicht
 	 * wie einer aus — aber er ist die einzige Art, ein Blatt zu öffnen, und die
 	 * 44px gelten für jedes Ziel und nicht nur für Knöpfe.
+	 *
+	 * **Drei seit dem 2026-09-20**: zwei Blätter und ein Dokument. Die
+	 * Dokumentzeile trägt dieselbe Klasse, weil sie dieselbe Sache ist — eine
+	 * Karte, deren ganzer Inhalt ein Ziel ist —, und sie muss dieselbe Zusage
+	 * halten. Sie ist dabei der schärfere Fall: ihr Link trägt zwei Zeilen, den
+	 * Titel und die Grösse darunter, und eine Regel, die die zweite aus dem
+	 * Trefferfeld fallen liesse, fiele genau hier auf.
 	 */
 	const linkHoehen = await browser.auswerten<number[]>(`
 		return [...document.querySelectorAll('.blattlink')].map((el) => el.getBoundingClientRect().height);`);
 	pruefen(
-		`beide Blattlinks tragen ein Trefferfeld von mindestens ${TREFFER_MINIMUM}px`,
-		linkHoehen.length === 2 && linkHoehen.every((hoehe) => hoehe >= TREFFER_MINIMUM),
+		`alle drei Zeilenlinks tragen ein Trefferfeld von mindestens ${TREFFER_MINIMUM}px`,
+		linkHoehen.length === 3 && linkHoehen.every((hoehe) => hoehe >= TREFFER_MINIMUM),
 		`${linkHoehen.length} Link(s), Höhen ${linkHoehen.map((h) => Math.round(h)).join(', ')}px`
 	);
 
@@ -864,15 +900,22 @@ try {
 			offen: d.open,
 			satz: document.querySelector('#neu-titel-fehler').textContent.trim(),
 			markiert: feld.getAttribute('aria-invalid'),
-			blaetter: document.querySelectorAll('.blattlink').length,
+			blaetter: document.querySelectorAll('[aria-labelledby="blaetter-marke"] .blattlink').length,
 		};`);
 	pruefen(
 		'eine Abweisung klappt das Formular wieder auf, zeigt den Satz und markiert das Feld',
 		abgewiesen.offen && abgewiesen.satz !== '' && abgewiesen.markiert === 'true',
 		JSON.stringify(abgewiesen)
 	);
+	/*
+	 * **Gezählt wird in der Blätterliste und nicht über die ganze Seite** — seit
+	 * dem 2026-09-20, als die Dokumente dazukamen: `.blattlink` trägt seither
+	 * auch eine Dokumentzeile, und über das Dokument sagt eine abgewiesene
+	 * Blatt-Eingabe nichts. Geschnitten wird über die Kennung der Marke, wie
+	 * überall in dieser Prüfkette.
+	 */
 	pruefenGleich(
-		'und es ist kein Blatt entstanden — die Liste steht unverändert bei zwei',
+		'und es ist kein Blatt entstanden — die Blätterliste steht unverändert bei zwei',
 		abgewiesen.blaetter,
 		2
 	);
@@ -1747,15 +1790,32 @@ try {
 				.join('/')
 		)
 		.sort();
-	const EINSETZUNGEN: Record<string, string> = { '[id]': String(blattAbsaetze) };
-	const platzhalter = [
-		...new Set(seitenVerzeichnisse.flatMap((pfad) => pfad.match(/\[[^\]]+\]/g) ?? [])),
-	].sort();
+	/*
+	 * **Die Zuordnung geht seit dem 2026-09-20 je Route und nicht je
+	 * Platzhalter**, und das ist eine Verschärfung mit Anlass.
+	 *
+	 * Bis dahin stand hier `{ '[id]': <eine Blatt-Id> }`: **ein** Wert für
+	 * **jedes** `[id]` im ganzen Baum. Das trug, solange es eine einzige Route
+	 * mit diesem Abschnitt gab. Mit /wissen/dokument/[id] gibt es zwei, und die
+	 * Ids kommen aus verschiedenen Tabellen — die Blatt-Id 3 in den Dokumentpfad
+	 * gesetzt ergibt einen 404, und der Sweep hätte eine Fehlerseite gemessen
+	 * und für eine Seite gehalten.
+	 *
+	 * Geprüft wird darum jetzt, dass **jede** Route mit einem dynamischen
+	 * Abschnitt hier einen Eintrag hat, und zwar genau einen. Eine neue solche
+	 * Route fällt damit weiterhin auf — und zusätzlich fällt auf, wenn eine
+	 * bestehende ihren eigenen Wert braucht.
+	 */
+	const DYNAMISCHE_PFADE: Record<string, string> = {
+		'wissen/[id]': `wissen/${blattAbsaetze}`,
+		'wissen/dokument/[id]': `wissen/dokument/${dokumentMerkblatt}`,
+	};
+	const mitPlatzhalter = seitenVerzeichnisse.filter((pfad) => /\[[^\]]+\]/.test(pfad)).sort();
 	pruefen(
-		`alle vierzehn Seiten sind aus dem Verzeichnisbaum abgeleitet (gefunden: ${seitenVerzeichnisse.length}), und jeder dynamische Abschnitt hat einen Wert`,
-		seitenVerzeichnisse.length === 14 &&
-			platzhalter.join(' ') === Object.keys(EINSETZUNGEN).sort().join(' '),
-		`Platzhalter im Baum: ${platzhalter.join(' ') || '(keine)'}, eingesetzt: ${Object.keys(EINSETZUNGEN).join(' ')}`
+		`alle fünfzehn Seiten sind aus dem Verzeichnisbaum abgeleitet (gefunden: ${seitenVerzeichnisse.length}), und jede dynamische Route hat ihren Wert`,
+		seitenVerzeichnisse.length === 15 &&
+			mitPlatzhalter.join(' ') === Object.keys(DYNAMISCHE_PFADE).sort().join(' '),
+		`dynamisch im Baum: ${mitPlatzhalter.join(' ') || '(keine)'}, zugeordnet: ${Object.keys(DYNAMISCHE_PFADE).join(' ')}`
 	);
 	/*
 	 * Die Fehlerseite steht als fünfzehnte, über einen Pfad, den es nicht gibt. Sie
@@ -1764,9 +1824,7 @@ try {
 	 * die Statuszeile", Spec 1.2) hat bis heute nichts gemessen.
 	 */
 	const KONTRAST_ROUTEN = [
-		...seitenVerzeichnisse.map(
-			(pfad) => '/' + pfad.replace(/\[[^\]]+\]/g, (treffer) => EINSETZUNGEN[treffer])
-		),
+		...seitenVerzeichnisse.map((pfad) => '/' + (DYNAMISCHE_PFADE[pfad] ?? pfad)),
 		'/gibtsnicht',
 	];
 

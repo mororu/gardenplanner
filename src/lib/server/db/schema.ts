@@ -8,10 +8,11 @@ import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core
  * Drizzle. Zeitstempel sind Integer in Unix-Sekunden, nie ISO-Strings und nie
  * Date-Objekte.
  *
- * In diesem Stand gibt es neun Tabellen: members aus Story 1.2, tasks aus
+ * In diesem Stand gibt es zehn Tabellen: members aus Story 1.2, tasks aus
  * Story 1.4 (seit Story 2.1 um due_at erweitert), duty_weeks aus Story 3.1,
  * signup_tasks aus Story 3.2, sheets aus Story 4.1, harvests vom 2026-09-13
- * und agenda_items, minutes wie agenda_lists vom 2026-09-17. Story 2.2 hat an tasks
+ * und agenda_items, minutes wie agenda_lists vom 2026-09-17, treatments vom
+ * 2026-09-19 und documents vom 2026-09-20. Story 2.2 hat an tasks
  * **nichts** geändert: die Überfälligkeit wird gerechnet und nicht gespeichert,
  * und die Rechnung steht in src/lib/zeit.ts. Getrennte Tabellen ohne gemeinsame
  * Zuständigkeitsspalte, keine Basistabelle und keine Typspalte darüber (AD-3):
@@ -888,3 +889,86 @@ export const treatments = sqliteTable('treatments', {
 
 export type Treatment = typeof treatments.$inferSelect;
 export type NewTreatment = typeof treatments.$inferInsert;
+
+/*
+ * Die abgelegten Dokumente — seit dem 2026-09-20 (Entscheid Manuel).
+ *
+ * **Eine eigene Tabelle neben sheets und keine Spalte darin.** Die zwei stehen
+ * auf /wissen gleichberechtigt nebeneinander, und das ist ausdrücklich
+ * entschieden: ein Dokument hängt nicht an einem Blatt. Ein Merkblatt zu einem
+ * Pflanzenschutzmittel ist für sich genommen die Auskunft; es braucht kein
+ * Blatt darüber, das es einleitet.
+ *
+ * Eine `sheet_id` daneben hätte genau den Fehler, der an treatments.ansaetze
+ * schon einmal benannt ist: eine Spalte, die bei der Hälfte der Zeilen leer
+ * bliebe, stellt an jeder Eingabe eine Frage, die niemand beantworten will.
+ *
+ * **Und keine gemeinsame Basistabelle über beiden**, dieselbe Entscheidung wie
+ * AD-3 bei den drei Aufgabenarten: ein Blatt trägt getippten Text, den man
+ * ändert, ein Dokument eine Datei, die man ersetzt oder wegnimmt. Was sie
+ * teilen, ist der Titel und der Ort in der Liste — und die Liste führt sie in
+ * der Komponente zusammen, so wie /archiv es mit seinen zwei Quellen tut.
+ *
+ * **Wie sheets ohne Autorenspalte**, und aus demselben Grund: Wissen gehört
+ * niemandem. Wer eine Datei ablegt, wird nirgends gespeichert.
+ */
+export const documents = sqliteTable('documents', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	/*
+	 * Wie das Dokument in der Liste heisst — **nicht** der Dateiname.
+	 *
+	 * Eine hochgeladene Datei heisst `Merkblatt_final_v3(2).pdf`, und das ist
+	 * keine Zeile, die jemand in einer Liste lesen will. Der Titel wird darum
+	 * getippt und durch dieselbe Kette geprüft wie sheets.titel: aufgabentextFalten
+	 * und AUFGABE_HOECHSTLAENGE in src/lib/aufgabentext.ts. Ein Titel ist
+	 * derselbe Gegenstand, ob er über einem Blatt oder über einer Datei steht.
+	 */
+	titel: text('titel').notNull(),
+	/*
+	 * Der Name, den die Datei beim Hochladen trug.
+	 *
+	 * Er steht **nicht** in der Liste, und er bildet **nie** einen Pfad: gespeichert
+	 * wird unter `ablage` (siehe dort). Gebraucht wird er an genau zwei Stellen —
+	 * an der Detailseite, damit erkennbar ist, welche Datei das ist, und als
+	 * Dateiname beim Herunterladen, damit auf der Festplatte nicht `7` landet.
+	 *
+	 * Bereinigt, aber nicht erfunden: Pfadtrenner und Steuerzeichen fallen weg
+	 * (siehe dateinamenFalten in src/lib/dokument.ts), der Rest bleibt, wie er
+	 * war.
+	 */
+	dateiname: text('dateiname').notNull(),
+	/*
+	 * Der Name der Datei **in der Ablage**, und die eine Spalte dieses Schemas,
+	 * deren Wert aus dem Zufall kommt: 32 Hexzeichen plus `.pdf`.
+	 *
+	 * **Warum nicht der Dateiname, und warum nicht die Id.** Ein Name aus einer
+	 * Eingabe, der zu einem Pfad wird, ist der kürzeste Weg zu einem Schreiben
+	 * ausserhalb des Verzeichnisses — `../../etwas` braucht dafür nur eine
+	 * vergessene Prüfung. Die Id wäre sicher und trotzdem falsch: sie entsteht
+	 * erst beim INSERT, und die Datei muss vorher auf der Platte liegen, sonst
+	 * steht in der Tabelle eine Zeile ohne Inhalt. Mit einem Namen, der vor dem
+	 * INSERT feststeht, ist die Reihenfolge Datei-dann-Zeile möglich, und ein
+	 * Abbruch dazwischen lässt eine verwaiste Datei zurück und keine verwaiste
+	 * Zeile.
+	 *
+	 * unique, weil zwei Zeilen auf derselben Datei bedeuten würden, dass das
+	 * Löschen der einen der anderen den Inhalt nimmt.
+	 */
+	ablage: text('ablage').notNull().unique(),
+	/*
+	 * Die Grösse in Bytes, wie sie beim Ablegen gemessen wurde.
+	 *
+	 * **Gespeichert und nicht bei jeder Anzeige von der Platte gelesen**: die
+	 * Liste und die Detailseite zeigen sie, und ein `stat` je Zeile wäre ein
+	 * Dateizugriff für eine Zahl, die sich nie ändert — eine Datei wird hier nie
+	 * überschrieben, nur angelegt und weggenommen.
+	 */
+	groesse: integer('groesse').notNull(),
+	/* Wie bei sheets über $defaultFn. */
+	createdAt: integer('created_at')
+		.notNull()
+		.$defaultFn(() => Math.floor(Date.now() / 1000)),
+});
+
+export type Document = typeof documents.$inferSelect;
+export type NewDocument = typeof documents.$inferInsert;
