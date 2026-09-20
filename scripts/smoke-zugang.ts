@@ -91,6 +91,7 @@ import {
 	signupTasks,
 	tasks,
 } from '../src/lib/server/db/schema.ts';
+import { letzteJeStelle, nachBeet } from '../src/lib/wellness.ts';
 import { blattAnlegen, blattLesen } from '../src/lib/server/db/queries/sheets.ts';
 import type { AngemeldetesMitglied, NewTask } from '../src/lib/server/db/schema.ts';
 import {
@@ -247,7 +248,7 @@ import {
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 679;
+const ERWARTETE_BEHAUPTUNGEN = 681;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -3822,7 +3823,13 @@ try {
 		// Löschen auf /wissen/[id] meldet auf der Liste, und die hatte bis dahin
 		// nur ihre Fehlerregion. Eine Abweisung des Löschens landet weiterhin auf
 		// dem Blatt selbst, dessen Regionen längst gezählt sind.
-		JSON.stringify({ hoeflich: 8, unterbrechend: 29, keineRegion: 1 })
+		//
+		// +2 unterbrechend seit dem 2026-09-20: /wellness hat ein Kulturfeld
+		// bekommen, und zwar in **beiden** Formularen — einmal ausgeschrieben beim
+		// Eintragen, einmal in der Schleife des Ändern-Formulars, das an jeder
+		// Zeile steht. Im Markup sind das zwei Regionen, gerendert so viele wie es
+		// Zeilen gibt; diese Wache liest den Quelltext und zählt darum zwei.
+		JSON.stringify({ hoeflich: 8, unterbrechend: 31, keineRegion: 1 })
 	);
 
 	const rueckmeldungRumpf = glatterRumpf(
@@ -9527,6 +9534,79 @@ try {
 		'beide Wissen-Formulare sind vollständig verdrahtet',
 		fehlendeTeile(verdrahtungBlatt).length === 0,
 		`fehlt: ${fehlendeTeile(verdrahtungBlatt).join(', ')}`
+	);
+
+	// -----------------------------------------------------------------------
+	// Die Ordnung der Wellnessbehandlung und die Fälligkeit darin
+	// -----------------------------------------------------------------------
+	/*
+	 * **Die zwei Regeln hängen zusammen, und genau das ist die Gefahr.**
+	 *
+	 * Bis zum 2026-09-20 nahm `letzteJeStelle` je Stelle die **erste** Zeile und
+	 * verliess sich darauf, dass die Abfrage jüngste zuerst liefert. An dem Tag
+	 * bekam die Seite eine Ordnung nach Beet — und damit wäre die Fälligkeit
+	 * still falsch geworden: sie hätte die **älteste** Anwendung je Stelle für
+	 * die jüngste gehalten, und zwar ohne eine einzige rote Zeile. Die Startseite
+	 * hätte weiterhin eine Zahl gezeigt, nur die falsche.
+	 *
+	 * Diese Behauptungen sind die Antwort darauf. Die erste misst die Ordnung,
+	 * die zweite, dass die Fälligkeit **nicht mehr** an ihr hängt — dieselbe
+	 * Auswahl aus beiden Richtungen.
+	 */
+	const proben = [
+		{
+			id: 1,
+			mittel: 'Schachtelhalm',
+			kultur: 'Tomaten',
+			ort: 'Beet 12',
+			angewendetAm: 300,
+			intervallTage: 14,
+		},
+		{
+			id: 2,
+			mittel: 'Brennnessel',
+			kultur: 'Kohl',
+			ort: 'Beet 3',
+			angewendetAm: 100,
+			intervallTage: 21,
+		},
+		{
+			id: 3,
+			mittel: 'Gesteinsmehl',
+			kultur: null,
+			ort: 'Beet 3',
+			angewendetAm: 200,
+			intervallTage: null,
+		},
+		{ id: 4, mittel: 'Kompost', kultur: null, ort: null, angewendetAm: 400, intervallTage: null },
+		{
+			id: 5,
+			mittel: 'Brennnessel',
+			kultur: 'Kohl',
+			ort: 'Beet 3',
+			angewendetAm: 500,
+			intervallTage: 21,
+		},
+	];
+	pruefenGleich(
+		'nachBeet ordnet natürlich — Beet 3 vor Beet 12 —, Kultur vor Ohne, und Ortlose zuunterst',
+		JSON.stringify(nachBeet(proben).map((zeile) => zeile.id)),
+		JSON.stringify([5, 2, 3, 1, 4])
+	);
+	/*
+	 * **Die Mutation, gegen die das steht**, ist eine Zeichenkettensortierung:
+	 * `'Beet 3'.localeCompare('Beet 12')` ergibt 1, und damit stünde Beet 12
+	 * zuerst. Bei vierzig durchnummerierten Beeten ist das keine Marotte, sondern
+	 * eine Liste, in der man sein Beet nicht findet.
+	 */
+	const ausBeetordnung = letzteJeStelle(nachBeet(proben)).map((zeile) => zeile.id);
+	const ausGegenrichtung = letzteJeStelle([...nachBeet(proben)].reverse()).map((zeile) => zeile.id);
+	pruefen(
+		'letzteJeStelle wählt dieselben Zeilen, aus welcher Richtung sie auch kommen — id 2 fällt gegen die jüngere 5',
+		JSON.stringify([...ausBeetordnung].sort()) === JSON.stringify([...ausGegenrichtung].sort()) &&
+			!ausBeetordnung.includes(2) &&
+			ausBeetordnung.includes(5),
+		`${JSON.stringify(ausBeetordnung)} gegen ${JSON.stringify(ausGegenrichtung)}`
 	);
 
 	// -----------------------------------------------------------------------

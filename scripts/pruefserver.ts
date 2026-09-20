@@ -285,8 +285,13 @@ export function saeen(): Saat {
 	 * damit den oberen Abschnitt. Die zweite trägt eine Wiederholung, die **noch
 	 * läuft** (vor 2 Tagen, Wiederholung 21) — sie steht nur im Tagebuch und
 	 * belegt, dass der obere Abschnitt filtert statt alles zu zeigen. Die dritte
-	 * trägt **keine** Wiederholung und keinen Ort, womit beide Formen der
-	 * Tagebuchzeile im gemessenen Baum stehen.
+	 * trägt **keine** Wiederholung, keine Kultur und keinen Ort, womit beide
+	 * Formen der Tagebuchzeile im gemessenen Baum stehen.
+	 *
+	 * **Die zwei Kulturen seit dem 2026-09-20** sind nicht Zierde: die Zeile
+	 * zeigt sie neben dem Mittel, und ohne sie sähe der Sichtlauf nur die Form
+	 * ohne Angabe. Sie stehen ausserdem in verschiedenen Beeten, damit die
+	 * Ordnung nach Beet überhaupt etwas zu ordnen hat.
 	 *
 	 * `angewendet_am` ist ein Tagesende in der Zone, und die Saat rechnet es
 	 * darum aus einem Feldwert statt aus `jetzt - n * TAG`: eine Uhrzeit in der
@@ -308,6 +313,7 @@ export function saeen(): Saat {
 	behandlungEintragen(
 		{
 			mittel: 'Schachtelhalmbrühe',
+			kultur: 'Tomaten',
 			ort: 'Beet 7',
 			angewendetAm: tagVorTagen(20),
 			intervallTage: 14,
@@ -317,6 +323,7 @@ export function saeen(): Saat {
 	behandlungEintragen(
 		{
 			mittel: 'Brennnesseljauche',
+			kultur: 'Kohlrabi',
 			ort: 'Hochbeet 3',
 			angewendetAm: tagVorTagen(2),
 			intervallTage: 21,
@@ -324,7 +331,13 @@ export function saeen(): Saat {
 		manu
 	);
 	behandlungEintragen(
-		{ mittel: 'Kompost', ort: null, angewendetAm: tagVorTagen(40), intervallTage: null },
+		{
+			mittel: 'Kompost',
+			kultur: null,
+			ort: null,
+			angewendetAm: tagVorTagen(40),
+			intervallTage: null,
+		},
 		manu
 	);
 
