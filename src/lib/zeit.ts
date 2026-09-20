@@ -785,5 +785,28 @@ export function tageZurueck(tagSekunden: number, jetztSekunden: number): number 
  * @param jetztSekunden Der Bezugszeitpunkt in Unix-Sekunden.
  */
 export function heuteAlsFeldwert(jetztSekunden: number): string {
-	return feldwertVonTageszahl(tageszahlInZone(jetztSekunden));
+	return alsFeldwert(jetztSekunden);
+}
+
+/**
+ * Der Kalendertag eines Zeitpunkts als Feldwert `JJJJ-MM-TT` — die Umkehrung
+ * von `tagesendeInUnixSekunden`.
+ *
+ * Sie füllt ein Datumsfeld mit einem Wert, der schon gespeichert ist: das
+ * Ändern einer Behandlung auf /wellness zeigt den Tag, an dem behandelt wurde.
+ *
+ * **Dieselbe Rechnung wie `heuteAlsFeldwert` darüber, das sie jetzt ruft.** Der
+ * Unterschied ist allein der Name, und der ist der Grund für die zweite
+ * Funktion: `heuteAlsFeldwert(zeile.angewendetAm)` ergäbe den richtigen Wert
+ * und läse sich als Behauptung, die falsch ist.
+ *
+ * **Und ausdrücklich nicht `toISOString().slice(0, 10)`**, der naheliegende
+ * Einzeiler: der rechnet in UTC, und ein Tagesende in Europe/Zurich ist dort
+ * schon der Folgetag um 21:59 oder 22:59 — das Feld zeigte den falschen Tag,
+ * und zwar immer denselben Tag zu spät.
+ *
+ * @param unixSekunden Ein Zeitpunkt in Unix-Sekunden.
+ */
+export function alsFeldwert(unixSekunden: number): string {
+	return feldwertVonTageszahl(tageszahlInZone(unixSekunden));
 }
