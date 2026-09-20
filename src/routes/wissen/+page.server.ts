@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import type { Actions, RequestEvent } from '@sveltejs/kit';
+import type { Actions, RequestEvent, ServerLoadEvent } from '@sveltejs/kit';
 import { AUFGABE_HOECHSTLAENGE } from '../../lib/aufgabentext.ts';
 import { BLATT_HOECHSTLAENGE, blattTextPruefen, blattTitelPruefen } from '../../lib/blatttext.ts';
 import { abweisen } from '../../lib/server/abweisen.ts';
@@ -29,13 +29,22 @@ import {
  * kein JSON-Endpunkt, und im Markup ein **literales** action="?/anlegen" — ein
  * dynamisches action={…} würde Gate-Regel 11 blind machen.
  *
- * **Diese Seite hat kein Ändern und keine Löschen-Aktion.** Geändert wird am
- * Blatt selbst, auf /wissen/[id], wo der Text ohnehin schon steht; ein zweiter
+ * **Diese Seite hat kein Ändern und kein Löschen.** Beides sitzt am Blatt
+ * selbst, auf /wissen/[id], wo der Text ohnehin schon steht; ein zweiter
  * Änderungsweg von der Liste aus hiesse, den ganzen Freitext jedes Blatts ins
- * ausgelieferte HTML der Liste zu legen. Gelöscht wird gar nicht — das ist
- * keine Auslassung dieser Story, sondern ihr Umfang: die Abnahmekriterien
- * kennen Lesen, Anlegen und Ändern, und eine zerstörende Aktion ausserhalb der
- * Verwaltung wäre die erste im Produkt.
+ * ausgelieferte HTML der Liste zu legen — und ein Löschen-Knopf an einer
+ * Listenzeile löschte etwas, dessen Inhalt man gerade nicht sieht.
+ *
+ * **Der zweite Halbsatz hat bis zum 2026-09-20 etwas anderes behauptet** und
+ * ist richtiggestellt: „Gelöscht wird gar nicht — das ist keine Auslassung
+ * dieser Story, sondern ihr Umfang." Das stimmte, solange es kein Löschen gab.
+ * Seit dem Entscheid Manuels an jenem Tag gibt es eines, auf /wissen/[id] und
+ * nur für Adminpersonen; die Begründung für die Schranke steht an
+ * blattLoeschen in ../../lib/server/db/queries/sheets.ts.
+ *
+ * Was von dieser Seite aus **landet**, ist seither die Meldung darüber: das
+ * Löschen leitet auf `/wissen?geloescht` weiter, weil das Blatt, auf dem es
+ * sonst melden würde, gerade verschwunden ist.
  */
 
 /*
@@ -64,15 +73,31 @@ import {
  * /verwaltung, und derselbe Grund: ein `maxlength="200"` neben einem Server,
  * der aus der Konstante prüft, sind zwei Zahlen über eine Regel.
  */
-export function load(): {
+export function load({ url }: ServerLoadEvent): {
 	blaetter: Blattzeile[];
 	titelGrenze: number;
 	textGrenze: number;
+	geloescht: boolean;
 } {
 	return {
 		blaetter: blaetterLesen(),
 		titelGrenze: AUFGABE_HOECHSTLAENGE,
 		textGrenze: BLATT_HOECHSTLAENGE,
+		/*
+		 * **Die einzige Rückmeldung, die auf dieser Seite landet** — seit dem
+		 * 2026-09-20 und dem Löschen auf /wissen/[id].
+		 *
+		 * Bisher hatte die Liste keine: das Anlegen leitet auf das frische Blatt
+		 * weiter, und der Erfolgssatz steht dort. Das Löschen kann das nicht — die
+		 * Seite, auf die es weiterleiten müsste, ist gerade verschwunden.
+		 *
+		 * Ein Wahrheitswert ohne Titel, und das ist bedacht: der Titel stünde in
+		 * der Adresszeile, wäre bis zu zweihundert Zeichen lang und bliebe dort
+		 * stehen, bis jemand die Seite verlässt. Was die Person wissen muss, ist,
+		 * **dass** es geklappt hat — was gelöscht wurde, hat sie eine Sekunde
+		 * zuvor in der Rückfrage gelesen.
+		 */
+		geloescht: url.searchParams.has('geloescht'),
 	};
 }
 

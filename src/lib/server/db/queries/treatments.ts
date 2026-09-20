@@ -127,16 +127,19 @@ export function behandlungEintragen(
 }
 
 /**
- * Nimmt eine Zeile weg — das **zweite** DELETE dieses Produkts ausserhalb der
- * Verwaltung, neben ernteAbernten.
+ * Nimmt eine Zeile weg — das **zweite von drei** DELETEs dieses Produkts
+ * ausserhalb der Verwaltung, neben ernteAbernten und blattLoeschen.
  *
- * Die beiden meinen Verschiedenes, und der Unterschied gehört hierhin
+ * Die drei meinen Verschiedenes, und der Unterschied gehört hierhin
  * geschrieben, damit niemand das eine für das andere hält: eine Erntezeile
  * wegzunehmen ist der **normale Ausgang** ihres Lebens — sie ist abgeerntet.
  * Eine Behandlung wegzunehmen ist immer eine **Richtigstellung**: sie ist
  * geschehen, und was hier verschwindet, ist die falsche Auskunft darüber, nicht
  * die Handlung. Darum gibt es kein `abgeschlossen` und keinen zweiten Zustand —
  * es gibt nichts abzuschliessen.
+ *
+ * Das dritte, blattLoeschen in ./sheets.ts, ist wieder etwas anderes und als
+ * einziges mit einer Schranke versehen — die Aufstellung im Ganzen steht dort.
  *
  * Es gibt **keine** Bedingung auf die eintragende Person, wie beim Abernten:
  * wer sieht, dass eine Zeile falsch ist, soll sie wegnehmen dürfen, ohne die

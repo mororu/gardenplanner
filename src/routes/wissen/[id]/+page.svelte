@@ -43,6 +43,15 @@
 		form !== null ? '' : data.angelegt ? 'Angelegt.' : data.geaendert ? 'Geändert.' : ''
 	);
 
+	/**
+		Die Rückfrage vor dem Löschen, wenn die action sie gestellt hat.
+
+		Sie kommt **ohne Kennung** zurück, anders als auf /ernte und /wellness: dort
+		steht die Frage an einer Zeile unter vielen, hier gibt es genau ein Blatt,
+		und das ist dieses. Eine Id in der Antwort hätte nichts zu unterscheiden.
+	*/
+	const frage = $derived(form !== null && form.art === 'fragenLoeschen' ? form : null);
+
 	/*
 		Ein Wurf in der action kommt als `result.type === 'error'` zurück — derselbe
 		Weg wie auf allen anderen Seiten.
@@ -126,9 +135,18 @@
 				return;
 			}
 			/*
+				**Eine Rückfrage bekommt keinen Fokussprung nach oben.** Sie ist die
+				Antwort auf den ersten POST von `loeschen` und steht dort, wo der Knopf
+				stand; der Blick soll bleiben. Dieselbe Entscheidung wie beim Abernten
+				auf /ernte und beim Wegnehmen auf /wellness.
+			*/
+			if (form !== null && form.art === 'fragenLoeschen') return;
+			/*
 				Ein geglücktes Ändern leitet auf dieselbe Adresse mit `?geaendert`
-				weiter. Das Formular klappt dabei zu, und der Fokus hätte an ihm kein
-				Ziel mehr — er geht darum an die Rückmeldung, wie auf /traenkeplan.
+				weiter, ein geglücktes Löschen auf /wissen — dort steht dann die
+				Meldung, und diese Seite gibt es nicht mehr. Das Formular klappt dabei
+				zu, und der Fokus hätte an ihm kein Ziel mehr; er geht darum an die
+				Rückmeldung, wie auf /traenkeplan.
 			*/
 			meldungKasten?.focus();
 		};
@@ -230,6 +248,65 @@
 			<button class="button-quiet" type="submit" disabled={imFlug}>Ablegen</button>
 		</form>
 	</details>
+
+	<!--
+		Das Löschen — **nur für Adminpersonen, und der Griff fehlt sonst ganz**
+		(Entscheid Manuel, 2026-09-20). Kein ausgegrauter Knopf, keine Erklärung,
+		warum er nicht geht: für jemanden ohne Adminrechte soll das Löschen nicht
+		existieren, nicht verboten sein — dieselbe Haltung wie beim Eintrag
+		`Verwaltung` auf /mehr.
+
+		Durchgesetzt wird es in der action über `adminOderWeg`; dieser Zweig malt
+		nur. Wer `data.istAdmin` im Browser auf true dreht, bekommt einen Knopf,
+		der beim Drücken auf `/` weiterleitet.
+
+		**Es steht unter dem Ändern und ganz unten**, weil es die seltenste und
+		die einzige unumkehrbare Handlung dieser Seite ist: erst lesen, dann
+		ändern, dann — wenn gar nichts mehr hilft — löschen.
+
+		**Ohne `<details>`**, anders als das Ändern darüber: ein Aufklapper
+		verspricht ein Formular, hier steht ein einzelner Knopf. Und ein
+		zugeklapptes `Löschen` wäre ein Wort, das man aufklappt, um zu sehen, ob
+		darunter noch etwas kommt.
+
+		Literales action="?/loeschen" wegen Gate-Regel 11.
+	-->
+	{#if data.istAdmin}
+		{#if frage !== null}
+			<div class="bestaetigung">
+				<p class="bestaetigung__text" id="loeschen-frage">
+					„{frage.titel}" löschen? Das Blatt ist dann für alle weg — es gibt keine Versionen und
+					keinen Papierkorb.
+				</p>
+				<div class="knoepfe">
+					<!-- `Abbrechen` steht zuerst: die Reihenfolge im DOM ist die
+					     Fokusreihenfolge, und die zusagende Handlung soll nicht die erste
+					     sein. Ein Link und kein Knopf — er verwirft die Antwort der action,
+					     indem er die Seite neu holt. -->
+					<a class="button-quiet" href={resolve('/wissen/[id]', { id: String(data.blatt.id) })}>
+						Abbrechen
+					</a>
+					<form method="POST" action="?/loeschen" use:enhance={versand}>
+						<input type="hidden" name="bestaetigt" value="1" />
+						<button
+							class="button-quiet button-quiet--zerstoerend"
+							type="submit"
+							aria-describedby="loeschen-frage"
+							disabled={imFlug}
+						>
+							Löschen
+						</button>
+					</form>
+				</div>
+			</div>
+		{:else}
+			<form method="POST" action="?/loeschen" use:enhance={versand}>
+				<button class="button-quiet button-quiet--zerstoerend" type="submit" disabled={imFlug}>
+					Blatt löschen
+				</button>
+			</form>
+		{/if}
+	{/if}
 
 	<!--
 		Der Weg zurück zur Liste. **Kein Zurück-Pfeil in der Titelleiste** — die

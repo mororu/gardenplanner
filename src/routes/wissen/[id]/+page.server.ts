@@ -7,7 +7,13 @@ import {
 	blattTitelPruefen,
 } from '../../../lib/blatttext.ts';
 import { abweisen } from '../../../lib/server/abweisen.ts';
-import { blattAendern, blattLesen, type Blatt } from '../../../lib/server/db/queries/sheets.ts';
+import { adminOderWeg } from '../../../lib/server/adminschranke.ts';
+import {
+	blattAendern,
+	blattLesen,
+	blattLoeschen,
+	type Blatt,
+} from '../../../lib/server/db/queries/sheets.ts';
 import { NICHT_GEFUNDEN } from '../../../lib/texte.ts';
 
 /*
@@ -44,15 +50,31 @@ import { NICHT_GEFUNDEN } from '../../../lib/texte.ts';
  * dieser Zweig verhindern soll. Mit `use:enhance` greift die Antwort der action
  * im Browser, und der Satz erscheint wie gedacht.
  *
- * Der Zweig bleibt trotzdem stehen, und zwar als **defensiver** und nicht als
- * erreichbarer: es gibt keine Löschen-Aktion für Blätter, eine Zeile kann nur
- * durch direkten Datenbankzugriff verschwinden. Ihn wegzunehmen hiesse, das
- * Ändern eines fortgekommenen Blatts auf beiden Wegen zum 404 zu machen; ihn zu
- * härten hiesse, die `load` müsste den Fehlschlag der action kennen. Beides ist
- * mehr, als diese Story trägt, und steht in deferred-work.md.
+ * **Seit dem 2026-09-20 ist der Zweig erreichbar, und der Absatz darüber
+ * musste umgeschrieben werden.** Er sagte: „Der Zweig bleibt als defensiver und
+ * nicht als erreichbarer stehen, es gibt keine Löschen-Aktion für Blätter, eine
+ * Zeile kann nur durch direkten Datenbankzugriff verschwinden." Das stimmt
+ * nicht mehr — `loeschen` darunter nimmt Blätter weg. Wer ein Blatt offen hat,
+ * während eine Adminperson es löscht, und dann `Ablegen` drückt, bekommt genau
+ * diesen Satz. Der Fall ist damit von gedacht zu möglich geworden.
+ *
+ * Ihn wegzunehmen hiesse, das Ändern eines fortgekommenen Blatts auf beiden
+ * Wegen zum 404 zu machen; ihn zu härten hiesse, die `load` müsste den
+ * Fehlschlag der action kennen. Beides steht weiterhin in deferred-work.md.
  */
 const BLATT_NICHT_ANSPRECHBAR =
 	'Dieses Blatt gibt es nicht mehr. Kopiere deinen Text und lege ihn neu an.';
+
+/**
+ * Derselbe Umstand am **Löschen**, und darum ein anderer Satz.
+ *
+ * `Kopiere deinen Text` wäre hier eine Aufforderung an jemanden, der nichts
+ * getippt hat: wer löschen wollte, hat einen Knopf gedrückt und kein Formular
+ * ausgefüllt. Was zu tun ist, ist ausserdem ein anderes — beim Ändern soll die
+ * Arbeit gerettet werden, hier ist das Ziel schon erreicht, nur von jemand
+ * anderem.
+ */
+const BLATT_SCHON_FORT = 'Dieses Blatt gibt es nicht mehr — jemand war schneller.';
 
 /**
  * Die Id aus dem Pfadsegment, oder null.
@@ -92,12 +114,13 @@ function idLesen(roh: unknown): number | null {
  * Beide sind Wahrheitswerte ohne Zahl: es entsteht und ändert sich immer genau
  * ein Blatt, es gibt keinen Stapel.
  */
-export function load({ params, url }: ServerLoadEvent): {
+export function load({ locals, params, url }: ServerLoadEvent): {
 	blatt: Blatt;
 	titelGrenze: number;
 	textGrenze: number;
 	angelegt: boolean;
 	geaendert: boolean;
+	istAdmin: boolean;
 } {
 	const id = idLesen(params.id);
 	if (id === null) error(404, { message: NICHT_GEFUNDEN });
@@ -111,6 +134,18 @@ export function load({ params, url }: ServerLoadEvent): {
 		textGrenze: BLATT_HOECHSTLAENGE,
 		angelegt: url.searchParams.has('angelegt'),
 		geaendert: url.searchParams.has('geaendert'),
+		/*
+		 * **Nur dafür, ob der Löschen-Griff gemalt wird — und für nichts sonst.**
+		 * Die Schranke selbst steht in der action (adminOderWeg); dieser Wert ist
+		 * die Oberfläche dazu und nicht ihre Durchsetzung. Wer ihn im Browser auf
+		 * true dreht, bekommt einen Knopf, der beim Drücken auf `/` weiterleitet.
+		 *
+		 * `locals.mitglied` ist hier nie null — der Wächter in src/hooks.server.ts
+		 * hat vorher mit 403 abgewiesen. Der `?.`-Zugriff steht trotzdem, weil der
+		 * Typ null zulässt und ein `!` diese Seite von einer Annahme über eine
+		 * andere Datei abhängig machte.
+		 */
+		istAdmin: locals.mitglied?.isAdmin ?? false,
 	};
 }
 
@@ -174,5 +209,65 @@ export const actions = {
 
 		// Nach dem redirect läuft hier nichts mehr: redirect() wirft.
 		redirect(303, `/wissen/${id}?geaendert`);
+	},
+
+	/**
+	 * Löscht das Blatt — **nur eine Adminperson, und in zwei Schritten**
+	 * (Entscheid Manuel, 2026-09-20).
+	 *
+	 * **Die Schranke steht hier und nicht im Markup.** `data.istAdmin` entscheidet
+	 * allein darüber, ob der Griff gemalt wird; durchgesetzt wird es von
+	 * `adminOderWeg`, und ein POST braucht kein Formular. Dieselbe Trennung wie
+	 * zwischen `maxlength` und einer Längengrenze — nur mit ungleich höherem
+	 * Einsatz, denn hier verschwindet etwas.
+	 *
+	 * **`adminOderWeg` leitet weiter und wirft keine 403**, wie auf /verwaltung:
+	 * für jemanden ohne Adminrechte soll das Löschen nicht existieren, nicht
+	 * verboten sein. Eine Fehlerseite wäre die Auskunft, dass es hier etwas gibt.
+	 *
+	 * **Warum gefragt wird.** Es gibt keine Versionen und keinen Papierkorb; ein
+	 * Blatt ist nach dem zweiten POST fort, und wer es zurückhaben will, schreibt
+	 * es neu. Dieselbe Bauform wie das Abernten auf /ernte: ein POST ohne
+	 * `bestaetigt` ändert nichts und fragt, erst der zweite schreibt. Ohne
+	 * JavaScript ist die Antwort auf den ersten POST ein vollständiges Dokument
+	 * mit der Frage.
+	 *
+	 * Die Frage trägt den Titel mit, obwohl er zwei Zeilen höher als Überschrift
+	 * steht: sie wird gelesen, nachdem der Blick nach oben gesprungen ist.
+	 *
+	 * Weitergeleitet wird auf die **Liste** und nicht auf das Blatt — das gibt es
+	 * nicht mehr, und ein `?geloescht` an seiner eigenen Adresse wäre ein 404 mit
+	 * einer Erfolgsmeldung im Gepäck.
+	 */
+	loeschen: async ({ locals, params, request }: RequestEvent) => {
+		// Zuerst die Schranke, vor jedem Lesen und vor jeder Deutung des Formulars:
+		// wer nicht durchdarf, soll auch nicht erfahren, ob es die Kennung gibt.
+		adminOderWeg(locals);
+
+		const id = idLesen(params.id);
+		if (id === null) error(404, { message: NICHT_GEFUNDEN });
+
+		const formular = await request.formData();
+
+		// Schritt 1: fragen. `has` und nicht ein Wertvergleich — das Feld ist eine
+		// Marke, kein Wert.
+		if (!formular.has('bestaetigt')) {
+			const blatt = blattLesen(id);
+			if (blatt === null) {
+				return abweisen(BLATT_SCHON_FORT);
+			}
+			return { art: 'fragenLoeschen' as const, titel: blatt.titel };
+		}
+
+		// Schritt 2: schreiben. Wer das Wettrennen verliert, weil jemand anders in
+		// der Zwischenzeit gelöscht hat, bekommt denselben Satz wie jemand mit
+		// einer erfundenen Kennung.
+		const weg = blattLoeschen(id);
+		if (weg === null) {
+			return abweisen(BLATT_SCHON_FORT);
+		}
+
+		// Nach dem redirect läuft hier nichts mehr: redirect() wirft.
+		redirect(303, '/wissen?geloescht');
 	},
 } satisfies Actions;

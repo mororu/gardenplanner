@@ -181,3 +181,45 @@ export function blattAendern(id: number, titel: string, text: string): boolean {
 		.get();
 	return zeile !== undefined;
 }
+
+/**
+ * Nimmt ein Blatt weg — **das einzige DELETE dieses Produkts mit einer
+ * Schranke davor.**
+ *
+ * Drei DELETEs gibt es ausserhalb der Verwaltung, und sie sind verschieden
+ * gebaut. Der Unterschied gehört hierhin geschrieben, damit niemand das eine
+ * für das andere hält:
+ *
+ *   ernteAbernten      jedes Mitglied. Der **normale Ausgang** einer Zeile —
+ *                      sie ist abgeerntet, und was weg ist, ist weg.
+ *   behandlungWegnehmen jedes Mitglied. Eine **Richtigstellung** — die
+ *                      Behandlung hat stattgefunden, weg ist die falsche
+ *                      Auskunft darüber.
+ *   blattLoeschen      **nur eine Adminperson.** Weder das eine noch das
+ *                      andere: ein Blatt ist Wissen, das jemand aufgeschrieben
+ *                      hat, und es verschwindet nicht von selbst.
+ *
+ * **Warum hier eine Schranke steht und an den zwei anderen nicht** (Entscheid
+ * Manuel, 2026-09-20). Eine abgeerntete Zeile ist in einer Woche ohnehin
+ * gegenstandslos, und eine falsche Behandlungszeile trägt den Namen dessen,
+ * der sie schrieb. Ein Blatt trägt keinen Autor — das ist die Aussage von
+ * /wissen: `Wer eines ändert, ändert es für alle`. Genau darum kann seinen
+ * Verlust auch niemand einer Person zuordnen, und ein Fehlgriff ist nicht
+ * zurückzunehmen: es gibt keine Versionen und keinen Papierkorb.
+ *
+ * Die Schranke ist damit **kein Misstrauen gegen Mitglieder**, sondern die
+ * Antwort auf eine fehlende Wiederherstellung. Wer sie fallen lassen will,
+ * baut zuerst die Versionen — nicht umgekehrt.
+ *
+ * Zurück kommt, was die Rückmeldung braucht: das Blatt ist danach fort und
+ * lässt sich nicht mehr lesen. null heisst, dass es die Kennung nicht (mehr)
+ * gibt.
+ */
+export function blattLoeschen(id: number): { titel: string } | null {
+	const zeile = datenbank()
+		.delete(sheets)
+		.where(eq(sheets.id, id))
+		.returning({ titel: sheets.titel })
+		.get();
+	return zeile === undefined ? null : zeile;
+}

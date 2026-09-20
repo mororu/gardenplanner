@@ -178,8 +178,12 @@ export function ernteUmstufen(id: number, status: Erntestatus): Erntezeile | nul
 }
 
 /**
- * Nimmt eine Zeile weg — das eine DELETE dieses Produkts ausserhalb der
- * Verwaltung.
+ * Nimmt eine Zeile weg — **das erste von drei DELETEs dieses Produkts
+ * ausserhalb der Verwaltung**, und das einzige, das der normale Ausgang eines
+ * Zeilenlebens ist: sie ist abgeerntet. Die zwei anderen meinen etwas anderes
+ * und stehen in ./treatments.ts (eine Richtigstellung) und ./sheets.ts (das
+ * einzige mit einer Adminschranke davor); die Aufstellung im Ganzen steht an
+ * blattLoeschen.
  *
  * Es gibt **keine** Bedingung auf die eintragende Person: abernten darf jede,
  * und das ist der Entscheid vom 2026-09-13. Wer im Garten steht und sieht, dass

@@ -30,6 +30,19 @@
 		auf allen Seiten, entschieden am 2026-08-28 zu Eintrag 32 der
 		zurückgestellten Arbeit.
 	*/
+	/**
+		Die Rückmeldung des Löschens — die einzige, die auf dieser Seite landet.
+
+		Das Anlegen leitet auf das frische Blatt weiter und meldet dort; das
+		Löschen kann das nicht, weil die Seite, auf die es weiterleiten müsste,
+		gerade verschwunden ist.
+
+		**Eine Abweisung löscht sie**, aus demselben Grund wie auf /wissen/[id]:
+		`use:enhance` hält die Adresse fest, `data.geloescht` bliebe wahr, und der
+		Erfolgssatz stünde neben einem Fehlersatz über einen anderen Vorgang.
+	*/
+	const rueckmeldung = $derived(form !== null ? '' : data.geloescht ? 'Gelöscht.' : '');
+
 	let versandFehler = $state('');
 
 	/** Die Meldung am Titelfeld. */
@@ -71,6 +84,7 @@
 	const textWert = $derived(form !== null && form.art === 'fehler' ? form.zweiteEingabe : '');
 
 	let imFlug = $state(false);
+	let meldungKasten = $state<HTMLElement | null>(null);
 	let fehlerKasten = $state<HTMLElement | null>(null);
 
 	const versand: SubmitFunction = ({ cancel }) => {
@@ -137,6 +151,32 @@
 	-->
 	<p class="fehler live" bind:this={fehlerKasten} role="alert" aria-live="assertive" tabindex="-1">
 		{fehlerOben}
+	</p>
+	<!--
+		**Die zweite Live-Region dieser Seite, seit dem 2026-09-20.** Der Kommentar
+		über der ersten sagte bis dahin: „Nur eine, anders als auf /traenkeplan: die
+		Erfolgsmeldung steht auf dem angelegten Blatt, weil die action dorthin
+		weiterleitet." Das gilt weiter für das Anlegen — nur landet hier seither
+		auch das Löschen von /wissen/[id], und das hat kein Blatt mehr, auf dem es
+		melden könnte.
+
+		Wie jede Region steht sie **immer** im Markup und ist über `.live:empty`
+		aus dem Fluss genommen, solange sie leer ist (Retro-Posten B2).
+
+		**Sie trägt den Fokusgriff, obwohl hier kein Fokus hinspringt** — und das
+		ist eine zurückgenommene Entscheidung. Der erste Entwurf liess `tabindex`
+		und `bind:this` weg, mit dem Argument: der Vorgang ist auf der vorigen
+		Seite passiert, der Fokus steht nach einer Weiterleitung ohnehin am
+		Dokumentanfang, und eine Zusage ohne Leser ist eine Einladung.
+
+		`smoke` hat widersprochen, und zwar zu Recht: die Wache verlangt den Griff
+		von **jeder** Meldungsregion des Baums, und genau dafür gibt es sie. Eine
+		Region ohne ihn ist die eine, die beim nächsten Umbau vergessen wird —
+		dann, wenn ein Sprung nötig würde. Gleichförmigkeit über acht Regionen
+		wiegt schwerer als die eine, an der die Verdrahtung heute nichts tut.
+	-->
+	<p class="meldung live" bind:this={meldungKasten} role="status" aria-live="polite" tabindex="-1">
+		{rueckmeldung}
 	</p>
 
 	<p class="hinweis">
