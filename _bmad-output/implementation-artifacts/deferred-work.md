@@ -1382,3 +1382,21 @@ nicht-interaktiver Knoten und legt sie als Art `trennlinie` ab: gezählt für di
 Abdeckung und die Herkunftsprüfung der Farben, **nicht** an 3:1 gehalten. Die
 gemessenen Paare stiegen je Schema von 322 auf 479. Die Zahl der Behauptungen
 ist unverändert (70) — es kam keine Wache dazu, eine bestehende sieht mehr.
+
+## Zurückgestellt am 2026-09-20 (Wellness, Wissen, Archiv)
+
+Drei Posten aus der Sitzung, in der die Wellnesszeile umzog, der Rückblick auf
+`/` entstand, das Archiv Monatsaufklapper und eine Suche bekam und `/wissen` um
+PDF-Dokumente samt Suche erweitert wurde. **Manuel hat am 2026-09-20
+ausdrücklich verlangt, dass diese drei beim nächsten Mal wieder aufgebracht
+werden** — sie sind zurückgestellt und nicht abgeschlossen.
+
+- source_spec: Entscheid Manuel am 2026-09-19 („erst die Anwendungen")
+  summary: Der **Ansatzstand** der Wellnessbehandlung ist entworfen, aber nicht gebaut — `/wellness` hat bis heute nur das Tagebuch.
+  evidence: Der Entwurf steht und ist nicht neu zu denken: eine Tabelle `ansaetze` mit `mittel`, `angesetztAm`, `reifAb` (im Formular mit +14 Tagen vorbelegt), `gefaess` (nullbar) und `memberId`. Ein Stand wie die Ernte — aufgebraucht heisst Zeile weg. Zwischen einer Anwendung und einem Ansatz gibt es ausdrücklich **keinen** Fremdschlüssel: Manuel setzt meistens selbst an, kauft Schachtelhalm aber auch fertig, und eine Spalte, die bei der Hälfte der Zeilen leer bliebe, stellte an jeder Eingabe eine Frage, die niemand beantworten will. Die zwei Blöcke stehen nebeneinander, nicht ineinander. Wozu: Brennnesseljauche braucht zehn bis vierzehn Tage, bis sie ausgegoren ist; wer heute giessen will, braucht eine fertige, und heute sagt ihm das niemand.
+- source_spec: Befund am 2026-09-20 beim Bau der zwei Suchen
+  summary: Die Suche auf `/archiv` braucht JavaScript — ohne es steht das Feld da und tut nichts. Auf `/wissen` ist dieselbe Aufgabe anders gelöst und trägt ohne.
+  evidence: Das Archiv filtert in der Komponente über `data.erledigte`, und das ist dort die richtige Rechnung: die Zeilen sind ohnehin alle geladen, eine Serverrunde wäre Aufwand ohne Gegenwert. Der Preis ist die Abhängigkeit von JavaScript, und sie ist **still** — das Feld sieht benutzbar aus und filtert nicht. `/wissen` löst dieselbe Aufgabe über ein GET-Formular und `?suche=`, weil der Freitext dort gar nicht geladen ist; das trägt ohne JavaScript, ist teilbar und lässt den Zurück-Knopf zur ganzen Liste führen. Die zwei Bauformen nebeneinander sind begründet und trotzdem eine Ungleichheit, die niemand erwartet. Die kleine Fassung wäre, dass das Archiv seinen Begriff ebenfalls aus der Adresse liest und dorthin schreibt — dann filtert weiterhin der Browser, aber der Weg ohne ihn zeigt wenigstens eine gefilterte Liste. Nicht angefasst, weil es den Umbau der Aufklapp-Logik berührt (`open={… || sucht}`), und die hat gerade erst ihre Wachen bekommen.
+- source_spec: Befund am 2026-09-20 beim Bau der Dokumentablage
+  summary: Eine **verwaiste Datei** in `dokumente/` wird von nichts gefunden und von nichts aufgeräumt.
+  evidence: Abgelegt wird Datei-dann-Zeile, gelöscht Zeile-dann-Datei — beide Reihenfolgen sind so gewählt, dass ein Abbruch dazwischen höchstens eine Datei ohne Zeile hinterlässt und nie eine Zeile ohne Inhalt. Das ist die harmlose Richtung, und sie ist bewusst gewählt. Was fehlt, ist der Weg zurück: eine solche Datei ist unerreichbar, belegt Platz und wandert bei jeder Sicherung ins tar. Bei zwanzig Leuten und einer Handvoll Merkblättern ist das auf Jahre kein Fall, und ein automatischer Aufräumer wäre gefährlicher als das Problem — er löschte anhand einer Abfrage, deren Fehlschlag Dateien kostet. Die ruhige Fassung wäre ein Skript, das **meldet** statt löscht: welche Namen in `dokumente/` in keiner Zeile vorkommen. Erst nötig, wenn es je einen Abbruch gegeben hat.
