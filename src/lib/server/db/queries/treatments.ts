@@ -9,10 +9,21 @@ import { members, treatments, type NewTreatment } from '../schema.ts';
  *
  * Alles synchron: better-sqlite3 gibt Werte direkt zurück.
  *
- * **Die Regel, die dieses Modul durchsetzt, ist die Ordnung**, wie bei
- * ./harvests.ts — nur ist sie hier eine andere und einfachere: das Tagebuch
- * steht nach dem Tag der Anwendung, jüngste zuerst. Keine Stufen, keine
- * Kaskade, kein Rang.
+ * **Dieses Modul setzt seit dem 2026-09-20 keine Ordnung mehr durch**, und
+ * dieser Absatz sagte bis dahin das Gegenteil: „Die Regel, die dieses Modul
+ * durchsetzt, ist die Ordnung, wie bei ./harvests.ts — das Tagebuch steht nach
+ * dem Tag der Anwendung, jüngste zuerst."
+ *
+ * Die Seite ordnet jetzt **nach Beet**, und diese Ordnung steht in
+ * src/lib/wellness.ts (`nachBeet`): sie ist eine Auslegung — `Beet 3` vor
+ * `Beet 12` — und keine Eigenschaft der Daten. In SQL wäre sie eine
+ * CASE-Kaskade über Zeichenpositionen, die niemand mehr liest.
+ *
+ * Was die Abfrage liefert, ist darum nur noch eine **feste** Reihenfolge und
+ * keine bedeutungsvolle: jüngste zuerst, damit zwei Aufrufe dasselbe ergeben.
+ * Wer sie umdreht, ändert nichts an dem, was die Seite zeigt — und das ist
+ * Absicht. Bis zum 2026-09-20 hätte es die Fälligkeit still verdreht; siehe die
+ * Begründung an `letzteJeStelle`, das seither selbst vergleicht.
  *
  * **Was dieses Modul ausdrücklich nicht tut, ist die Fälligkeit.** Welche
  * Zeilen wieder anstehen, entscheidet src/lib/wellness.ts auf den gelesenen
@@ -42,6 +53,7 @@ import { members, treatments, type NewTreatment } from '../schema.ts';
 export type Behandlungszeile = {
 	id: number;
 	mittel: string;
+	kultur: string | null;
 	ort: string | null;
 	angewendetAm: number;
 	intervallTage: number | null;
@@ -52,6 +64,7 @@ export type Behandlungszeile = {
 const anzeigeSpalten = {
 	id: treatments.id,
 	mittel: treatments.mittel,
+	kultur: treatments.kultur,
 	ort: treatments.ort,
 	angewendetAm: treatments.angewendetAm,
 	intervallTage: treatments.intervallTage,
@@ -60,15 +73,19 @@ const anzeigeSpalten = {
 };
 
 /*
- * Der jüngste Tag zuerst. `desc(id)` als zweiter Schlüssel, damit zwei
- * Behandlungen **desselben Tages** eine feste Reihenfolge haben — und das ist
- * hier kein Randfall wie bei harvests, sondern der Normalfall: `angewendet_am`
- * ist ein Tagesende, also für alle Zeilen eines Tages derselbe Wert. Ohne den
- * zweiten Schlüssel stünden sie zwischen zwei Aufrufen verschieden.
+ * Der jüngste Tag zuerst, dann die höhere Kennung — eine **feste** Reihenfolge,
+ * keine bedeutungsvolle. Was die Seite zeigt, ordnet `nachBeet` in
+ * src/lib/wellness.ts.
+ *
+ * Sie bleibt trotzdem hier, und zwar aus einem Grund, der sich nicht geändert
+ * hat: ohne `orderBy` liefert SQLite die Zeilen in einer Reihenfolge, die es
+ * selbst wählt, und zwei Aufrufe ergäben verschiedene. Der zweite Schlüssel
+ * fängt dabei den Normalfall — `angewendet_am` ist ein Tagesende und für alle
+ * Zeilen eines Tages derselbe Wert.
  */
 const ordnung = [desc(treatments.angewendetAm), desc(treatments.id)];
 
-/** Das ganze Tagebuch, jüngste Anwendung zuerst. */
+/** Das ganze Tagebuch, in fester Reihenfolge. Geordnet wird in der Seite. */
 export function behandlungenLesen(): Behandlungszeile[] {
 	return datenbank()
 		.select(anzeigeSpalten)
@@ -105,6 +122,7 @@ export function behandlungLesen(id: number): Behandlungszeile | null {
 export function behandlungEintragen(
 	eingabe: {
 		mittel: string;
+		kultur: string | null;
 		ort: string | null;
 		angewendetAm: number;
 		intervallTage: number | null;
@@ -117,6 +135,7 @@ export function behandlungEintragen(
 		.returning({
 			id: treatments.id,
 			mittel: treatments.mittel,
+			kultur: treatments.kultur,
 			ort: treatments.ort,
 			angewendetAm: treatments.angewendetAm,
 			intervallTage: treatments.intervallTage,
@@ -149,6 +168,48 @@ export function behandlungEintragen(
  * Zurück kommt, was die Rückmeldung braucht — die Zeile ist danach fort und
  * lässt sich nicht mehr lesen.
  */
+/**
+ * Ändert eine Behandlung — alle vier Angaben auf einmal (Entscheid Manuel,
+ * 2026-09-20).
+ *
+ * **Auch das Datum.** Der naheliegende Einwand wäre, den Tag festzuhalten, weil
+ * er eine geschehene Handlung benennt — aber genau daran vertippt man sich: wer
+ * am Montag einträgt, was er am Samstag gemacht hat, und das Feld auf `heute`
+ * stehen lässt, hat eine Zeile, die um zwei Tage falsch liegt und die nächste
+ * Fälligkeit mit sich zieht. Ohne Ändern bliebe nur Wegnehmen und neu
+ * Eintragen, und das schriebe einen fremden Namen an die Zeile.
+ *
+ * **`member_id` bleibt unangetastet.** Der Name an der Zeile sagt, wer
+ * behandelt hat, und das ändert sich durch eine Richtigstellung nicht. Wer eine
+ * fremde Zeile korrigiert, tut das für die Person, nicht an ihrer Stelle — und
+ * ein Tagebuch, in dem der Name beim Tippfehler wechselt, verliert genau die
+ * Auskunft, für die er dasteht.
+ *
+ * **Ohne Vorbedingung auf den alten Stand**, wie beim Umstufen auf /ernte:
+ * zwei Leute, die dieselbe Zeile richtigstellen, sind kein Wettrennen, das
+ * jemand verlieren müsste.
+ *
+ * false heisst: es gibt die Zeile nicht mehr — jemand hat sie weggenommen.
+ */
+export function behandlungAendern(
+	id: number,
+	eingabe: {
+		mittel: string;
+		kultur: string | null;
+		ort: string | null;
+		angewendetAm: number;
+		intervallTage: number | null;
+	}
+): boolean {
+	const zeile = datenbank()
+		.update(treatments)
+		.set(eingabe)
+		.where(eq(treatments.id, id))
+		.returning({ id: treatments.id })
+		.get();
+	return zeile !== undefined;
+}
+
 export function behandlungWegnehmen(id: number): { mittel: string; ort: string | null } | null {
 	const zeile = datenbank()
 		.delete(treatments)
