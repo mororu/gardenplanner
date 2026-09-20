@@ -1485,7 +1485,7 @@ try {
 		const griffe = [...document.querySelectorAll('summary.abschnitt__griff')];
 		return {
 			griffe: griffe.length,
-			abschnitte: document.querySelectorAll('details.abschnitt').length,
+			abschnitte: document.querySelectorAll('details:has(> summary.abschnitt__griff)').length,
 			anzeige: griffe.map((g) => getComputedStyle(g).display),
 			zeichen: griffe.map((g) => g.querySelectorAll('.aufklapp').length),
 			masse: griffe.map((g) => {
@@ -1505,24 +1505,38 @@ try {
 	 * legt keine an, im Quelltext stehen drei Abschnitte, gerendert sind es zwei —
 	 * die feste Drei wurde rot, während die Zusage hielt.
 	 *
-	 * Verglichen wird darum gegen die Zahl der `<details class="abschnitt">` im
-	 * selben Dokument. Das ist die Zusage, um die es geht: **jeder Abschnitt, der
-	 * dasteht, hat genau ein Aufklappzeichen mit Ausdehnung.** Wie viele dastehen,
-	 * entscheiden die Daten.
+	 * Verglichen wird darum gegen die Zahl der Aufklapper im selben Dokument. Das
+	 * ist die Zusage, um die es geht: **jeder Aufklapper, der dasteht, hat genau
+	 * ein Aufklappzeichen mit Ausdehnung.** Wie viele dastehen, entscheiden die
+	 * Daten.
+	 *
+	 * **Gezählt wird über den Griff und nicht über eine Klasse am `<details>`** —
+	 * seit dem 2026-09-20, und das ist eine Verschärfung mit Anlass. Vorher stand
+	 * hier `details.abschnitt`, und das trug, solange jeder Griff dieser Form an
+	 * einem Abschnitt hing. Der Rückblick im Pool hängt an keinem: er trägt die
+	 * leichte Bauform `rueckblick` ohne eigenen Rahmen, aber denselben Griff, weil
+	 * er dieselbe Rolle hat. Mit der alten Zählung standen drei Griffe gegen zwei
+	 * Abschnitte, und die Zeile wurde rot, während die Zusage hielt — derselbe
+	 * Fehlschlag wie am 2026-09-17, nur aus der anderen Richtung.
+	 *
+	 * `:has(> …)` fragt genau das, was gemeint ist: ein `<details>`, dessen
+	 * **eigener** Griff diese Form trägt. Der Kindselektor ist dabei nicht
+	 * Kosmetik — ohne ihn zählte ein Pool, in dem ein Rückblick steht, seinen
+	 * Griff mit und käme doppelt vor.
 	 *
 	 * Die Untergrenze daneben ist kein Ersatz für eine Zahl, sondern der Schutz
 	 * gegen die vakuante Wahrheit: ohne sie wäre die Zeile grün, wenn die Seite
-	 * gar keinen Abschnitt mehr trüge. Sie steht bei zwei, weil `Zum Erledigen`
+	 * gar keinen Aufklapper mehr trüge. Sie steht bei zwei, weil `Zum Erledigen`
 	 * und `Wer übernimmt` datenunabhängig sind — beide stehen auch leer da.
 	 */
 	pruefen(
-		'jeder Abschnittsgriff trägt genau ein Aufklappzeichen mit Ausdehnung',
+		'jeder Aufklappgriff auf / trägt genau ein Aufklappzeichen mit Ausdehnung',
 		aufklappZeichen.griffe === aufklappZeichen.abschnitte &&
 			aufklappZeichen.griffe >= 2 &&
 			aufklappZeichen.zeichen.every((zahl) => zahl === 1) &&
 			aufklappZeichen.masse.every((mass) => /^[1-9]\d*x[1-9]\d*$/.test(mass)) &&
 			aufklappZeichen.anzeige.every((wert) => wert !== 'list-item'),
-		`${aufklappZeichen.griffe} Griff(e) zu ${aufklappZeichen.abschnitte} Abschnitt(en), ` +
+		`${aufklappZeichen.griffe} Griff(e) zu ${aufklappZeichen.abschnitte} Aufklapper(n), ` +
 			`Zeichen ${aufklappZeichen.zeichen.join('/')}, ` +
 			`Masse ${aufklappZeichen.masse.join(' ')}, Anzeige ${aufklappZeichen.anzeige.join(' ')}`
 	);

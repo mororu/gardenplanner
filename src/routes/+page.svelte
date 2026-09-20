@@ -1366,117 +1366,150 @@
 			gespeichert ist: jedes Laden stellt den offenen Abschnitt wieder her.
 		-->
 			<a class="button-primary" href={resolve('/aufgabe')}>+ Aufgabe</a>
+
+			<!--
+			**Der Rückblick — die zuletzt abgehakten Zeilen, durchgestrichen und mit
+			dem Rückweg daneben.** Seit dem 2026-09-20 (Entscheid Manuel).
+
+			**Wozu er da ist, und wogegen nicht.** Er beantwortet eine einzige Frage:
+			*habe ich mich vergriffen?* Bis hierher blieb eine abgehakte Zeile nur in
+			**derselben Sitzung** stehen — der Zustand `erledigt` oben lebt so lange
+			wie die Komponente, und ein Neuladen nahm die Zeile fort. Mit ihr
+			verschwand der Rückweg: /archiv zeigt dieselbe Zeile, hat aber bewusst
+			keine action, und `wiederOeffnen` gab es dann nirgends mehr. Wer den
+			Fehlgriff erst am Abend bemerkte, kam nicht mehr daran.
+
+			**Er ist kein zweites Archiv**, und die zwanzig sind die ganze Aussage
+			dazu. /archiv liest die Geschichte, monatsweise und vollständig; dieser
+			Abschnitt liest das letzte Stück davon, damit ein Griff zurücknehmbar
+			bleibt. Der Fusslink führt darum dorthin, wo es weitergeht — dieselbe
+			Bauform wie `Alle Termine` im Abschnitt darunter.
+
+			**Er steht seit dem 2026-09-20 *in* `Zum Erledigen` und nicht mehr
+			daneben** (Entscheid Manuel), und das kehrt um, was hier einen halben Tag
+			lang stand: „Ein verschachteltes `<details>` wäre ein Aufklapper in einem
+			Aufklapper, und die zwanzig Zeilen lägen dann hinter zwei Griffen."
+
+			**Das Argument stimmt und wiegt trotzdem weniger.** Was es gegen sich
+			hat, ist die Seite als Ganzes: mit ihm als eigenem Abschnitt standen auf
+			`/` vier Griffe untereinander, und der vierte zeigte als einziger nichts
+			an, was noch zu tun ist. Vier Kacheln für drei Fragen — Manuels Befund,
+			und er ist der richtige Massstab. Ein Rückblick ist kein Nachbar des
+			Pools, er ist seine Rückseite: dieselbe Liste, einen Griff später.
+
+			**Der Preis ist benannt und nicht verschwiegen**: wer sich vergriffen
+			hat, klappt jetzt zweimal auf. Getragen wird das davon, dass der zweite
+			Griff genau dort steht, wo der Fehlgriff passiert ist — unter derselben
+			Liste, aus der die Zeile eben verschwunden ist.
+
+			**Hinter dem Erfassen-Knopf und damit zuunterst.** Der Knopf ist die
+			Handlung, die man im Beet sucht; der Rückblick ist die Ausnahme, die man
+			einmal die Woche braucht. Die Reihenfolge ist die Häufigkeit.
+
+			**Bei null fehlt er ganz**, wie Block 1 und Block 2 und anders als der Pool
+			um ihn herum, der `Nichts offen.` sagt. Der Pool ist der Gegenstand dieser
+			Seite und darf nicht verschwinden; ein Rückblick auf nichts ist keine
+			Auskunft, sondern eine leere Zeile. Im frischen Garten gibt es ihn
+			schlicht noch nicht.
+
+			**Zugeklappt geliefert** wie jeder Aufklapper dieser Seite: die Zahl im
+			Griff sagt die Lage, der Inhalt wird aufgeklappt, wenn man ihn braucht.
+			Hier trägt das doppelt — niemand kommt auf diese Seite, um zu lesen, was
+			schon getan ist.
+
+			**Ohne eigenen Rahmen und ohne eigene Fläche**, nur der getönte Griff —
+			dieselbe leichte Bauform wie ein Monat im Archiv, und aus demselben
+			Grund: die Kante des Abschnitts, in dem er steht, umschliesst ihn schon,
+			und eine zweite darin machte aus einer Gliederung einen Stapel Kästen.
+		-->
+			{#if data.ueberblick.zuletzt > 0}
+				<details class="rueckblick">
+					<summary class="abschnitt__griff">
+						<!--
+						**Ein `h3` und kein `h2`**, seit der Rückblick im Pool steht: er ist
+						dem Abschnitt darüber untergeordnet, und die Überschriftenliste
+						eines Screenreaders bildet genau diese Ordnung ab. Ein zweites `h2`
+						innerhalb eines `h2`-Abschnitts sagte, hier fange etwas
+						Gleichrangiges an — und wer die Seite über die Überschriften
+						ansteuert, landete im Pool und dächte, er habe ihn verlassen.
+
+						Die Klasse bleibt `griff__satz`: die Form eines Griffs hängt an
+						seiner Rolle und nicht an seiner Ebene.
+					-->
+						<h3 class="griff__satz" id="zuletzt-marke">
+							{@render zeichenHaken('zeichen--gross')}
+							<span class="kopfzahl">{data.ueberblick.zuletzt}</span>
+							<span class="griff__titel">{GRIFF_ZULETZT}</span>
+						</h3>
+						<ZeichenWinkel class="aufklapp" />
+					</summary>
+					<div class="abschnitt__inhalt rueckblick__inhalt">
+						<ul class="liste" aria-labelledby="zuletzt-marke">
+							{#each data.zuletztErledigt as aufgabe (aufgabe.id)}
+								<!--
+								`zeile--erledigt` steht fest und nicht als `class:` an einer
+								Bedingung: in diesem Abschnitt gibt es keinen anderen Zustand.
+								Die Klasse trägt die Durchstreichung, und die kommt aus
+								demselben Stilblock, der sie im Pool oben trägt — eine Regel,
+								zwei Orte.
+							-->
+								<li class="zeile zeile--erledigt">
+									<!--
+									Dasselbe literale action wie im Pool, damit Gate-Regel 11 es
+									textuell findet, und dieselbe Bauform aus Kästchen, Treffer
+									und verborgenem Verb. Was fehlt, ist der Griff zum Ändern und
+									Entfernen: eine erledigte Zeile ist Historie (FR14). Der
+									einzige Weg, den sie hier hat, ist der zurück.
+
+									Die Kennungen tragen ein eigenes Präfix. Dieselbe Aufgabe kann
+									nicht zugleich oben offen und hier erledigt stehen, aber zwei
+									`id="aufgabe-7"` auf einer Seite wären ein Fehler, der erst
+									auffiele, wenn ein Screenreader die falsche Beschriftung
+									vorliest.
+								-->
+									<form
+										class="zeile__form"
+										method="POST"
+										action="?/wiederOeffnen"
+										use:enhance={versandRueckblick()}
+									>
+										<input type="hidden" name="aufgabeId" value={aufgabe.id} />
+										<span class="treffer">
+											<input
+												class="kaestchen"
+												type="checkbox"
+												checked
+												disabled={imFlug}
+												aria-labelledby="zuletzt-{aufgabe.id} zuletzt-verb-{aufgabe.id}"
+												onchange={abschicken}
+											/>
+											<span class="haken" aria-hidden="true"></span>
+										</span>
+										<span class="nur-vorgelesen" id="zuletzt-verb-{aufgabe.id}"
+											>, wieder öffnen</span
+										>
+									</form>
+									<div class="zeile__spalte">
+										<span class="zeile__aufgabe zeile__text" id="zuletzt-{aufgabe.id}"
+											>{aufgabe.text}</span
+										>
+									</div>
+								</li>
+							{/each}
+						</ul>
+						<!--
+						Der Weg zum Rest, in derselben stillen Form wie `Alle Termine` unten
+						und **ohne** primären Knopf daneben: dieser Abschnitt legt nichts an.
+						Der eine primäre Knopf des Pools steht darüber und gehört dem Pool.
+					-->
+						<div class="knoepfe">
+							<a class="eintrag" href={resolve('/archiv')}>{ZULETZT_WEITER}</a>
+						</div>
+					</div>
+				</details>
+			{/if}
 		</div>
 	</details>
-
-	<!--
-		**Der Rückblick — die zuletzt abgehakten Zeilen, durchgestrichen und mit
-		dem Rückweg daneben.** Seit dem 2026-09-20 (Entscheid Manuel).
-
-		**Wozu er da ist, und wogegen nicht.** Er beantwortet eine einzige Frage:
-		*habe ich mich vergriffen?* Bis hierher blieb eine abgehakte Zeile nur in
-		**derselben Sitzung** stehen — der Zustand `erledigt` oben lebt so lange
-		wie die Komponente, und ein Neuladen nahm die Zeile fort. Mit ihr
-		verschwand der Rückweg: /archiv zeigt dieselbe Zeile, hat aber bewusst
-		keine action, und `wiederOeffnen` gab es dann nirgends mehr. Wer den
-		Fehlgriff erst am Abend bemerkte, kam nicht mehr daran.
-
-		**Er ist kein zweites Archiv**, und die zwanzig sind die ganze Aussage
-		dazu. /archiv liest die Geschichte, monatsweise und vollständig; dieser
-		Abschnitt liest das letzte Stück davon, damit ein Griff zurücknehmbar
-		bleibt. Der Fusslink führt darum dorthin, wo es weitergeht — dieselbe
-		Bauform wie `Alle Termine` im Abschnitt darunter.
-
-		**Er steht unter `Zum Erledigen` und nicht darin.** Ein verschachteltes
-		`<details>` wäre ein Aufklapper in einem Aufklapper, und die zwanzig
-		Zeilen lägen dann hinter zwei Griffen. Nebeneinander ist auch die
-		ehrlichere Aussage: was erledigt ist, ist nicht mehr Teil dessen, was zu
-		erledigen ist. Vor Block 2 und nicht dahinter, weil er zum Pool gehört —
-		wer eben abgehakt hat, schaut hier nach und nicht hinter den Terminen.
-
-		**Bei null fehlt er ganz**, wie Block 1 und Block 2 und anders als der Pool
-		darüber, der `Nichts offen.` sagt. Der Pool ist der Gegenstand dieser Seite
-		und darf nicht verschwinden; ein Rückblick auf nichts ist keine Auskunft,
-		sondern eine leere Zeile. Im frischen Garten gibt es ihn schlicht noch
-		nicht.
-
-		**Zugeklappt geliefert** wie die zwei Abschnitte um ihn herum, und aus
-		demselben Grund: die Zahl im Griff sagt die Lage, der Inhalt wird
-		aufgeklappt, wenn man ihn braucht. Hier trägt das doppelt — niemand kommt
-		auf diese Seite, um zu lesen, was schon getan ist.
-	-->
-	{#if data.ueberblick.zuletzt > 0}
-		<details class="abschnitt">
-			<summary class="abschnitt__griff">
-				<h2 class="griff__satz" id="zuletzt-marke">
-					{@render zeichenHaken('zeichen--gross')}
-					<span class="kopfzahl">{data.ueberblick.zuletzt}</span>
-					<span class="griff__titel">{GRIFF_ZULETZT}</span>
-				</h2>
-				<ZeichenWinkel class="aufklapp" />
-			</summary>
-			<div class="abschnitt__inhalt">
-				<ul class="liste" aria-labelledby="zuletzt-marke">
-					{#each data.zuletztErledigt as aufgabe (aufgabe.id)}
-						<!--
-							`zeile--erledigt` steht fest und nicht als `class:` an einer
-							Bedingung: in diesem Abschnitt gibt es keinen anderen Zustand.
-							Die Klasse trägt die Durchstreichung, und die kommt aus
-							demselben Stilblock, der sie im Pool oben trägt — eine Regel,
-							zwei Orte.
-						-->
-						<li class="zeile zeile--erledigt">
-							<!--
-								Dasselbe literale action wie im Pool, damit Gate-Regel 11 es
-								textuell findet, und dieselbe Bauform aus Kästchen, Treffer
-								und verborgenem Verb. Was fehlt, ist der Griff zum Ändern und
-								Entfernen: eine erledigte Zeile ist Historie (FR14). Der
-								einzige Weg, den sie hier hat, ist der zurück.
-
-								Die Kennungen tragen ein eigenes Präfix. Dieselbe Aufgabe kann
-								nicht zugleich oben offen und hier erledigt stehen, aber zwei
-								`id="aufgabe-7"` auf einer Seite wären ein Fehler, der erst
-								auffiele, wenn ein Screenreader die falsche Beschriftung
-								vorliest.
-							-->
-							<form
-								class="zeile__form"
-								method="POST"
-								action="?/wiederOeffnen"
-								use:enhance={versandRueckblick()}
-							>
-								<input type="hidden" name="aufgabeId" value={aufgabe.id} />
-								<span class="treffer">
-									<input
-										class="kaestchen"
-										type="checkbox"
-										checked
-										disabled={imFlug}
-										aria-labelledby="zuletzt-{aufgabe.id} zuletzt-verb-{aufgabe.id}"
-										onchange={abschicken}
-									/>
-									<span class="haken" aria-hidden="true"></span>
-								</span>
-								<span class="nur-vorgelesen" id="zuletzt-verb-{aufgabe.id}">, wieder öffnen</span>
-							</form>
-							<div class="zeile__spalte">
-								<span class="zeile__aufgabe zeile__text" id="zuletzt-{aufgabe.id}"
-									>{aufgabe.text}</span
-								>
-							</div>
-						</li>
-					{/each}
-				</ul>
-				<!--
-					Der Weg zum Rest, in derselben stillen Form wie `Alle Termine` unten
-					und **ohne** primären Knopf daneben: dieser Abschnitt legt nichts an.
-				-->
-				<div class="knoepfe">
-					<a class="eintrag" href={resolve('/archiv')}>{ZULETZT_WEITER}</a>
-				</div>
-			</div>
-		</details>
-	{/if}
 
 	<!--
 		Block 2. **Ohne eine freie Einzelaufgabe fehlt er ganz** — wie Block 1 und
@@ -2583,6 +2616,43 @@
 		Kästchen mit Haken und gedämpfte Schrift. Kein Zustand hängt allein an der
 		Farbe — die Dämpfung ist die letzte der drei und nie die einzige.
 	*/
+	/*
+		Der Rückblick im Pool — **ein Aufklapper in einem Aufklapper**, seit dem
+		2026-09-20.
+
+		**Ohne Kante und ohne eigene Fläche**, anders als `.abschnitt`, in dem er
+		steht: dessen Kante umschliesst ihn schon, und eine zweite darin machte aus
+		einer Gliederung einen Stapel Kästen. Dieselbe Bauform wie ein Monat im
+		Archiv, und dort steht die Begründung in ganzer Länge.
+
+		Das `overflow: hidden` hat denselben Grund wie an `.abschnitt`: es zwingt
+		die getönte Fläche des Griffs in den Radius. Ohne es stehen ihre Ecken
+		quadratisch über der Rundung.
+
+		`--radius-sm` und nicht `--radius-md`: er sitzt in einem Behälter mit
+		`--radius-md`, und ein Kind mit demselben Radius wie sein Elternteil liest
+		sich als verrutschte Kopie davon.
+	*/
+	.rueckblick {
+		border-radius: var(--radius-sm);
+		overflow: hidden;
+	}
+
+	/*
+		Der Inhalt des Rückblicks — **ein Modifikator und keine zweite Regel**.
+
+		`.abschnitt__inhalt` bringt die Spalte und den Abstand zwischen ihren
+		Kindern mit, und genau die werden hier gebraucht. Was nicht gebraucht wird,
+		ist sein seitlicher Innenabstand: der Abschnitt darüber hat seinen schon,
+		und zwei übereinander schöben die Zeilen zweimal vom Rand weg. Dieselbe
+		Bauform wie `.liste--getrennt` am geteilten Listenstil — ein Unterschied,
+		benannt statt verdoppelt.
+	*/
+	.rueckblick__inhalt {
+		padding-inline: 0;
+		padding-block: var(--space-2);
+	}
+
 	.zeile--erledigt .zeile__aufgabe {
 		color: var(--ink-secondary);
 		text-decoration: line-through;

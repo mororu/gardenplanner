@@ -3729,13 +3729,20 @@ try {
 	 * oder wegkommt.** Das ist Absicht: es ist die Stelle, an der jemand den neuen
 	 * Abschnitt daraufhin ansieht, ob er eine Handlung braucht.
 	 *
-	 * **Genau das ist am 2026-09-20 geschehen, und die Antwort war Nein.** Der
-	 * Rückblick (`Zuletzt erledigt`) ist der vierte Abschnitt und der zweite ohne
-	 * primäre Handlung — aus demselben Grund wie die eigenen Zusagen: er zeigt
-	 * nicht, was jemand anfangen könnte, sondern was schon getan ist. Ein
-	 * `+`-Knopf darüber müsste etwas anlegen, das niemand anlegt; erledigt wird
-	 * eine Aufgabe im Pool darüber. Die Handlung, die er trägt, steht an jeder
-	 * Zeile und ist der Rückweg.
+	 * **Genau das ist am 2026-09-20 geschehen, und die Antwort war zweimal
+	 * Nein.** Der Rückblick (`Zuletzt erledigt`) kam als vierter Abschnitt dazu
+	 * und brauchte keine primäre Handlung — aus demselben Grund wie die eigenen
+	 * Zusagen: er zeigt nicht, was jemand anfangen könnte, sondern was schon
+	 * getan ist. Noch am selben Tag ist er **in** den Pool gewandert (Entscheid
+	 * Manuel: vier Kacheln untereinander sind zu viele), und damit sind es wieder
+	 * drei Abschnitte.
+	 *
+	 * **Er fällt aus dieser Zählung heraus, und das ist richtig.** Geschnitten
+	 * wird an `<details class="abschnitt…">`, und er trägt `class="rueckblick"` —
+	 * die leichte Bauform ohne eigenen Rahmen. Sein Inhalt zählt damit zum Pool,
+	 * in dem er steht, und genau das ist er jetzt auch: dessen Rückseite und kein
+	 * Nachbar. Der `+ Aufgabe`-Knopf steht **vor** ihm und bleibt darum im
+	 * Schnitt, den `indexOf('</details>')` zieht.
 	 */
 	const abschnitte = ohneZeilenformulare.split(/<details class="abschnitt[^"]*">/).slice(1);
 	const primaerJeAbschnitt = abschnitte.map(
@@ -3744,7 +3751,7 @@ try {
 	);
 	pruefen(
 		`kein Aufklapper auf / trägt zwei button-primary, und zwei tragen einen (${primaerJeAbschnitt.join('/')})`,
-		primaerJeAbschnitt.length === 4 &&
+		primaerJeAbschnitt.length === 3 &&
 			primaerJeAbschnitt.every((zahl) => zahl <= 1) &&
 			primaerJeAbschnitt.filter((zahl) => zahl === 1).length === 2 &&
 			(ohneZeilenformulare.match(/class="button-primary"/g) ?? []).length === 2,
@@ -8680,14 +8687,21 @@ try {
 			// eigenen Zusagen trägt seit dem 2026-09-17 zusätzlich `meine` für seine
 			// Kante links. Ein Vergleich auf die genaue Zeichenkette hätte ihn beim
 			// Umbau still aus der Zählung fallen lassen.
-			// **Vier seit dem 2026-09-20**: der Rückblick `Zuletzt erledigt` ist
-			// dazugekommen. Die Zahl steht weiter von Hand — sie ist die Stelle, an
-			// der ein fünfter auffällt, statt still danebenzustehen.
-			'es sind genau vier Abschnitts-Aufklapper',
-			(startseiteCodeEinzel.match(/<details class="abschnitt[^"]*">/g) ?? []).length === 4,
+			// **Drei, und der Rückblick ist der vierte Aufklapper, der keiner ist.**
+			// Er kam am 2026-09-20 als eigener Abschnitt dazu und ist am selben Tag
+			// in den Pool gewandert (Entscheid Manuel: vier Kacheln sind zu viele);
+			// seither trägt er `class="rueckblick"` und keine Abschnittsklasse. Die
+			// Zahl steht weiter von Hand — sie ist die Stelle, an der ein vierter
+			// Abschnitt auffällt, statt still danebenzustehen.
+			'es sind genau drei Abschnitts-Aufklapper',
+			(startseiteCodeEinzel.match(/<details class="abschnitt[^"]*">/g) ?? []).length === 3,
 		],
 		[
-			'alle vier tragen einen Griff',
+			// **Vier Griffe auf drei Abschnitte**: der Rückblick trägt denselben
+			// Griff, weil er dieselbe Rolle hat — die Form hängt an der Rolle und
+			// nicht an der Ebene. Die zwei Zahlen zählen darum Verschiedenes und
+			// bewegen sich nicht gemeinsam.
+			'alle vier Aufklapper tragen einen Griff',
 			(startseiteCodeEinzel.match(/<summary class="abschnitt__griff">/g) ?? []).length === 4,
 		],
 		[
@@ -8716,8 +8730,59 @@ try {
 			// Der Griff trägt seit dem 2026-09-11 die Zahl statt eines Titels — die
 			// Zahl **ist** die Überschrift. Was er sagt, prüft die Griff-Wache weiter
 			// oben; hier steht nur, dass er da ist.
+			/*
+			 * **Drei `h2` und ein `h3`**, seit der Rückblick im Pool steht: er ist
+			 * dem Abschnitt darüber untergeordnet, und die Überschriftenliste eines
+			 * Screenreaders bildet genau diese Ordnung ab. Gemessen werden beide
+			 * Ebenen zusammen — und die Aufteilung darunter, damit ein `h2` an
+			 * dieser Stelle auffällt statt still die Gliederung zu ebnen.
+			 */
 			'alle vier Griffe tragen einen Satz mit Kennung',
-			(startseiteCodeEinzel.match(/<h2 class="griff__satz" id="[a-z-]+">/g) ?? []).length === 4,
+			(startseiteCodeEinzel.match(/<h[23] class="griff__satz" id="[a-z-]+">/g) ?? []).length === 4,
+		],
+		[
+			'und der Rückblick im Pool steht eine Ebene tiefer',
+			(startseiteCodeEinzel.match(/<h2 class="griff__satz" id="[a-z-]+">/g) ?? []).length === 3 &&
+				/<h3 class="griff__satz" id="zuletzt-marke">/.test(startseiteCodeEinzel),
+		],
+		/*
+		 * **Und er liegt wirklich im Pool** — die Anordnung, um die es bei diesem
+		 * Umbau ging (Entscheid Manuel, 2026-09-20: vier Kacheln untereinander
+		 * sind zu viele).
+		 *
+		 * Gemessen wird an den Stellen im Quelltext, und drei Vergleiche sagen
+		 * zusammen, was ein einzelner nicht sagt:
+		 *
+		 *   nach `offen-marke`   er steht **im** Pool und nicht davor.
+		 *   vor `einzel-marke`   er verlässt ihn nicht wieder nach unten — sonst
+		 *                        stünde er zwischen den zwei Abschnitten und wäre
+		 *                        genau die vierte Kachel von vorher.
+		 *   nach `+ Aufgabe`     er steht **zuunterst**, hinter dem Erfassen-Knopf.
+		 *                        Der Knopf ist die Handlung, die man im Beet sucht;
+		 *                        der Rückblick ist die Ausnahme. Die Reihenfolge
+		 *                        ist die Häufigkeit.
+		 *
+		 * Ein Umzug nach oben, nach unten oder aus dem Pool heraus macht diese
+		 * Zeile rot — und das ist die Stelle, an der jemand die Begründung am
+		 * Markup noch einmal liest, bevor er sie umkehrt.
+		 */
+		[
+			'und er liegt im Pool, hinter dem Erfassen-Knopf und vor Block 2',
+			(() => {
+				const pool = startseiteCodeEinzel.indexOf('id="offen-marke"');
+				const knopf = startseiteCodeEinzel.indexOf('+ Aufgabe');
+				const rueckblick = startseiteCodeEinzel.indexOf('class="rueckblick"');
+				const block2 = startseiteCodeEinzel.indexOf('id="einzel-marke"');
+				return (
+					pool !== -1 &&
+					knopf !== -1 &&
+					rueckblick !== -1 &&
+					block2 !== -1 &&
+					pool < knopf &&
+					knopf < rueckblick &&
+					rueckblick < block2
+				);
+			})(),
 		],
 		[
 			// Seit dem 2026-09-11 umgekehrt: die primären Knöpfe liegen **in** ihren
@@ -8730,7 +8795,7 @@ try {
 		],
 	] as const;
 	pruefen(
-		'alle vier Abschnitte auf / sind aufklappbar und werden zugeklappt ausgeliefert',
+		'alle Aufklapper auf / sind aufklappbar und werden zugeklappt ausgeliefert',
 		fehlendeTeile(aufklappTeile).length === 0,
 		`fehlt: ${fehlendeTeile(aufklappTeile).join(', ')}`
 	);
