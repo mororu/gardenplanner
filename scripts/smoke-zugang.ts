@@ -91,6 +91,7 @@ import {
 	signupTasks,
 	tasks,
 } from '../src/lib/server/db/schema.ts';
+import { blattAnlegen, blattLesen } from '../src/lib/server/db/queries/sheets.ts';
 import type { AngemeldetesMitglied, NewTask } from '../src/lib/server/db/schema.ts';
 import {
 	mitgliedAnlegen,
@@ -246,7 +247,7 @@ import {
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 675;
+const ERWARTETE_BEHAUPTUNGEN = 679;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -775,8 +776,19 @@ async function archivLaden(): Promise<ArchivModul> {
  * die load je eines, greift sie auf undefined zu und wirft, und der Rahmen macht
  * daraus eine benannte Verletzung. Dieselbe Bauform wie bei MonatsplanModul.
  */
+/*
+ * **Die load von /wissen nimmt seit dem 2026-09-20 ein Ereignis** — vorher
+ * stand hier `load: () => unknown`, und der Aufruf ohne Argument war die
+ * Zusage, dass die Seite weder locals noch cookies noch die Adresse liest.
+ *
+ * Das gilt nicht mehr: sie liest `?geloescht` aus der Adresse, seit das
+ * Löschen auf /wissen/[id] hierher weiterleitet. Der alte Aufruf hat genau das
+ * gemeldet, wofür der Rahmen gebaut ist — `Cannot destructure property 'url' of
+ * 'undefined'` als benannte Verletzung statt eines stillen Durchlaufs, und die
+ * Prüfliste brach an Ort und Stelle ab.
+ */
 type WissenModul = {
-	load: () => unknown;
+	load: (ereignis: unknown) => unknown;
 	actions: Record<string, Aktion>;
 };
 let wissenModul: WissenModul | null = null;
@@ -3697,15 +3709,21 @@ try {
 			seitenPfade.length === 14,
 		] as const,
 		// Vier bis zum 2026-09-13, fünf seit /ernte, sechs seit /sitzungen, sieben
-		// seit /wellness: jede dieser Seiten trägt dieselbe höfliche Region wie /,
-		// /traenkeplan, /verwaltung und /wissen.
+		// seit /wellness, acht seit dem Löschen auf /wissen: jede dieser Seiten
+		// trägt dieselbe höfliche Region wie /, /traenkeplan und /verwaltung.
 		//
-		// **Sieben und nicht vierzehn, obwohl es vierzehn Seiten sind.** /archiv
+		// **Die achte ist die Liste /wissen**, und sie ist der Sonderfall dieser
+		// Aufzählung: die Seite meldet nicht über einen eigenen Vorgang, sondern
+		// über einen fremden. Das Löschen geschieht auf /wissen/[id] und leitet
+		// hierher, weil das Blatt, auf dem es sonst melden würde, gerade
+		// verschwunden ist.
+		//
+		// **Acht und nicht vierzehn, obwohl es vierzehn Seiten sind.** /archiv
 		// und /einzelaufgaben haben keine Meldungsregion, weil sie nichts zu melden
 		// haben: sie lesen nur, exportieren kein `actions`, und eine Region ohne
 		// Vorgang wäre eine Ansage, die nie kommt. Die zwei Zahlen dieser Wache
 		// zählen darum Verschiedenes und bewegen sich nicht gemeinsam.
-		['es gibt genau sieben Meldungsregionen im Baum', meldungsTags.length === 7] as const,
+		['es gibt genau acht Meldungsregionen im Baum', meldungsTags.length === 8] as const,
 		...meldungsTags.map(
 			([name, tag]) =>
 				[
@@ -3778,7 +3796,7 @@ try {
 		`verletzt: ${fehlendeTeile(regionenTeile).join(', ')}`
 	);
 	pruefenGleich(
-		'und es sind sieben höfliche, neunundzwanzig unterbrechende und genau eine, die nur die CSS-Rolle braucht',
+		'und es sind acht höfliche, neunundzwanzig unterbrechende und genau eine, die nur die CSS-Rolle braucht',
 		JSON.stringify(
 			liveTags
 				.map(([, roh]) => /class="([^"]*)"/.exec(roh.replace(/\s+/g, ' '))?.[1] ?? '')
@@ -3799,7 +3817,12 @@ try {
 		// Noch einmal +1 höflich und +5 unterbrechend seit dem 2026-09-19:
 		// /wellness ist nach derselben Bauform gebaut und hat **vier** Felder statt
 		// drei — Mittel, Ort, Datum und Wiederholung.
-		JSON.stringify({ hoeflich: 7, unterbrechend: 29, keineRegion: 1 })
+		//
+		// +1 höflich seit dem 2026-09-20, **ohne** eine unterbrechende daneben: das
+		// Löschen auf /wissen/[id] meldet auf der Liste, und die hatte bis dahin
+		// nur ihre Fehlerregion. Eine Abweisung des Löschens landet weiterhin auf
+		// dem Blatt selbst, dessen Regionen längst gezählt sind.
+		JSON.stringify({ hoeflich: 8, unterbrechend: 29, keineRegion: 1 })
 	);
 
 	const rueckmeldungRumpf = glatterRumpf(
@@ -9032,11 +9055,17 @@ try {
 	const blatt = await blattseiteLaden();
 
 	/*
-	 * Die load von /wissen nimmt **kein Ereignis**: alle sehen dieselbe Liste.
-	 * Der Aufruf ohne Argument ist die Behauptung — fordert sie je eines, greift
-	 * sie auf undefined zu und wirft.
+	 * **Die load von /wissen nimmt seit dem 2026-09-20 ein Ereignis** — der
+	 * Absatz sagte bis dahin das Gegenteil: „Die load von /wissen nimmt kein
+	 * Ereignis: alle sehen dieselbe Liste. Der Aufruf ohne Argument ist die
+	 * Behauptung." Der erste Satz stimmt weiter, der zweite nicht mehr: sie liest
+	 * `?geloescht` aus der Adresse, seit das Löschen auf /wissen/[id] hierher
+	 * weiterleitet. **Alle sehen weiterhin dieselbe Liste** — locals liest sie
+	 * nach wie vor nicht, und die Blätter hängen an keiner Person.
 	 */
-	const leereListe = await routenausgang(() => wissen.load());
+	const leereListe = await routenausgang(() =>
+		wissen.load(alsMitglied('/wissen', null).alsRequestEvent())
+	);
 	pruefen(
 		'die load von /wissen läuft ohne Ereignis und zeigt anfangs nichts',
 		Array.isArray(wertVon(leereListe).blaetter) &&
@@ -9109,7 +9138,9 @@ try {
 			}).alsRequestEvent()
 		)
 	);
-	const zweiBlaetter = wertVon(await routenausgang(() => wissen.load())).blaetter as {
+	const zweiBlaetter = wertVon(
+		await routenausgang(() => wissen.load(alsMitglied('/wissen', null).alsRequestEvent()))
+	).blaetter as {
 		id: number;
 		titel: string;
 	}[];
@@ -9133,7 +9164,11 @@ try {
 	);
 	pruefenGleich(
 		'und die Grossschreibung entscheidet dabei nicht mit',
-		(wertVon(await routenausgang(() => wissen.load())).blaetter as { titel: string }[])
+		(
+			wertVon(
+				await routenausgang(() => wissen.load(alsMitglied('/wissen', null).alsRequestEvent()))
+			).blaetter as { titel: string }[]
+		)
 			.map((zeile) => zeile.titel)
 			.join(' | '),
 		'Anbau im Tunnel | Gute Nachbarn | zucchini'
@@ -9492,6 +9527,86 @@ try {
 		'beide Wissen-Formulare sind vollständig verdrahtet',
 		fehlendeTeile(verdrahtungBlatt).length === 0,
 		`fehlt: ${fehlendeTeile(verdrahtungBlatt).join(', ')}`
+	);
+
+	// -----------------------------------------------------------------------
+	// Das Löschen eines Blatts — nur mit Adminrecht, Entscheid Manuel 2026-09-20
+	// -----------------------------------------------------------------------
+	/*
+	 * **Die einzige zerstörende Handlung des Produkts mit einer Schranke davor**,
+	 * und darum die einzige, deren Schranke hier ausgeführt und nicht bloss
+	 * gelesen wird.
+	 *
+	 * Die Reihenfolge der vier Zeilen ist Absicht: erst wird belegt, dass ein
+	 * Nicht-Admin **nichts** ausrichtet, dann dass ein Admin erst fragt und dann
+	 * schreibt. Wer sie umdreht, prüft die Schranke an einem Blatt, das schon
+	 * weg ist, und bekommt eine grüne Zeile geschenkt.
+	 *
+	 * Die zwei Mitglieder sind **Attrappen und keine gesäten Zeilen**: was
+	 * `adminOderWeg` liest, ist `mitglied === null || !mitglied.isAdmin`, und
+	 * mehr braucht die Schranke nicht. Ein echtes Mitglied dafür anzulegen
+	 * verknüpfte diese Behauptung mit der Aufnahme auf /verwaltung, und die hat
+	 * mit dem Löschen eines Blatts nichts zu tun.
+	 */
+	const alsAdmin = (id: number): AngemeldetesMitglied =>
+		({
+			id,
+			name: `Admin ${id}`,
+			isAdmin: true,
+			isActive: true,
+			createdAt: 0,
+		}) as AngemeldetesMitglied;
+	const ohneAdmin = (id: number): AngemeldetesMitglied =>
+		({
+			id,
+			name: `Mitglied ${id}`,
+			isAdmin: false,
+			isActive: true,
+			createdAt: 0,
+		}) as AngemeldetesMitglied;
+
+	const zuLoeschen = blattAnlegen('Ein Blatt zum Löschen', 'Es wird gleich weggenommen.');
+	wegGeleitet(
+		'ein Nicht-Admin kommt beim Löschen eines Blatts nicht durch die Schranke',
+		await routenausgang(() =>
+			blatt.actions.loeschen(
+				alsMitglied(`/wissen/${zuLoeschen}`, ohneAdmin(1), { bestaetigt: '1' }).alsRequestEvent()
+			)
+		)
+	);
+	pruefen(
+		'und das Blatt steht noch — die Schranke greift vor dem DELETE',
+		blattLesen(zuLoeschen) !== null
+	);
+	const blattGefragt = await routenausgang(() =>
+		/*
+		 * Ein **leeres** Formular und kein fehlendes: ohne den dritten Parameter
+		 * baut die Attrappe ein GET, und `request.formData()` wirft dann
+		 * `Content-Type was not one of …`. Der erste Schritt des Löschens ist ein
+		 * POST ohne `bestaetigt` — genau das, was ein Formular ohne verstecktes
+		 * Feld sendet.
+		 */
+		blatt.actions.loeschen(alsMitglied(`/wissen/${zuLoeschen}`, alsAdmin(2), {}).alsRequestEvent())
+	);
+	pruefen(
+		'eine Adminperson ohne `bestaetigt` bekommt die Rückfrage samt Titel, und nichts ist weg',
+		wertVon(blattGefragt).art === 'fragenLoeschen' &&
+			wertVon(blattGefragt).titel === 'Ein Blatt zum Löschen' &&
+			blattLesen(zuLoeschen) !== null,
+		JSON.stringify(wertVon(blattGefragt))
+	);
+	const blattWeg = await routenausgang(() =>
+		blatt.actions.loeschen(
+			alsMitglied(`/wissen/${zuLoeschen}`, alsAdmin(2), { bestaetigt: '1' }).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'erst der zweite Versand nimmt es weg und führt auf die Liste, wo die Meldung steht',
+		blattWeg.art === 'weiter' &&
+			blattWeg.status === 303 &&
+			blattWeg.ort === '/wissen?geloescht' &&
+			blattLesen(zuLoeschen) === null,
+		blattWeg.art === 'weiter' ? `${blattWeg.status} auf ${blattWeg.ort}` : `Ausgang ${blattWeg.art}`
 	);
 	/*
 	 * Das Textfeld-Mass steht seit dieser Story im geteilten Stilblatt und nicht
