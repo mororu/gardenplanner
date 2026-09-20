@@ -248,7 +248,7 @@ import {
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 681;
+const ERWARTETE_BEHAUPTUNGEN = 682;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -2861,12 +2861,43 @@ try {
 	 * created_at ausdrücklich in der Vergangenheit liegen und sich von
 	 * completed_at unterscheiden — dasselbe Muster wie die Suche nach den
 	 * Token-Hashes in der Liste von /verwaltung.
+	 *
+	 * **Der Zeitstempel hat seit dem 2026-09-20 genau eine erlaubte Stelle**, und
+	 * diese Zeile ist enger geworden statt gefallen. `/` liefert den Rückblick
+	 * mit, und eine Rückblickzeile trägt ihr `erledigtAm` — sonst wüsste die
+	 * Abfrage nicht, welche zwanzig die letzten sind. Gemessen wird darum jetzt
+	 * der **Rest** der Seitendaten: der Rückblick herausgeschnitten, und im
+	 * Übrigen darf der Zeitstempel so wenig vorkommen wie zuvor. Eine offene
+	 * Zeile, die ihn still mitbrächte, fällt weiterhin auf.
+	 *
+	 * **Der Name fällt dabei nirgends**, auch nicht im Rückblick: `nenntErledigt`
+	 * sucht über den **ganzen** Seitendaten nach `completed`, und die Projektion
+	 * der Abfrage trägt `completed_by` nicht (AD-5).
 	 */
+	const ohneRueckblick = JSON.stringify({ ...wertVon(nachAbhaken), zuletztErledigt: [] });
 	pruefen(
-		'auch nach dem Abhaken steht in den Seitendaten kein Erledigt-Wert',
+		'auch nach dem Abhaken steht in den Seitendaten kein Erledigt-Wert — ausser im Rückblick',
 		!nenntErledigt(wertVon(nachAbhaken)) &&
-			!JSON.stringify(wertVon(nachAbhaken)).includes(String(mittelErledigt?.completedAt)),
+			!ohneRueckblick.includes(String(mittelErledigt?.completedAt)),
 		JSON.stringify(wertVon(nachAbhaken))
+	);
+	/*
+	 * Und die Gegenprobe dazu: der Rückblick **hat** die eben abgehakte Zeile,
+	 * mit Text und Zeitpunkt. Ohne diese Zeile liesse sich die Behauptung darüber
+	 * dadurch erfüllen, dass der Rückblick leer bleibt — und der Rückweg zum
+	 * Fehlgriff, um dessentwillen er gebaut ist, wäre still fort.
+	 */
+	const rueckblick = (wertVon(nachAbhaken).zuletztErledigt ?? []) as {
+		id: number;
+		text: string;
+		erledigtAm: number;
+	}[];
+	pruefen(
+		'der Rückblick trägt die eben abgehakte Zeile — mit Zeitpunkt und ohne Namen',
+		rueckblick.some(
+			(zeile) => zeile.id === mittel && zeile.erledigtAm === mittelErledigt?.completedAt
+		) && !nenntErledigt(rueckblick),
+		JSON.stringify(rueckblick)
 	);
 
 	// -----------------------------------------------------------------------
@@ -3639,6 +3670,14 @@ try {
 	 * **Beide Zahlen stehen von Hand und brechen bei jedem Abschnitt, der dazu-
 	 * oder wegkommt.** Das ist Absicht: es ist die Stelle, an der jemand den neuen
 	 * Abschnitt daraufhin ansieht, ob er eine Handlung braucht.
+	 *
+	 * **Genau das ist am 2026-09-20 geschehen, und die Antwort war Nein.** Der
+	 * Rückblick (`Zuletzt erledigt`) ist der vierte Abschnitt und der zweite ohne
+	 * primäre Handlung — aus demselben Grund wie die eigenen Zusagen: er zeigt
+	 * nicht, was jemand anfangen könnte, sondern was schon getan ist. Ein
+	 * `+`-Knopf darüber müsste etwas anlegen, das niemand anlegt; erledigt wird
+	 * eine Aufgabe im Pool darüber. Die Handlung, die er trägt, steht an jeder
+	 * Zeile und ist der Rückweg.
 	 */
 	const abschnitte = ohneZeilenformulare.split(/<details class="abschnitt[^"]*">/).slice(1);
 	const primaerJeAbschnitt = abschnitte.map(
@@ -3647,7 +3686,7 @@ try {
 	);
 	pruefen(
 		`kein Aufklapper auf / trägt zwei button-primary, und zwei tragen einen (${primaerJeAbschnitt.join('/')})`,
-		primaerJeAbschnitt.length === 3 &&
+		primaerJeAbschnitt.length === 4 &&
 			primaerJeAbschnitt.every((zahl) => zahl <= 1) &&
 			primaerJeAbschnitt.filter((zahl) => zahl === 1).length === 2 &&
 			(ohneZeilenformulare.match(/class="button-primary"/g) ?? []).length === 2,
@@ -8532,12 +8571,15 @@ try {
 			// eigenen Zusagen trägt seit dem 2026-09-17 zusätzlich `meine` für seine
 			// Kante links. Ein Vergleich auf die genaue Zeichenkette hätte ihn beim
 			// Umbau still aus der Zählung fallen lassen.
-			'es sind genau drei Abschnitts-Aufklapper',
-			(startseiteCodeEinzel.match(/<details class="abschnitt[^"]*">/g) ?? []).length === 3,
+			// **Vier seit dem 2026-09-20**: der Rückblick `Zuletzt erledigt` ist
+			// dazugekommen. Die Zahl steht weiter von Hand — sie ist die Stelle, an
+			// der ein fünfter auffällt, statt still danebenzustehen.
+			'es sind genau vier Abschnitts-Aufklapper',
+			(startseiteCodeEinzel.match(/<details class="abschnitt[^"]*">/g) ?? []).length === 4,
 		],
 		[
-			'alle drei tragen einen Griff',
-			(startseiteCodeEinzel.match(/<summary class="abschnitt__griff">/g) ?? []).length === 3,
+			'alle vier tragen einen Griff',
+			(startseiteCodeEinzel.match(/<summary class="abschnitt__griff">/g) ?? []).length === 4,
 		],
 		[
 			/*
@@ -8565,8 +8607,8 @@ try {
 			// Der Griff trägt seit dem 2026-09-11 die Zahl statt eines Titels — die
 			// Zahl **ist** die Überschrift. Was er sagt, prüft die Griff-Wache weiter
 			// oben; hier steht nur, dass er da ist.
-			'alle drei Griffe tragen einen Satz mit Kennung',
-			(startseiteCodeEinzel.match(/<h2 class="griff__satz" id="[a-z-]+">/g) ?? []).length === 3,
+			'alle vier Griffe tragen einen Satz mit Kennung',
+			(startseiteCodeEinzel.match(/<h2 class="griff__satz" id="[a-z-]+">/g) ?? []).length === 4,
 		],
 		[
 			// Seit dem 2026-09-11 umgekehrt: die primären Knöpfe liegen **in** ihren
@@ -8579,7 +8621,7 @@ try {
 		],
 	] as const;
 	pruefen(
-		'alle drei Abschnitte auf / sind aufklappbar und werden zugeklappt ausgeliefert',
+		'alle vier Abschnitte auf / sind aufklappbar und werden zugeklappt ausgeliefert',
 		fehlendeTeile(aufklappTeile).length === 0,
 		`fehlt: ${fehlendeTeile(aufklappTeile).join(', ')}`
 	);

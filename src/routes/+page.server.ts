@@ -15,7 +15,9 @@ import {
 	aufgabeAendern,
 	aufgabeEntfernen,
 	aufgabeWiederOeffnen,
+	erledigteAufgabenAuflisten,
 	offeneAufgabenAuflisten,
+	type ErledigteAufgabe,
 	type OffeneAufgabe,
 } from '../lib/server/db/queries/tasks.ts';
 import { erntestandLesen } from '../lib/server/db/queries/harvests.ts';
@@ -151,6 +153,17 @@ export type Ueberblick = {
 	 * Leser.
 	 */
 	faellig: number;
+	/**
+	 * Wie viele zuletzt abgehakte Aufgaben der Rückblick unter dem Pool zeigt —
+	 * höchstens ZULETZT_ERLEDIGT, und weniger, solange der Garten jung ist.
+	 *
+	 * **Die Länge der gelieferten Liste und keine zweite Abfrage mit COUNT**,
+	 * derselbe Grund wie bei `offen` und `reif`: ein Bestand, eine Uhr, eine
+	 * Wahrheit. Sie zählt ausdrücklich **nicht**, wie viel insgesamt erledigt
+	 * ist — die Zahl im Griff und die Zeilen darunter sind dieselbe Menge, sonst
+	 * stünde über zwanzig Zeilen eine 340.
+	 */
+	zuletzt: number;
 };
 
 /**
@@ -162,6 +175,22 @@ export type Ueberblick = {
  * Hausregel wie bei UEBERFAELLIG_SEKUNDEN.
  */
 const BALD_WOCHEN = 2;
+
+/**
+ * Wie viele zuletzt abgehakte Aufgaben `/` unter dem Pool zeigt.
+ *
+ * **Zwanzig, und die Zahl ist eine Auslegung und keine Eigenschaft der Daten**
+ * (Entscheid Manuel, 2026-09-20). Sie beantwortet die Frage „habe ich mich
+ * vergriffen?", und zwar für einen Rückblick von ein paar Tagen: bei zwanzig
+ * Leuten und einer Handvoll Griffen je Woche reichen zwanzig Zeilen über das
+ * Wochenende hinweg. Wer weiter zurückschaut, sucht nicht mehr den Fehlgriff,
+ * sondern die Geschichte — und die steht vollständig auf /archiv.
+ *
+ * Die Grenze steht **hier** und nicht in der Abfrage: jene nimmt sie als
+ * Parameter entgegen und hat selbst keine Meinung dazu, wie weit ein Rückblick
+ * reicht. Dieselbe Trennung wie bei BALD_WOCHEN darüber.
+ */
+const ZULETZT_ERLEDIGT = 20;
 
 /**
  * Die offenen Aufgaben, älteste zuerst — dazu die freien Einzelaufgaben, der
@@ -254,6 +283,7 @@ type MitLage = Einzelaufgabe & { lage: Fristlage };
 
 export function load({ locals, url }: ServerLoadEvent): {
 	aufgaben: OffeneAufgabe[];
+	zuletztErledigt: ErledigteAufgabe[];
 	einzelaufgaben: MitLage[];
 	zusagen: MitLage[];
 	ueberblick: Ueberblick;
@@ -294,6 +324,20 @@ export function load({ locals, url }: ServerLoadEvent): {
 	 * eine andere Zahl als die Seite, auf die seine Kachel verweist.
 	 */
 	const aufgaben = offeneAufgabenAuflisten(jetztSekunden);
+	/*
+	 * **Der Rückblick, seit dem 2026-09-20** — die zuletzt abgehakten Zeilen, die
+	 * `/` unter dem Pool durchgestrichen zeigt.
+	 *
+	 * Er schliesst eine Lücke, die vorher keine Seite hatte: abgehakt wird hier,
+	 * und die Zeile blieb nur **in derselben Sitzung** durchgestrichen stehen
+	 * (siehe `erledigt` in der Komponente). Ein Neuladen nahm sie fort, und der
+	 * Rückweg `wiederOeffnen` verschwand mit ihr — /archiv hat bewusst keine
+	 * action. Wer den Fehlgriff erst am Abend bemerkte, kam nicht mehr daran.
+	 *
+	 * **Kein Bezugszeitpunkt**, anders als bei der offenen Liste darüber: hier
+	 * wird nichts gegen eine Uhr gerechnet. Was erledigt ist, bleibt es.
+	 */
+	const zuletztErledigt = erledigteAufgabenAuflisten(ZULETZT_ERLEDIGT);
 	/*
 	 * Nur die **freien**. Eine übernommene Einzelaufgabe verlässt diese Seite —
 	 * sie trägt einen Namen, und damit ist sie geregelt; wer wissen will, wer was
@@ -404,10 +448,13 @@ export function load({ locals, url }: ServerLoadEvent): {
 		// Dieselbe Begründung wie bei `reif` daneben, und dieselbe Rechnung wie auf
 		// /wellness — siehe den Absatz an `faellig` oben.
 		faellig: faellig.length,
+		// Dieselbe Liste, die der Rückblick rendert — siehe den Absatz an `zuletzt`.
+		zuletzt: zuletztErledigt.length,
 	};
 
 	return {
 		aufgaben,
+		zuletztErledigt,
 		einzelaufgaben,
 		zusagen,
 		ueberblick,

@@ -22,6 +22,8 @@
 		GRIFF_OFFEN_LEER,
 		GRIFF_FREI,
 		GRIFF_OFFEN,
+		GRIFF_ZULETZT,
+		ZULETZT_WEITER,
 		UEBERNEHMEN_KNOPF,
 		griffUeberfaellig,
 		zeileBald,
@@ -324,6 +326,74 @@
 				if (!gewechselt) kaestchenNachZustand(formElement, id);
 			};
 		};
+	}
+
+	/**
+	 * Der Versand aus dem Rückblick — eine Zeile, die dort steht, wieder öffnen.
+	 *
+	 * **Ein dritter Rückruf, und jeder der drei hat seinen eigenen Grund**, der
+	 * an genau einer Zeile hängt:
+	 *
+	 *   versandFuer      `invalidateAll: false` — die eben abgehakte Zeile soll
+	 *                    im Pool **stehen bleiben**, durchgestrichen und mit dem
+	 *                    Rückweg daneben.
+	 *   versandZeile     lädt neu und klappt danach das `<details>` zu, in dem
+	 *                    das Formular sitzt — dort ist das der Änderungsgriff
+	 *                    einer einzelnen Zeile.
+	 *   dieser hier      lädt neu und klappt **nichts** zu.
+	 *
+	 * Neu laden ist hier das Richtige und nicht wie im Pool falsch: die Zeile
+	 * hat den Abschnitt zu verlassen. Sie ist wieder offen, sie gehört nach oben,
+	 * und stünde sie unter `Zuletzt erledigt` weiter da, wäre der Rückweg eine
+	 * Handlung ohne sichtbare Folge — genau der Zweifel, aus dem heraus jemand
+	 * ein zweites Mal tippt.
+	 *
+	 * **Und zugeklappt wird nichts**, anders als bei versandZeile: das `<details>`
+	 * um dieses Formular ist der ganze Abschnitt. Ein `removeAttribute('open')`
+	 * risse ihn der Person unter dem Daumen weg, die gerade erst nachgesehen hat,
+	 * ob sie sich vergriffen hat.
+	 *
+	 * Der Wurf wird abgefangen wie überall (Gate-Regel 17).
+	 */
+	function versandRueckblick(): SubmitFunction {
+		return ({ cancel, formElement }) => {
+			if (imFlug) {
+				cancel();
+				kaestchenZurueck(formElement);
+				return;
+			}
+			imFlug = true;
+			versandFehler = '';
+			return async ({ update, result }) => {
+				try {
+					if (result.type === 'error') {
+						versandFehler = VERSAND_FEHLGESCHLAGEN;
+					} else {
+						await update({ reset: false });
+					}
+				} finally {
+					imFlug = false;
+				}
+				// Nach einem Wurf hat sich nichts geändert, und die Zeile steht noch
+				// da: das Kästchen zurück auf gehakt. Geglückt ist sie fort, und mit
+				// ihr das Formular — dann läuft diese Zeile ins Leere und schadet
+				// nicht.
+				if (versandFehler !== '') kaestchenZurueck(formElement);
+			};
+		};
+	}
+
+	/**
+	 * Zieht das Kästchen einer Rückblickzeile auf `gehakt` zurück.
+	 *
+	 * **Ohne Id und ohne `erledigt`**, anders als kaestchenNachZustand weiter
+	 * oben: dort entscheidet der Sitzungszustand, hier gibt es nichts zu
+	 * entscheiden. Jede Zeile dieses Abschnitts ist erledigt — das ist die
+	 * Bedingung dafür, dass sie überhaupt darin steht.
+	 */
+	function kaestchenZurueck(formular: HTMLFormElement): void {
+		const kaestchen = formular.querySelector('input[type="checkbox"]');
+		if (kaestchen instanceof HTMLInputElement) kaestchen.checked = true;
 	}
 
 	/**
@@ -651,9 +721,9 @@
 	</svg>
 {/snippet}
 
-{#snippet zeichenHaken()}
+{#snippet zeichenHaken(zusatz: string)}
 	<svg
-		class="zeichen"
+		class="zeichen {zusatz}"
 		viewBox="0 0 24 24"
 		fill="none"
 		stroke="currentColor"
@@ -902,7 +972,7 @@
 										aria-labelledby="erledigt-{zusage.id} zusage-{zusage.id}"
 										disabled={imFlug}
 									>
-										{@render zeichenHaken()}
+										{@render zeichenHaken('')}
 										{ERLEDIGT_KNOPF}
 									</button>
 								</form>
@@ -1298,6 +1368,115 @@
 			<a class="button-primary" href={resolve('/aufgabe')}>+ Aufgabe</a>
 		</div>
 	</details>
+
+	<!--
+		**Der Rückblick — die zuletzt abgehakten Zeilen, durchgestrichen und mit
+		dem Rückweg daneben.** Seit dem 2026-09-20 (Entscheid Manuel).
+
+		**Wozu er da ist, und wogegen nicht.** Er beantwortet eine einzige Frage:
+		*habe ich mich vergriffen?* Bis hierher blieb eine abgehakte Zeile nur in
+		**derselben Sitzung** stehen — der Zustand `erledigt` oben lebt so lange
+		wie die Komponente, und ein Neuladen nahm die Zeile fort. Mit ihr
+		verschwand der Rückweg: /archiv zeigt dieselbe Zeile, hat aber bewusst
+		keine action, und `wiederOeffnen` gab es dann nirgends mehr. Wer den
+		Fehlgriff erst am Abend bemerkte, kam nicht mehr daran.
+
+		**Er ist kein zweites Archiv**, und die zwanzig sind die ganze Aussage
+		dazu. /archiv liest die Geschichte, monatsweise und vollständig; dieser
+		Abschnitt liest das letzte Stück davon, damit ein Griff zurücknehmbar
+		bleibt. Der Fusslink führt darum dorthin, wo es weitergeht — dieselbe
+		Bauform wie `Alle Termine` im Abschnitt darunter.
+
+		**Er steht unter `Zum Erledigen` und nicht darin.** Ein verschachteltes
+		`<details>` wäre ein Aufklapper in einem Aufklapper, und die zwanzig
+		Zeilen lägen dann hinter zwei Griffen. Nebeneinander ist auch die
+		ehrlichere Aussage: was erledigt ist, ist nicht mehr Teil dessen, was zu
+		erledigen ist. Vor Block 2 und nicht dahinter, weil er zum Pool gehört —
+		wer eben abgehakt hat, schaut hier nach und nicht hinter den Terminen.
+
+		**Bei null fehlt er ganz**, wie Block 1 und Block 2 und anders als der Pool
+		darüber, der `Nichts offen.` sagt. Der Pool ist der Gegenstand dieser Seite
+		und darf nicht verschwinden; ein Rückblick auf nichts ist keine Auskunft,
+		sondern eine leere Zeile. Im frischen Garten gibt es ihn schlicht noch
+		nicht.
+
+		**Zugeklappt geliefert** wie die zwei Abschnitte um ihn herum, und aus
+		demselben Grund: die Zahl im Griff sagt die Lage, der Inhalt wird
+		aufgeklappt, wenn man ihn braucht. Hier trägt das doppelt — niemand kommt
+		auf diese Seite, um zu lesen, was schon getan ist.
+	-->
+	{#if data.ueberblick.zuletzt > 0}
+		<details class="abschnitt">
+			<summary class="abschnitt__griff">
+				<h2 class="griff__satz" id="zuletzt-marke">
+					{@render zeichenHaken('zeichen--gross')}
+					<span class="kopfzahl">{data.ueberblick.zuletzt}</span>
+					<span class="griff__titel">{GRIFF_ZULETZT}</span>
+				</h2>
+				<ZeichenWinkel class="aufklapp" />
+			</summary>
+			<div class="abschnitt__inhalt">
+				<ul class="liste" aria-labelledby="zuletzt-marke">
+					{#each data.zuletztErledigt as aufgabe (aufgabe.id)}
+						<!--
+							`zeile--erledigt` steht fest und nicht als `class:` an einer
+							Bedingung: in diesem Abschnitt gibt es keinen anderen Zustand.
+							Die Klasse trägt die Durchstreichung, und die kommt aus
+							demselben Stilblock, der sie im Pool oben trägt — eine Regel,
+							zwei Orte.
+						-->
+						<li class="zeile zeile--erledigt">
+							<!--
+								Dasselbe literale action wie im Pool, damit Gate-Regel 11 es
+								textuell findet, und dieselbe Bauform aus Kästchen, Treffer
+								und verborgenem Verb. Was fehlt, ist der Griff zum Ändern und
+								Entfernen: eine erledigte Zeile ist Historie (FR14). Der
+								einzige Weg, den sie hier hat, ist der zurück.
+
+								Die Kennungen tragen ein eigenes Präfix. Dieselbe Aufgabe kann
+								nicht zugleich oben offen und hier erledigt stehen, aber zwei
+								`id="aufgabe-7"` auf einer Seite wären ein Fehler, der erst
+								auffiele, wenn ein Screenreader die falsche Beschriftung
+								vorliest.
+							-->
+							<form
+								class="zeile__form"
+								method="POST"
+								action="?/wiederOeffnen"
+								use:enhance={versandRueckblick()}
+							>
+								<input type="hidden" name="aufgabeId" value={aufgabe.id} />
+								<span class="treffer">
+									<input
+										class="kaestchen"
+										type="checkbox"
+										checked
+										disabled={imFlug}
+										aria-labelledby="zuletzt-{aufgabe.id} zuletzt-verb-{aufgabe.id}"
+										onchange={abschicken}
+									/>
+									<span class="haken" aria-hidden="true"></span>
+								</span>
+								<span class="nur-vorgelesen" id="zuletzt-verb-{aufgabe.id}">, wieder öffnen</span>
+							</form>
+							<div class="zeile__spalte">
+								<span class="zeile__aufgabe zeile__text" id="zuletzt-{aufgabe.id}"
+									>{aufgabe.text}</span
+								>
+							</div>
+						</li>
+					{/each}
+				</ul>
+				<!--
+					Der Weg zum Rest, in derselben stillen Form wie `Alle Termine` unten
+					und **ohne** primären Knopf daneben: dieser Abschnitt legt nichts an.
+				-->
+				<div class="knoepfe">
+					<a class="eintrag" href={resolve('/archiv')}>{ZULETZT_WEITER}</a>
+				</div>
+			</div>
+		</details>
+	{/if}
 
 	<!--
 		Block 2. **Ohne eine freie Einzelaufgabe fehlt er ganz** — wie Block 1 und

@@ -310,6 +310,29 @@ export function griffUeberfaellig(anzahl: number): string {
 export const GRIFF_OFFEN_LEER = 'Nichts offen.';
 
 /**
+ * Der Griff über den zuletzt abgehakten Aufgaben, seit dem 2026-09-20.
+ *
+ * **`Zuletzt erledigt` und nicht `Erledigt`**: das eine Wort allein benennt
+ * einen Zustand und verspricht damit Vollständigkeit — der Abschnitt zeigt aber
+ * nur das Ende einer Liste, deren Anfang auf /archiv steht. `Zuletzt` ist die
+ * ganze Einschränkung in einem Wort.
+ *
+ * Kein Leersatz daneben, anders als beim Pool darüber: ein Abschnitt, der nichts
+ * zu zeigen hat, fehlt hier **ganz**. Die Begründung steht an der Stelle, an der
+ * er gerendert wird.
+ */
+export const GRIFF_ZULETZT = 'Zuletzt erledigt';
+
+/**
+ * Der Hinweis unter den zuletzt erledigten Zeilen — der Weg zum Rest.
+ *
+ * Er steht **im** Abschnitt und nicht als Zeile daneben, weil er nur gilt,
+ * solange man die zwanzig gerade ansieht. Wer sie weggeklappt hat, sucht nicht
+ * nach dem, was davor war.
+ */
+export const ZULETZT_WEITER = 'Alles Erledigte';
+
+/**
  * Der Griff über den Terminen, die noch niemand genommen hat.
  *
  * **Eine Frage und kein Zähltext**, seit dem 2026-09-15: der Block sagt, was zu

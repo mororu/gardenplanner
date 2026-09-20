@@ -66,7 +66,7 @@ import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-t
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 70;
+const ERWARTETE_BEHAUPTUNGEN = 71;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -276,10 +276,42 @@ try {
 	// -----------------------------------------------------------------------
 	// Beide Zeilen sind da, und die überfällige ist die höhere
 	// -----------------------------------------------------------------------
+	/*
+	 * **Gezählt wird in der Liste des Pools** — seit dem 2026-09-20. Die Klasse
+	 * `.zeile` trägt seither auch der Rückblick `Zuletzt erledigt`, und über das
+	 * ganze Dokument gezählt wären es drei. Die Kennung ist dieselbe, über die
+	 * der Pool überall in dieser Prüfkette geschnitten wird.
+	 */
 	const zeilenZahl = await browser.auswerten<number>(
-		'return document.querySelectorAll(".zeile").length'
+		'return document.querySelectorAll(\'[aria-labelledby="offen-marke"] .zeile\').length'
 	);
-	pruefenGleich('genau zwei Aufgabenzeilen stehen im Dokument', zeilenZahl, 2);
+	pruefenGleich('genau zwei Aufgabenzeilen stehen im Pool', zeilenZahl, 2);
+
+	/*
+	 * **Und der Rückblick trägt seine eine Zeile, durchgestrichen.**
+	 *
+	 * Die Saat in pruefserver.ts hakt genau eine Aufgabe ab, damit dieser
+	 * Abschnitt überhaupt rendert — bei null fehlt er ganz. Gemessen wird hier
+	 * nicht nur, dass die Zeile da ist, sondern dass sie **aussieht wie
+	 * erledigt**: die Durchstreichung ist die ganze Aussage des Abschnitts, und
+	 * sie kommt aus derselben Regel, die im Pool eine eben abgehakte Zeile
+	 * zeichnet. Fiele die Klasse eines Tages weg, stünde hier eine Liste, die
+	 * von einer offenen nicht zu unterscheiden wäre.
+	 */
+	const rueckblick = await browser.auswerten<{ zeilen: number; durchgestrichen: number }>(`
+		const zeilen = [...document.querySelectorAll('[aria-labelledby="zuletzt-marke"] .zeile')];
+		return {
+			zeilen: zeilen.length,
+			durchgestrichen: zeilen.filter((zeile) => {
+				const text = zeile.querySelector('.zeile__aufgabe');
+				return text !== null && getComputedStyle(text).textDecorationLine.includes('line-through');
+			}).length,
+		};`);
+	pruefenGleich(
+		'der Rückblick trägt seine eine Zeile, und sie ist durchgestrichen',
+		`${rueckblick.zeilen}/${rueckblick.durchgestrichen}`,
+		'1/1'
+	);
 
 	/*
 	 * **Eine stille Vorbedingung wird eine Behauptung.**

@@ -28,7 +28,7 @@ import { datenschichtStarten } from '../src/lib/server/db/index.ts';
 import { ernteEintragen } from '../src/lib/server/db/queries/harvests.ts';
 import { behandlungEintragen } from '../src/lib/server/db/queries/treatments.ts';
 import { mitgliedAnlegen } from '../src/lib/server/db/queries/members.ts';
-import { aufgabenStapelAnlegen } from '../src/lib/server/db/queries/tasks.ts';
+import { aufgabeAbhaken, aufgabenStapelAnlegen } from '../src/lib/server/db/queries/tasks.ts';
 import { tokenErzeugen, tokenHashen } from '../src/lib/server/token.ts';
 import { WOCHE_SEKUNDEN, heuteAlsFeldwert, tagesendeInUnixSekunden } from '../src/lib/zeit.ts';
 
@@ -245,6 +245,25 @@ export function saeen(): Saat {
 		[ueberfaelligText],
 		Math.floor(Date.now() / 1000) - ueberfaelligWochen * WOCHE_SEKUNDEN
 	);
+
+	/*
+	 * **Eine abgehakte Aufgabe, damit der Rückblick überhaupt rendert** — seit
+	 * dem 2026-09-20 und aus derselben Klasse wie die Erntesaat darunter: der
+	 * Abschnitt `Zuletzt erledigt` auf `/` fehlt bei null **ganz**. Ohne diese
+	 * Saat sähe der Sichtlauf ihn nie, und mit ihm nicht den vierten
+	 * Abschnittsgriff, nicht das Aufklappzeichen daran und nicht die
+	 * durchgestrichene Zeile — deren Farbe (--ink-secondary auf der Fläche des
+	 * Abschnitts) sonst von keinem Kontrastpaar berührt würde.
+	 *
+	 * Abgehakt wird über die echte Abfrageschicht und nicht per UPDATE von Hand,
+	 * wie jede Saat dieses Skripts: nur so entsteht die Datenlage, die die
+	 * Anwendung selbst herstellt — completed_by und completed_at zusammen.
+	 */
+	const [abgehakteZeile] = aufgabenStapelAnlegen(
+		['Beet 9 Schnecken absammeln'],
+		Math.floor(Date.now() / 1000)
+	);
+	aufgabeAbhaken(abgehakteZeile.id, manu.id);
 
 	/*
 	 * **Eine Erntezeile je Stufe**, und das ist keine Zierde.

@@ -609,8 +609,23 @@ try {
 	const klasse = (tag: string, name: string) =>
 		new RegExp(`<${tag}\\b[^>]*\\bclass="[^"]*\\b${name}\\b[^"]*"`, 'g');
 	const wieViele = (html: string, muster: RegExp) => (html.match(muster) ?? []).length;
-	const offeneZeilen = wieViele(startseiteHtml, klasse('li', 'zeile'));
-	const fristZeilen = wieViele(startseiteHtml, klasse('p', 'zeile__frist'));
+	/*
+	 * **Gezählt wird in der Liste des Pools und nicht im ganzen Dokument** — seit
+	 * dem 2026-09-20, und das ist eine Verengung mit Anlass. Die Klasse `zeile`
+	 * trägt seither auch jede Zeile des Rückblicks `Zuletzt erledigt`, und über
+	 * das ganze Dokument gezählt stünden zwei Zeilen unter einem Griff, der 1
+	 * sagt — eine rote Zeile, ohne dass an der Zahl etwas falsch wäre.
+	 *
+	 * Geschnitten wird über `aria-labelledby` und nicht über die Reihenfolge der
+	 * `<ul>` im Dokument: die Kennung ist dieselbe, die auch den Griff findet,
+	 * und sie hält, wenn ein Abschnitt dazukommt oder umzieht. Genau daran hängt
+	 * schon der Schnitt des Griffs weiter unten.
+	 */
+	const listeVon = (html: string, kennung: string): string =>
+		(new RegExp(`<ul[^>]*\\baria-labelledby="${kennung}"[\\s\\S]*?<\\/ul>`).exec(html) ?? [''])[0];
+	const poolListe = listeVon(startseiteHtml, 'offen-marke');
+	const offeneZeilen = wieViele(poolListe, klasse('li', 'zeile'));
+	const fristZeilen = wieViele(poolListe, klasse('p', 'zeile__frist'));
 	/*
 	 * **Der Griff des Pools wird ausgeschnitten, nicht der erste im Dokument.**
 	 * Alle vier Zahlen der Seite — die zwei Griffe und die zwei Zeilen mit Pfeil —
@@ -1337,8 +1352,11 @@ try {
 	 * Pool anders da. Ein einziger Messpunkt liesse eine Zahl aus einer zweiten
 	 * Abfrage durch, die bei einem der beiden Stände zufällig passt.
 	 */
+	// Auch hier nur die Liste des Pools — siehe den Absatz an `listeVon` oben.
 	const zeilenHier = (
-		startseiteMitDienstHtml.match(/<li\b[^>]*\bclass="[^"]*\bzeile\b[^"]*"/g) ?? []
+		listeVon(startseiteMitDienstHtml, 'offen-marke').match(
+			/<li\b[^>]*\bclass="[^"]*\bzeile\b[^"]*"/g
+		) ?? []
 	).length;
 	const griffHier = ZAEHLER_MUSTER.exec(griffVon(startseiteMitDienstHtml, 'offen-marke'));
 	pruefen(

@@ -351,25 +351,39 @@ const archivSpalten = {
  * where-Klausel, liefe eine Zeile mit `erledigtAm: null` still durch einen Typ,
  * der `number` verspricht, und die Seite formatierte den 1. Januar 1970.
  *
- * **Kein Blättern und kein Index**, dieselbe Entscheidung wie bei den übrigen
- * Abfragen dieser Datei und mit einer benannten Auslösebedingung: zwanzig Leute
- * haken eine Handvoll Aufgaben je Woche ab, was nach einem Gartenjahr ein paar
- * hundert Zeilen ergibt — eine Tabelle, die in wenige Speicherseiten passt, und
- * ein voller Durchlauf, der sie liest. Wer diese Seite je nach Zeitraum
- * **filtert** statt alles zu lesen, liest zum ersten Mal einen Ausschnitt, und
- * dann trägt ein Index auf `completed_at` zum ersten Mal etwas. Dieselbe
- * Auslösebedingung steht in ../schema.ts an signup_tasks.
+ * **`hoechstens` ist der angekündigte Ausschnitt** — seit dem 2026-09-20, und
+ * damit ist die Auslösebedingung eingetreten, die hier stand. Der Absatz sagte:
+ * wer diese Abfrage je auf einen Ausschnitt einschränkt statt alles zu lesen,
+ * gibt einem Index auf `completed_at` zum ersten Mal etwas zu tragen. Der Fall
+ * ist da: `/` zeigt die zuletzt erledigten Zeilen und will zwanzig davon.
+ *
+ * **Der Index kommt trotzdem nicht**, und das ist die bewusste Verlängerung
+ * derselben Rechnung. Ein LIMIT ohne Index zwingt SQLite, die ganze Tabelle zu
+ * sortieren und danach neunzehn Zwanzigstel wegzuwerfen — bei zwanzig Leuten,
+ * die eine Handvoll Aufgaben je Woche abhaken, sind das nach einem Gartenjahr
+ * ein paar hundert Zeilen in wenigen Speicherseiten. Was der Index spart, ist
+ * an dieser Grösse nicht messbar; was er kostet, fällt bei **jedem** Abhaken an.
+ * Die Auslösebedingung heisst darum jetzt anders: zehntausend Zeilen, oder eine
+ * Archivseite, die spürbar lädt. Dieselbe Rechnung steht in ../schema.ts an
+ * signup_tasks.
+ *
+ * **Ohne Argument bleibt alles unverändert**, und das ist der Grund für den
+ * optionalen Parameter statt zweier Funktionen: /archiv liest die ganze
+ * Geschichte und `/` die letzten zwanzig — dieselbe Ordnung, dieselbe
+ * Projektion, derselbe Ausschluss von `completed_by`. Zwei Funktionen wären zwei
+ * Stellen, an denen eine davon eines Tages einen Namen mitgibt.
  *
  * **Kein Bezugszeitpunkt als Parameter**, anders als bei offeneAufgabenAuflisten:
  * hier wird nichts gegen eine Uhr gerechnet. Was das Archiv zeigt, ändert sich
  * nicht dadurch, dass Zeit vergeht.
  */
-export function erledigteAufgabenAuflisten(): ErledigteAufgabe[] {
-	return datenbank()
+export function erledigteAufgabenAuflisten(hoechstens?: number): ErledigteAufgabe[] {
+	const abfrage = datenbank()
 		.select(archivSpalten)
 		.from(tasks)
 		.where(isNotNull(tasks.completedAt))
-		.orderBy(desc(tasks.completedAt), desc(tasks.id))
+		.orderBy(desc(tasks.completedAt), desc(tasks.id));
+	return (hoechstens === undefined ? abfrage : abfrage.limit(hoechstens))
 		.all()
 		.flatMap((zeile) =>
 			zeile.erledigtAm === null ? [] : [{ ...zeile, erledigtAm: zeile.erledigtAm }]
