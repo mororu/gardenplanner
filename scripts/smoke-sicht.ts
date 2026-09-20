@@ -68,7 +68,7 @@ import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-t
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 76;
+const ERWARTETE_BEHAUPTUNGEN = 78;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -2385,6 +2385,62 @@ try {
 		'die Suche öffnet den zugeklappten Monat, zeigt ihren Treffer und lässt den anderen weg',
 		`${nachDerSuche.sichtbar.join(' | ')} / ${nachDerSuche.ansage}`,
 		`${gefundenText} / 1 Treffer`
+	);
+
+	/*
+	 * **Und die Suche findet den Monat**, seit dem 2026-09-20.
+	 *
+	 * Bis dahin durchsuchte sie Text, Übernehmer und Herkunftswort und
+	 * ausdrücklich **nicht** das Datum — mit der Begründung, nach dem Monat
+	 * suche man, indem man ihn aufklappt. Das war eine Annahme über die Leute,
+	 * und sie war falsch (Befund Manuel): wer ein Suchfeld über einer nach
+	 * Monaten geordneten Liste sieht, tippt einen Monat hinein.
+	 *
+	 * Gemessen wird gegen den Monatsnamen, den die Seite **selbst** über die
+	 * Gruppe schreibt, und nicht gegen einen hier gerechneten: so hält die Zeile
+	 * auch am Monatsanfang, und sie prüft genau die Zusage — findbar ist, was
+	 * dasteht.
+	 */
+	await browser.auswerten(`
+		const feld = document.querySelector('#archiv-suche');
+		feld.value = '';
+		feld.dispatchEvent(new Event('input', { bubbles: true }));
+		return true;`);
+	const monatUeberDerGruppe = await browser.auswerten<string>(
+		"return document.querySelector('.monat .marke').textContent.trim()"
+	);
+	await browser.tippen('#archiv-suche', monatUeberDerGruppe);
+	await browser.warten(
+		"document.querySelector('#archiv-treffer').textContent.trim() !== ''",
+		'die Trefferansage zum Monat steht'
+	);
+	const nachMonat = await sichtbareZeilen();
+	pruefenGleich(
+		`die Suche findet auch den Monat, unter dem die Zeilen stehen (${monatUeberDerGruppe})`,
+		[...nachMonat.sichtbar].sort().join(' | '),
+		[gefundenText, weggelassenText].sort().join(' | ')
+	);
+
+	/*
+	 * **Und das Suchfeld ist wirklich grösser als ein gewöhnliches Feld.**
+	 *
+	 * `.feld--suche` hebt die Mindesthöhe um `--space-4` über `--touch` und die
+	 * Schrift auf `--section-size` (Entscheid Manuel, 2026-09-20: viel grösser
+	 * machen). Gemessen wird gegen **das Trefferminimum** und nicht gegen eine
+	 * feste Pixelzahl: was die Regel zusagt, ist „deutlich über dem Boden", und
+	 * eine Zahl hier wäre eine zweite Wahrheit über einen Wert, der aus zwei
+	 * Tokens entsteht.
+	 */
+	const suchfeld = await browser.auswerten<{ hoehe: number; schrift: number }>(`
+		const f = document.querySelector('#archiv-suche');
+		return {
+			hoehe: Math.round(f.getBoundingClientRect().height),
+			schrift: Math.round(parseFloat(getComputedStyle(f).fontSize)),
+		};`);
+	pruefen(
+		`das Suchfeld steht deutlich über dem Trefferminimum (${suchfeld.hoehe}px, Schrift ${suchfeld.schrift}px)`,
+		suchfeld.hoehe > TREFFER_MINIMUM && suchfeld.schrift > 16,
+		JSON.stringify(suchfeld)
 	);
 
 	// -----------------------------------------------------------------------

@@ -263,7 +263,7 @@
 			<label class="feld__beschriftung" for="wissen-suche">Suchen</label>
 			<div class="suche__zeile">
 				<input
-					class="feld"
+					class="feld feld--suche"
 					type="search"
 					id="wissen-suche"
 					name="suche"

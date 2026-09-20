@@ -282,6 +282,51 @@ a {
 }
 
 /*
+ * **Das Suchfeld — dasselbe Feld, nur deutlich grösser.** Seit dem 2026-09-20
+ * (Entscheid Manuel: viel grösser machen).
+ *
+ * **Warum es überhaupt eine eigene Grösse bekommt.** Ein Suchfeld ist kein
+ * Formularfeld unter vielen: es steht allein über einer Liste, es ist das
+ * erste, was jemand antippt, der etwas sucht, und es muss als Suchfeld zu
+ * erkennen sein, bevor man die Beschriftung liest. In der Vorgabegrösse stand
+ * es da wie ein Titelfeld in einem Formular — 44px hoch, Fliesstext, und
+ * dieselbe Kante wie alles andere.
+ *
+ * Drei Zeilen, und jede hat ihren Fall:
+ *
+ *   min-height   `--touch` plus `--space-4`, also gut ein Drittel höher als
+ *                der Boden aus UX-DR13. Mit Handschuhen im Beet ist ein
+ *                Suchfeld das Ziel, das man im Gehen trifft; die 44px sind die
+ *                Untergrenze für jedes Ziel, nicht das Mass für das wichtigste
+ *                auf der Seite. Gerechnet aus zwei Tokens und nicht als eigene
+ *                Zahl — Gate-Regel 1 liest ein rohes Mass, und was keine Wache
+ *                hat, wächst.
+ *   font-size    die Grösse der Abschnittsrolle (--section-size) statt der
+ *                Aufgabenrolle. Der getippte Begriff ist die Überschrift über
+ *                dem, was darunter steht, und er soll sich am Telefon ohne Zoom
+ *                lesen lassen.
+ *   border       zwei Haarlinien statt einer. Das ist die eine Stelle, an der
+ *                dieses Feld **anders** aussehen darf als seine Nachbarn: es
+ *                trägt keine Nachbarn. Eine gefüllte Fläche wäre der falsche
+ *                Weg — die gehört dem Diensthinweis auf `/` und ihm allein.
+ *
+ * **Nur die Grösse, nicht die ganze Rolle.** `--section-font` und
+ * `--section-weight` bleiben aussen vor: die Überschriftenschrift in 700 wäre
+ * in einem Eingabefeld getippter Text, der wie eine Überschrift aussieht — und
+ * fett Getipptes liest sich schlechter, nicht besser. Schrift und Gewicht
+ * kommen weiter aus `.feld`.
+ *
+ * **Die Rolle ist geteilt und steht darum hier**, nicht zweimal lokal: /archiv
+ * und /wissen tragen je eines, und zwei Fassungen liefen beim nächsten
+ * Anfassen auseinander (Retro-Posten D1, Gate-Regel 14).
+ */
+.feld--suche {
+	min-height: calc(var(--touch) + var(--space-4));
+	border-width: calc(var(--border-hairline) * 2);
+	font-size: var(--section-size);
+}
+
+/*
  * Ein Auswahlfeld behält seinen eigenen Pfeil.
  *
  * `.feld` setzt `appearance: none`, damit ein Texteingabefeld auf iOS nicht die

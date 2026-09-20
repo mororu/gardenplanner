@@ -41,10 +41,23 @@
 		erledigteAufgabenAuflisten). Bis dahin ist jede Serverrunde Aufwand ohne
 		Gegenwert.
 
-		**Gesucht wird in dem, was an der Zeile steht** — Text, Übernehmer und das
-		Herkunftswort —, und ausdrücklich nicht im Datum: `September` findet keine
-		Septemberzeile. Das ist keine Auslassung, sondern die Arbeitsteilung mit
-		den Gruppen: nach dem Monat sucht man, indem man ihn aufklappt.
+		**Gesucht wird in allem, was an der Zeile steht** — Text, Übernehmer, das
+		Herkunftswort **und das Datum**, in genau den drei Formen, in denen die
+		Seite es zeigt: `15. Sep 2026` an der Zeile, `September` über der Gruppe,
+		`2026` über dem Jahr.
+
+		**Das Datum kam am 2026-09-20 dazu, und der Absatz hier stand vorher
+		umgekehrt**: „ausdrücklich nicht im Datum … nach dem Monat sucht man,
+		indem man ihn aufklappt". Das war eine Annahme über die Leute, und sie war
+		falsch. Wer ein Suchfeld über einer nach Monaten geordneten Liste sieht,
+		tippt einen Monat hinein — und bekam `Nichts gefunden`, während die Zeilen
+		einen Griff weiter dastanden. Eine Suche, die genau das nicht findet,
+		wonach die Seite selbst gliedert, sieht kaputt aus, und sie hat recht damit.
+
+		**Gesucht wird in der angezeigten Form und nicht im Zeitstempel.** Das ist
+		die Regel, die diese Erweiterung trägt: was auf der Seite steht, ist
+		findbar; was nicht dasteht, ist es nicht. `1789…` findet nichts, und `Sep`
+		findet den September, weil er so an der Zeile steht.
 
 		`toLocaleLowerCase('de-CH')` und nicht `toLowerCase()`: die zweite Form
 		hängt an der Umgebung des Browsers, und in einer türkischen fiele aus `I`
@@ -54,14 +67,33 @@
 	*/
 	let suche = $state('');
 	const suchbegriff = $derived(suche.trim().toLocaleLowerCase('de-CH'));
+
+	/**
+	 * Alles, was an einer Zeile steht, als **eine** Zeichenkette in
+	 * Kleinschreibung.
+	 *
+	 * Die drei Datumsformen kommen aus denselben Funktionen, die sie auch
+	 * anzeigen — `datumKurz` an der Zeile, `monatName` über der Gruppe, `jahrVon`
+	 * über dem Jahr. Das ist keine Bequemlichkeit, sondern die Zusage: die Suche
+	 * findet, was dasteht, weil sie dieselbe Rechnung liest. Ein zweites
+	 * Datumsformat nur für die Suche liefe am Monatsanfang auseinander, und dann
+	 * fände `September` Zeilen, über denen `August` steht.
+	 */
+	const durchsuchbar = (zeile: (typeof data.erledigte)[number]): string =>
+		[
+			zeile.text,
+			zeile.uebernehmer ?? '',
+			herkunft(zeile.art),
+			datumKurz(zeile.erledigtAm),
+			monatName(zeile.erledigtAm),
+			jahrVon(zeile.erledigtAm),
+		]
+			.join(' ')
+			.toLocaleLowerCase('de-CH');
 	const getroffene = $derived(
 		suchbegriff === ''
 			? data.erledigte
-			: data.erledigte.filter((zeile) =>
-					`${zeile.text} ${zeile.uebernehmer ?? ''} ${herkunft(zeile.art)}`
-						.toLocaleLowerCase('de-CH')
-						.includes(suchbegriff)
-				)
+			: data.erledigte.filter((zeile) => durchsuchbar(zeile).includes(suchbegriff))
 	);
 
 	/*
@@ -224,7 +256,7 @@
 		<div class="suche">
 			<label class="feld__beschriftung" for="archiv-suche">Suchen</label>
 			<input
-				class="feld"
+				class="feld feld--suche"
 				type="search"
 				id="archiv-suche"
 				bind:value={suche}
