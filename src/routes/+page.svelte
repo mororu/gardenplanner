@@ -8,6 +8,7 @@
 	import type { PageProps } from './$types';
 	import { datumKasten, datumKurz, datumLang } from '$lib/client/utils/date';
 	import { AUFGABE_HOECHSTLAENGE } from '$lib/aufgabentext';
+	import ZeichenBlatt from '$lib/components/ZeichenBlatt.svelte';
 	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
 	import ZeichenStift from '$lib/components/ZeichenStift.svelte';
 	import {
@@ -24,6 +25,7 @@
 		UEBERNEHMEN_KNOPF,
 		griffUeberfaellig,
 		zeileBald,
+		zeileFaellig,
 		zeileUnbesetzt,
 	} from '$lib/texte';
 
@@ -986,6 +988,43 @@
 			-->
 			<span class="kopfzahl">{data.ueberblick.reif}</span>
 			<span class="griff__titel">Zum Ernten</span>
+			<span class="plan-zeile__pfeil" aria-hidden="true">→</span>
+		</a>
+	{/if}
+
+	<!--
+		Die Wellnessbehandlung — die dritte Zeile mit Pfeil, seit dem 2026-09-20
+		(Entscheid Manuel).
+
+		**Sie steht zuunterst der drei, und die Reihenfolge ist die Dringlichkeit.**
+		Eine unbesetzte Tränkewoche ist ein Loch: handelt niemand, vertrocknet
+		etwas. Reifes Gemüse ist eine Gelegenheit — wer es stehen lässt, verliert
+		Qualität. Eine fällige Behandlung ist eine Empfehlung; sie zu übergehen
+		kostet an diesem Tag nichts.
+
+		**Der Einwand dagegen ist benannt und nicht übergangen**: die drei tragen
+		dieselbe Form für drei verschiedene Verbindlichkeitsgrade, und damit tritt
+		die schwächste so laut auf wie die dringendste. Getragen wird das von der
+		Reihenfolge und davon, dass jede Zeile bei null **ganz** fehlt — alle drei
+		zugleich ist der seltene Fall, nicht der Normalfall.
+
+		**Warum sie hier steht und nicht unter `Zum Erledigen` oder `Wer
+		übernimmt`** (die Frage, aus der sie entstanden ist): eine fällige
+		Behandlung ist keine Aufgabenzeile. Sie ist eine Rechnung aus dem
+		Tagebuch. In `Zum Erledigen` hätte sie ein Kästchen, das `completed_at`
+		setzt — nur gibt es nichts abzuhaken, `Heute gemacht` legt eine **neue**
+		Zeile an, und in vierzehn Tagen steht sie wieder da. In `Wer übernimmt`
+		wäre sie etwas, das jemand auf sich nimmt; beim nächsten Termin wäre sie
+		wieder niemandes. Die drei Aufgabenarten unterscheiden sich im Schema
+		genau danach, wie verbindlich sie jemandem gehören — und diese Zeile
+		gehört in keine davon.
+	-->
+	{#if data.ueberblick.faellig > 0}
+		<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+		<a class="plan-zeile" href={resolve('/wellness')}>
+			<ZeichenBlatt class="zeichen--gross" />
+			<span class="kopfzahl">{data.ueberblick.faellig}</span>
+			<span class="griff__titel">{zeileFaellig(data.ueberblick.faellig)}</span>
 			<span class="plan-zeile__pfeil" aria-hidden="true">→</span>
 		</a>
 	{/if}

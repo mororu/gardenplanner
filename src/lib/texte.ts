@@ -403,6 +403,22 @@ export function zeileUnbesetzt(anzahl: number): string {
 }
 
 /**
+ * Die dritte Zeile mit Pfeil auf `/`, seit dem 2026-09-20.
+ *
+ * **Nach dem Muster von zeileUnbesetzt darüber und nicht nach `Zum Ernten`.**
+ * Die zwei bestehenden Zeilen sind verschieden gebaut: `Tränkewochen unbesetzt`
+ * nennt die Sache und ihren Zustand, `Zum Ernten` nennt die Handlung. Für eine
+ * fällige Behandlung trägt nur die erste Form — `Zum Behandeln` wäre die
+ * wörtliche Übertragung und liest sich nach Krankenzimmer.
+ *
+ * Das ganze Wort und nicht `Behandlungen fällig`: `Behandlung` allein ist im
+ * Garten nicht eindeutig, und die Seite dahinter heisst so.
+ */
+export function zeileFaellig(anzahl: number): string {
+	return anzahl === 1 ? 'Wellnessbehandlung fällig' : 'Wellnessbehandlungen fällig';
+}
+
+/**
  * Die nicht mehr ansprechbare Erntezeile. **Drei Wurfstellen**, alle drei in
  * den actions von src/routes/ernte/+page.server.ts: `umstufen`, und `abernten`
  * in beiden Schritten.

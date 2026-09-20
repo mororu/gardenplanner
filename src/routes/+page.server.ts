@@ -19,6 +19,9 @@ import {
 	type OffeneAufgabe,
 } from '../lib/server/db/queries/tasks.ts';
 import { erntestandLesen } from '../lib/server/db/queries/harvests.ts';
+import { behandlungenLesen } from '../lib/server/db/queries/treatments.ts';
+import { istWiederDran, letzteJeStelle } from '../lib/wellness.ts';
+import { tageZurueck } from '../lib/zeit.ts';
 import { SICHTBARE_ERNTESTATUS } from '../lib/ernte.ts';
 import { AUFGABE_NICHT_ANSPRECHBAR, EINZELAUFGABE_NICHT_ANSPRECHBAR } from '../lib/texte.ts';
 import {
@@ -132,6 +135,22 @@ export type Ueberblick = {
 	 * hat. Hier steht die Liste da, und sie sagt es genauer.
 	 */
 	reif: number;
+	/**
+	 * Wie viele Wellnessbehandlungen wieder anstehen — je Mittel und Ort die
+	 * jüngste Anwendung, deren Wiederholung abgelaufen ist.
+	 *
+	 * **Gerechnet und nicht gezählt**, anders als `reif` darüber: der Erntestand
+	 * ist eine Liste, die ihre eigene Länge hat, hier entsteht die Zahl erst aus
+	 * dem Tagebuch und der Uhr. Die Regel dafür steht an genau einer Stelle
+	 * (letzteJeStelle und istWiederDran in ../lib/wellness.ts) und wird von
+	 * /wellness ein zweites Mal gelesen — dieselbe Rechnung, nicht eine zweite
+	 * Fassung davon.
+	 *
+	 * **Eine Zahl und nicht zwei**, wie bei der Ernte und aus demselben Grund:
+	 * die Seite dahinter sagt es genauer, und eine zweite Zahl hätte hier keinen
+	 * Leser.
+	 */
+	faellig: number;
 };
 
 /**
@@ -331,6 +350,30 @@ export function load({ locals, url }: ServerLoadEvent): {
 	const ernte = erntestandLesen().filter((zeile) =>
 		(SICHTBARE_ERNTESTATUS as readonly string[]).includes(zeile.status)
 	);
+	/*
+	 * **Was wieder ansteht — gerechnet, nicht abgefragt.**
+	 *
+	 * Wie bei der Ernte darüber wird dieselbe Abfrage gelesen, die /wellness
+	 * rendert, und kein `count(*)` daneben: die Zahl soll die Länge genau jener
+	 * Liste sein, die einen Griff weiter dasteht. Die Auswahl selbst steht in
+	 * ../lib/wellness.ts und nicht hier — eine Startseite, die selbst
+	 * entscheidet, was fällig ist, wäre die zweite Fassung jener Regel.
+	 *
+	 * **Der Preis ist hier ein anderer als bei der Ernte, und das gehört
+	 * hingeschrieben.** Dort bleibt die Tabelle klein, weil abgeerntet wird; das
+	 * Tagebuch wird nie kürzer. Diese Seite ist damit der zweite Leser der ganzen
+	 * Tabelle, und sie wird bei **jedem** Aufruf der Startseite gelesen, nicht
+	 * nur, wenn jemand /wellness öffnet. Die Auslösebedingung steht am Schema:
+	 * zuerst eine Begrenzung auf das laufende Jahr, erst danach ein Index. Wer
+	 * sie auslöst, ist seit heute diese Stelle und nicht /wellness.
+	 *
+	 * Gegen `jetztSekunden` und nicht gegen eine eigene Uhr: dieselbe Sekunde wie
+	 * die Überfälligkeit der Aufgaben, sonst stünden auf einer Seite zwei
+	 * Zeitpunkte.
+	 */
+	const faellig = letzteJeStelle(behandlungenLesen()).filter((zeile) =>
+		istWiederDran(tageZurueck(zeile.angewendetAm, jetztSekunden), zeile.intervallTage)
+	);
 	const wochen = dienstwochenLesen(wochenfenster(jetztSekunden));
 	/*
 	 * **Die Grenze für die eigenen Zusagen kommt aus demselben Wochenfenster.**
@@ -358,6 +401,9 @@ export function load({ locals, url }: ServerLoadEvent): {
 		// COUNT. Ein Bestand, eine Uhr, eine Wahrheit; derselbe Grund wie bei
 		// `offen` und `ueberfaellig` oben.
 		reif: ernte.length,
+		// Dieselbe Begründung wie bei `reif` daneben, und dieselbe Rechnung wie auf
+		// /wellness — siehe den Absatz an `faellig` oben.
+		faellig: faellig.length,
 	};
 
 	return {
