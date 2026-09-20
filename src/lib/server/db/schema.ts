@@ -786,10 +786,35 @@ export const treatments = sqliteTable('treatments', {
 	 */
 	mittel: text('mittel').notNull(),
 	/*
+	 * Was behandelt wurde — **nullbar**, seit dem 2026-09-20 (Entscheid Manuel).
+	 *
+	 * Freiwillig und nicht Pflicht, weil beides vorkommt: wer Tomaten gegen
+	 * Mehltau spritzt, meint die Tomaten; wer ein abgeerntetes Beet mulcht oder
+	 * Kompost ausbringt, meint das Beet und keine Kultur. Ein Pflichtfeld zwänge
+	 * im zweiten Fall zu einer Angabe, die es nicht gibt — und die erste
+	 * Erfindung, die jemand hineinschreibt, steht danach als Tatsache da.
+	 *
+	 * Die Vorschlagsliste ist **dieselbe wie auf /ernte** (KULTUREN in
+	 * src/lib/ernte.ts): es ist derselbe Garten, und zwei Listen derselben
+	 * zwanzig Wörter liefen beim ersten Ergänzen auseinander. Gespeichert wird
+	 * wie dort Text und kein Schlüssel.
+	 *
+	 * **Sie zählt für die Wiederholung mit** — siehe `stelle` in
+	 * src/lib/wellness.ts: Schachtelhalm auf den Tomaten und Schachtelhalm auf
+	 * dem Kohl sind zwei Behandlungen, auch im selben Beet.
+	 */
+	kultur: text('kultur'),
+	/*
 	 * Wo — **nullbar**, freiwillig, leer wird als null gespeichert und nicht als
 	 * leerer String. Dieselbe Spalte wie harvests.ort, dieselbe Prüfung
 	 * (ortPruefen), und ohne Beet-Tabelle aus demselben Grund: jeder Aufwand pro
 	 * Beet ist bei 40+ Beeten Ausschlusskriterium.
+	 *
+	 * **Nach dieser Spalte wird die Seite geordnet**, seit dem 2026-09-20: wer
+	 * im Garten steht, steht in einem Beet und will wissen, was dort war. Die
+	 * Ordnung selbst steht nicht in der Abfrage, sondern als `nachBeet` in
+	 * src/lib/wellness.ts — sie ist eine Auslegung („Beet 3 vor Beet 12") und
+	 * keine Eigenschaft der Daten. Die Begründung in ganzer Länge steht dort.
 	 */
 	ort: text('ort'),
 	/*
