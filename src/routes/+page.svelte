@@ -993,43 +993,6 @@
 	{/if}
 
 	<!--
-		Die Wellnessbehandlung — die dritte Zeile mit Pfeil, seit dem 2026-09-20
-		(Entscheid Manuel).
-
-		**Sie steht zuunterst der drei, und die Reihenfolge ist die Dringlichkeit.**
-		Eine unbesetzte Tränkewoche ist ein Loch: handelt niemand, vertrocknet
-		etwas. Reifes Gemüse ist eine Gelegenheit — wer es stehen lässt, verliert
-		Qualität. Eine fällige Behandlung ist eine Empfehlung; sie zu übergehen
-		kostet an diesem Tag nichts.
-
-		**Der Einwand dagegen ist benannt und nicht übergangen**: die drei tragen
-		dieselbe Form für drei verschiedene Verbindlichkeitsgrade, und damit tritt
-		die schwächste so laut auf wie die dringendste. Getragen wird das von der
-		Reihenfolge und davon, dass jede Zeile bei null **ganz** fehlt — alle drei
-		zugleich ist der seltene Fall, nicht der Normalfall.
-
-		**Warum sie hier steht und nicht unter `Zum Erledigen` oder `Wer
-		übernimmt`** (die Frage, aus der sie entstanden ist): eine fällige
-		Behandlung ist keine Aufgabenzeile. Sie ist eine Rechnung aus dem
-		Tagebuch. In `Zum Erledigen` hätte sie ein Kästchen, das `completed_at`
-		setzt — nur gibt es nichts abzuhaken, `Heute gemacht` legt eine **neue**
-		Zeile an, und in vierzehn Tagen steht sie wieder da. In `Wer übernimmt`
-		wäre sie etwas, das jemand auf sich nimmt; beim nächsten Termin wäre sie
-		wieder niemandes. Die drei Aufgabenarten unterscheiden sich im Schema
-		genau danach, wie verbindlich sie jemandem gehören — und diese Zeile
-		gehört in keine davon.
-	-->
-	{#if data.ueberblick.faellig > 0}
-		<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
-		<a class="plan-zeile" href={resolve('/wellness')}>
-			<ZeichenBlatt class="zeichen--gross" />
-			<span class="kopfzahl">{data.ueberblick.faellig}</span>
-			<span class="griff__titel">{zeileFaellig(data.ueberblick.faellig)}</span>
-			<span class="plan-zeile__pfeil" aria-hidden="true">→</span>
-		</a>
-	{/if}
-
-	<!--
 		Derselbe Aufklapper wie über den Einzelaufgaben darunter — ein Abschnitt,
 		zwei Abschnitte, eine Bauform.
 
@@ -1624,6 +1587,53 @@
 			</div>
 		</div>
 	</details>
+
+	<!--
+		Die Wellnessbehandlung — **die letzte Zeile der Seite**, seit dem
+		2026-09-20 (Entscheid Manuel). Sie stand einen Tag lang als dritte der
+		drei Pfeilzeilen oben, und der Umzug führt deren Begründung zu Ende.
+
+		**Die Reihenfolge war und bleibt die Dringlichkeit.** Eine unbesetzte
+		Tränkewoche ist ein Loch: handelt niemand, vertrocknet etwas. Reifes
+		Gemüse ist eine Gelegenheit — wer es stehen lässt, verliert Qualität.
+		Eine fällige Behandlung ist eine Empfehlung; sie zu übergehen kostet an
+		diesem Tag nichts. Genau darum steht sie jetzt nicht mehr nur unter den
+		Pfeilzeilen, sondern unter **allem**: unter der Arbeit, die jemand
+		mitnehmen kann, und unter der Frage nach einer Zusage.
+
+		**Der Preis ist die Bauform, und er ist bewusst bezahlt.** Bis hierher
+		galt: Pfeilzeilen oben, Aufklapper unten — eine Zeile mit Pfeil nach den
+		Abschnitten bricht das. Der Einwand von oben wiegt schwerer: die drei
+		Pfeilzeilen tragen dieselbe Form für drei verschiedene
+		Verbindlichkeitsgrade, und oben trat die schwächste so laut auf wie die
+		dringendste. Unten tut sie das nicht mehr, und sie tut es auf dem Telefon
+		auch dann nicht, wenn alle Abschnitte zugeklappt sind: dann steht sie
+		sichtbar da, ohne etwas zu verdrängen.
+
+		**Warum sie überhaupt eine eigene Zeile ist und nicht in `Zum Erledigen`
+		oder `Wer übernimmt` steht** (die Frage, aus der sie entstanden ist): eine
+		fällige Behandlung ist keine Aufgabenzeile. Sie ist eine Rechnung aus dem
+		Tagebuch. In `Zum Erledigen` hätte sie ein Kästchen, das `completed_at`
+		setzt — nur gibt es nichts abzuhaken, `Heute gemacht` legt eine **neue**
+		Zeile an, und in vierzehn Tagen steht sie wieder da. In `Wer übernimmt`
+		wäre sie etwas, das jemand auf sich nimmt; beim nächsten Termin wäre sie
+		wieder niemandes. Die drei Aufgabenarten unterscheiden sich im Schema
+		genau danach, wie verbindlich sie jemandem gehören — und diese Zeile
+		gehört in keine davon.
+
+		**Bei null fehlt sie ganz**, wie die zwei Zeilen oben und wie der
+		Diensthinweis. Eine Zeile `0 Behandlungen fällig` nähme jeden Tag Platz,
+		um nichts mitzuteilen.
+	-->
+	{#if data.ueberblick.faellig > 0}
+		<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
+		<a class="plan-zeile" href={resolve('/wellness')}>
+			<ZeichenBlatt class="zeichen--gross" />
+			<span class="kopfzahl">{data.ueberblick.faellig}</span>
+			<span class="griff__titel">{zeileFaellig(data.ueberblick.faellig)}</span>
+			<span class="plan-zeile__pfeil" aria-hidden="true">→</span>
+		</a>
+	{/if}
 </div>
 
 <!--
