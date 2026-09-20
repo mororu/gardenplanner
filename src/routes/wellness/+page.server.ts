@@ -3,6 +3,7 @@ import type { Actions, RequestEvent, ServerLoadEvent } from '@sveltejs/kit';
 import { ortPruefen } from '../../lib/ernte.ts';
 import { abweisen } from '../../lib/server/abweisen.ts';
 import {
+	behandlungAendern,
 	behandlungEintragen,
 	behandlungLesen,
 	behandlungWegnehmen,
@@ -14,6 +15,7 @@ import {
 	DATUM_AUSSERHALB,
 	DATUM_UNGUELTIG,
 	intervallPruefen,
+	kulturPruefen,
 	mittelPruefen,
 } from '../../lib/wellness.ts';
 import {
@@ -50,10 +52,10 @@ import {
  * sobald eine dritte Seite einen Ort aufnimmt, gehört die Prüfung in ein
  * eigenes Modul und nicht in ein drittes Mal dieselbe Zeile.
  *
- * **Keine zweite Stufe, an keiner der drei actions.** Der Wächter in
+ * **Keine zweite Stufe, an keiner der vier actions.** Der Wächter in
  * src/hooks.server.ts hat einen Aufruf ohne gültige Sitzung schon mit 403
- * abgewiesen; danach darf jedes aktive Mitglied eintragen, fortschreiben und
- * wegnehmen — auch an fremden Zeilen. Dieselbe Offenheit wie auf /ernte und aus demselben Grund:
+ * abgewiesen; danach darf jedes aktive Mitglied eintragen, fortschreiben,
+ * richtigstellen und wegnehmen — auch an fremden Zeilen. Dieselbe Offenheit wie auf /ernte und aus demselben Grund:
  * wer sieht, dass eine Zeile falsch ist, soll sie richtigstellen dürfen, ohne
  * die Person zu suchen, die sie geschrieben hat. Die Rückfrage bei `wegnehmen`
  * ist das Gegengewicht.
@@ -135,8 +137,8 @@ export function load({ locals }: ServerLoadEvent): {
  * Wie diese Seite abweist — die Funktion steht in ../../lib/server/abweisen.ts
  * und ist für alle sieben Seiten mit Formular dieselbe.
  *
- * `feld` ist `'mittel'`, `'ort'`, `'datum'` oder `'intervall'` am
- * Eintragen-Formular und null an den zwei Zeilen-Aktionen, die kein Feld haben.
+ * `feld` ist `'mittel'`, `'kultur'`, `'ort'`, `'datum'` oder `'intervall'` am
+ * Eintragen- wie am Ändern-Formular und null an den zwei Zeilen-Aktionen, die kein Feld haben.
  * `zeile` trägt die Kennung der Behandlung, damit die Meldung an ihr steht statt
  * oben.
  *
@@ -149,6 +151,70 @@ export function load({ locals }: ServerLoadEvent): {
  * mit höchstens drei Ziffern. Beides ist billiger als ein dritter Rückweg, den
  * dann jede der sieben Seiten trüge.
  */
+/**
+ * Die vier Felder, geprüft in der Reihenfolge des Formulars — **einmal für zwei
+ * actions.**
+ *
+ * `eintragen` und `aendern` nehmen dieselben Angaben entgegen und weisen sie
+ * nach denselben Regeln ab; zwei Kopien dieser Kette liefen beim ersten
+ * Nachdenken über eine Grenze auseinander, und dann nähme das Ändern an, was
+ * das Eintragen verwirft. Dasselbe Motiv wie bei src/lib/blatttext.ts, nur eine
+ * Route tiefer: dort teilen sich zwei Seiten die Prüfung, hier zwei actions.
+ *
+ * **Die Reihenfolge ist die Reihenfolge im Formular** — Mittel, Kultur, Ort,
+ * Datum, Wiederholung: wer fünf Meldungen zugleich bekäme, läse zuerst die zur
+ * untersten Zeile. Abgewiesen wird an der ersten Stelle, die nicht trägt.
+ *
+ * Zurück kommt entweder die fertige Eingabe oder das, was `abweisen` braucht —
+ * `feld` und die zwei Rückwege. Welche Zeile betroffen ist, weiss allein die
+ * action, und darum trägt sie die Kennung nach.
+ */
+function felderPruefen(formular: FormData):
+	| {
+			eingabe: {
+				mittel: string;
+				kultur: string | null;
+				ort: string | null;
+				angewendetAm: number;
+				intervallTage: number | null;
+			};
+	  }
+	| { fehler: string; feld: string; mittelRoh: string; ortRoh: string } {
+	const mittelRoh = textLesen(formular.get('mittel'));
+	const ortRoh = textLesen(formular.get('ort'));
+	const abbruch = (fehler: string, feld: string) => ({ fehler, feld, mittelRoh, ortRoh });
+
+	const mittel = mittelPruefen(mittelRoh);
+	if ('fehler' in mittel) return abbruch(mittel.fehler, 'mittel');
+
+	const kultur = kulturPruefen(textLesen(formular.get('kultur')));
+	if ('fehler' in kultur) return abbruch(kultur.fehler, 'kultur');
+
+	const ort = ortPruefen(ortRoh);
+	if ('fehler' in ort) return abbruch(ort.fehler, 'ort');
+
+	const angewendetAm = tagesendeInUnixSekunden(textLesen(formular.get('datum')));
+	if (angewendetAm === null) return abbruch(DATUM_UNGUELTIG, 'datum');
+	// Gegen dieselbe Uhr, aus der das Feld seine Grenzen bekommen hat. Der
+	// heutige Tag liegt drinnen, ein Tag in der Zukunft nicht.
+	if (!istInRueckschau(angewendetAm, Math.floor(Date.now() / 1000))) {
+		return abbruch(DATUM_AUSSERHALB, 'datum');
+	}
+
+	const intervall = intervallPruefen(textLesen(formular.get('intervall')));
+	if ('fehler' in intervall) return abbruch(intervall.fehler, 'intervall');
+
+	return {
+		eingabe: {
+			mittel: mittel.mittel,
+			kultur: kultur.kultur,
+			ort: ort.ort,
+			angewendetAm,
+			intervallTage: intervall.intervallTage,
+		},
+	};
+}
+
 export const actions = {
 	/**
 	 * Trägt eine Behandlung ein.
@@ -172,43 +238,18 @@ export const actions = {
 		}
 
 		const formular = await request.formData();
-		const mittelRoh = textLesen(formular.get('mittel'));
-		const ortRoh = textLesen(formular.get('ort'));
-
-		const mittel = mittelPruefen(mittelRoh);
-		if ('fehler' in mittel) {
-			return abweisen(mittel.fehler, 'mittel', mittelRoh, null, ortRoh);
+		const gepruefte = felderPruefen(formular);
+		if ('fehler' in gepruefte) {
+			return abweisen(
+				gepruefte.fehler,
+				gepruefte.feld,
+				gepruefte.mittelRoh,
+				null,
+				gepruefte.ortRoh
+			);
 		}
 
-		const ort = ortPruefen(ortRoh);
-		if ('fehler' in ort) {
-			return abweisen(ort.fehler, 'ort', mittelRoh, null, ortRoh);
-		}
-
-		const angewendetAm = tagesendeInUnixSekunden(textLesen(formular.get('datum')));
-		if (angewendetAm === null) {
-			return abweisen(DATUM_UNGUELTIG, 'datum', mittelRoh, null, ortRoh);
-		}
-		// Gegen dieselbe Uhr wie das Feld seine Grenzen bekommen hat. Der heutige
-		// Tag liegt drinnen, ein Tag in der Zukunft nicht — siehe istInRueckschau.
-		if (!istInRueckschau(angewendetAm, Math.floor(Date.now() / 1000))) {
-			return abweisen(DATUM_AUSSERHALB, 'datum', mittelRoh, null, ortRoh);
-		}
-
-		const intervall = intervallPruefen(textLesen(formular.get('intervall')));
-		if ('fehler' in intervall) {
-			return abweisen(intervall.fehler, 'intervall', mittelRoh, null, ortRoh);
-		}
-
-		const zeile = behandlungEintragen(
-			{
-				mittel: mittel.mittel,
-				ort: ort.ort,
-				angewendetAm,
-				intervallTage: intervall.intervallTage,
-			},
-			mitglied
-		);
+		const zeile = behandlungEintragen(gepruefte.eingabe, mitglied);
 
 		// Der Satz nennt das Mittel **und** was daraus folgt: das Formular klappt
 		// nach dem Absenden zu, der Fokus springt in die Region oben, und die neue
@@ -283,6 +324,7 @@ export const actions = {
 		const zeile = behandlungEintragen(
 			{
 				mittel: vorlage.mittel,
+				kultur: vorlage.kultur,
 				ort: vorlage.ort,
 				angewendetAm,
 				intervallTage: vorlage.intervallTage,
@@ -294,6 +336,67 @@ export const actions = {
 			art: 'wiederholt' as const,
 			meldung: `${zeile.mittel} ist für heute eingetragen.`,
 			zeile: zeile.id,
+		};
+	},
+
+	/**
+	 * Stellt eine Zeile richtig — alle vier Angaben auf einmal (Entscheid Manuel,
+	 * 2026-09-20).
+	 *
+	 * **Dieselbe Prüfkette wie `eintragen`**, über `felderPruefen`: was beim
+	 * Eintragen nicht durchkommt, kommt hier auch nicht durch. Zwei Ketten liefen
+	 * beim ersten Nachdenken über eine Grenze auseinander.
+	 *
+	 * **Die Kennung kommt aus einem versteckten Feld und nicht aus dem Pfad**,
+	 * anders als beim Ändern eines Blatts: dort ist die Seite das Blatt, hier
+	 * steht eine Liste, und jede Zeile trägt ihr eigenes Formular. Die Kennung
+	 * ist damit die einzige Auskunft darüber, welche gemeint ist.
+	 *
+	 * **Ohne Rückfrage.** Ändern nimmt nichts weg, und ein Fehlgriff ist mit dem
+	 * nächsten Ändern zurückgenommen — dieselbe Abwägung wie beim Umstufen auf
+	 * /ernte. Nur `wegnehmen` fragt, weil es löscht.
+	 *
+	 * **Kein adminOderWeg.** Jedes Mitglied darf jede Zeile richtigstellen, auch
+	 * eine fremde. Das ist dieselbe Offenheit wie beim Eintragen und beim
+	 * Wegnehmen, und der Name an der Zeile bleibt dabei stehen: er sagt, wer
+	 * behandelt hat, und das ändert sich durch eine Korrektur nicht.
+	 */
+	aendern: async ({ request }: RequestEvent) => {
+		const formular = await request.formData();
+		const id = zahlLesen(formular.get('id'));
+		if (id === null) {
+			return abweisen(BEHANDLUNG_NICHT_ANSPRECHBAR);
+		}
+
+		const gepruefte = felderPruefen(formular);
+		if ('fehler' in gepruefte) {
+			return abweisen(gepruefte.fehler, gepruefte.feld, gepruefte.mittelRoh, id, gepruefte.ortRoh);
+		}
+
+		// Trifft das UPDATE keine Zeile, ist sie zwischen dem Öffnen der Seite und
+		// dem Absenden weggenommen worden. Ein Satz und kein 404, wie beim Ändern
+		// eines Blatts: die Person hat gerade getippt.
+		if (!behandlungAendern(id, gepruefte.eingabe)) {
+			/*
+			 * Zurück reisen hier die **geprüften** Werte und nicht die rohen: an
+			 * dieser Stelle sind sie durch die ganze Kette gekommen, und was die
+			 * Person im Feld wiederfinden soll, ist das, was sie gemeint hat.
+			 * `ort` ist dabei null, wenn sie keinen genannt hat — im Feld ist das
+			 * die leere Zeichenkette.
+			 */
+			return abweisen(
+				BEHANDLUNG_NICHT_ANSPRECHBAR,
+				null,
+				gepruefte.eingabe.mittel,
+				id,
+				gepruefte.eingabe.ort ?? ''
+			);
+		}
+
+		return {
+			art: 'geaendert' as const,
+			meldung: `${gepruefte.eingabe.mittel} ist richtiggestellt.`,
+			zeile: id,
 		};
 	},
 

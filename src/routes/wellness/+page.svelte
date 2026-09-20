@@ -5,6 +5,7 @@
 	import { tick } from 'svelte';
 	import type { PageProps } from './$types';
 	import { datumKurz } from '$lib/client/utils/date';
+	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
 	/*
 		ERNTE_HOECHSTLAENGE und ORT_VORGABE für das **Ortsfeld** — dieselbe Grenze
 		und dieselbe Vorbelegung wie auf /ernte, und aus demselben Grund, aus dem
@@ -13,7 +14,7 @@
 		die geteilte Stelle kostet — die Alternative wäre eine zweite Zahl, die beim
 		ersten Nachdenken von der ersten wegliefe.
 	*/
-	import { ERNTE_HOECHSTLAENGE, ORT_VORGABE } from '$lib/ernte';
+	import { ERNTE_HOECHSTLAENGE, KULTUREN, KULTURLISTE, ORT_VORGABE } from '$lib/ernte';
 	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
 	import {
 		INTERVALL_HOECHST,
@@ -21,9 +22,10 @@
 		MITTELLISTE,
 		MITTEL_HOECHSTLAENGE,
 		letzteJeStelle,
+		nachBeet,
 		tageBisWieder,
 	} from '$lib/wellness';
-	import { tageZurueck } from '$lib/zeit';
+	import { alsFeldwert, tageZurueck } from '$lib/zeit';
 
 	/*
 		/wellness — was zur Stärkung ausgebracht wurde, und was wieder ansteht.
@@ -54,14 +56,30 @@
 	 * `offen` reist gleich mit: die Zahl steht an der Zeile, und sie ein zweites
 	 * Mal auszurechnen hiesse, dieselbe Rechnung an zwei Stellen zu führen.
 	 */
+	/**
+		Das Tagebuch, **nach Beet geordnet** (Entscheid Manuel, 2026-09-20).
+
+		Wer im Garten steht, steht in einem Beet und will wissen, was dort schon
+		war — nicht, was irgendwo zuletzt geschah. Die Ordnung selbst steht in
+		$lib/wellness.ts: sie ist natürlich (`Beet 3` vor `Beet 12`) und keine
+		Zeichenkettensortierung, und Zeilen ohne Ort stehen zuunterst. Die
+		Begründung in ganzer Länge steht dort.
+
+		**Beide Listen dieser Seite entstehen daraus**, und das ist der Grund, aus
+		dem die Sortierung hier oben steht und nicht an einer der zwei Stellen:
+		`Steht wieder an` soll in derselben Reihenfolge stehen wie das Tagebuch
+		darunter, sonst sucht man dieselbe Zeile zweimal an verschiedenen Plätzen.
+	*/
+	const geordnet = $derived(nachBeet(data.tagebuch));
+
 	const anstehend = $derived(
-		letzteJeStelle(data.tagebuch)
+		letzteJeStelle(geordnet)
 			.map((zeile) => ({
 				zeile,
 				offen: tageBisWieder(tageZurueck(zeile.angewendetAm, data.jetzt), zeile.intervallTage),
 			}))
 			.filter(
-				(eintrag): eintrag is { zeile: (typeof data.tagebuch)[number]; offen: number } =>
+				(eintrag): eintrag is { zeile: (typeof geordnet)[number]; offen: number } =>
 					// Der Stichtag zählt mit — siehe istWiederDran in $lib/wellness.ts.
 					// Die Bedingung steht hier als `<= 0` und nicht über jene Funktion,
 					// weil `offen` schon gerechnet ist und ein zweiter Aufruf dieselbe
@@ -105,10 +123,107 @@
 	let versandFehler = $state('');
 
 	/** Die Meldung an einem der vier Felder des Formulars. */
-	const fehlerAm = (feld: 'mittel' | 'ort' | 'datum' | 'intervall'): string =>
-		form !== null && form.art === 'fehler' && form.feld === feld ? form.meldung : '';
+	type Feld = 'mittel' | 'kultur' | 'ort' | 'datum' | 'intervall';
+
+	/**
+		Die Meldung an einem Feld des **Eintragen**-Formulars.
+
+		`form.zeile === null` grenzt es gegen die Ändern-Formulare an den Zeilen
+		ab: die tragen dieselben Feldnamen, und ohne diese Bedingung stünde die
+		Meldung über einen Tippfehler an Zeile 12 zugleich oben am Eintragen.
+	*/
+	const fehlerAm = (feld: Feld): string =>
+		form !== null && form.art === 'fehler' && form.feld === feld && form.zeile === null
+			? form.meldung
+			: '';
+
+	/** Dieselbe Meldung, aber am Ändern-Formular **einer bestimmten** Zeile. */
+	const fehlerAnZeile = (feld: Feld, id: number): string =>
+		form !== null && form.art === 'fehler' && form.feld === feld && form.zeile === id
+			? form.meldung
+			: '';
+
+	/**
+		Die fünf Felder des Ändern-Formulars, als Liste statt als fünf
+		ausgeschriebene Blöcke.
+
+		**Der einzige Ort dieser Seite, an dem ein Formular aus einer Schleife
+		entsteht** — und der Grund ist die Vervielfachung: das Ändern steht an
+		**jeder** Zeile, und fünf ausgeschriebene Felder mal zwanzig Zeilen wären
+		hundert Blöcke im Markup, von denen keiner sich vom anderen unterscheidet.
+		Beim Eintragen oben steht das Formular genau einmal, und dort sind die
+		Felder ausgeschrieben: jedes trägt dort einen eigenen Hinweissatz, und der
+		liesse sich nur als weiteres Feld dieser Liste unterbringen.
+
+		Die Reihenfolge ist die des Eintragen-Formulars und die der Prüfkette in
+		der action. Wer sie hier ändert, ändert, welche Meldung zuerst gelesen
+		wird.
+	*/
+	const AENDERFELDER = [
+		{
+			name: 'mittel' as const,
+			wort: 'Womit',
+			art: 'text',
+			liste: MITTELLISTE,
+			pflicht: true,
+			laenge: MITTEL_HOECHSTLAENGE,
+			ziffern: false,
+			wert: (z: (typeof geordnet)[number]) => z.mittel,
+		},
+		{
+			name: 'kultur' as const,
+			wort: 'Was',
+			art: 'text',
+			liste: KULTURLISTE,
+			pflicht: false,
+			laenge: MITTEL_HOECHSTLAENGE,
+			ziffern: false,
+			wert: (z: (typeof geordnet)[number]) => z.kultur ?? '',
+		},
+		{
+			name: 'ort' as const,
+			wort: 'Beet oder Ort',
+			art: 'text',
+			liste: undefined,
+			pflicht: false,
+			laenge: ERNTE_HOECHSTLAENGE,
+			ziffern: false,
+			wert: (z: (typeof geordnet)[number]) => z.ort ?? '',
+		},
+		{
+			name: 'datum' as const,
+			wort: 'Wann',
+			art: 'date',
+			liste: undefined,
+			pflicht: true,
+			laenge: undefined,
+			ziffern: false,
+			/*
+				Der Feldwert `JJJJ-MM-TT` aus dem Tagesende in der Zone. Gerechnet über
+				`alsFeldwert` und nicht über `toISOString().slice(0, 10)`: das rechnet in
+				UTC, und ein Tagesende in Europe/Zurich ist dort schon der Folgetag.
+			*/
+			wert: (z: (typeof geordnet)[number]) => alsFeldwert(z.angewendetAm),
+		},
+		{
+			name: 'intervall' as const,
+			wort: 'Wieder in … Tagen',
+			art: 'text',
+			liste: undefined,
+			pflicht: false,
+			laenge: String(INTERVALL_HOECHST).length,
+			ziffern: true,
+			wert: (z: (typeof geordnet)[number]) =>
+				z.intervallTage === null ? '' : String(z.intervallTage),
+		},
+	];
+
+	/** Ob die Zeile eine Abweisung trägt — dann steht ihr Formular offen. */
+	const zeileAbgewiesen = (id: number): boolean =>
+		form !== null && form.art === 'fehler' && form.zeile === id;
 
 	const fehlerAmMittel = $derived(fehlerAm('mittel'));
+	const fehlerAmKultur = $derived(fehlerAm('kultur'));
 	const fehlerAmOrt = $derived(fehlerAm('ort'));
 	const fehlerAmDatum = $derived(fehlerAm('datum'));
 	const fehlerAmIntervall = $derived(fehlerAm('intervall'));
@@ -120,7 +235,11 @@
 		darunter wäre eine Meldung über etwas, das man nicht sieht.
 	*/
 	const formularOffen = $derived(
-		fehlerAmMittel !== '' || fehlerAmOrt !== '' || fehlerAmDatum !== '' || fehlerAmIntervall !== ''
+		fehlerAmMittel !== '' ||
+			fehlerAmKultur !== '' ||
+			fehlerAmOrt !== '' ||
+			fehlerAmDatum !== '' ||
+			fehlerAmIntervall !== ''
 	);
 
 	/*
@@ -153,10 +272,13 @@
 				: ''
 	);
 
-	/** Der Satz nach einer geglückten Handlung — drei actions, eine Region. */
+	/** Der Satz nach einer geglückten Handlung — vier actions, eine Region. */
 	const meldungOben = $derived(
 		form !== null &&
-			(form.art === 'eingetragen' || form.art === 'wiederholt' || form.art === 'weggenommen')
+			(form.art === 'eingetragen' ||
+				form.art === 'wiederholt' ||
+				form.art === 'geaendert' ||
+				form.art === 'weggenommen')
 			? form.meldung
 			: ''
 	);
@@ -194,10 +316,24 @@
 				return;
 			}
 			if (result.type === 'failure') {
-				const daten = result.data as { feld?: unknown } | undefined;
+				const daten = result.data as { feld?: unknown; zeile?: unknown } | undefined;
 				const feld = typeof daten?.feld === 'string' ? daten.feld : null;
-				if (feld === 'mittel' || feld === 'ort' || feld === 'datum' || feld === 'intervall') {
-					document.getElementById(`neu-${feld}`)?.focus();
+				/*
+					**Die Kennung entscheidet, welches Formular gemeint ist.** Dieselben
+					fünf Feldnamen gibt es einmal oben beim Eintragen und einmal an jeder
+					Zeile; ohne `zeile` spränge der Fokus bei jedem Tippfehler nach oben,
+					auch wenn die Person gerade Zeile 12 richtiggestellt hat.
+				*/
+				const zeile = typeof daten?.zeile === 'number' ? daten.zeile : null;
+				if (
+					feld === 'mittel' ||
+					feld === 'kultur' ||
+					feld === 'ort' ||
+					feld === 'datum' ||
+					feld === 'intervall'
+				) {
+					const kennung = zeile === null ? `neu-${feld}` : `aendern-${zeile}-${feld}`;
+					document.getElementById(kennung)?.focus();
 					return;
 				}
 				fehlerKasten?.focus();
@@ -253,8 +389,15 @@
 		<ul class="liste liste--getrennt" aria-labelledby="anstehend-marke">
 			{#each anstehend as { zeile, offen } (zeile.id)}
 				<li class="karte karte--eng">
+					<!--
+						Mittel, Kultur, Ort — in dieser Reihenfolge und mit Kommas getrennt,
+						weil sie drei Antworten auf drei Fragen sind: womit, was, wo. Jede
+						der zwei hinteren fehlt, wenn sie nicht angegeben wurde; ein
+						Platzhalter dafür wäre eine Auskunft, die nichts sagt.
+					-->
 					<p class="zeile__text">
-						{zeile.mittel}{#if zeile.ort !== null}, {zeile.ort}{/if}
+						{zeile.mittel}{#if zeile.kultur !== null}, {zeile.kultur}{/if}{#if zeile.ort !== null},
+							{zeile.ort}{/if}
 					</p>
 					<p class="hinweis hinweis--ziffern">
 						{seitWann(offen)} · zuletzt {vorWann(tageZurueck(zeile.angewendetAm, data.jetzt))}
@@ -320,6 +463,37 @@
 				</datalist>
 				<p class="fehler live" id="neu-mittel-fehler" role="alert" aria-live="assertive">
 					{fehlerAmMittel}
+				</p>
+			</div>
+
+			<div>
+				<label class="feld__beschriftung" for="neu-kultur">Was</label>
+				<!--
+					**Dieselbe Vorschlagsliste wie auf /ernte** (KULTUREN): es ist derselbe
+					Garten, und zwei Listen derselben zwanzig Wörter liefen beim ersten
+					Ergänzen auseinander. Kein `required` — wer ein abgeerntetes Beet
+					mulcht, behandelt keine Kultur.
+				-->
+				<input
+					class="feld"
+					id="neu-kultur"
+					name="kultur"
+					type="text"
+					list={KULTURLISTE}
+					maxlength={MITTEL_HOECHSTLAENGE}
+					aria-invalid={fehlerAmKultur !== '' ? 'true' : undefined}
+					aria-describedby="neu-kultur-hinweis{fehlerAmKultur !== '' ? ' neu-kultur-fehler' : ''}"
+				/>
+				<datalist id={KULTURLISTE}>
+					{#each KULTUREN as kultur (kultur)}
+						<option value={kultur}></option>
+					{/each}
+				</datalist>
+				<p class="hinweis hinweis--am-feld" id="neu-kultur-hinweis">
+					Darf leer bleiben — dann gilt die Behandlung dem ganzen Beet.
+				</p>
+				<p class="fehler live" id="neu-kultur-fehler" role="alert" aria-live="assertive">
+					{fehlerAmKultur}
 				</p>
 			</div>
 
@@ -412,17 +586,18 @@
 		</form>
 	</details>
 
-	{#if data.tagebuch.length === 0}
+	{#if geordnet.length === 0}
 		<!-- Der leere Zustand sagt, was gilt; der Weg heraus steht darüber. -->
 		<p class="leer">Noch nichts eingetragen.</p>
 	{:else}
 		<h2 class="marke" id="tagebuch-marke">Tagebuch</h2>
 		<ul class="liste liste--getrennt" aria-labelledby="tagebuch-marke">
-			{#each data.tagebuch as eintrag (eintrag.id)}
+			{#each geordnet as eintrag (eintrag.id)}
 				{@const fragtHier = frage !== null && frage.zeile === eintrag.id}
 				<li class="karte karte--eng">
 					<p class="zeile__text">
-						{eintrag.mittel}{#if eintrag.ort !== null}, {eintrag.ort}{/if}
+						{eintrag.mittel}{#if eintrag.kultur !== null}, {eintrag.kultur}{/if}{#if eintrag.ort !== null},
+							{eintrag.ort}{/if}
 					</p>
 					<!--
 						Name und Datum: nicht als Zuständigkeit, sondern als Herkunft — wann
@@ -469,6 +644,64 @@
 							</div>
 						</div>
 					{:else}
+						<!--
+							**Ändern und Wegnehmen stehen nebeneinander**, das Ändern zuerst:
+							es ist die häufigere und die harmlosere der zwei. Während die
+							Rückfrage zum Wegnehmen steht, sind beide fort — dort ist genau
+							eine Frage zu beantworten.
+
+							Das Ändern ist ein `<details>` und das Wegnehmen ein Knopf, und
+							der Unterschied ist die Ehrlichkeit des Aufklappers: dahinter
+							kommt ein Formular mit fünf Feldern. Dieselbe geteilte
+							`.zeilenform` wie oben.
+
+							**Offen, sobald diese Zeile abgewiesen wurde** — vom Server
+							entschieden, nicht von einem Client-Zustand. Ohne JavaScript läuft
+							kein Rückruf, und ein zugeklapptes Formular mit einem Fehlersatz
+							darunter wäre eine Meldung über etwas, das man nicht sieht.
+							`form.zeile` sagt, welche Zeile gemeint ist; ohne diese Bedingung
+							klappten bei einem Tippfehler **alle** Zeilen auf.
+						-->
+						<details class="zeilenform" open={zeileAbgewiesen(eintrag.id)}>
+							<summary class="zeilenform__griff">
+								<span>Ändern</span>
+								<ZeichenWinkel class="aufklapp" />
+							</summary>
+							<form
+								class="zeilenform__formular"
+								method="POST"
+								action="?/aendern"
+								use:enhance={versand}
+							>
+								<input type="hidden" name="id" value={eintrag.id} />
+								{#each AENDERFELDER as feld (feld.name)}
+									{@const fehler = fehlerAnZeile(feld.name, eintrag.id)}
+									{@const kennung = `aendern-${eintrag.id}-${feld.name}`}
+									<div>
+										<label class="feld__beschriftung" for={kennung}>{feld.wort}</label>
+										<input
+											class="feld"
+											id={kennung}
+											name={feld.name}
+											type={feld.art}
+											list={feld.liste}
+											required={feld.pflicht}
+											inputmode={feld.ziffern ? 'numeric' : undefined}
+											maxlength={feld.laenge}
+											min={feld.art === 'date' ? data.frueheste : undefined}
+											max={feld.art === 'date' ? data.spaeteste : undefined}
+											value={feld.wert(eintrag)}
+											aria-invalid={fehler !== '' ? 'true' : undefined}
+											aria-describedby={fehler !== '' ? `${kennung}-fehler` : undefined}
+										/>
+										<p class="fehler live" id="{kennung}-fehler" role="alert" aria-live="assertive">
+											{fehler}
+										</p>
+									</div>
+								{/each}
+								<button class="button-quiet" type="submit" disabled={imFlug}>Ablegen</button>
+							</form>
+						</details>
 						<form method="POST" action="?/wegnehmen" use:enhance={versand}>
 							<input type="hidden" name="id" value={eintrag.id} />
 							<button class="button-quiet button-quiet--kompakt" type="submit" disabled={imFlug}>
