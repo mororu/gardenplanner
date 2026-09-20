@@ -3820,11 +3820,41 @@ try {
 			: klasse.includes('fehler')
 				? (['alert', 'assertive'] as const)
 				: null;
-		if (art === null)
+		if (art === null) {
+			/*
+			 * **`hinweis live` trägt zwei Aufgaben, und das Attributpaar sagt
+			 * welche** — seit dem 2026-09-20. Bis dahin war jedes `live` ohne
+			 * `meldung` und ohne `fehler` zwangsläufig eine Nicht-Region, weil es
+			 * nur einen solchen Fall gab: den Datumshinweis auf /monatsplan, der
+			 * über `aria-describedby` am Feld hängt.
+			 *
+			 * Die Trefferansage der Suche auf /archiv ist der zweite, und sie ist
+			 * das Gegenteil: eine echte höfliche Region, die aber **keine**
+			 * Meldungsregion ist — sie meldet keinen Vorgang, die Seite hat gar
+			 * kein `actions`, und darum trägt sie auch den Fokusgriff nicht, den
+			 * die Wache weiter oben von jeder `meldung live` verlangt.
+			 *
+			 * Die Klasse kann die zwei nicht auseinanderhalten, und eine erfundene
+			 * dritte Klasse ohne eigene Gestaltung wäre ein Marker für die Wache
+			 * und sonst nichts. Entschieden wird darum an dem, was wirklich zählt:
+			 * **trägt das Element ein Attribut der Live-Familie, muss das Paar
+			 * vollständig und in sich stimmig sein.** Eine Region mit
+			 * `role="status"` und `aria-live="assertive"` fällt damit auf, eine mit
+			 * nur einem der beiden auch — und das leere Element ohne beide bleibt
+			 * die Nicht-Region, die es war.
+			 */
+			const traegtEines = /role="/.test(tag) || /aria-live="/.test(tag);
+			if (!traegtEines)
+				return [
+					`${wo}: ${klasse} ist keine Region und trägt darum weder role noch aria-live`,
+					true,
+				] as const;
 			return [
-				`${wo}: ${klasse} ist keine Region und trägt darum weder role noch aria-live`,
-				!/role="/.test(tag) && !/aria-live="/.test(tag),
+				`${wo}: ${klasse} ist eine Region ohne eigene Familie und trägt ein stimmiges Paar`,
+				(tag.includes('role="status"') && tag.includes('aria-live="polite"')) ||
+					(tag.includes('role="alert"') && tag.includes('aria-live="assertive"')),
 			] as const;
+		}
 		return [
 			`${wo}: ${klasse} trägt role="${art[0]}" und aria-live="${art[1]}"`,
 			tag.includes(`role="${art[0]}"`) && tag.includes(`aria-live="${art[1]}"`),
@@ -3836,18 +3866,23 @@ try {
 		`verletzt: ${fehlendeTeile(regionenTeile).join(', ')}`
 	);
 	pruefenGleich(
-		'und es sind acht höfliche, neunundzwanzig unterbrechende und genau eine, die nur die CSS-Rolle braucht',
+		'und es sind acht höfliche, einunddreissig unterbrechende, eine Ansage und genau eine, die nur die CSS-Rolle braucht',
 		JSON.stringify(
 			liveTags
-				.map(([, roh]) => /class="([^"]*)"/.exec(roh.replace(/\s+/g, ' '))?.[1] ?? '')
+				.map(([, roh]) => roh.replace(/\s+/g, ' '))
 				.reduce(
-					(zaehler, klasse) => {
+					(zaehler, tag) => {
+						const klasse = /class="([^"]*)"/.exec(tag)?.[1] ?? '';
 						if (klasse.includes('meldung')) zaehler.hoeflich += 1;
 						else if (klasse.includes('fehler')) zaehler.unterbrechend += 1;
+						// Höflich, aber keine Meldung über einen Vorgang: die
+						// Trefferansage der Suche auf /archiv. Siehe den Absatz an der
+						// Familienbestimmung oben.
+						else if (/role="/.test(tag)) zaehler.ansage += 1;
 						else zaehler.keineRegion += 1;
 						return zaehler;
 					},
-					{ hoeflich: 0, unterbrechend: 0, keineRegion: 0 }
+					{ hoeflich: 0, unterbrechend: 0, ansage: 0, keineRegion: 0 }
 				)
 		),
 		// +1 höflich und +4 unterbrechend seit dem 2026-09-13: /ernte bringt eine
@@ -3868,7 +3903,12 @@ try {
 		// Eintragen, einmal in der Schleife des Ändern-Formulars, das an jeder
 		// Zeile steht. Im Markup sind das zwei Regionen, gerendert so viele wie es
 		// Zeilen gibt; diese Wache liest den Quelltext und zählt darum zwei.
-		JSON.stringify({ hoeflich: 8, unterbrechend: 31, keineRegion: 1 })
+		//
+		// +1 Ansage seit dem 2026-09-20: die Suche auf /archiv sagt ihre
+		// Trefferzahl höflich an, ohne eine Meldung über einen Vorgang zu sein.
+		// Sie ist die einzige ihrer Art, und die Zahl hält das fest — wächst sie,
+		// hat jemand eine Meldungsregion gebaut und ihr den Fokusgriff genommen.
+		JSON.stringify({ hoeflich: 8, unterbrechend: 31, ansage: 1, keineRegion: 1 })
 	);
 
 	const rueckmeldungRumpf = glatterRumpf(

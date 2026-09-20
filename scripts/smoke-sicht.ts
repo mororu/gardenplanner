@@ -66,7 +66,7 @@ import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-t
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 71;
+const ERWARTETE_BEHAUPTUNGEN = 73;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -308,9 +308,9 @@ try {
 			}).length,
 		};`);
 	pruefenGleich(
-		'der Rückblick trägt seine eine Zeile, und sie ist durchgestrichen',
+		'der Rückblick trägt die abgehakten Zeilen, und sie sind durchgestrichen',
 		`${rueckblick.zeilen}/${rueckblick.durchgestrichen}`,
-		'1/1'
+		`${saat.abgehakteTexte.length}/${saat.abgehakteTexte.length}`
 	);
 
 	/*
@@ -2187,6 +2187,76 @@ try {
 		'und die Rückmeldung hält den Fokus — der öffnende Knopf, an den close() ihn gäbe, ist fort',
 		fokusNachWiderruf.klasse.split(/\s+/).includes('meldung'),
 		`fokussiert ist <${fokusNachWiderruf.art} class="${fokusNachWiderruf.klasse}">`
+	);
+
+	// -----------------------------------------------------------------------
+	// /archiv: die Suche filtert, und ein zugeklappter Monat geht dafür auf
+	// -----------------------------------------------------------------------
+	/*
+	 * **Die Zusage, die nur im Browser messbar ist.** Die Suche auf /archiv
+	 * filtert im Browser über die geladene Liste; am ausgelieferten HTML ist
+	 * davon nichts zu sehen, und `smoke` und `smoke:http` können sie darum
+	 * nicht berühren. Was hier gemessen wird, ist die Kette aus drei Teilen, die
+	 * einzeln je für sich richtig sein können und zusammen trotzdem nichts
+	 * nützen: der Filter lässt etwas weg, die Trefferzahl sagt wie viel, und der
+	 * Aufklapper gibt das Gefundene frei.
+	 *
+	 * **Der dritte Teil ist der Grund, warum die zwei Änderungen zusammengehören.**
+	 * Ein zugeklappter Monat und eine Suche, die ihn nicht öffnet, ergeben eine
+	 * Seite, die auf ein getipptes Wort hin leer aussieht — die Treffer sind da,
+	 * sie stehen nur hinter einem Griff. Darum wird hier ausdrücklich erst
+	 * zugeklappt und dann gesucht.
+	 *
+	 * Gemessen wird über `getClientRects()` und nicht über das `open`-Attribut:
+	 * gefragt ist, ob die Zeile **zu sehen** ist, und das ist die Frage, die ein
+	 * Attribut nur mittelbar beantwortet.
+	 */
+	await browser.besuchen(`${adresse}/archiv`);
+	const [gefundenText, weggelassenText] = saat.abgehakteTexte;
+	// Ein Wort aus dem einen Text, das im anderen nicht vorkommt — die zwei Texte
+	// der Saat haben ausdrücklich keines gemeinsam.
+	const suchwort = 'schnecken';
+
+	/*
+	 * **`checkVisibility()` und nicht `getClientRects()`**, und das ist gemessen
+	 * und nicht gewählt: ein zugeklapptes `<details>` versteckt seinen Inhalt in
+	 * Chrome über `content-visibility: hidden`, und darunter behalten die
+	 * Nachkommen ihre Rechtecke aus dem letzten Aufbau. Der erste Entwurf dieser
+	 * Messung zählte darum nach dem Zuklappen unverändert zwei sichtbare Zeilen —
+	 * eine Wache, die grün geblieben wäre, wenn die Aufklapper gar nicht
+	 * funktionierten. `checkVisibility()` beantwortet genau die gestellte Frage.
+	 */
+	const sichtbareZeilen = () =>
+		browser!.auswerten<{ sichtbar: string[]; ansage: string }>(`
+			const sichtbar = [...document.querySelectorAll('.karte .zeile__text')]
+				.filter((el) => el.checkVisibility())
+				.map((el) => el.textContent.trim());
+			const region = document.querySelector('#archiv-treffer');
+			return { sichtbar, ansage: region === null ? '(fehlt)' : region.textContent.trim() };`);
+
+	const vorDerSuche = await sichtbareZeilen();
+	pruefenGleich(
+		'ohne Suche stehen beide abgehakten Zeilen offen da — und die Region sagt nichts',
+		`${[...vorDerSuche.sichtbar].sort().join(' | ')} / ${vorDerSuche.ansage || '(leer)'}`,
+		`${[gefundenText, weggelassenText].sort().join(' | ')} / (leer)`
+	);
+
+	await browser.klicken('details.monat > summary');
+	await browser.warten(
+		"[...document.querySelectorAll('.karte .zeile__text')].every((el) => !el.checkVisibility())",
+		'der Monat ist zugeklappt'
+	);
+
+	await browser.tippen('#archiv-suche', suchwort);
+	await browser.warten(
+		"document.querySelector('#archiv-treffer').textContent.trim() !== ''",
+		'die Trefferansage steht'
+	);
+	const nachDerSuche = await sichtbareZeilen();
+	pruefenGleich(
+		'die Suche öffnet den zugeklappten Monat, zeigt ihren Treffer und lässt den anderen weg',
+		`${nachDerSuche.sichtbar.join(' | ')} / ${nachDerSuche.ansage}`,
+		`${gefundenText} / 1 Treffer`
 	);
 
 	// -----------------------------------------------------------------------

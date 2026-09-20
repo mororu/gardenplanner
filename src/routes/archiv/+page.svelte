@@ -6,6 +6,104 @@
 
 	const { data }: PageProps = $props();
 
+	/**
+	 * Woher eine Zeile kommt, als Wort.
+	 *
+	 * **Die Sache und nicht der Abschnitt.** Auf `/` heissen die zwei Blöcke nach
+	 * Fragen — `Zum Erledigen` und `Wer übernimmt` —, und beide klängen hier
+	 * falsch: im Archiv ist nichts mehr zu erledigen und übernimmt niemand mehr.
+	 * `Aufgabe` und `Termin` sind die Wörter, die AGENTS.md für die Dinge selbst
+	 * festhält, und sie stimmen auch im Rückblick.
+	 *
+	 * **Steht seit dem 2026-09-20 oben und nicht mehr unten**, weil die Suche sie
+	 * braucht: `Termin` ist ein Wort, nach dem jemand sucht, und es steht an der
+	 * Zeile, ohne in ihren Daten vorzukommen.
+	 */
+	const herkunft = (art: (typeof data.erledigte)[number]['art']): string =>
+		art === 'termin' ? 'Termin' : 'Aufgabe';
+
+	/*
+		**Die Suche, seit dem 2026-09-20 (Entscheid Manuel).**
+
+		Sie filtert **im Browser** über die Liste, die ohnehin schon da ist, und
+		schickt nichts an den Server. Das ist keine Bequemlichkeit, sondern die
+		Rechnung dieser Grösse: zwanzig Leute haken eine Handvoll Aufgaben je Woche
+		ab, ein Gartenjahr ergibt ein paar hundert Zeilen, und die stehen nach dem
+		Laden vollständig im Speicher. Eine Suche über den Server verlangte eine
+		Route, einen Parameter in der Adresse, einen Ladezustand und eine zweite
+		Stelle, die entscheidet, was ein Treffer ist — für ein Ergebnis, das hier
+		im selben Tastenanschlag steht.
+
+		**Die Auslösebedingung dagegen steht wie überall in dieser Anwendung
+		benannt da**: wird das Archiv je so gross, dass die load spürbar lädt,
+		gehört die Einschränkung in die Abfrage, und dann trägt ein Index auf
+		`completed_at` zum ersten Mal etwas (siehe die Rechnung an
+		erledigteAufgabenAuflisten). Bis dahin ist jede Serverrunde Aufwand ohne
+		Gegenwert.
+
+		**Gesucht wird in dem, was an der Zeile steht** — Text, Übernehmer und das
+		Herkunftswort —, und ausdrücklich nicht im Datum: `September` findet keine
+		Septemberzeile. Das ist keine Auslassung, sondern die Arbeitsteilung mit
+		den Gruppen: nach dem Monat sucht man, indem man ihn aufklappt.
+
+		`toLocaleLowerCase('de-CH')` und nicht `toLowerCase()`: die zweite Form
+		hängt an der Umgebung des Browsers, und in einer türkischen fiele aus `I`
+		ein punktloses `ı`. Der Unterschied ist an deutschem Text selten sichtbar
+		und trotzdem der Grund, warum die Sprache hier steht und nicht weggelassen
+		ist.
+	*/
+	let suche = $state('');
+	const suchbegriff = $derived(suche.trim().toLocaleLowerCase('de-CH'));
+	const getroffene = $derived(
+		suchbegriff === ''
+			? data.erledigte
+			: data.erledigte.filter((zeile) =>
+					`${zeile.text} ${zeile.uebernehmer ?? ''} ${herkunft(zeile.art)}`
+						.toLocaleLowerCase('de-CH')
+						.includes(suchbegriff)
+				)
+	);
+
+	/*
+		**Aufgeklappt wird alles, solange gesucht wird.**
+
+		Das ist die eine Stelle, an der die Suche und die Aufklapper voneinander
+		wissen müssen. Ohne sie fände die Suche ihre Treffer und legte sie hinter
+		zugeklappte Griffe — man tippte ein Wort, die Seite bliebe scheinbar leer,
+		und der einzige Hinweis wären die Griffe, die stehen bleiben. Genau dieser
+		Fall ist der Grund, warum die zwei Änderungen zusammen in einen Commit
+		gehören und nicht nacheinander.
+
+		Der Ausdruck steht an **beiden** Stufen, und jede hat daneben ihre eigene
+		Vorgabe für den Fall ohne Suche: das jüngste Jahr und darin der jüngste
+		Monat. Die Stelle in der Liste entscheidet und nicht das Datum von heute —
+		die Liste ist absteigend sortiert, also ist die erste Gruppe die jüngste,
+		und in einem Garten, in dem seit Monaten nichts abgehakt wurde, ist das
+		eben nicht der laufende Monat.
+	*/
+	const sucht = $derived(suchbegriff !== '');
+
+	/**
+	 * Was die Live-Region nach einer Suche ansagt.
+	 *
+	 * **Eine Trefferzahl und kein Zähler je Monat.** Der Kommentar am Markup
+	 * verbietet die zweite Sorte ausdrücklich: eine Zahl an jedem Monat wäre der
+	 * erste Schritt zu einer Bilanz über eine Nachbarschaft. Diese Zahl sagt
+	 * nichts über einen Monat und vergleicht nichts — sie beantwortet die eine
+	 * Frage, die eine Suche offenlässt, nämlich ob überhaupt etwas gefunden wurde
+	 * und ob es sich lohnt, weiterzublättern. Ohne sie bliebe der Fall „ein
+	 * Treffer weit unten" von „nichts gefunden" nur durch Scrollen zu
+	 * unterscheiden.
+	 *
+	 * Leer, solange niemand sucht: eine Region, die beim Laden `340 Treffer`
+	 * ansagt, hat niemand gefragt.
+	 */
+	const trefferSatz = $derived.by(() => {
+		if (!sucht) return '';
+		if (getroffene.length === 0) return 'Nichts gefunden.';
+		return getroffene.length === 1 ? '1 Treffer' : `${getroffene.length} Treffer`;
+	});
+
 	/*
 		Die Zeilen nach Jahr und darunter nach Monat gebündelt — **zwei Stufen seit
 		dem 2026-09-17** (Entscheid Manuel). Vorher war es eine: ein Monat trug sein
@@ -40,7 +138,7 @@
 			jahr: string;
 			monate: { monat: string; zeilen: typeof data.erledigte }[];
 		}[] = [];
-		for (const zeile of data.erledigte) {
+		for (const zeile of getroffene) {
 			const jahr = jahrVon(zeile.erledigtAm);
 			const monat = monatName(zeile.erledigtAm);
 			let laufendesJahr = liste.at(-1);
@@ -57,18 +155,6 @@
 		}
 		return liste;
 	});
-
-	/**
-	 * Woher eine Zeile kommt, als Wort.
-	 *
-	 * **Die Sache und nicht der Abschnitt.** Auf `/` heissen die zwei Blöcke nach
-	 * Fragen — `Zum Erledigen` und `Wer übernimmt` —, und beide klängen hier
-	 * falsch: im Archiv ist nichts mehr zu erledigen und übernimmt niemand mehr.
-	 * `Aufgabe` und `Termin` sind die Wörter, die AGENTS.md für die Dinge selbst
-	 * festhält, und sie stimmen auch im Rückblick.
-	 */
-	const herkunft = (art: (typeof data.erledigte)[number]['art']): string =>
-		art === 'termin' ? 'Termin' : 'Aufgabe';
 </script>
 
 <svelte:head>
@@ -113,9 +199,65 @@
 		Zeile noch dasteht.
 	</p>
 
-	{#if jahre.length === 0}
+	<!--
+		**Das Suchfeld steht ausserhalb eines `<form>`**, und das ist eine
+		Entscheidung und keine Auslassung. Ein Formular verspricht einen Versand;
+		dieses Feld schickt nichts ab, es filtert eine Liste, die schon im Browser
+		liegt. Mit einem `<form>` darum drückte ein Enter den voreingestellten
+		Versand aus — ein GET auf dieselbe Seite, das die gefundene Ansicht
+		wegwürfe.
+
+		`type="search"` und nicht `type="text"`: die Löschtaste, die der Browser
+		daran selbst rendert, ist am Telefon der kürzeste Weg zurück zur ganzen
+		Liste, und die Bildschirmtastatur bekommt eine Suchtaste statt einer
+		Eingabetaste.
+
+		Die Beschriftung steht sichtbar da und nicht als `placeholder`. Ein
+		Platzhalter verschwindet beim ersten Zeichen — genau dann, wenn das Feld
+		erklärt werden müsste —, und er trägt in keinem Browser verlässlich einen
+		zugänglichen Namen.
+
+		**Nur, wenn es etwas zu durchsuchen gibt.** In einem Garten, in dem noch
+		nichts erledigt ist, wäre das Feld eine Aufforderung ins Leere.
+	-->
+	{#if data.erledigte.length > 0}
+		<div class="suche">
+			<label class="feld__beschriftung" for="archiv-suche">Suchen</label>
+			<input
+				class="feld"
+				type="search"
+				id="archiv-suche"
+				bind:value={suche}
+				autocomplete="off"
+				aria-describedby="archiv-treffer"
+			/>
+		</div>
+	{/if}
+
+	<!--
+		Die Trefferzahl in einer höflichen Live-Region. Sie steht **immer** im
+		Markup, auch leer: ein Element, das erst mit seinem Text in den DOM kommt,
+		liest ein Screenreader in der Regel nicht vor. Leer nimmt sie keinen Platz
+		ein — dieselbe `:empty`-Regel wie auf `/` nimmt sie aus dem Fluss.
+
+		`polite` und nicht `assertive`: eine Trefferzahl unterbricht niemanden. Sie
+		hängt am Feld über `aria-describedby`, damit sie beim Tippen auch dort
+		gelesen wird, wo der Fokus steht.
+	-->
+	<p class="hinweis live" id="archiv-treffer" role="status" aria-live="polite">{trefferSatz}</p>
+
+	{#if data.erledigte.length === 0}
 		<!-- Der leere Zustand sagt, was gilt. Ein Weg heraus gehört hier nicht hin: er führte zum Abhaken, und das tut man im Garten und nicht im Archiv. -->
 		<p class="leer">Noch nichts erledigt.</p>
+	{:else if jahre.length === 0}
+		<!--
+			**Der zweite leere Zustand, und er ist ein anderer.** „Noch nichts
+			erledigt" wäre hier schlicht falsch: es ist etwas erledigt, es passt nur
+			nichts zum Gesuchten. Ein Zustand, zwei Ursachen, zwei Sätze — sonst
+			sucht jemand nach einem Wort, liest, im Garten sei nichts getan, und
+			glaubt es.
+		-->
+		<p class="leer">Nichts gefunden zu „{suche.trim()}".</p>
 	{:else}
 		<!--
 			**Ein Aufklapper je Jahr**, in der geteilten Abschnittsbauform wie auf `/`
@@ -132,13 +274,13 @@
 			eben nicht das Kalenderjahr.
 		-->
 		{#each jahre as gruppe, stelle (gruppe.jahr)}
-			<details class="abschnitt" open={stelle === 0}>
+			<details class="abschnitt" open={stelle === 0 || sucht}>
 				<summary class="abschnitt__griff">
 					<h2 class="abschnittstitel">{gruppe.jahr}</h2>
 					<ZeichenWinkel class="aufklapp" />
 				</summary>
 				<div class="abschnitt__inhalt">
-					{#each gruppe.monate as monatsgruppe (monatsgruppe.monat)}
+					{#each gruppe.monate as monatsgruppe, monatsstelle (monatsgruppe.monat)}
 						<!--
 							Jede Monatsliste trägt ihren zugänglichen Namen über die Marke
 							darüber — sonst heisst sie „Liste mit 7 Einträgen", und auf dieser
@@ -151,19 +293,42 @@
 							Dokument sind kein Schönheitsfehler — `aria-labelledby` findet
 							dann die erste, und die Liste von 2027 hiesse nach dem Monat von
 							2026.
+
+							**Der Monat ist seit dem 2026-09-20 selbst ein Aufklapper**
+							(Entscheid Manuel) — die zweite Stufe, nach dem Jahr. Ein
+							Gartenjahr bringt bis zu zwölf Monatslisten in **einem** Jahr, und
+							aufgeklappt ist das genau die Seite, gegen die die erste Stufe
+							gebaut wurde: man scrollt an hunderten Zeilen vorbei, um den
+							März zu finden.
+
+							**Die Marke bleibt die Marke und wird nicht zur Überschrift
+							umgebaut.** Sie zieht nur in den Griff um: dasselbe `h3`, dieselbe
+							Klasse, dieselbe Kennung, an die die Liste ihren Namen hängt. Ein
+							`<summary>` ist von sich aus kein Gliederungspunkt, und ohne das
+							`h3` darin verlöre diese Seite ihre zweite Ebene in der
+							Überschriftenliste eines Screenreaders.
+
+							**Leichter als das Jahr**: kein eigener Rahmen und keine eigene
+							Fläche um den ganzen Block, nur der getönte Griff. Zwei
+							ineinanderliegende Behälter mit Kante lägen schwerer im Bild als
+							das, was sie ordnen — und die Kante des Jahres ist schon da.
 						-->
 						{@const marke = `monat-${gruppe.jahr}-${monatsgruppe.monat}`}
-						<h3 class="marke" id={marke}>{monatsgruppe.monat}</h3>
-						<ul class="liste liste--getrennt" aria-labelledby={marke}>
-							{#each monatsgruppe.zeilen as zeile (zeile.schluessel)}
-								<li class="karte karte--eng">
-									<!--
+						<details class="monat" open={(stelle === 0 && monatsstelle === 0) || sucht}>
+							<summary class="abschnitt__griff">
+								<h3 class="marke" id={marke}>{monatsgruppe.monat}</h3>
+								<ZeichenWinkel class="aufklapp" />
+							</summary>
+							<ul class="liste liste--getrennt monat__liste" aria-labelledby={marke}>
+								{#each monatsgruppe.zeilen as zeile (zeile.schluessel)}
+									<li class="karte karte--eng">
+										<!--
 							`.zeile__text` bringt den Umbruch für getippten Text aus dem
 							geteilten Stilblatt mit: zweihundert Zeichen ohne Leerzeichen
 							liefen bei 375px sonst aus der Box.
 						-->
-									<p class="fliesstext zeile__text">{zeile.text}</p>
-									<!--
+										<p class="fliesstext zeile__text">{zeile.text}</p>
+										<!--
 							Das Datum steht seit dem 2026-09-17 an jeder Zeile (Entscheid
 							Manuel). Die erste Fassung liess es weg und verwies auf die
 							Monatsüberschrift; das trägt nicht, sobald jemand eine Zeile
@@ -190,25 +355,72 @@
 							ohne das Wort sieht das nach einer Lücke aus statt nach dem
 							Unterschied, der es ist.
 						-->
-									<p class="hinweis hinweis--ziffern">
-										{datumKurz(zeile.erledigtAm)} · {herkunft(zeile.art)}
-									</p>
-									<!--
+										<p class="hinweis hinweis--ziffern">
+											{datumKurz(zeile.erledigtAm)} · {herkunft(zeile.art)}
+										</p>
+										<!--
 							Der Name steht nur an einer Terminzeile — eine Poolaufgabe ist
 							namenlos, und zwar im Typ und nicht bloss in der Anzeige. Es gibt
 							darum auch keinen {:else}-Zweig mit einem Ersatzwort: `noch niemand`
 							wie auf `Alle Termine` wäre hier eine Falschaussage über etwas, das
 							getan ist, und `unbekannt` erklärte einen Zustand, der keiner ist.
 						-->
-									{#if zeile.uebernehmer !== null}
-										<p class="fliesstext">{zeile.uebernehmer}</p>
-									{/if}
-								</li>
-							{/each}
-						</ul>
+										{#if zeile.uebernehmer !== null}
+											<p class="fliesstext">{zeile.uebernehmer}</p>
+										{/if}
+									</li>
+								{/each}
+							</ul>
+						</details>
 					{/each}
 				</div>
 			</details>
 		{/each}
 	{/if}
 </div>
+
+<style>
+	/*
+		Das Suchfeld mit seiner Beschriftung darüber. Dieselbe Anordnung wie ein
+		Feld in einem Formular — Beschriftung, dann Feld, untereinander —, und
+		darum hier nur die zwei Zeilen, die das herstellen: `.feld` und
+		`.feld__beschriftung` bringen alles Übrige aus dem geteilten Blatt mit.
+
+		Ein eigener Behälter und nicht `.knoepfe` oder ein nacktes Geschwisterpaar:
+		die Seite ist eine Spalte mit `gap`, und ohne diesen Kasten stünde zwischen
+		Beschriftung und Feld derselbe Abstand wie zwischen den Abschnitten.
+	*/
+	.suche {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+
+	/*
+		Der Monatsaufklapper. **Ohne Kante und ohne eigene Fläche** — anders als
+		`.abschnitt`, in dem er steht: die Kante des Jahres umschliesst ihn schon,
+		und eine zweite darin machte aus einer Gliederung einen Stapel Kästen.
+
+		Das `overflow: hidden` hat denselben Grund wie an `.abschnitt`: es zwingt
+		die getönte Fläche des Griffs in den Radius. Ohne es stehen ihre Ecken
+		quadratisch über der Rundung.
+
+		`--radius-sm` und nicht `--radius-md`: er sitzt in einem Behälter mit
+		`--radius-md`, und ein Kind mit demselben Radius wie sein Elternteil liest
+		sich als verrutschte Kopie davon.
+	*/
+	.monat {
+		border-radius: var(--radius-sm);
+		overflow: hidden;
+	}
+
+	/*
+		Der Abstand zwischen dem Griff und den Karten darunter. Er steht als
+		Innenabstand an der Liste und nicht als `gap` am Aufklapper: ein `<details>`
+		ist kein Flexcontainer, und `gap` wirkte dort nicht — eine Falle, die
+		stillschweigend nichts tut statt zu brechen.
+	*/
+	.monat__liste {
+		padding-top: var(--space-2);
+	}
+</style>

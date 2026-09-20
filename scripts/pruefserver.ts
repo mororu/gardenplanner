@@ -195,6 +195,14 @@ export type Saat = {
 	ueberfaelligText: string;
 	/** Und die Zahl, die über ihr stehen muss. */
 	ueberfaelligWochen: number;
+	/**
+	 * Die Texte der zwei abgehakten Aufgaben, in der Reihenfolge der Saat.
+	 *
+	 * Sie tragen zweierlei: den Rückblick auf `/`, der bei null ganz fehlt, und
+	 * die Suche auf /archiv, die einen davon finden und den anderen weglassen
+	 * muss. Darum haben sie kein Wort gemeinsam.
+	 */
+	abgehakteTexte: readonly [string, string];
 };
 
 /**
@@ -258,12 +266,17 @@ export function saeen(): Saat {
 	 * Abgehakt wird über die echte Abfrageschicht und nicht per UPDATE von Hand,
 	 * wie jede Saat dieses Skripts: nur so entsteht die Datenlage, die die
 	 * Anwendung selbst herstellt — completed_by und completed_at zusammen.
+	 *
+	 * **Zwei und nicht eine**, weil dieselbe Saat auf /archiv die Suche trägt:
+	 * mit einer einzigen Zeile liesse sich nicht messen, dass ein Suchbegriff
+	 * etwas **weglässt** — eine Liste, die einen Treffer zeigt, sähe genauso aus
+	 * wie eine, die gar nicht filtert. Die zwei Texte haben darum kein Wort
+	 * gemeinsam.
 	 */
-	const [abgehakteZeile] = aufgabenStapelAnlegen(
-		['Beet 9 Schnecken absammeln'],
-		Math.floor(Date.now() / 1000)
-	);
-	aufgabeAbhaken(abgehakteZeile.id, manu.id);
+	const abgehakteTexte = ['Beet 9 Schnecken absammeln', 'Kompost umsetzen'] as const;
+	for (const zeile of aufgabenStapelAnlegen([...abgehakteTexte], Math.floor(Date.now() / 1000))) {
+		aufgabeAbhaken(zeile.id, manu.id);
+	}
 
 	/*
 	 * **Eine Erntezeile je Stufe**, und das ist keine Zierde.
@@ -367,6 +380,7 @@ export function saeen(): Saat {
 		klartexte: [adminToken, mitgliedToken],
 		ueberfaelligText,
 		ueberfaelligWochen,
+		abgehakteTexte,
 	};
 }
 
