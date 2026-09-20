@@ -1,6 +1,7 @@
-import { asc, eq, sql } from 'drizzle-orm';
+import { asc, eq, or, sql } from 'drizzle-orm';
 import { datenbank } from '../index.ts';
 import { sheets, type NewSheet } from '../schema.ts';
+import { LIKE_FLUCHT, alsLikeMuster, fundstelleSchneiden } from '../../../suche.ts';
 
 /*
  * Das Repository für sheets. Die Routen benutzen ausschliesslich diese
@@ -95,6 +96,73 @@ export function blaetterLesen(): Blattzeile[] {
 		.from(sheets)
 		.orderBy(...ordnung)
 		.all();
+}
+
+/**
+ * Ein gefundenes Blatt: die Listenzeile und, wenn der Treffer im **Text**
+ * liegt, ein Ausschnitt daraus.
+ *
+ * `fundstelle` ist null, wenn der Begriff schon im Titel steht — dann sagt die
+ * Zeile selbst, warum sie da ist, und ein Ausschnitt darunter wiederholte nur.
+ */
+export type Blattfund = Blattzeile & { fundstelle: string | null };
+
+/**
+ * Die Blätter, die einen Begriff tragen — in Titel **oder** Text.
+ *
+ * **Der Text wird durchsucht, und das ist der Grund, warum diese Suche
+ * überhaupt auf dem Server steht.** Die Liste holt ihn sonst nie (siehe
+ * Blattzeile oben); ihn für eine Suche im Browser mitzuliefern hiesse, ihn in
+ * **jede** Listenansicht zu legen, auch in die ohne Suche. Hier verlässt er die
+ * Abfrageschicht nur als Ausschnitt und nur für die Treffer.
+ *
+ * **`LIKE` und kein FTS5.** SQLites Volltextindex wäre die Antwort auf eine
+ * Tabelle, die gross genug ist, dass ein voller Durchlauf weh tut; diese hier
+ * hat ein paar Dutzend Zeilen und passt in eine Handvoll Speicherseiten. FTS5
+ * brächte eine zweite Tabelle, die mit der ersten synchron zu halten wäre —
+ * genau die zweite Wahrheit, die dieses Schema überall vermeidet. Die
+ * Auslösebedingung sei benannt: wenn die Suche spürbar langsam wird, ist FTS5
+ * die nächste Stufe, nicht ein Index auf `text` (den `LIKE '%…%'` ohnehin nicht
+ * benutzen könnte).
+ *
+ * **Gross- und Kleinschreibung fallen zusammen, Umlaute nicht.** SQLites `LIKE`
+ * ist für ASCII von sich aus unempfindlich; `Kohl` findet `kohl`. `Ähren`
+ * findet `ähren` nicht. Das ist dieselbe benannte Lücke wie bei der Sortierung
+ * (siehe `ordnung` oben) und aus demselben Grund hingenommen: dagegen hülfe nur
+ * eine echte Sortierregel für Deutsch, die jemand in SQLite hineinreichen
+ * müsste.
+ *
+ * Der Begriff kommt **fertig gefaltet** herein (suchbegriffFalten in
+ * ../../../suche.ts) und ist nicht leer — ein leerer Begriff ist keine Suche,
+ * und die Route ruft dann blaetterLesen.
+ */
+export function blaetterSuchen(begriff: string): Blattfund[] {
+	const muster = alsLikeMuster(begriff);
+	return datenbank()
+		.select({ id: sheets.id, titel: sheets.titel, text: sheets.text })
+		.from(sheets)
+		.where(
+			or(
+				sql`${sheets.titel} like ${muster} escape ${LIKE_FLUCHT}`,
+				sql`${sheets.text} like ${muster} escape ${LIKE_FLUCHT}`
+			)
+		)
+		.orderBy(...ordnung)
+		.all()
+		.map((zeile) => ({
+			id: zeile.id,
+			titel: zeile.titel,
+			/*
+			 * **Der Text selbst verlässt diese Funktion nicht** — nur der
+			 * Ausschnitt. Und auch der nur, wenn der Titel den Begriff nicht schon
+			 * trägt: steht er dort, ist die Zeile aus sich heraus verständlich.
+			 */
+			fundstelle: zeile.titel
+				.toLocaleLowerCase('de-CH')
+				.includes(begriff.toLocaleLowerCase('de-CH'))
+				? null
+				: fundstelleSchneiden(zeile.text, begriff),
+		}));
 }
 
 /**

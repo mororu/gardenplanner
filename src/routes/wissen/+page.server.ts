@@ -15,14 +15,17 @@ import {
 	istPdfAnfang,
 } from '../../lib/dokument.ts';
 import { ablagenamenErzeugen, dateiAblegen } from '../../lib/server/ablage.ts';
+import { SUCHE_HOECHSTLAENGE, suchbegriffFalten } from '../../lib/suche.ts';
 import {
 	blaetterLesen,
+	blaetterSuchen,
 	blattAnlegen,
-	type Blattzeile,
+	type Blattfund,
 } from '../../lib/server/db/queries/sheets.ts';
 import {
 	dokumentAnlegen,
 	dokumenteLesen,
+	dokumenteSuchen,
 	type Dokumentzeile,
 } from '../../lib/server/db/queries/documents.ts';
 
@@ -91,15 +94,51 @@ import {
  * der aus der Konstante prüft, sind zwei Zahlen über eine Regel.
  */
 export function load({ url }: ServerLoadEvent): {
-	blaetter: Blattzeile[];
+	blaetter: Blattfund[];
 	dokumente: Dokumentzeile[];
+	suche: string;
+	suchgrenze: number;
 	titelGrenze: number;
 	textGrenze: number;
 	dateigrenzeMb: number;
 	geloescht: boolean;
 } {
+	/*
+	 * **Die Suche steht in der Adresse, seit dem 2026-09-20** (Entscheid
+	 * Manuel).
+	 *
+	 * Sie läuft auf dem Server und nicht im Browser — anders als die auf
+	 * /archiv, und der Unterschied liegt in den Daten: dort sind die Zeilen
+	 * ohnehin alle geladen, hier ist der Freitext eines Blatts ausdrücklich
+	 * **nicht** geladen. Die ganze Rechnung steht am Kopf von ../../lib/suche.ts.
+	 *
+	 * **Ein Parameter in der Adresse und kein Zustand im Browser**, und das
+	 * bringt dreierlei mit: die Suche trägt ohne JavaScript, sie ist teilbar, und
+	 * der Zurück-Knopf führt zur ungefilterten Liste statt aus der Seite heraus.
+	 *
+	 * Der gefaltete Begriff reist zurück an das Feld: er ist das, wonach wirklich
+	 * gesucht wurde. Stünde dort die rohe Eingabe, zeigte das Feld `  Kohl  `,
+	 * während die Liste die Treffer zu `Kohl` führt — ein kleiner Unterschied,
+	 * der beim Nachbessern des Begriffs zu einem verwirrenden wird.
+	 */
+	const suche = suchbegriffFalten(url.searchParams.get('suche') ?? '');
+	const sucht = suche !== '';
+
 	return {
-		blaetter: blaetterLesen(),
+		/*
+		 * **Zwei Wege in dieselbe Liste**, und die Verzweigung steht hier und nicht
+		 * in der Abfrage: ein `blaetterSuchen('')`, das dann doch alles liefert,
+		 * wäre eine Funktion mit zwei Bedeutungen — und die zweite fiele niemandem
+		 * auf, der nur ihren Namen liest.
+		 *
+		 * Ohne Suche trägt keine Zeile eine Fundstelle. Der Typ `Blattfund`
+		 * schreibt sie trotzdem vor, und `blaetterLesen` liefert sie nicht — darum
+		 * die Ergänzung hier. Ein optionales Feld stattdessen hiesse, dass die
+		 * Komponente an jeder Zeile fragen müsste, ob es das Feld gibt.
+		 */
+		blaetter: sucht
+			? blaetterSuchen(suche)
+			: blaetterLesen().map((blatt) => ({ ...blatt, fundstelle: null })),
 		/*
 		 * **Die zweite Art auf dieser Seite, seit dem 2026-09-20** (Entscheid
 		 * Manuel: gleichberechtigt neben den Blättern).
@@ -112,7 +151,19 @@ export function load({ url }: ServerLoadEvent): {
 		 * auf /archiv, wo abgehakte Aufgaben und abgeschlossene Termine in einer
 		 * Liste stehen.
 		 */
-		dokumente: dokumenteLesen(),
+		dokumente: sucht ? dokumenteSuchen(suche) : dokumenteLesen(),
+		/*
+		 * Der Begriff reist mit, damit das Feld ihn zeigt und die Sätze ihn nennen
+		 * können — `Nichts gefunden zu „Kohl"` sagt mehr als `Nichts gefunden`,
+		 * besonders nach einem Tippfehler.
+		 */
+		suche,
+		/*
+		 * Die Grenze am Feld, wie die drei anderen Grenzen dieser Seite und aus
+		 * demselben Grund: ein `maxlength` im Markup neben einem Server, der aus
+		 * der Konstante schneidet, wären zwei Zahlen über eine Regel.
+		 */
+		suchgrenze: SUCHE_HOECHSTLAENGE,
 		titelGrenze: AUFGABE_HOECHSTLAENGE,
 		textGrenze: BLATT_HOECHSTLAENGE,
 		/*

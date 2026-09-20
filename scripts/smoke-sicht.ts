@@ -68,7 +68,7 @@ import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-t
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 73;
+const ERWARTETE_BEHAUPTUNGEN = 76;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -715,6 +715,62 @@ try {
 	await browser.besuchen(`${adresse}/wissen`);
 
 	await breiteHalten('/wissen');
+
+	/*
+	 * **Die Suche auf /wissen, von Hand abgeschickt.**
+	 *
+	 * Sie ist ein GET-Formular ohne `use:enhance`, und das ist eine Annahme über
+	 * den Browser, die nur der Browser bestätigt: abgeschickt wird an die eigene
+	 * Adresse, die load liest den Parameter, und die Liste kommt gefiltert
+	 * zurück. `smoke` prüft die load und das Markup je für sich — dass die zwei
+	 * zusammenfinden, steht erst hier.
+	 *
+	 * Gesucht wird nach einem Wort, das **nur im Freitext** eines Blatts steht.
+	 * Das ist der Fall, für den diese Suche überhaupt auf dem Server liegt: eine
+	 * Filterung über die Listendaten fände ihn nicht, weil der Text dort gar
+	 * nicht ankommt.
+	 */
+	const wissenSuchwort = BLATT_ABSAETZE.text.split(/\s+/).find((wort) => wort.length > 6) ?? '';
+	await browser.tippen('#wissen-suche', wissenSuchwort);
+	await browser.klicken('form.suche button[type="submit"]');
+	await browser.warten(
+		"new URLSearchParams(location.search).get('suche') !== null",
+		'die Suche steht in der Adresse'
+	);
+
+	const nachSuche = await browser.auswerten<{
+		adresse: string;
+		titel: string[];
+		fundstellen: number;
+	}>(`
+		return {
+			adresse: new URLSearchParams(location.search).get('suche') ?? '(keiner)',
+			titel: [...document.querySelectorAll('[aria-labelledby="blaetter-marke"] .blattlink')]
+				.map((el) => el.childNodes[0].textContent.trim()),
+			fundstellen: document.querySelectorAll('.fundstelle').length,
+		};`);
+	pruefen(
+		'die Suche steht in der Adresse und die Liste ist darauf zusammengeschnitten',
+		nachSuche.adresse === wissenSuchwort && nachSuche.titel.join(' | ') === BLATT_ABSAETZE.titel,
+		JSON.stringify(nachSuche)
+	);
+	/*
+	 * **Und der Treffer sagt, warum er einer ist.** Das Wort steht nicht im
+	 * Titel; ohne den Ausschnitt darunter sähe die Zeile aus wie ein Fehler der
+	 * Suche. Gemessen wird die Zahl und nicht der Text: welcher Ausschnitt
+	 * richtig ist, prüft `smoke` an der reinen Funktion, hier zählt, dass er im
+	 * Bild ankommt.
+	 */
+	pruefen(
+		'und der Texttreffer trägt genau eine sichtbare Fundstelle',
+		nachSuche.fundstellen === 1,
+		`${nachSuche.fundstellen} Fundstelle(n)`
+	);
+	await breiteHalten('/wissen mit Suche');
+
+	// Zurück auf die ungefilterte Liste, damit die Messungen darunter wieder den
+	// ganzen Bestand sehen.
+	await browser.besuchen(`${adresse}/wissen`);
 
 	/*
 	 * **Der Griff behält seine Anzeige — hier gemessen statt aus dem Quelltext

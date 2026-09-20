@@ -2655,6 +2655,33 @@ sondern eine Datei, deren Original vielleicht nirgends sonst mehr liegt. Es
 gibt keine Versionen und keinen Papierkorb; darum fragt die Seite vor dem
 Löschen zurück und nennt dabei Titel **und** Dateinamen.
 
+**Die Suche läuft auf dem Server**, anders als die auf `/archiv` — und der
+Unterschied liegt in den Daten, nicht in der Vorliebe. Das Archiv hält kurze
+Zeilen, die ohnehin alle geladen sind; eine Filterung im Browser kostet dort
+nichts. `/wissen` hält Freitext, und der ist **ausdrücklich nicht geladen** (ein
+Blatt trägt bis zu achttausend Zeichen, die Liste holt nur Titel). Ihn für eine
+Browsersuche mitzuliefern hiesse, ihn in jede Listenansicht zu legen, auch in
+die ohne Suche.
+
+Gesucht wird darum über die Adresse (`/wissen?suche=…`) mit einem
+GET-Formular. Das bringt dreierlei mit, was eine Browsersuche nicht hat: sie
+**trägt ohne JavaScript**, sie ist **teilbar**, und der Zurück-Knopf führt zur
+ungefilterten Liste statt aus der Seite heraus.
+
+Durchsucht werden **Titel und Freitext** eines Blatts, **Titel und Dateiname**
+eines Dokuments. Liegt der Treffer nur im Text, zeigt die Zeile einen
+Ausschnitt um die Fundstelle — sonst sähe `Gute Nachbarn` als Antwort auf
+`Brennnessel` aus wie ein Fehler der Suche. Der **Inhalt eines PDF** wird nicht
+durchsucht: das wäre eine Textextraktion aus einem Binärformat, also eine
+Abhängigkeit und ein Verarbeitungsschritt beim Ablegen, und für eine Handvoll
+Merkblätter die falsche Rechnung.
+
+`LIKE` und kein FTS5, mit benannter Auslösebedingung: wird die Suche spürbar
+langsam, ist FTS5 die nächste Stufe — nicht ein Index auf `text`, den
+`LIKE '%…%'` ohnehin nicht benutzen könnte. Gross- und Kleinschreibung fallen
+zusammen, **Umlaute nicht** (`Ähren` findet `ähren` nicht) — dieselbe benannte
+Lücke wie bei der Sortierung und aus demselben Grund hingenommen.
+
 **Ändern gibt es für ein Dokument nicht.** Eine Datei tauscht man nicht um —
 man legt die neue ab und nimmt die alte weg. Ein `Ersetzen` wäre genau die
 Versionsgeschichte, die `/wissen` ausdrücklich nicht führt.

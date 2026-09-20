@@ -227,7 +227,79 @@
 		es gibt keine Versionen und keinen Autor.
 	</p>
 
-	{#if data.blaetter.length === 0 && data.dokumente.length === 0}
+	<!--
+		**Die Suche, seit dem 2026-09-20 (Entscheid Manuel).**
+
+		**Ein echtes GET-Formular** und kein Feld mit `use:enhance`. Das ist die
+		eine Entscheidung, aus der alles Übrige folgt:
+
+		  - Sie **trägt ohne JavaScript**. Ein Feld, das im Browser filtert, wäre
+		    auf dem zweiten Weg ein Feld, das nichts tut.
+		  - Die Suche steht danach **in der Adresse** und ist teilbar. Wer einen
+		    Fund weitergibt, gibt den Link weiter.
+		  - Der Zurück-Knopf führt zur ungefilterten Liste und nicht aus der Seite
+		    heraus.
+
+		**Kein `method="POST"` und keine action**: eine Suche ändert nichts, und
+		ein POST machte aus jedem Zurück-Knopf eine Nachfrage des Browsers, ob das
+		Formular erneut geschickt werden soll.
+
+		**Kein `action`-Attribut überhaupt**: ein GET-Formular ohne Ziel schickt an
+		die eigene Adresse, und genau das ist gewollt. Gate-Regel 11 liest
+		`action="?/…"` und meint die form actions dieser Seite — die zwei stehen
+		weiter unten und sind davon unberührt.
+
+		`type="search"` gibt der Bildschirmtastatur eine Suchtaste und dem Feld
+		die Löschtaste des Browsers; die Beschriftung steht sichtbar da und nicht
+		als `placeholder`, der beim ersten Zeichen verschwände.
+
+		**Nur, wenn es etwas zu durchsuchen gibt** — und das heisst hier: solange
+		nicht gesucht wird und beide Listen leer sind. Ohne den zweiten Teil
+		verschwände das Feld genau dann, wenn eine Suche nichts findet, und man
+		käme aus dem leeren Ergebnis nicht mehr heraus.
+	-->
+	{#if data.blaetter.length > 0 || data.dokumente.length > 0 || data.suche !== ''}
+		<form class="suche" method="GET">
+			<label class="feld__beschriftung" for="wissen-suche">Suchen</label>
+			<div class="suche__zeile">
+				<input
+					class="feld"
+					type="search"
+					id="wissen-suche"
+					name="suche"
+					value={data.suche}
+					maxlength={data.suchgrenze}
+					autocomplete="off"
+				/>
+				<button class="button-quiet" type="submit">Suchen</button>
+			</div>
+			<!--
+				Der Weg zurück zur ganzen Liste. **Ein Link und kein zweiter Knopf**:
+				er setzt keinen Wert, er lässt den Parameter weg — und das ist genau
+				das, was `/wissen` ohne Abfrageteil tut.
+
+				Er steht nur da, wenn gesucht wird. Ein `Alles zeigen` über einer
+				ungefilterten Liste wäre ein Griff ohne Wirkung.
+			-->
+			{#if data.suche !== ''}
+				<p class="hinweis">
+					<a href={resolve('/wissen')}>Alles zeigen</a>
+				</p>
+			{/if}
+		</form>
+	{/if}
+
+	{#if data.suche !== '' && data.blaetter.length === 0 && data.dokumente.length === 0}
+		<!--
+			**Der zweite leere Zustand, und er ist ein anderer.** `Noch nichts
+			aufgeschrieben.` wäre hier falsch: es ist etwas da, es passt nur nichts
+			zum Gesuchten. Ein Zustand, zwei Ursachen, zwei Sätze — dieselbe
+			Unterscheidung wie auf /archiv, und dieselbe Gefahr, wenn sie fehlte:
+			jemand sucht ein Wort, liest, im Garten sei nichts aufgeschrieben, und
+			glaubt es.
+		-->
+		<p class="leer">Nichts gefunden zu „{data.suche}".</p>
+	{:else if data.blaetter.length === 0 && data.dokumente.length === 0}
 		<!--
 			Der leere Zustand sagt, was gilt, und der Weg heraus steht darunter.
 
@@ -267,6 +339,25 @@
 							href={resolve('/wissen/[id]', { id: String(blatt.id) })}
 						>
 							{blatt.titel}
+							<!--
+								**Die Fundstelle, und nur bei einem Treffer im Text.** Steht der
+								Begriff schon im Titel, ist die Zeile aus sich heraus
+								verständlich, und der Ausschnitt wiederholte ihn nur — die
+								Abfrageschicht liefert dann null (siehe blaetterSuchen).
+
+								Sie steht **im** Link, wie die Grösse an einer Dokumentzeile und
+								aus demselben Grund: sonst wäre die Zeile zwei Ziele, und das
+								Trefferfeld verlöre genau den Teil, der den Griff mit
+								Handschuhen trägt.
+
+								Ohne sie sähe ein Treffer, dessen Wort nur im Text steht, aus
+								wie ein Fehler der Suche: `Gute Nachbarn` als Antwort auf
+								`Brennnessel` beantwortet die Frage nicht, warum die Zeile da
+								ist.
+							-->
+							{#if blatt.fundstelle !== null}
+								<span class="fundstelle">{blatt.fundstelle}</span>
+							{/if}
 						</a>
 					</li>
 				{/each}
@@ -504,6 +595,56 @@
 		font-weight: var(--action-weight);
 		line-height: var(--action-line);
 		text-decoration: none;
+	}
+
+	/*
+		Das Suchformular. Beschriftung oben, darunter Feld und Knopf nebeneinander.
+
+		**Feld und Knopf in einer Zeile, und das ist die Ausnahme zu `.knoepfe`**,
+		das im geteilten Blatt alles untereinander stellt: dort stehen zwei
+		gleichrangige Handlungen, hier ein Feld und der Griff, der es abschickt.
+		Die zwei gehören zusammen, und bei 375px bleibt neben einem Knopf von
+		rund 90px genug Feld — `flex: 1` gibt ihm allen übrigen Platz, `min-width:
+		0` lässt es wirklich schrumpfen statt seine Vorgabebreite zu behaupten.
+
+		`align-items: stretch` ist die Vorgabe und bleibt es: so ist der Knopf
+		genau so hoch wie das Feld, ohne dass eine Höhe irgendwo als Zahl steht.
+	*/
+	.suche {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+
+	.suche__zeile {
+		display: flex;
+		gap: var(--space-2);
+	}
+
+	.suche__zeile .feld {
+		flex: 1;
+		min-width: 0;
+	}
+
+	/*
+		Der Ausschnitt aus dem Blatttext an einer Trefferzeile — **im** Link und
+		trotzdem als Nebentext, wörtlich dieselbe Erwägung wie bei `.dokumentgroesse`
+		darunter: der Titel ist die Aussage, die Fundstelle ist die Begründung
+		dazu, und beide stehen im selben Ziel, damit die ganze Zeile antippbar
+		bleibt.
+
+		Der Unterschied zur Grösse ist der Umbruch: eine Fundstelle ist bis zu 120
+		Zeichen lang und **soll** über mehrere Zeilen laufen. `overflow-wrap`
+		erbt sie von `.zeile__text` am Link.
+	*/
+	.fundstelle {
+		display: block;
+		margin-block-start: var(--space-1);
+		color: var(--ink-secondary);
+		font-family: var(--meta-font);
+		font-size: var(--meta-size);
+		font-weight: var(--meta-weight);
+		line-height: var(--meta-line);
 	}
 
 	/*

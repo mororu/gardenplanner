@@ -204,6 +204,12 @@ import {
 	groesseAlsSatz,
 	istPdfAnfang,
 } from '../src/lib/dokument.ts';
+import {
+	SUCHE_HOECHSTLAENGE,
+	alsLikeMuster,
+	fundstelleSchneiden,
+	suchbegriffFalten,
+} from '../src/lib/suche.ts';
 import { dateiLesen } from '../src/lib/server/ablage.ts';
 import { dokumentAblageLesen, dokumenteLesen } from '../src/lib/server/db/queries/documents.ts';
 /*
@@ -261,7 +267,7 @@ import {
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 701;
+const ERWARTETE_BEHAUPTUNGEN = 704;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -9295,6 +9301,7 @@ try {
 	).blaetter as {
 		id: number;
 		titel: string;
+		fundstelle: string | null;
 	}[];
 	pruefenGleich(
 		'die Liste ordnet nach dem Titel und nicht nach der Zeit',
@@ -9325,10 +9332,28 @@ try {
 			.join(' | '),
 		'Anbau im Tunnel | Gute Nachbarn | zucchini'
 	);
+	/*
+	 * **Die Felder sind drei seit dem 2026-09-20, und die Zusage ist dieselbe
+	 * geblieben.** Bis dahin hiess sie „nur Kennung und Titel"; mit der Suche
+	 * kommt `fundstelle` dazu — ein Ausschnitt von höchstens
+	 * FUNDSTELLE_LAENGE Zeichen, und **nur** an einer Trefferzeile, deren Titel
+	 * den Begriff nicht schon trägt.
+	 *
+	 * Die Feldliste allein sagte das nicht mehr. Die zweite Zeile darunter
+	 * misst darum, was die erste meinte: der **volle** Freitext steht nicht in
+	 * den Seitendaten. Das ist die schärfere Behauptung — sie hielte auch dann,
+	 * wenn jemand den Text unter einem dritten Namen mitgäbe.
+	 */
 	pruefenGleich(
-		'und sie trägt nur Kennung und Titel — der Freitext bleibt in der Datenbank',
+		'und sie trägt Kennung, Titel und die Fundstelle — mehr nicht',
 		[...new Set(zweiBlaetter.flatMap((zeile) => Object.keys(zeile)))].sort().join(', '),
-		'id, titel'
+		'fundstelle, id, titel'
+	);
+	pruefen(
+		'ohne Suche ist keine Fundstelle gesetzt, und der Freitext steht nirgends',
+		zweiBlaetter.every((zeile) => zeile.fundstelle === null) &&
+			!JSON.stringify(zweiBlaetter).includes('Kohl und Sellerie'),
+		JSON.stringify(zweiBlaetter)
 	);
 
 	/*
@@ -9549,6 +9574,151 @@ try {
 			textFeld(fortgekommen.daten, 'zweiteEingabe') === langerTextImFormular &&
 			fortgekommen.daten.feld === null,
 		JSON.stringify(datenVon(fortgekommen))
+	);
+
+	// =======================================================================
+	// Die Suche auf /wissen
+	// =======================================================================
+	/*
+	 * **Die zweite Suche dieses Produkts, und die einzige auf dem Server.**
+	 *
+	 * /archiv filtert im Browser, /wissen über die Adresse — der Unterschied
+	 * liegt in den Daten und ist am Kopf von ../src/lib/suche.ts ausgeschrieben:
+	 * dort sind die Zeilen ohnehin geladen, hier ist der Freitext ausdrücklich
+	 * nicht geladen.
+	 *
+	 * Geprüft wird in zwei Lagen: die **Regeln** an Beispielen, die keine
+	 * Datenbank brauchen, und der **Weg durch die load**, weil erst dort
+	 * zusammenkommt, was einzeln richtig sein kann und zusammen trotzdem nichts
+	 * findet.
+	 */
+	const sucheTeile = [
+		[
+			'der Begriff wird gefaltet wie jeder andere Text',
+			suchbegriffFalten('  Kohl   und  Sellerie ') === 'Kohl und Sellerie',
+		],
+		[
+			'und auf die Grenze geschnitten, nach Codepoints',
+			[...suchbegriffFalten('a'.repeat(SUCHE_HOECHSTLAENGE + 50))].length === SUCHE_HOECHSTLAENGE &&
+				[...suchbegriffFalten('🥕'.repeat(SUCHE_HOECHSTLAENGE + 5))].length === SUCHE_HOECHSTLAENGE,
+		],
+		/*
+		 * **Die drei Sonderzeichen von `LIKE`.** Ohne diesen Schritt fände die
+		 * Eingabe `_` jedes Blatt und die Eingabe `%` ebenso — eine Suche, die
+		 * bei einem einzelnen Zeichen die ganze Liste zeigt, sieht kaputt aus.
+		 */
+		[
+			'%, _ und der Backslash verlieren ihre Sonderbedeutung',
+			alsLikeMuster('100%') === '%100\\%%' &&
+				alsLikeMuster('a_b') === '%a\\_b%' &&
+				alsLikeMuster('a\\b') === '%a\\\\b%',
+		],
+		['ein gewöhnlicher Begriff wird beidseitig eingefasst', alsLikeMuster('Kohl') === '%Kohl%'],
+		[
+			'die Fundstelle schneidet um den Treffer und markiert, was fehlt',
+			fundstelleSchneiden('Vorn. Brennnessel in der Mitte. Hinten.', 'Brennnessel') ===
+				'Vorn. Brennnessel in der Mitte. Hinten.',
+		],
+		[
+			'ein Treffer am Anfang bekommt keine führende Ellipse',
+			(fundstelleSchneiden(`Brennnessel ${'x'.repeat(300)}`, 'Brennnessel') ?? '').startsWith(
+				'Brennnessel'
+			),
+		],
+		[
+			'und ein Treffer weit hinten bekommt eine',
+			(fundstelleSchneiden(`${'x '.repeat(200)}Brennnessel`, 'Brennnessel') ?? '').startsWith('…'),
+		],
+		[
+			'die Gross- und Kleinschreibung entscheidet nicht mit',
+			fundstelleSchneiden('Die BRENNNESSEL steht hinten.', 'brennnessel') !== null,
+		],
+		[
+			'und was nicht vorkommt, gibt keine Fundstelle',
+			fundstelleSchneiden('Kohl und Sellerie.', 'Brennnessel') === null,
+		],
+	] as const;
+	pruefen(
+		'die Suchregeln falten, entschärfen und schneiden',
+		fehlendeTeile(sucheTeile).length === 0,
+		`fehlt: ${fehlendeTeile(sucheTeile).join(', ')}`
+	);
+
+	/*
+	 * Und der Weg durch die load. Gesucht wird gegen den Bestand, den die
+	 * Blöcke oben angelegt haben: `Gute Nachbarn` mit dem Text
+	 * `Gute Nachbarn\n\nKohl und Sellerie.`, `Anbau im Tunnel` mit
+	 * `Früh und warm.` und `zucchini` mit `Viel Platz.`.
+	 */
+	// Ein Ereignis mit Abfrageteil: die load liest ihn aus `url`, und genau das
+	// ist die Zusage — die Suche steht in der Adresse und nirgends sonst.
+	const gesucht = async (begriff: string) =>
+		wertVon(
+			await routenausgang(() =>
+				wissen.load(
+					alsMitglied(`/wissen?suche=${encodeURIComponent(begriff)}`, null).alsRequestEvent()
+				)
+			)
+		);
+
+	const trefferTitel = async (begriff: string) =>
+		(((await gesucht(begriff)).blaetter ?? []) as { titel: string }[])
+			.map((zeile) => zeile.titel)
+			.join(' | ');
+
+	const nachSellerie = await gesucht('Sellerie');
+	const nachTunnel = await gesucht('Tunnel');
+	const nachKohlMitLeerraum = await gesucht('  Kohl  ');
+	const ohneSuche = wertVon(
+		await routenausgang(() => wissen.load(alsMitglied('/wissen', null).alsRequestEvent()))
+	);
+
+	const findenTeile = [
+		['ein Titeltreffer findet sein Blatt', (await trefferTitel('Tunnel')) === 'Anbau im Tunnel'],
+		/*
+		 * **Der Fall, für den diese Suche auf dem Server steht.** `Sellerie`
+		 * kommt in keinem Titel vor, nur im Text von `Gute Nachbarn`. Eine Suche
+		 * im Browser über die Listendaten fände ihn nicht — und genau deshalb
+		 * liegt sie hier.
+		 */
+		['ein Texttreffer ebenso', (await trefferTitel('Sellerie')) === 'Gute Nachbarn'],
+		[
+			'die Gross- und Kleinschreibung entscheidet nicht mit',
+			(await trefferTitel('SELLERIE')) === 'Gute Nachbarn' &&
+				(await trefferTitel('tunnel')) === 'Anbau im Tunnel',
+		],
+		['was es nicht gibt, findet nichts', (await trefferTitel('Ananas')) === ''],
+		/*
+		 * **Die Gegenprobe zur Entschärfung.** Fände `_` alles, stünden hier drei
+		 * Titel — das ist der Fehler, den alsLikeMuster verhindert, und er ist am
+		 * echten Weg gemessen und nicht nur an der reinen Funktion.
+		 */
+		['ein einzelnes _ findet nicht alles', (await trefferTitel('_')) === ''],
+		['und ein einzelnes % ebenso wenig', (await trefferTitel('%')) === ''],
+		/*
+		 * Die Fundstelle steht **nur** an einem Texttreffer. Bei `Tunnel` trägt
+		 * der Titel den Begriff, und der Ausschnitt wiederholte ihn nur.
+		 */
+		[
+			'ein Texttreffer trägt seine Fundstelle',
+			(
+				((nachSellerie.blaetter ?? []) as { fundstelle: string | null }[])[0]?.fundstelle ?? ''
+			).includes('Sellerie'),
+		],
+		[
+			'ein Titeltreffer trägt keine',
+			((nachTunnel.blaetter ?? []) as { fundstelle: string | null }[])[0]?.fundstelle === null,
+		],
+		[
+			'der gefaltete Begriff reist ans Feld zurück',
+			textFeld(nachKohlMitLeerraum, 'suche') === 'Kohl',
+		],
+		['und ohne Abfrageteil ist er leer — das ist keine Suche', textFeld(ohneSuche, 'suche') === ''],
+	] as const;
+	pruefen(
+		'die Suche auf /wissen findet über Titel und Freitext',
+		fehlendeTeile(findenTeile).length === 0,
+		`fehlt: ${fehlendeTeile(findenTeile).join(', ')}`
 	);
 
 	// =======================================================================
@@ -9964,6 +10134,35 @@ try {
 			/enctype="multipart\/form-data"/.test(wissenKomponente) &&
 				/action="\?\/hochladen"/.test(wissenKomponente) &&
 				/accept="application\/pdf"/.test(wissenKomponente),
+		],
+		/*
+		 * **Das Suchformular, seit dem 2026-09-20.** Es ist das einzige Formular
+		 * dieser Anwendung mit `method="GET"`, und die vier Teile sind die
+		 * Zusage, dass es das auch bleibt:
+		 *
+		 *   GET        eine Suche ändert nichts. Ein POST machte aus jedem
+		 *              Zurück-Knopf eine Nachfrage des Browsers, ob das Formular
+		 *              erneut geschickt werden soll.
+		 *   kein action ein GET-Formular ohne Ziel schickt an die eigene Adresse,
+		 *              und genau das ist gewollt. Ein `action="?/…"` hier wäre
+		 *              eine form action, die es nicht gibt.
+		 *   name       der Parameter heisst `suche`, und die load liest genau
+		 *              diesen Namen. Zwei Schreibweisen wären eine Suche, die
+		 *              stumm nichts filtert.
+		 *   kein enhance  `use:enhance` gehört zu einem POST. Am GET-Formular
+		 *              wäre es ein Versand, der die Adresse nicht ändert — und
+		 *              damit fiele die Zusage, dass die Suche teilbar ist.
+		 */
+		[
+			'die Suche ist ein GET-Formular mit dem Feld `suche` und ohne action',
+			/<form[^>]*\bclass="suche"[^>]*\bmethod="GET"/.test(nurMarkup(wissenKomponente)) &&
+				/name="suche"/.test(wissenKomponente) &&
+				!/<form[^>]*\bclass="suche"[^>]*\baction=/.test(nurMarkup(wissenKomponente)) &&
+				!/<form[^>]*\bclass="suche"[^>]*use:enhance/.test(nurMarkup(wissenKomponente)),
+		],
+		[
+			'und ihre Grenze kommt aus der load wie die drei anderen',
+			/maxlength=\{data\.suchgrenze\}/.test(wissenKomponente),
 		],
 		[
 			'und die Dateigrenze kommt aus der load, nicht als Literal ins Markup',

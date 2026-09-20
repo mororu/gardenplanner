@@ -1,6 +1,7 @@
-import { asc, eq, sql } from 'drizzle-orm';
+import { asc, eq, or, sql } from 'drizzle-orm';
 import { datenbank } from '../index.ts';
 import { documents, type NewDocument } from '../schema.ts';
+import { LIKE_FLUCHT, alsLikeMuster } from '../../../suche.ts';
 
 /*
  * Das Repository für documents. Die Routen benutzen ausschliesslich diese
@@ -73,6 +74,41 @@ export function dokumenteLesen(): Dokumentzeile[] {
 	return datenbank()
 		.select({ id: documents.id, titel: documents.titel, groesse: documents.groesse })
 		.from(documents)
+		.orderBy(...ordnung)
+		.all();
+}
+
+/**
+ * Die Dokumente, die einen Begriff tragen — im Titel **oder** im Dateinamen.
+ *
+ * **Keine Fundstelle, anders als beim Blatt**, und das ist kein Weglassen:
+ * durchsucht werden hier nur zwei kurze Felder, und eines davon steht auf der
+ * Detailseite ohnehin. Ein Ausschnitt aus einem Dateinamen wäre der Dateiname.
+ *
+ * **Der Dateiname wird mitdurchsucht, obwohl die Liste ihn nicht zeigt.** Er
+ * ist die zweite Art, ein Dokument zu kennen — wer `bj-2024` tippt, sucht das
+ * Merkblatt, dessen Datei so heisst, und findet es, ohne den Titel zu wissen.
+ *
+ * **Der Inhalt des PDF wird nicht durchsucht.** Das wäre eine Textextraktion
+ * aus einem Binärformat, also eine Abhängigkeit und ein Verarbeitungsschritt
+ * beim Ablegen — für eine Handvoll Merkblätter ist das die falsche Rechnung.
+ * Benannt statt verschwiegen: wer ein PDF nach seinem Inhalt sucht, findet es
+ * hier nicht.
+ *
+ * Der Begriff kommt **fertig gefaltet** herein und ist nicht leer — dieselbe
+ * Zusage wie bei blaetterSuchen in ./sheets.ts.
+ */
+export function dokumenteSuchen(begriff: string): Dokumentzeile[] {
+	const muster = alsLikeMuster(begriff);
+	return datenbank()
+		.select({ id: documents.id, titel: documents.titel, groesse: documents.groesse })
+		.from(documents)
+		.where(
+			or(
+				sql`${documents.titel} like ${muster} escape ${LIKE_FLUCHT}`,
+				sql`${documents.dateiname} like ${muster} escape ${LIKE_FLUCHT}`
+			)
+		)
 		.orderBy(...ordnung)
 		.all();
 }
