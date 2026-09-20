@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import ZeichenBlatt from '$lib/components/ZeichenBlatt.svelte';
 	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
 	import type { PageProps } from './$types';
 
@@ -8,10 +9,13 @@
 
 <!--
 	Die sechs Zeichen der Einträge — 24er-Raster, Strich in `currentColor`, keine
-	Füllung, `aria-hidden`. Derselbe Zeichensatz wie auf `/`, und aus demselben
-	Grund dort als Ausschnitte und nicht als Komponenten: jedes steht genau
-	einmal, an dieser Seite, und eine Datei je Zeichen wäre sechs Dateien für
-	sechs Pfade. Wer eines an einem zweiten Ort braucht, zieht es dann heraus — so ist
+	Füllung, `aria-hidden`. **Fünf sind Ausschnitte, das Blatt ist eine
+	Komponente**, und der Unterschied ist der einzige, der hier zählt: die fünf
+	stehen genau einmal, an dieser Seite, und eine Datei je Zeichen wäre fünf
+	Dateien für fünf Pfade. Das Blatt hat seit dem 2026-09-20 einen zweiten Leser
+	— die Zeile mit Pfeil auf `/` — und ist darum nach
+	$lib/components/ZeichenBlatt.svelte gezogen. So ist es dem Stift am
+	2026-09-17 ergangen, und es ist der Weg, den der Absatz darüber beschreibt. Wer eines an einem zweiten Ort braucht, zieht es dann heraus — so ist
 	es dem Stift am 2026-09-17 ergangen.
 
 	**Sie tragen keine Aussage.** Die steht als Wort daneben, und DESIGN.md
@@ -30,12 +34,8 @@
 	`Einstellungen`, und die gibt es dort nicht).
 
 	**Das Blatt der Wellnessbehandlung ist am 2026-09-19 dazugekommen und als
-	einziges nicht von Manuel gewählt** — das steht hier, damit es nachgeholt und
-	nicht für abgenommen gehalten wird. Verworfen sind ein Tropfen und eine
-	Giesskanne: beide lesen sich als Wasser, und Wasser ist in diesem Produkt der
-	Tränkeplan. Was das Blatt leistet, ist das, was der Absatz darüber von einem
-	Zeichen verlangt — es ist das einzige organische unter fünf gebauten Dingen
-	und darum beim Blättern sofort wieder da.
+	einziges nicht von Manuel gewählt** — das steht seit dem Umzug an der
+	Komponente selbst, zusammen mit den zwei verworfenen Entwürfen.
 -->
 {#snippet zeichenKalender()}
 	<svg
@@ -107,22 +107,6 @@
 		<rect x="2.5" y="4.5" width="19" height="5" rx="1" />
 		<path d="M4.5 9.5v10a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-10" />
 		<path d="M9.5 13.5h5" />
-	</svg>
-{/snippet}
-
-{#snippet zeichenBlatt()}
-	<svg
-		class="zeichen zeichen--gross"
-		viewBox="0 0 24 24"
-		fill="none"
-		stroke="currentColor"
-		stroke-width="2"
-		stroke-linecap="round"
-		stroke-linejoin="round"
-		aria-hidden="true"
-	>
-		<path d="M11 20.5A7 7 0 0 1 9.8 6.6C15.5 5.5 17 5 19 2.5c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10Z" />
-		<path d="M2.5 21.5c0-3 1.9-5.4 5.1-6 2.4-.5 4.9-2 5.9-3" />
 	</svg>
 {/snippet}
 
@@ -203,7 +187,9 @@
 			-->
 			<!-- resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve) -->
 			<a class="eintrag" href={resolve('/wellness')}>
-				{@render zeichenBlatt()}Wellnessbehandlung<ZeichenWinkel class="eintrag__weiter" />
+				<ZeichenBlatt class="zeichen--gross" />Wellnessbehandlung<ZeichenWinkel
+					class="eintrag__weiter"
+				/>
 			</a>
 		</li>
 		<li>
