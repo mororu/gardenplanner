@@ -33,9 +33,10 @@
 	Dateien, nicht aus Gesprächen) und Schieberegler für die Verwaltung (heissen
 	`Einstellungen`, und die gibt es dort nicht).
 
-	**Das Blatt der Wellnessbehandlung ist am 2026-09-19 dazugekommen und als
-	einziges nicht von Manuel gewählt** — das steht seit dem Umzug an der
-	Komponente selbst, zusammen mit den zwei verworfenen Entwürfen.
+	Das Blatt der Wellnessbehandlung ist am 2026-09-19 dazugekommen und am
+	2026-09-20 abgenommen. Es steht als einziges nicht hier, sondern in
+	$lib/components/ZeichenBlatt.svelte — zusammen mit seinen zwei verworfenen
+	Entwürfen —, seit die Zeile mit Pfeil auf `/` es ebenfalls braucht.
 -->
 {#snippet zeichenKalender()}
 	<svg

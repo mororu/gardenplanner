@@ -17,9 +17,11 @@
 		Dokument, Kiste, Schlüssel) ist es das einzige organische, auf `/` neben
 		Kanne und Korb das einzige, das keine Gerätschaft ist.
 
-		**Die Auswahl ist noch nicht von Manuel abgenommen** (Stand 2026-09-20).
-		Verworfen sind ein Tropfen und eine Giesskanne: beide lesen sich als
-		Wasser, und Wasser ist in diesem Produkt der Tränkeplan.
+		**Abgenommen von Manuel am 2026-09-20**, einen Tag nachdem es gezeichnet
+		wurde. Verworfen sind ein Tropfen und eine Giesskanne: beide lesen sich als
+		Wasser, und Wasser ist in diesem Produkt der Tränkeplan. Sie stehen hier,
+		damit niemand sie ein zweites Mal vorschlägt — dieselbe Vorkehrung, die
+		der Kommentar über den Zeichen auf /mehr für die anderen fünf trifft.
 
 		**Die Klasse kommt von aussen und hat keinen Vorgabewert**, wie bei den
 		zwei Nachbarn: beide Leser setzen heute `zeichen--gross`, und eine Vorgabe
