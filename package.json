@@ -21,6 +21,7 @@
 		"db:check": "node scripts/db-check.ts",
 		"db:check:selftest": "node scripts/db-check.ts --selftest",
 		"create-admin": "node --env-file-if-exists=.env scripts/create-admin.ts",
+		"rezeptblaetter": "node --env-file-if-exists=.env scripts/rezeptblaetter.ts",
 		"smoke": "node scripts/smoke-zugang.ts",
 		"smoke:http": "node scripts/smoke-http.ts",
 		"smoke:selftest": "node scripts/pruefhelfer-selftest.ts",
