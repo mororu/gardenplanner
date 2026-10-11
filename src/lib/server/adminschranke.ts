@@ -4,10 +4,12 @@ import type { AngemeldetesMitglied } from './db/schema.ts';
 /*
  * Die Adminschranke.
  *
- * Eine Funktion für vier Aufrufstellen: die load von /verwaltung und ihre drei
+ * Eine Funktion für sechs Aufrufstellen: die load von /verwaltung und ihre fünf
  * form actions. Eine Kopie je action ist genau die Stelle, an der eine
  * vergessen wird — und eine vergessene Schranke ist unsichtbar, weil die
- * Oberfläche den Knopf für Nicht-Admins ohnehin nicht zeigt.
+ * Oberfläche den Knopf für Nicht-Admins ohnehin nicht zeigt. Seit `rechteSetzen`
+ * dazugekommen ist, wiegt eine vergessene Schranke schwerer als zuvor: dort
+ * machte sie jedes Mitglied zur Adminperson, das den POST von Hand baut.
  *
  * Der Import steht relativ und mit .ts-Endung, nicht über $lib: dieselbe Datei
  * wird über src/routes/verwaltung/+page.server.ts von scripts/smoke-zugang.ts
@@ -24,7 +26,8 @@ import type { AngemeldetesMitglied } from './db/schema.ts';
  * dass die Schranke selbst etwas davon merkt.
  *
  * `umbenennen` liest sie bewusst **nicht**: die eigene Zeile darf umbenannt
- * werden, ein Name ist kein Zugang.
+ * werden, ein Name ist kein Zugang. `rechteSetzen` liest sie wie die zwei
+ * anderen Zeilen-Aktionen — die eigenen Verwaltungsrechte sind unantastbar.
  *
  * **Weiterleitung, keine 403.** Für jemanden ohne Adminrechte soll die
  * Verwaltung nicht existieren, nicht verboten sein: eine Fehlerseite wäre die

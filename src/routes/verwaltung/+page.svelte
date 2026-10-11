@@ -64,6 +64,16 @@
 		}
 		if (form.art === 'widerrufen') return `${form.meldung} ${form.name} hat keinen Zugang mehr.`;
 		if (form.art === 'umbenannt') return `${form.meldung} Die Zeile heisst jetzt ${form.name}.`;
+		/*
+			Die Folge und nicht die Spalte: wer die Liste nicht sieht, hat von
+			`is_admin steht jetzt auf 1` nichts. Was sich für diese Person ändert,
+			ist der Zugang zu genau dieser Seite.
+		*/
+		if (form.art === 'rechteGesetzt') {
+			return form.istAdmin
+				? `${form.meldung} ${form.name} kann die Verwaltung jetzt öffnen.`
+				: `${form.meldung} ${form.name} kann die Verwaltung nicht mehr öffnen.`;
+		}
 		return '';
 	});
 
@@ -496,6 +506,15 @@
 				<p class="zeile__name" id="mitglied-name-{mitglied.id}">
 					{mitglied.name}
 					{#if mitglied.id === data.ichId}<span class="zeile__marke">— Du</span>{/if}
+					<!--
+						Die Verwaltungsrechte stehen im **Text** und nicht in einer Farbe
+						oder einem Zeichen, wie `Zugang beendet.` weiter unten. Und sie
+						stehen an der Zeile und nicht nur im Knopf darunter: der Knopf
+						nennt, was er täte, die Marke nennt, was gilt. Wer die Liste
+						überfliegt, um zu sehen, wer die Verwaltung öffnen kann, soll
+						nicht die Verben der Knöpfe rückwärts lesen müssen.
+					-->
+					{#if mitglied.isAdmin}<span class="zeile__marke">— Verwaltung</span>{/if}
 				</p>
 				<!--
 					Der Aufnahmezeitpunkt ist nicht Zierrat: auf `name` gibt es keine
@@ -515,11 +534,12 @@
 					<!--
 						Umbenennen steht an **jeder** aktiven Zeile, auch an der eigenen.
 
-						Anders als Neuausstellen und Widerrufen ist es kein Zugangsvorgang:
-						ein Name ist kein Zugang, ein Selbst-Umbenennen sperrt niemanden
-						aus, und es gibt genau eine Adminperson, die es sonst für sie täte.
-						Die eigene Zeile bekommt darum dieses eine Formular und weiterhin
-						keinen der beiden anderen Knöpfe.
+						Anders als Neuausstellen, Widerrufen und Rechte geben ist es kein
+						Zugangsvorgang: ein Name ist kein Zugang, ein Selbst-Umbenennen
+						sperrt niemanden aus, und ob überhaupt eine zweite Adminperson
+						existiert, die es sonst täte, ist nicht zugesichert. Die eigene
+						Zeile bekommt darum dieses eine Formular und weiterhin keinen der
+						drei anderen Knöpfe.
 
 						Aufgeklappt statt in einem Dialog: bei zwanzig Zeilen ist ein
 						Namensfeld die häufigste und harmloseste Korrektur der Seite, und
@@ -644,6 +664,39 @@
 								disabled={imFlug}
 							>
 								Link neu ausstellen
+							</button>
+						</form>
+						<!--
+							Rechte geben und nehmen: **ein** Formular, dessen verstecktes
+							Feld den Zielzustand trägt, und nicht zwei Knöpfe nebeneinander,
+							von denen einer immer wirkungslos wäre.
+
+							Der Zielzustand ist das Gegenteil dessen, was die Zeile gerade
+							zeigt — und er wird **mitgeschickt**, nicht in der action aus dem
+							Bestehenden abgeleitet. Nur so trifft ein Klick aus einem
+							veralteten Tab auf eine where-Klausel, die nicht mehr passt, und
+							wird abgewiesen, statt eine fremde Änderung zurückzudrehen.
+
+							Kein Dialog davor, anders als beim Widerruf daneben: die Handlung
+							ist im nächsten Griff umkehrbar, nimmt niemandem den Zugang zum
+							Garten, und die letzte Person mit Rechten kann sie nicht
+							verlieren. Die Begründung steht ausführlich an der action.
+						-->
+						<form method="POST" action="?/rechteSetzen" use:enhance={versand}>
+							<input type="hidden" name="mitgliedId" value={mitglied.id} />
+							<input
+								type="hidden"
+								name="neueRechte"
+								value={mitglied.isAdmin ? 'mitglied' : 'admin'}
+							/>
+							<button
+								class="button-quiet"
+								type="submit"
+								id="rechte-{mitglied.id}"
+								aria-labelledby="rechte-{mitglied.id} mitglied-name-{mitglied.id}"
+								disabled={imFlug}
+							>
+								{mitglied.isAdmin ? 'Verwaltungsrechte nehmen' : 'Verwaltungsrechte geben'}
 							</button>
 						</form>
 						<!--

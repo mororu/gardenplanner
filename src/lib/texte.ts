@@ -51,9 +51,10 @@ export const UNERWARTETER_FEHLER = 'Etwas ist schiefgelaufen. Versuche es späte
  * Selbstwiderruf nimmt den Zugang auf der Stelle. Ein Selbst-Neuausstellen
  * lässt die laufende Sitzung bestehen — das Cookie hängt an der member_id, nicht
  * am Token —, macht aber den einzigen Link ungültig, mit dem diese Person je
- * wieder auf ein neues Gerät käme. Es gibt genau eine Adminperson (Adminrechte
- * vergibt allein scripts/create-admin.ts, und nur für das erste Mitglied), also
- * gibt es niemanden, der ihr einen neuen ausstellen könnte.
+ * wieder auf ein neues Gerät käme. Ob jemand anders ihr einen neuen ausstellen
+ * könnte, hängt daran, ob es eine zweite Adminperson gibt. Seit /verwaltung
+ * Verwaltungsrechte vergibt, ist das möglich — zugesichert ist es nicht, und
+ * der Schutz hier darf nicht davon abhängen, wer sonst gerade Rechte hat.
  *
  * Beide Fälle werden in der action geprüft und nicht nur in der Oberfläche: die
  * eigene Zeile trägt von den drei Zeilen-Aktionen allein das Umbenennen — ein
@@ -61,6 +62,62 @@ export const UNERWARTETER_FEHLER = 'Etwas ist schiefgelaufen. Versuche es späte
  */
 export const EIGENER_ZUGANG_GESCHUETZT =
 	'Deinen eigenen Zugang kannst du hier nicht ändern — sonst bliebe die Verwaltung womöglich ohne Zugang.';
+
+/**
+ * Die eigenen Verwaltungsrechte sind unantastbar. **Eine** Wurfstelle: die
+ * action `rechteSetzen` in src/routes/verwaltung/+page.server.ts.
+ *
+ * Ein eigener Satz und nicht EIGENER_ZUGANG_GESCHUETZT wiederverwendet, obwohl
+ * beide dieselbe Form haben: der Satz darüber spricht vom **Zugang**, und der
+ * bleibt hier in jedem Fall bestehen. Wer seine Verwaltungsrechte verlöre, käme
+ * weiterhin in den Garten — nur nicht mehr in die Verwaltung. Ein Satz über den
+ * Zugang wäre an dieser Stelle eine Falschaussage über das, was gerade nicht
+ * passiert.
+ *
+ * Die Regel dahinter ist die schmalste, die auf der eigenen Zeile genügt, und
+ * sie ist dieselbe wie bei den zwei Zeilen-Aktionen daneben: die eigene Zeile
+ * trägt keine Knöpfe, und ein POST braucht keinen. Gegen den Fall, dass **zwei**
+ * Adminpersonen einander gleichzeitig entrechten, hilft sie ausdrücklich nicht
+ * — dafür stehen die Zählungen in den where-Klauseln von `rechteNehmen` und
+ * `mitgliedDeaktivieren`, siehe LETZTE_ADMINPERSON darunter.
+ */
+export const EIGENE_RECHTE_GESCHUETZT =
+	'Deine eigenen Verwaltungsrechte kannst du hier nicht ändern — sonst bliebe die Verwaltung womöglich ohne Zugang.';
+
+/**
+ * Die letzte Adminperson bleibt eine. **Zwei** Wurfstellen, beide in
+ * src/routes/verwaltung/+page.server.ts: die action `rechteSetzen` auf dem Weg,
+ * der Rechte nimmt, und die action `widerrufen`.
+ *
+ * **Zwei Wurfstellen und ein Satz, weil es zwei Wege in denselben Zustand
+ * sind.** Rechte nehmen und Zugang beenden sehen verschieden aus und enden
+ * gleich: niemand kann mehr in die Verwaltung. Der Satz nennt darum nicht die
+ * abgewiesene Handlung, sondern die Lage, aus der beide nicht herausführen —
+ * und den einen Griff, der sie auflöst.
+ *
+ * **Der Satz ist die Erklärung einer Abweisung, nicht die Abweisung selbst.**
+ * Entschieden wird in SQL: die where-Klauseln von `rechteNehmen` und
+ * `mitgliedDeaktivieren` tragen die Zählung der aktiven Adminpersonen mit sich,
+ * und nur bei mehr als einer wird geschrieben. Eine Zählung in der Route wäre
+ * zwischen Lesen und Schreiben ein Fenster — und genau dieses Fenster ist der
+ * Fall, um den es geht: zwei Adminpersonen, die einander im selben Augenblick
+ * entrechten oder hinauswerfen, liessen die Verwaltung danach ohne jeden Zugang
+ * zurück. Das ist der eine Zustand dieser Anwendung, aus dem keine Oberfläche
+ * mehr herausführt; die Datenbank müsste von Hand angefasst werden.
+ *
+ * **Vor dieser Story konnte es ihn nicht geben**, und darum trug
+ * `mitgliedDeaktivieren` die Zählung bis dahin nicht: es gab genau eine
+ * Adminperson, und die ist gegen sich selbst schon durch
+ * EIGENER_ZUGANG_GESCHUETZT geschützt. Erst die zweite Adminperson macht aus
+ * dem Widerruf einen Weg, der die Verwaltung schliessen kann.
+ *
+ * Dass der Satz **nicht** mit MITGLIED_NICHT_ANSPRECHBAR zusammenfällt, ist
+ * hier kein Aufzählungskanal: wer ihn liest, ist Adminperson und sieht in
+ * derselben Liste, wer sonst noch Rechte hat. Er verrät also nichts, was nicht
+ * zwei Zeilen höher steht — und er sagt als einziger, was zu tun ist.
+ */
+export const LETZTE_ADMINPERSON =
+	'Das ist die letzte Person mit Verwaltungsrechten. Gib zuerst jemand anderem Verwaltungsrechte.';
 
 /**
  * Das nicht ansprechbare Mitglied. Ebenfalls **zwei** Wurfstellen, dieselben

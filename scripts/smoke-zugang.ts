@@ -231,7 +231,9 @@ import {
 import {
 	AUFGABE_NICHT_ANSPRECHBAR,
 	DATUM_FEHLT,
+	EIGENE_RECHTE_GESCHUETZT,
 	EIGENER_ZUGANG_GESCHUETZT,
+	LETZTE_ADMINPERSON,
 	EINZELAUFGABE_NICHT_ANSPRECHBAR,
 	FRIST_AUSSERHALB,
 	KEIN_ZUGANG,
@@ -267,7 +269,7 @@ import {
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 704;
+const ERWARTETE_BEHAUPTUNGEN = 733;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -1813,7 +1815,7 @@ try {
 	const nicoLocals = ohneTokenHash(nico);
 
 	// -----------------------------------------------------------------------
-	// Die Adminschranke: load und alle vier actions
+	// Die Adminschranke: load und alle fünf actions
 	// -----------------------------------------------------------------------
 	const vorSchranke = mitgliederZaehlen();
 	const veraVorSchranke = zeileAbdruck(vera.id);
@@ -1825,10 +1827,19 @@ try {
 		)
 	);
 
-	for (const aktion of ['aufnehmen', 'neuAusstellen', 'widerrufen', 'umbenennen'] as const) {
+	for (const aktion of [
+		'aufnehmen',
+		'neuAusstellen',
+		'widerrufen',
+		'umbenennen',
+		'rechteSetzen',
+	] as const) {
 		// Die Formulardaten sind vollständig und gültig: was hier abgewiesen
 		// wird, ist allein die fehlende Adminschaft. Ohne adminOderWeg in dieser
 		// action entstünde ein Mitglied beziehungsweise änderte sich eine Zeile.
+		//
+		// `rechteSetzen` ist die teuerste der fünf: ohne Schranke machte der POST
+		// hier Nico zur Adminperson, und zwar auf eigenen Wunsch.
 		wegGeleitet(
 			`Nicht-Admin auf die action ${aktion}: 303 auf /`,
 			await routenausgang(() =>
@@ -1837,6 +1848,7 @@ try {
 						name: 'Eve Eindringling',
 						neuerName: 'Eve Eindringling',
 						mitgliedId: String(vera.id),
+						neueRechte: 'admin',
 					}).alsRequestEvent()
 				)
 			)
@@ -1844,9 +1856,14 @@ try {
 	}
 
 	pruefenGleich(
-		'die fünf abgewiesenen Aufrufe haben kein Mitglied angelegt',
+		'die sechs abgewiesenen Aufrufe haben kein Mitglied angelegt',
 		mitgliederZaehlen(),
 		vorSchranke
+	);
+	pruefenGleich(
+		'und rechteSetzen hat Nico keine Rechte gegeben',
+		datenbank().select().from(members).where(eq(members.id, nico.id)).get()?.isAdmin,
+		false
 	);
 	pruefenGleich(
 		'und die angesprochene Zeile ist unverändert',
@@ -2575,6 +2592,279 @@ try {
 		'und keiner von ihnen hat die Tabelle angefasst',
 		JSON.stringify(datenbank().select().from(members).all()),
 		tabelleVorher
+	);
+
+	// -----------------------------------------------------------------------
+	// Verwaltungsrechte geben und nehmen
+	// -----------------------------------------------------------------------
+	/*
+	 * Was hier geprüft wird, ist nicht „die Spalte ändert sich", sondern die
+	 * Folge: wer Rechte hat, kommt durch adminOderWeg, und wer sie verliert,
+	 * nicht mehr. Darum werden die locals nach jedem Schritt **frisch aus der
+	 * Zeile** gebaut und nicht wiederverwendet — `nicoLocals` weiter oben ist ein
+	 * Abdruck vom Anlegen und wüsste von nichts.
+	 */
+	const nicoLocalsFrisch = (): AngemeldetesMitglied =>
+		ohneTokenHash(datenbank().select().from(members).where(eq(members.id, nico.id)).get()!);
+
+	wegGeleitet(
+		'vor dem Rechtegeben: Nico kommt nicht in die Verwaltung',
+		await routenausgang(() =>
+			verwaltung.load(alsMitglied('/verwaltung', nicoLocalsFrisch()).alsRequestEvent())
+		)
+	);
+
+	const nicoVorRechten = datenbank().select().from(members).where(eq(members.id, nico.id)).get();
+	const gebenEreignis = alsMitglied('/verwaltung', veraLocals, {
+		mitgliedId: String(nico.id),
+		neueRechte: 'admin',
+	});
+	const gegeben = await routenausgang(() =>
+		verwaltung.actions.rechteSetzen(gebenEreignis.alsRequestEvent())
+	);
+	pruefen(
+		'rechteSetzen gibt Rechte und nennt den Namen',
+		gegeben.art === 'wert' && textFeld(wertVon(gegeben), 'name') === 'Nico',
+		`Ausgang ${gegeben.art}`
+	);
+	pruefenGleich(
+		'und meldet den Zustand aus der Zeile, nicht die Anfrage',
+		wertVon(gegeben).istAdmin,
+		true
+	);
+	// Gegenprobe zur Zusage an NO_STORE: in dieser Antwort steht kein Klartext.
+	pruefenGleich(
+		'rechteSetzen meldet keine Kopfzeile an',
+		gebenEreignis.gesetzteKopfzeilen.length,
+		0
+	);
+
+	const nicoNachRechten = datenbank().select().from(members).where(eq(members.id, nico.id)).get();
+	pruefenGleich('is_admin steht danach auf true', nicoNachRechten?.isAdmin, true);
+	/*
+	 * Nur is_admin. Ein Rechtegeben, das den Hash neu setzte oder die Zeile
+	 * ersetzte, nähme der Person ihren Link und ihre Dienstwochen — dieselbe
+	 * Zusage wie beim Umbenennen, und darum dieselbe Bauart der Behauptung.
+	 */
+	pruefen(
+		'und sonst nichts: Id, Name, Hash, is_active und created_at stehen unverändert',
+		nicoNachRechten?.id === nicoVorRechten?.id &&
+			nicoNachRechten?.name === nicoVorRechten?.name &&
+			nicoNachRechten?.inviteTokenHash === nicoVorRechten?.inviteTokenHash &&
+			nicoNachRechten?.isActive === nicoVorRechten?.isActive &&
+			nicoNachRechten?.createdAt === nicoVorRechten?.createdAt,
+		JSON.stringify(nicoNachRechten)
+	);
+
+	// Die eigentliche Zusage der Story.
+	pruefen(
+		'Nico kommt jetzt in die Verwaltung',
+		(
+			await routenausgang(() =>
+				verwaltung.load(alsMitglied('/verwaltung', nicoLocalsFrisch()).alsRequestEvent())
+			)
+		).art === 'wert',
+		'die load hat nicht mit einem Wert geantwortet'
+	);
+
+	/*
+	 * Derselbe Klick ein zweites Mal — der veraltete Tab. Die where-Klausel
+	 * trägt `is_admin = <Gegenteil>`, also trifft er keine Zeile, und die Route
+	 * schickt zum Neuladen. Ein Umschalter an dieser Stelle hätte die Rechte
+	 * stattdessen wieder weggenommen und das als Erfolg gemeldet.
+	 */
+	const nochmalGeben = await routenausgang(() =>
+		verwaltung.actions.rechteSetzen(
+			alsMitglied('/verwaltung', veraLocals, {
+				mitgliedId: String(nico.id),
+				neueRechte: 'admin',
+			}).alsRequestEvent()
+		)
+	);
+	abgewiesen(
+		'derselbe Zielzustand ein zweites Mal wird abgewiesen',
+		nochmalGeben,
+		MITGLIED_NICHT_ANSPRECHBAR
+	);
+	pruefenGleich(
+		'und hat die Rechte nicht etwa zurückgedreht',
+		datenbank().select().from(members).where(eq(members.id, nico.id)).get()?.isAdmin,
+		true
+	);
+
+	/*
+	 * Nehmen gelingt, solange jemand übrig bleibt: Vera ist ebenfalls aktive
+	 * Adminperson, die Zählung in der where-Klausel steht also bei zwei. Das ist
+	 * die Gegenprobe zur Sperre weiter unten — ohne sie bewiese jene nur, dass
+	 * die Bedingung immer blockt.
+	 */
+	const genommen = await routenausgang(() =>
+		verwaltung.actions.rechteSetzen(
+			alsMitglied('/verwaltung', veraLocals, {
+				mitgliedId: String(nico.id),
+				neueRechte: 'mitglied',
+			}).alsRequestEvent()
+		)
+	);
+	pruefenGleich(
+		'rechteSetzen nimmt die Rechte wieder, solange eine zweite Adminperson bleibt',
+		wertVon(genommen).istAdmin,
+		false
+	);
+	wegGeleitet(
+		'und Nico kommt nicht mehr in die Verwaltung',
+		await routenausgang(() =>
+			verwaltung.load(alsMitglied('/verwaltung', nicoLocalsFrisch()).alsRequestEvent())
+		)
+	);
+
+	// Auf sich selbst: eigener Satz, weil der Zugang gerade **nicht** betroffen ist.
+	for (const ziel of ['admin', 'mitglied'] as const) {
+		const vorher = zeileAbdruck(vera.id);
+		const ausgang = await routenausgang(() =>
+			verwaltung.actions.rechteSetzen(
+				alsMitglied('/verwaltung', veraLocals, {
+					mitgliedId: String(vera.id),
+					neueRechte: ziel,
+				}).alsRequestEvent()
+			)
+		);
+		abgewiesen(
+			`rechteSetzen auf die eigene Id (${ziel}) wird abgewiesen`,
+			ausgang,
+			EIGENE_RECHTE_GESCHUETZT
+		);
+		pruefenGleich(`und ändert nichts (${ziel})`, zeileAbdruck(vera.id), vorher);
+	}
+	pruefen(
+		'und der Satz spricht von Rechten, nicht vom Zugang',
+		/verwaltungsrechte/i.test(EIGENE_RECHTE_GESCHUETZT) &&
+			EIGENE_RECHTE_GESCHUETZT !== EIGENER_ZUGANG_GESCHUETZT,
+		JSON.stringify(EIGENE_RECHTE_GESCHUETZT)
+	);
+
+	/*
+	 * Der Zielzustand fehlt oder ist Unfug. Entsteht nur bei einem von Hand
+	 * gebauten POST — die Oberfläche schickt immer einen der zwei Werte — und
+	 * fällt auf denselben Satz wie eine nicht ansprechbare Zeile.
+	 */
+	for (const [wie, formular] of [
+		['fehlend', { mitgliedId: String(nico.id) }],
+		['unbekannt', { mitgliedId: String(nico.id), neueRechte: 'chef' }],
+		['leer', { mitgliedId: String(nico.id), neueRechte: '' }],
+		['Zeile beendet', { mitgliedId: String(emmaId), neueRechte: 'admin' }],
+		['Zeile unbekannt', { mitgliedId: '999999', neueRechte: 'admin' }],
+	] as const) {
+		const ausgang = await routenausgang(() =>
+			verwaltung.actions.rechteSetzen(
+				alsMitglied('/verwaltung', veraLocals, formular).alsRequestEvent()
+			)
+		);
+		abgewiesen(`rechteSetzen, ${wie}`, ausgang, MITGLIED_NICHT_ANSPRECHBAR);
+	}
+
+	/*
+	 * Die letzte Adminperson — und zwar als der Fall, für den die Zählung in
+	 * der where-Klausel überhaupt gebaut ist.
+	 *
+	 * Er ist mit zwei gesunden Sitzungen nicht erreichbar: wer die action ruft,
+	 * ist selbst aktive Adminperson und zählt mit, also stünde die Zahl immer
+	 * bei mindestens zwei. Erreichbar wird er genau dann, wenn die **Sitzung**
+	 * älter ist als die Datenbank — wenn also jemand anders der rufenden Person
+	 * in der Zwischenzeit die Rechte genommen hat. Genau das ist der
+	 * Wettlauf, um den es geht, und genau das stellt dieser Block her: Veras
+	 * locals sagen weiterhin „Adminperson", ihre Zeile nicht mehr.
+	 *
+	 * Die Rechtelage wird davor abgedrückt und danach wiederhergestellt — die
+	 * Behauptungen hinter diesem Block sind nicht dafür gebaut, dass jemand
+	 * dazwischen die Admins umgestellt hat.
+	 */
+	const rechtelageVorher = datenbank()
+		.select({ id: members.id, isAdmin: members.isAdmin })
+		.from(members)
+		.all();
+
+	const rolf = mitgliedAnlegen({
+		name: 'Rolf Imhof',
+		inviteTokenHash: tokenHashen(tokenErzeugen()),
+		isAdmin: true,
+	});
+	for (const zeile of rechtelageVorher) {
+		if (zeile.isAdmin) {
+			datenbank().update(members).set({ isAdmin: false }).where(eq(members.id, zeile.id)).run();
+		}
+	}
+	// Rolf ist jetzt die einzige aktive Adminperson — Vera nicht mehr, ihre
+	// locals wissen es nur noch nicht.
+	const rolfVorher = zeileAbdruck(rolf.id);
+
+	abgewiesen(
+		'der letzten Adminperson lassen sich die Rechte nicht nehmen',
+		await routenausgang(() =>
+			verwaltung.actions.rechteSetzen(
+				alsMitglied('/verwaltung', veraLocals, {
+					mitgliedId: String(rolf.id),
+					neueRechte: 'mitglied',
+				}).alsRequestEvent()
+			)
+		),
+		LETZTE_ADMINPERSON
+	);
+	pruefenGleich('und ihre Zeile ist unverändert', zeileAbdruck(rolf.id), rolfVorher);
+
+	/*
+	 * Derselbe Zustand über den zweiten Weg. Vor dieser Story trug
+	 * mitgliedDeaktivieren die Zählung nicht und brauchte sie nicht: es gab
+	 * genau eine Adminperson, und die ist gegen sich selbst geschützt. Mit einer
+	 * zweiten ist der Widerruf ein zweiter Weg in dieselbe Sackgasse.
+	 */
+	abgewiesen(
+		'und ihr Zugang lässt sich nicht beenden',
+		await routenausgang(() =>
+			verwaltung.actions.widerrufen(
+				alsMitglied('/verwaltung', veraLocals, {
+					mitgliedId: String(rolf.id),
+				}).alsRequestEvent()
+			)
+		),
+		LETZTE_ADMINPERSON
+	);
+	pruefenGleich('auch danach ist ihre Zeile unverändert', zeileAbdruck(rolf.id), rolfVorher);
+
+	/*
+	 * Die Gegenprobe zur Verzweigung `is_admin = 0 ODER Zählung > 1`: ein
+	 * gewöhnliches Mitglied ist auch dann zu beenden, wenn es gerade nur eine
+	 * Adminperson gibt. Ohne jene Verzweigung hinge der häufige Fall am seltenen.
+	 */
+	const willi = mitgliedAnlegen({
+		name: 'Willi Rast',
+		inviteTokenHash: tokenHashen(tokenErzeugen()),
+		isAdmin: false,
+	});
+	const williWeg = await routenausgang(() =>
+		verwaltung.actions.widerrufen(
+			alsMitglied('/verwaltung', veraLocals, { mitgliedId: String(willi.id) }).alsRequestEvent()
+		)
+	);
+	pruefen(
+		'ein gewöhnliches Mitglied lässt sich auch bei nur einer Adminperson beenden',
+		williWeg.art === 'wert',
+		`Ausgang ${williWeg.art}`
+	);
+
+	// Aufräumen: die Rechtelage von vor dem Block, und Rolf ohne Rechte.
+	datenbank().update(members).set({ isAdmin: false }).where(eq(members.id, rolf.id)).run();
+	for (const zeile of rechtelageVorher) {
+		datenbank()
+			.update(members)
+			.set({ isAdmin: zeile.isAdmin })
+			.where(eq(members.id, zeile.id))
+			.run();
+	}
+	pruefenGleich(
+		'nach dem Aufräumen ist Vera wieder Adminperson',
+		datenbank().select().from(members).where(eq(members.id, vera.id)).get()?.isAdmin,
+		true
 	);
 
 	// -----------------------------------------------------------------------

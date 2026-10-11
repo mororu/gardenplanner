@@ -1,4 +1,4 @@
-import { and, count, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq, or, sql } from 'drizzle-orm';
 import { datenbank } from '../index.ts';
 import { members, type AngemeldetesMitglied, type Member, type NewMember } from '../schema.ts';
 
@@ -202,12 +202,40 @@ export function aktiveMitgliederAuflisten(): MitgliedFuerAuswahl[] {
  * Mitglied ist schon beendet. Die Route macht daraus **einen** Satz — jede
  * Unterscheidung wäre ein Kanal, an dem sich ablesen liesse, welche Zeilen es
  * gibt.
+ *
+ * **Seit es eine zweite Adminperson geben kann, trägt die where-Klausel eine
+ * dritte Bedingung**, und sie ist die Ausnahme von „ein Satz für alles": die
+ * letzte aktive Adminperson wird nicht beendet. Dieselbe Zählung wie bei
+ * rechteNehmen weiter unten, aus demselben Grund und mit demselben Satz
+ * (LETZTE_ADMINPERSON).
+ *
+ * Der Weg dorthin sieht harmlos aus und ist es nicht: zwei Adminpersonen, die
+ * einander im selben Augenblick den Zugang beenden, kämen beide nicht mehr
+ * herein — und niemand sonst in die Verwaltung. Der Selbstschutz in der Route
+ * greift nicht, denn keine von beiden beendet sich selbst. Vor dieser Story
+ * konnte der Fall nicht entstehen: es gab genau eine Adminperson, und die ist
+ * gegen sich selbst durch EIGENER_ZUGANG_GESCHUETZT geschützt.
+ *
+ * **`is_admin = 0 ODER Zählung > 1`** und nicht nur die Zählung: ein
+ * gewöhnliches Mitglied ist immer zu beenden, auch wenn es gerade nur eine
+ * Adminperson gibt. Ohne diese Verzweigung hinge der häufige Fall am seltenen.
  */
 export function mitgliedDeaktivieren(id: number): AngemeldetesMitglied | null {
+	const aktiveAdminpersonen = datenbank()
+		.select({ anzahl: count() })
+		.from(members)
+		.where(and(eq(members.isAdmin, true), eq(members.isActive, true)));
+
 	const zeile = datenbank()
 		.update(members)
 		.set({ isActive: false })
-		.where(and(eq(members.id, id), eq(members.isActive, true)))
+		.where(
+			and(
+				eq(members.id, id),
+				eq(members.isActive, true),
+				or(eq(members.isAdmin, false), sql`(${aktiveAdminpersonen}) > 1`)
+			)
+		)
 		.returning(ohneHashSpalte)
 		.get();
 	return zeile ?? null;
@@ -269,9 +297,9 @@ export function aktivesMitgliedLesen(id: number): AngemeldetesMitglied | null {
  * Der Fall ist nicht gedacht. Wer /verwaltung in einem zweiten Tab offen hat,
  * dort das Formular aufklappt und nach einer Umbenennung im ersten Tab
  * abschickt, drehte den neueren Namen auf den älteren zurück — ohne Hinweis,
- * weil das UPDATE gelang. Zwei gleichzeitige Adminpersonen gibt es heute nicht
- * (Adminrechte vergibt allein scripts/create-admin.ts, und nur für das erste
- * Mitglied), der eigene veraltete Tab sehr wohl.
+ * weil das UPDATE gelang. Der eigene veraltete Tab ist der häufige Weg dorthin;
+ * seit `rechteGeben` weiter unten eine zweite Adminperson möglich macht, ist es
+ * nicht mehr der einzige.
  *
  * null bedeutet also dreierlei auf einmal: es gibt die Id nicht, das Mitglied
  * ist beendet, oder sein Name ist inzwischen ein anderer. Die Route macht daraus
@@ -321,4 +349,125 @@ export function einladungNeuAusstellen(
 		.returning(ohneHashSpalte)
 		.get();
 	return zeile ?? null;
+}
+
+/*
+ * Verwaltungsrechte geben und nehmen — **zwei** Funktionen und nicht eine mit
+ * einem Schalter.
+ *
+ * Das ist kein Schönheitsentscheid: die zwei where-Klauseln sind verschieden,
+ * und zwar an der Stelle, auf die es ankommt. Geben braucht nichts weiter als
+ * eine aktive Zeile, die die Rechte noch nicht hat. Nehmen muss zusätzlich
+ * sicherstellen, dass danach noch jemand übrig ist. Eine gemeinsame Funktion
+ * mit `if (neu) … else …` im Rumpf hätte beide Zweige unter einem Namen und
+ * einem Kommentar versammelt — und der gefährliche von beiden wäre der kürzere
+ * Blick wert gewesen.
+ *
+ * **`is_admin = <Gegenteil>` steht in beiden where-Klauseln.** Geschrieben wird
+ * nur, wenn die Zeile noch im erwarteten Zustand steht. Dieselbe Bauform wie
+ * `bekannterName` bei mitgliedUmbenennen darüber, und aus demselben Grund: wer
+ * /verwaltung in einem veralteten Tab offen hat, sieht einen Knopf, dessen
+ * Beschriftung nicht mehr stimmt. Ohne diese Bedingung schriebe sein Klick
+ * einen Zustand fest, den er gar nicht gesehen hat; mit ihr trifft das UPDATE
+ * keine Zeile, und die Route schickt ihn zum Neuladen.
+ */
+
+/**
+ * Gibt einem **aktiven** Mitglied ohne Rechte die Verwaltungsrechte und gibt
+ * die getroffene Zeile zurück, oder null.
+ *
+ * null bedeutet dreierlei auf einmal: es gibt die Id nicht, das Mitglied ist
+ * beendet, oder es hat die Rechte längst. Die Route macht daraus **einen**
+ * Satz, und der ist auf alle drei die richtige Auskunft: `Lade die Liste neu.`
+ *
+ * Eine Gegenprobe gegen das Beenden gibt es hier nicht und braucht es nicht:
+ * `is_active = 1` steht in der where-Klausel, ein beendeter Zugang bekommt
+ * also keine Rechte. Die umgekehrte Reihenfolge — erst Rechte, dann
+ * Widerruf — ist dagegen erlaubt und harmlos: der Wächter liest `is_active`
+ * bei jedem Aufruf frisch, und ohne Zugang hilft kein Recht.
+ */
+export function rechteGeben(id: number): AngemeldetesMitglied | null {
+	const zeile = datenbank()
+		.update(members)
+		.set({ isAdmin: true })
+		.where(and(eq(members.id, id), eq(members.isActive, true), eq(members.isAdmin, false)))
+		.returning(ohneHashSpalte)
+		.get();
+	return zeile ?? null;
+}
+
+/**
+ * Nimmt einem **aktiven** Mitglied die Verwaltungsrechte — aber nie der letzten
+ * Person, die welche hat. Gibt die getroffene Zeile zurück, oder null.
+ *
+ * **Die Zählung steht in der where-Klausel und nicht in der Route.** Das ist
+ * der ganze Punkt dieser Funktion. Eine Prüfung davor — „zähle die Admins, und
+ * wenn es mehr als einer ist, schreibe" — liesse zwischen Zählen und Schreiben
+ * ein Fenster offen, und dieses Fenster hat einen echten Bewohner: zwei
+ * Adminpersonen, die einander im selben Augenblick entrechten. Beide zählen
+ * zwei, beide schreiben, und danach kommt niemand mehr in die Verwaltung. Es
+ * ist der einzige Zustand dieser Anwendung, aus dem keine Oberfläche mehr
+ * herausführt — die Datenbank müsste von Hand angefasst werden.
+ *
+ * Als Unterabfrage **in derselben Anweisung** kann das nicht passieren: SQLite
+ * wertet sie beim Ausführen des UPDATE aus, und zwei UPDATE laufen nie
+ * ineinander. Die zweite Anweisung zählt dann eins und trifft keine Zeile.
+ *
+ * Der Selbstschutz in der Route (EIGENE_RECHTE_GESCHUETZT) deckt diesen Fall
+ * ausdrücklich **nicht** ab: dort entrechtet niemand sich selbst, sondern jeder
+ * den anderen.
+ */
+export function rechteNehmen(id: number): AngemeldetesMitglied | null {
+	/*
+	 * Die Unterabfrage als eigener Bauplan, damit die Spaltennamen aus dem
+	 * Schema kommen und nicht als Zeichenkette danebenstehen. Sie zählt über
+	 * `members` mit eigenem FROM — SQLite bindet die Namen darin an die innere
+	 * Tabelle, nicht an die Zeile des UPDATE. Eine korrelierte Unterabfrage wäre
+	 * hier falsch: gezählt werden alle, nicht die eine.
+	 */
+	const aktiveAdminpersonen = datenbank()
+		.select({ anzahl: count() })
+		.from(members)
+		.where(and(eq(members.isAdmin, true), eq(members.isActive, true)));
+
+	const zeile = datenbank()
+		.update(members)
+		.set({ isAdmin: false })
+		.where(
+			and(
+				eq(members.id, id),
+				eq(members.isActive, true),
+				eq(members.isAdmin, true),
+				sql`(${aktiveAdminpersonen}) > 1`
+			)
+		)
+		.returning(ohneHashSpalte)
+		.get();
+	return zeile ?? null;
+}
+
+/**
+ * Ob diese Id die letzte aktive Adminperson ist.
+ *
+ * **Nur für den Wortlaut einer Abweisung**, nie für die Entscheidung, ob
+ * geschrieben wird — die trifft die where-Klausel von rechteNehmen darüber.
+ * Darum ist es unschädlich, dass diese Auskunft eine eigene Anweisung ist und
+ * damit einen Augenblick später kommt als der fehlgeschlagene Versuch: zu
+ * entscheiden gibt es da nichts mehr. Sie beantwortet allein die Frage, welcher
+ * von zwei Sätzen die Person weiterbringt.
+ */
+export function istLetzteAdminperson(id: number): boolean {
+	const zeile = datenbank()
+		.select({ anzahl: count() })
+		.from(members)
+		.where(and(eq(members.isAdmin, true), eq(members.isActive, true)))
+		.get();
+	if (zeile === undefined || zeile.anzahl !== 1) return false;
+
+	const ich = datenbank()
+		.select({ id: members.id })
+		.from(members)
+		.where(and(eq(members.id, id), eq(members.isAdmin, true), eq(members.isActive, true)))
+		.get();
+	return ich !== undefined;
 }

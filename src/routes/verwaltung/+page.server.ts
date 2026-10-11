@@ -4,19 +4,27 @@ import { adminOderWeg } from '../../lib/server/adminschranke.ts';
 import {
 	aktivesMitgliedLesen,
 	einladungNeuAusstellen,
+	istLetzteAdminperson,
 	mitgliedAnlegen,
 	mitgliedDeaktivieren,
 	mitgliederAuflisten,
 	mitgliedUmbenennen,
+	rechteGeben,
+	rechteNehmen,
 } from '../../lib/server/db/queries/members.ts';
 import type { AngemeldetesMitglied } from '../../lib/server/db/schema.ts';
 import { NAME_HOECHSTLAENGE, namePruefen } from '../../lib/mitgliedsname.ts';
 import { tokenErzeugen, tokenHashen } from '../../lib/server/token.ts';
-import { EIGENER_ZUGANG_GESCHUETZT, MITGLIED_NICHT_ANSPRECHBAR } from '../../lib/texte.ts';
+import {
+	EIGENE_RECHTE_GESCHUETZT,
+	EIGENER_ZUGANG_GESCHUETZT,
+	LETZTE_ADMINPERSON,
+	MITGLIED_NICHT_ANSPRECHBAR,
+} from '../../lib/texte.ts';
 
 /*
  * /verwaltung — aufnehmen, umbenennen, Link neu ausstellen, Einladung
- * widerrufen.
+ * widerrufen, Verwaltungsrechte geben und nehmen.
  *
  * Die Importe stehen relativ und mit .ts-Endung, und die Typen kommen aus
  * @sveltejs/kit statt aus ./$types. Der Grund ist derselbe wie in
@@ -33,9 +41,11 @@ import { EIGENER_ZUGANG_GESCHUETZT, MITGLIED_NICHT_ANSPRECHBAR } from '../../lib
  * nicht umkehrbar. „Nach dem Verlassen der Seite nirgends mehr abrufbar" ist
  * damit eine Eigenschaft des Aufbaus und keine Zusage der Oberfläche.
  *
- * **Jede** der fünf Einstiegsstellen beginnt mit adminOderWeg. Eine action
- * ohne Schranke wäre der Fehler, den die Oberfläche nicht sichtbar macht: für
- * Nicht-Admins fehlt der Knopf, ein POST braucht aber keinen.
+ * **Jede** der sechs Einstiegsstellen beginnt mit adminOderWeg — die load und
+ * fünf actions. Eine action ohne Schranke wäre der Fehler, den die Oberfläche
+ * nicht sichtbar macht: für Nicht-Admins fehlt der Knopf, ein POST braucht aber
+ * keinen. Seit `rechteSetzen` wiegt das schwerer als zuvor: eine Schranke, die
+ * dort fehlte, liesse jedes Mitglied sich selbst zur Adminperson machen.
  */
 
 /*
@@ -135,8 +145,12 @@ export const actions = {
 	 * Der Name geht durch namePruefen, **bevor** ein Token entsteht — die Matrix
 	 * verlangt ausdrücklich, dass bei leerem Namen keines erzeugt wird.
 	 *
-	 * is_admin ist hier fest 0. Es gibt keine Oberfläche, die Adminrechte
-	 * vergibt; das kann allein scripts/create-admin.ts für das erste Mitglied.
+	 * **is_admin ist hier fest 0**, und das bleibt es auch, seit `rechteSetzen`
+	 * weiter unten Verwaltungsrechte vergeben kann. Aufnehmen und Rechte geben
+	 * sind zwei Handlungen und nicht eine mit einem Häkchen: wer jemanden
+	 * aufnimmt, tippt einen Namen ab und sieht danach auf den Einladungslink,
+	 * nicht auf ein Kästchen daneben. Ein Häkchen an dieser Stelle wäre genau
+	 * dort angeklickt worden, wo niemand hinsieht.
 	 */
 	aufnehmen: async ({ locals, request, url, setHeaders }: RequestEvent) => {
 		adminOderWeg(locals);
@@ -211,7 +225,13 @@ export const actions = {
 	 * Beendet den Zugang eines fremden, aktiven Mitglieds.
 	 *
 	 * Deaktivieren, nicht löschen: keine Zeile verschwindet, kein Name wird
-	 * geändert, kein Hash geleert (AD-11). Der Wächter liest is_active bei
+	 * geändert, kein Hash geleert (AD-11).
+	 *
+	 * **Die letzte Adminperson wird nicht beendet.** Entschieden in der
+	 * where-Klausel von mitgliedDeaktivieren, nicht hier — die Begründung für den
+	 * Ort steht dort und bei LETZTE_ADMINPERSON. Der Selbstschutz eine Zeile
+	 * höher deckt den Fall nicht ab: gefährlich sind zwei Adminpersonen, die
+	 * einander hinauswerfen, und keine von beiden wirft sich selbst hinaus. Der Wächter liest is_active bei
 	 * jedem Aufruf frisch, der Widerruf wirkt also sofort — auch auf eine schon
 	 * lebende Sitzung. Ein Aufruf von sitzungLoeschen wäre hier ohne Wirkung:
 	 * der Widerruf trifft immer ein **fremdes** Cookie, das in dieser Antwort
@@ -231,6 +251,16 @@ export const actions = {
 
 		const mitglied = mitgliedDeaktivieren(id);
 		if (mitglied === null) {
+			/*
+			 * Dieselbe Nachlese wie bei rechteSetzen, und aus demselben Grund: sie
+			 * entscheidet allein den Wortlaut, nie, ob geschrieben wird. Seit es
+			 * eine zweite Adminperson geben kann, ist der Widerruf ein zweiter Weg
+			 * in dieselbe Sackgasse — die Begründung steht an mitgliedDeaktivieren
+			 * und bei LETZTE_ADMINPERSON.
+			 */
+			if (istLetzteAdminperson(id)) {
+				return abweisen(LETZTE_ADMINPERSON);
+			}
 			return abweisen(MITGLIED_NICHT_ANSPRECHBAR);
 		}
 
@@ -246,10 +276,11 @@ export const actions = {
 	 * und die Person neu aufnahm — was ihr zugleich alle künftigen Dienstwochen
 	 * genommen hätte, sobald der Name ab Story 3.1 im Tränkeplan vor allen steht.
 	 *
-	 * **Die eigene Zeile darf umbenannt werden**, anders als bei neuAusstellen
-	 * und widerrufen: ein Name ist kein Zugang. Ein Selbst-Umbenennen sperrt
-	 * niemanden aus, und es gibt genau eine Adminperson, die es sonst für sie
-	 * täte. EIGENER_ZUGANG_GESCHUETZT kommt hier darum nicht vor.
+	 * **Die eigene Zeile darf umbenannt werden**, anders als bei neuAusstellen,
+	 * widerrufen und rechteSetzen: ein Name ist kein Zugang. Ein Selbst-Umbenennen
+	 * sperrt niemanden aus, und ob überhaupt eine zweite Adminperson existiert,
+	 * die es sonst täte, ist nicht zugesichert. EIGENER_ZUGANG_GESCHUETZT kommt
+	 * hier darum nicht vor.
 	 *
 	 * Die Zeile wird **vor** dem Namen geprüft, und zwar vollständig: erst die
 	 * Form der Id, dann ob sie eine aktive Zeile trifft. Ohne ansprechbare Zeile
@@ -308,5 +339,94 @@ export const actions = {
 		// Person hat bekommen, was sie wollte, und eine Meldung darüber wäre eine
 		// Aufforderung, etwas zu ändern, das schon stimmt.
 		return { art: 'umbenannt' as const, meldung: 'Umbenannt.', name: mitglied.name };
+	},
+
+	/**
+	 * Gibt einem **aktiven** Mitglied die Verwaltungsrechte oder nimmt sie ihm.
+	 *
+	 * **Ein Zielzustand und kein Umschalter.** Das Formular schickt mit, was
+	 * danach gelten soll (`admin` oder `mitglied`), nicht die Bitte, das
+	 * Bestehende zu kippen. Der Unterschied zeigt sich genau dann, wenn die
+	 * angezeigte Liste veraltet ist — und das ist der Fall, für den die ganze
+	 * Prüfkette gebaut ist: ein Umschalter aus einem alten Tab drehte den
+	 * Zustand, den jemand anders gerade hergestellt hat, wieder zurück, und zwar
+	 * als Erfolg gemeldet. Der Zielzustand dagegen trifft entweder zu — dann ist
+	 * nichts zu tun — oder er trifft auf eine Zeile, die ihn schon hat, und die
+	 * where-Klausel in ../../lib/server/db/queries/members.ts lässt ihn ins
+	 * Leere laufen.
+	 *
+	 * **Die eigene Zeile ist ausgenommen**, wie bei neuAusstellen und
+	 * widerrufen und aus demselben Grund: in der action geprüft und nicht nur in
+	 * der Oberfläche, denn die eigene Zeile trägt keinen Knopf, aber ein POST
+	 * braucht keinen. Dass diese Prüfung den gefährlichsten Fall **nicht**
+	 * abdeckt, steht ausdrücklich bei LETZTE_ADMINPERSON in ../../lib/texte.ts:
+	 * zwei Adminpersonen, die einander gleichzeitig entrechten, entrechten nicht
+	 * sich selbst. Dagegen hilft allein die Zählung in der where-Klausel.
+	 *
+	 * **Kein Bestätigungsdialog.** Die Seite hat einen, und er gehört dem
+	 * Widerruf. Der Unterschied ist die Umkehrbarkeit: ein Widerruf nimmt den
+	 * Zugang, und es gibt keinen Weg zurück ausser einem neuen Link. Rechte
+	 * geben und nehmen lässt sich im nächsten Griff rückgängig machen, nimmt
+	 * niemandem den Zugang zum Garten und kann dank der Zählung die Verwaltung
+	 * nicht verwaisen lassen. Eine Bestätigung an dieser Stelle wäre eine
+	 * Gewohnheit, und Gewohnheiten nutzen die eine Bestätigung ab, die wirklich
+	 * eine ist.
+	 *
+	 * Kein setHeaders: in dieser Antwort steht kein Klartext.
+	 */
+	rechteSetzen: async ({ locals, request }: RequestEvent) => {
+		const ich = adminOderWeg(locals);
+
+		const formular = await request.formData();
+		const id = idLesen(formular.get('mitgliedId'));
+		if (id === null) {
+			return abweisen(MITGLIED_NICHT_ANSPRECHBAR);
+		}
+		if (id === ich.id) {
+			return abweisen(EIGENE_RECHTE_GESCHUETZT);
+		}
+
+		/*
+		 * Ein fehlender oder unbekannter Zielzustand fällt auf denselben Satz wie
+		 * eine nicht ansprechbare Zeile. Er entsteht nur, wenn jemand den POST von
+		 * Hand baut — die Oberfläche schickt immer einen der zwei Werte —, und
+		 * „Lade die Liste neu" ist auch dort die Auskunft, die weiterbringt. Ein
+		 * eigener Satz für ein kaputtes Formularfeld wäre eine Auskunft über die
+		 * Gestalt der action und keine über die Sache.
+		 */
+		const rohRechte = formular.get('neueRechte');
+		if (rohRechte !== 'admin' && rohRechte !== 'mitglied') {
+			return abweisen(MITGLIED_NICHT_ANSPRECHBAR);
+		}
+		const sollAdminSein = rohRechte === 'admin';
+
+		const mitglied = sollAdminSein ? rechteGeben(id) : rechteNehmen(id);
+		if (mitglied === null) {
+			/*
+			 * Die Nachlese entscheidet allein den **Wortlaut**. Geschrieben wurde
+			 * schon nicht, und daran ändert sich hier nichts mehr — darum ist es
+			 * unschädlich, dass diese Auskunft einen Augenblick jünger ist als der
+			 * fehlgeschlagene Versuch. Sie steht nur im nehmenden Zweig: beim Geben
+			 * kann die Zahl der Adminpersonen nie der Grund gewesen sein.
+			 */
+			if (!sollAdminSein && istLetzteAdminperson(id)) {
+				return abweisen(LETZTE_ADMINPERSON);
+			}
+			return abweisen(MITGLIED_NICHT_ANSPRECHBAR);
+		}
+
+		/*
+		 * Die Meldung nennt die Richtung, weil die Live-Region sie sonst nicht
+		 * hätte: `Geändert.` wäre für jemanden, der die Liste nicht sieht, keine
+		 * Auskunft darüber, was jetzt gilt. `istAdmin` kommt aus der
+		 * zurückgegebenen Zeile und nicht aus `sollAdminSein` — gemeldet wird, was
+		 * in der Datenbank steht, nicht, was angefragt war.
+		 */
+		return {
+			art: 'rechteGesetzt' as const,
+			meldung: mitglied.isAdmin ? 'Rechte gegeben.' : 'Rechte genommen.',
+			name: mitglied.name,
+			istAdmin: mitglied.isAdmin,
+		};
 	},
 } satisfies Actions;

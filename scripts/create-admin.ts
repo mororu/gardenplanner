@@ -74,9 +74,14 @@ try {
 /*
  * Zweitlauf-Schutz. Dieses Skript ist ausdrücklich für das **erste** Mitglied
  * gedacht. Ein zweiter Lauf erzeugte einen zweiten Admin und einen zweiten
- * lebenden Klartext-Link, ohne dass jemand danach gefragt hätte — und
- * Adminrechte vergibt keine Oberfläche wieder ab, /verwaltung nimmt
- * ausschliesslich Mitglieder ohne Adminrechte auf.
+ * lebenden Klartext-Link, ohne dass jemand danach gefragt hätte.
+ *
+ * **Der Schutz bleibt, seit /verwaltung Verwaltungsrechte vergeben kann.** Was
+ * dort geschieht, ist etwas anderes als ein zweiter Lauf hier: Rechte bekommt,
+ * wer schon aufgenommen ist, von jemandem, der selbst welche hat, und die Zeile
+ * trägt danach sichtbar `— Verwaltung`. Es entsteht kein neuer Zugang und kein
+ * neuer Klartext-Link. Dieses Skript dagegen schreibt den Link auf die Konsole
+ * einer Maschine, und niemand in der Gartengruppe sieht dabei zu.
  */
 let vorhandene: number;
 try {
@@ -88,10 +93,13 @@ if (vorhandene > 0) {
 	abbrechen(
 		`Es gibt schon ${vorhandene} Mitglied(er). Dieses Skript legt nur das erste an.\n` +
 			'Weitere Mitglieder nimmt eine Adminperson unter /verwaltung auf — dort gibt es\n' +
-			'Aufnehmen, Umbenennen, Link neu ausstellen und Einladung widerrufen.\n' +
+			'Aufnehmen, Umbenennen, Link neu ausstellen, Einladung widerrufen sowie\n' +
+			'Verwaltungsrechte geben und nehmen.\n' +
 			'Hier gibt es bewusst keinen zweiten Weg, damit nicht unbemerkt ein zweiter\n' +
-			'Admin mit einem zweiten lebenden Link entsteht. Adminrechte vergibt allein\n' +
-			'dieses Skript, und nur für das erste Mitglied.'
+			'Admin mit einem zweiten lebenden Link entsteht: dieses Skript schreibt den\n' +
+			'Klartext-Link auf die Konsole, und niemand sieht dabei zu. Unter /verwaltung\n' +
+			'vergibt Rechte, wer selbst welche hat, an jemanden, der schon aufgenommen\n' +
+			'ist — ohne neuen Link und sichtbar in der Liste.'
 	);
 }
 
