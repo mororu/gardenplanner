@@ -1,6 +1,7 @@
 import { abgeschlosseneEinzelaufgabenLesen } from '../../lib/server/db/queries/signup-tasks.ts';
 import { erledigteAufgabenAuflisten } from '../../lib/server/db/queries/tasks.ts';
-import { behandlungenLesen } from '../../lib/server/db/queries/treatments.ts';
+import { abgeschlosseneBehandlungenLesen } from '../../lib/server/db/queries/treatments.ts';
+import { abschluesseBuendeln } from '../../lib/wellness.ts';
 
 /*
  * /archiv — was in diesem Garten schon getan ist.
@@ -14,7 +15,7 @@ import { behandlungenLesen } from '../../lib/server/db/queries/treatments.ts';
  * **Drei Quellen, eine Liste** — zwei seit dem 2026-09-17, die dritte seit
  * dem 2026-10-11 (beides Entscheid Manuel). Die abgehakten Poolaufgaben kommen
  * aus ./queries/tasks.ts, die abgeschlossenen Termine aus
- * ./queries/signup-tasks.ts, die Wellnessbehandlungen aus dem Tagebuch in
+ * ./queries/signup-tasks.ts, die abgeschlossenen Kulturen aus dem Tagebuch in
  * ./queries/treatments.ts, und **zusammengeführt wird hier und nicht dort**.
  * Das ist AD-3 und AD-4: die Aufgabenarten haben bewusst keine Basistabelle
  * und keine gemeinsame Zuständigkeitsspalte, weil sie verschieden verbindlich
@@ -24,7 +25,11 @@ import { behandlungenLesen } from '../../lib/server/db/queries/treatments.ts';
  * Behandlung im Beet ist ebenso getane Arbeit wie ein abgehaktes Kästchen.
  *
  * Das Tagebuch auf /wellness bleibt dabei, was es ist: das Archiv liest es,
- * es kopiert und entfernt nichts daraus.
+ * es kopiert und entfernt nichts daraus. **Seit dem 2026-10-12 liest es nur,
+ * was abgeschlossen ist** (Entscheid Manuel): eine einzelne Behandlung steht
+ * hier nicht mehr, solange die Reihe läuft, sondern erst, wenn die Kultur im
+ * Beet auf /wellness abgeschlossen wird — dann als **eine** Zeile je
+ * Abschluss.
  *
  * **Diese Seite hat keine action, und das ist eine Entscheidung** — dieselbe wie
  * auf /einzelaufgaben, mit einem eigenen Grund. Eine erledigte Aufgabe ist
@@ -35,12 +40,12 @@ import { behandlungenLesen } from '../../lib/server/db/queries/treatments.ts';
  * Termin hat gar keinen Rückweg; die Begründung steht an
  * einzelaufgabeAbschliessen.
  *
- * **Eine Wellnesszeile ist keine solche Historie.** Das Tagebuch auf /wellness
- * lässt jede Behandlung ändern (`aendern`) und wegnehmen (`wegnehmen`), und
- * das Archiv liest bei jedem Laden den Stand des Tagebuchs: eine geänderte
- * Behandlung steht danach mit dem neuen Text und unter dem neuen Tag, eine
- * weggenommene fehlt. Von hier aus ändert sich trotzdem nichts — das Archiv
- * zeigt, was das Tagebuch gerade sagt, und führt keine eigene Kopie.
+ * **Ein Abschluss ist Historie bis auf einen Augenblick.** Direkt nach dem
+ * Abschliessen lässt er sich auf /wellness rückgängig machen — in der
+ * Oberfläche lebt der Knopf nur in der Meldung dort; die action selbst nimmt
+ * jeden Abschluss mit passendem Ort, Kultur und Zeitpunkt zurück —, und dann
+ * fehlt seine Zeile hier beim nächsten Laden. Ändern und Wegnehmen treffen abgeschlossene Zeilen nicht. Von hier
+ * aus ändert sich nichts (Spec, _Ask First_: Rückgängig aus dem Archiv).
  *
  * scripts/smoke-zugang.ts hält das fest: dieses Modul exportiert kein `actions`.
  *
@@ -73,7 +78,11 @@ import { behandlungenLesen } from '../../lib/server/db/queries/treatments.ts';
  * Abfrageschicht nicht (AD-5), und dieses Feld ist für jede Poolzeile null.
  * Eine Wellnesszeile ist es ebenso (Entscheid Manuel, 2026-10-11): das
  * Tagebuch kennt die eintragende Person, aber eine Behandlung ist keine
- * Zusage vor allen, und der Name bleibt in der load.
+ * Zusage vor allen — die Abfrage für das Archiv liest den Namen gar nicht.
+ *
+ * `zusatz` ist die zweite Zeile unter dem Text, und nur eine Wellnesszeile
+ * trägt sie: die Mittel des Abschlusses mit Anzahl, `Schachtelhalm 4×,
+ * Brennnesseljauche 2×`. Für Aufgabe und Termin ist sie null.
  *
  * **`schluessel` und nicht `id`**: die Ids kommen aus drei Tabellen und
  * kollidieren. Zwei Zeilen mit demselben `{#each}`-Schlüssel sind kein
@@ -84,6 +93,7 @@ export type Archivzeile = {
 	schluessel: string;
 	art: Archivart;
 	text: string;
+	zusatz: string | null;
 	erledigtAm: number;
 	uebernehmer: string | null;
 };
@@ -111,6 +121,7 @@ export function load(): { erledigte: Archivzeile[] } {
 		schluessel: `aufgabe-${aufgabe.id}`,
 		art: 'aufgabe',
 		text: aufgabe.text,
+		zusatz: null,
 		erledigtAm: aufgabe.erledigtAm,
 		// Namenlos, und zwar nicht mangels Daten: die Spalte gibt es, sie verlässt
 		// nur die Abfrageschicht nicht (AD-5).
@@ -120,25 +131,33 @@ export function load(): { erledigte: Archivzeile[] } {
 		schluessel: `termin-${termin.id}`,
 		art: 'termin',
 		text: termin.titel,
+		zusatz: null,
 		erledigtAm: termin.erledigtAm,
 		uebernehmer: termin.uebernehmer,
 	}));
 	/*
-	 * Aus dem Tagebuch nur, was an der Zeile steht: Mittel, Kultur und Ort,
-	 * fehlende Angaben samt Trenner weggelassen, und der Anwendungstag. **Der
-	 * Name verlässt die load nicht** (Entscheid Manuel, 2026-10-11), und
-	 * `intervallTage` und `createdAt` ebenso wenig — die Abbildung nimmt sie
-	 * ausdrücklich nicht mit, statt die Zeile durchzureichen.
+	 * Aus dem Tagebuch **je Abschluss eine Zeile** (Entscheid Manuel,
+	 * 2026-10-12): `{Beet} · {Kultur}` mit denselben Ersatzwörtern wie im
+	 * Tagebuch, darunter die Mittel mit Anzahl, und als Zeitpunkt der Abschluss
+	 * — nach ihm richten sich Datum und Monat. Gebündelt wird in
+	 * `abschluesseBuendeln` in ../../lib/wellness.ts.
+	 *
+	 * **Kein Name, keine Wiederholung, kein `createdAt`**: die Abfrage liest sie
+	 * gar nicht, und die Abbildung nimmt nur, was hier steht.
+	 *
+	 * Der Schlüssel ist die kleinste Kennung im Abschluss — eindeutig, weil
+	 * jede Zeile zu genau einem Abschluss gehört.
 	 */
-	const ausDemTagebuch: Archivzeile[] = behandlungenLesen().map((behandlung) => ({
-		schluessel: `wellness-${behandlung.id}`,
-		art: 'wellness',
-		text: [behandlung.mittel, behandlung.kultur, behandlung.ort]
-			.filter((teil): teil is string => teil !== null && teil !== '')
-			.join(' · '),
-		erledigtAm: behandlung.angewendetAm,
-		uebernehmer: null,
-	}));
+	const ausDemTagebuch: Archivzeile[] = abschluesseBuendeln(abgeschlosseneBehandlungenLesen()).map(
+		(abschluss) => ({
+			schluessel: `wellness-${abschluss.ersteId}`,
+			art: 'wellness',
+			text: `${abschluss.ort ?? 'Ohne Beet'} · ${abschluss.kultur ?? 'Ohne Kultur'}`,
+			zusatz: abschluss.mittel.map(({ mittel, anzahl }) => `${mittel} ${anzahl}×`).join(', '),
+			erledigtAm: abschluss.abgeschlossenAm,
+			uebernehmer: null,
+		})
+	);
 	/*
 	 * Alle drei Quellen kommen schon absteigend; das Zusammenfügen braucht
 	 * trotzdem einen eigenen Durchlauf, weil sortierte Listen hintereinandergehängt
@@ -152,10 +171,14 @@ export function load(): { erledigte: Archivzeile[] } {
 	 * etwas geändert hätte, und die Gruppierung in der Komponente ist genau
 	 * darauf angewiesen.
 	 *
-	 * Eine Behandlung trägt als Zeitpunkt das Tagesende ihres Anwendungstags
-	 * (23:59:59 Europe/Zurich) und steht darum über allem, was am selben Tag
-	 * abgehakt wurde. Das ist hingenommen: die Zeile zeigt nur das Datum, und
-	 * im Archiv zählt der Tag, nicht die Uhrzeit.
+	 * Ein Abschluss trägt in der Regel die Sekunde, in der er geschah —
+	 * dieselbe Art Zeitpunkt wie ein Abhaken. **Nicht immer:** damit zwei
+	 * Abschlüsse derselben Kultur nie denselben Zeitpunkt tragen, rückt
+	 * `kulturAbschliessen` ihn um eine Sekunde hinter den letzten, wenn der auf
+	 * oder nach `jetzt` liegt. Wer oft hintereinander abschliesst, schiebt ihn
+	 * so um Sekunden nach vorn — im Grenzfall kurz vor Mitternacht auf den
+	 * nächsten Tag, und die Zeile steht dann unter diesem Datum. Hingenommen:
+	 * es braucht dafür Abschlüsse derselben Kultur im Sekundentakt.
 	 */
 	return {
 		erledigte: [...ausDemPool, ...ausDenTerminen, ...ausDemTagebuch].sort(

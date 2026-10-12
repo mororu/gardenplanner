@@ -52,7 +52,8 @@
 		Gegenwert.
 
 		**Gesucht wird in allem, was an der Zeile steht** — Text, Übernehmer, das
-		Herkunftswort **und das Datum**, in genau den drei Formen, in denen die
+		Herkunftswort, die Mittel einer Wellnesszeile **und das Datum**, in genau
+		den drei Formen, in denen die
 		Seite es zeigt: `15. Sep 2026` an der Zeile, `September` über der Gruppe,
 		`2026` über dem Jahr.
 
@@ -92,6 +93,8 @@
 	const durchsuchbar = (zeile: (typeof data.erledigte)[number]): string =>
 		[
 			zeile.text,
+			// Die Mittel eines Abschlusses — sie stehen an der Zeile, also sind sie findbar.
+			zeile.zusatz ?? '',
 			zeile.uebernehmer ?? '',
 			herkunft(zeile.art),
 			datumKurz(zeile.erledigtAm),
@@ -207,14 +210,15 @@
 	/archiv — die abgehakten Aufgaben, nach Monat, das Neueste zuerst.
 
 	**Keine Aktion auf dieser Seite**, und der Grund steht in der Nachbardatei:
-	eine erledigte Aufgabe und ein abgeschlossener Termin sind Historie. Eine
-	Wellnesszeile ist es nicht ganz: sie spiegelt das Tagebuch auf /wellness,
-	und wer dort eine Behandlung ändert oder wegnimmt, ändert oder entfernt sie
-	auch hier. Ändern lässt sie sich trotzdem nur dort. Die Seite beantwortet die eine Frage, die
-	das Produkt bis dahin nirgends beantwortete — was ist schon getan.
+	eine erledigte Aufgabe, ein abgeschlossener Termin und eine abgeschlossene
+	Kultur sind Historie. Den Abschluss einer Kultur nimmt nur der Knopf
+	`Rückgängig` direkt danach auf /wellness zurück. Die Seite beantwortet die
+	eine Frage, die das Produkt bis dahin nirgends beantwortete — was ist schon
+	getan.
 
 	**Drei Arten in einer Liste**: abgehakte Poolaufgaben und abgeschlossene
-	Termine seit dem 2026-09-17, Wellnessbehandlungen seit dem 2026-10-11,
+	Termine seit dem 2026-09-17, Wellnessbehandlungen seit dem 2026-10-11 —
+	seit dem 2026-10-12 je abgeschlossene Kultur im Beet eine Zeile —,
 	zusammengeführt in der load und hier nur noch nach Monat gebündelt. Eine
 	Poolzeile steht **ohne Namen** da — die Abfrage reicht `completed_by` nicht
 	heraus, der Zeilentyp verbietet es, und darum kann dort auch dann keiner
@@ -243,9 +247,12 @@
 		resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve).
 	-->
 	<p class="hinweis">
-		Erledigte Aufgaben und abgeschlossene Termine, nach Monat. Hier lässt sich nichts ändern; ein
-		fälschlich abgehaktes Kästchen nimmt die <a href={resolve('/')}>Startseite</a> zurück, solange die
-		Zeile noch dasteht.
+		Erledigte Aufgaben, abgeschlossene Termine und abgeschlossene Kulturen aus dem Wellnesstagebuch,
+		nach Monat. Hier lässt sich nichts ändern. Ein fälschlich abgehaktes Kästchen nimmt die <a
+			href={resolve('/')}>Startseite</a
+		>
+		zurück, solange die Zeile noch dasteht; einen Abschluss nur die
+		<a href={resolve('/wellness')}>Wellnessbehandlung</a>, direkt danach.
 	</p>
 
 	<!--
@@ -378,6 +385,16 @@
 						-->
 										<p class="fliesstext zeile__text">{zeile.text}</p>
 										<!--
+								Die Mittel eines Abschlusses, mit Anzahl — nur an einer
+								Wellnesszeile, und zwar im Typ: für Aufgabe und Termin ist
+								`zusatz` null. Als `hinweis` wie die anderen Nebenzeilen: sie ist
+								eine Angabe über die Zeile, nicht ihr Inhalt. Mit Umbruch, weil die
+								Mittel getippter Text sind.
+							-->
+										{#if zeile.zusatz !== null}
+											<p class="hinweis archiv__zusatz">{zeile.zusatz}</p>
+										{/if}
+										<!--
 							Das Datum steht seit dem 2026-09-17 an jeder Zeile (Entscheid
 							Manuel). Die erste Fassung liess es weg und verwies auf die
 							Monatsüberschrift; das trägt nicht, sobald jemand eine Zeile
@@ -471,5 +488,10 @@
 	*/
 	.monat__liste {
 		padding-top: var(--space-2);
+	}
+
+	/* Derselbe Umbruch wie `.zeile__text` im geteilten Blatt — getippte Mittel ohne Leerzeichen. */
+	.archiv__zusatz {
+		overflow-wrap: anywhere;
 	}
 </style>

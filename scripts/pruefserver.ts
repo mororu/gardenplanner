@@ -26,7 +26,10 @@ import { fileURLToPath } from 'node:url';
 import { aufraeumen, pruefen, zaehlerstand } from './pruefhelfer.ts';
 import { datenschichtStarten } from '../src/lib/server/db/index.ts';
 import { ernteEintragen } from '../src/lib/server/db/queries/harvests.ts';
-import { behandlungEintragen } from '../src/lib/server/db/queries/treatments.ts';
+import {
+	behandlungEintragen,
+	kulturAbschliessen,
+} from '../src/lib/server/db/queries/treatments.ts';
 import { mitgliedAnlegen } from '../src/lib/server/db/queries/members.ts';
 import { aufgabeAbhaken, aufgabenStapelAnlegen } from '../src/lib/server/db/queries/tasks.ts';
 import { tokenErzeugen, tokenHashen } from '../src/lib/server/token.ts';
@@ -204,12 +207,11 @@ export type Saat = {
 	 */
 	abgehakteTexte: readonly [string, string];
 	/**
-	 * Die vier Behandlungen der Saat, mit den Angaben, die an einer Archivzeile
-	 * stehen. Seit dem 2026-10-11 liest smoke:sicht daraus, was die Suche nach
-	 * `Wellness` auf /archiv finden muss — statt die Texte ein zweites Mal von
-	 * Hand zu führen. Seit dem 2026-10-12 auch, was die Mittelzeilen des
-	 * gebündelten Tagebuchs auf /wellness sagen müssen; dafür reisen Alter und
-	 * Wiederholung mit.
+	 * Die vier **offenen** Behandlungen der Saat. smoke:sicht liest daraus, was
+	 * die Mittelzeilen des gebündelten Tagebuchs auf /wellness sagen müssen;
+	 * dafür reisen Alter und Wiederholung mit. Im Archiv stehen sie seit dem
+	 * 2026-10-12 nicht mehr — dort steht nur, was abgeschlossen ist (siehe
+	 * `abschluss`).
 	 */
 	behandlungen: readonly {
 		mittel: string;
@@ -218,6 +220,12 @@ export type Saat = {
 		tage: number;
 		intervallTage: number | null;
 	}[];
+	/**
+	 * Die eine **abgeschlossene** Kultur der Saat, seit dem 2026-10-12, so wie
+	 * ihre Archivzeile sie zeigen muss: Text, Mittelzeile und ein Wort, das nur
+	 * in der Mittelzeile vorkommt. smoke:sicht sucht danach auf /archiv.
+	 */
+	abschluss: { text: string; zusatz: string; mittelwort: string };
 };
 
 /**
@@ -383,6 +391,48 @@ export function saeen(): Saat {
 		);
 	}
 
+	/*
+	 * **Eine abgeschlossene Kultur, seit dem 2026-10-12** — ohne sie stünde im
+	 * Archiv keine Wellnesszeile, und weder die Suche nach `Wellness` noch die
+	 * nach einem Mittel hätte etwas zu finden. Bohnen in Beet 2: zweimal
+	 * Beinwelljauche, einmal Gesteinsmehl, die Jauche zuletzt — sie steht in der
+	 * Mittelzeile darum vorn. Abgeschlossen über die echte Abfrageschicht.
+	 *
+	 * Sie ist auf /wellness nicht zu sehen und ändert dort nichts an dem, was
+	 * der Sichtlauf misst — **gemessen**, nicht angenommen: die Proben auf
+	 * /wellness in scripts/smoke-sicht.ts lesen ihre Erwartung aus
+	 * `behandlungen` (Beete, Karten, Anzahl) und blieben mit dieser Saat
+	 * unverändert grün; ohne den Abschluss darunter wären es zwei Karten mehr,
+	 * und sie würden rot (vorgeführt am 2026-10-12, `behandlungenLesen` ohne
+	 * Filter auf offen).
+	 *
+	 * `Beinwell` kommt in keinem anderen Text der Saat vor — gemessen am
+	 * 2026-10-12 mit `grep -rn Beinwell scripts/ src/routes`: Treffer nur in
+	 * dieser Saat, in smoke-sicht.ts (die Suche danach) und in
+	 * scripts/rezeptblaetter.ts, dessen Blätter nicht im Archiv stehen. Die
+	 * Mittelliste in src/lib/wellness.ts nennt `Beinwelljauche` als Vorschlag;
+	 * auch sie steht nicht im Archiv.
+	 */
+	for (const { mittel, tage } of [
+		{ mittel: 'Beinwelljauche', tage: 30 },
+		{ mittel: 'Gesteinsmehl', tage: 25 },
+		{ mittel: 'Beinwelljauche', tage: 16 },
+	]) {
+		behandlungEintragen(
+			{
+				mittel,
+				kultur: 'Bohnen',
+				ort: 'Beet 2',
+				angewendetAm: tagVorTagen(tage),
+				intervallTage: null,
+			},
+			manu
+		);
+	}
+	if (kulturAbschliessen('Beet 2', 'Bohnen', jetztSekunden) === null) {
+		throw new Error('Saat: die Bohnen in Beet 2 liessen sich nicht abschliessen');
+	}
+
 	return {
 		adminToken,
 		mitgliedToken,
@@ -392,6 +442,11 @@ export function saeen(): Saat {
 		ueberfaelligWochen,
 		abgehakteTexte,
 		behandlungen,
+		abschluss: {
+			text: 'Beet 2 · Bohnen',
+			zusatz: 'Beinwelljauche 2×, Gesteinsmehl 1×',
+			mittelwort: 'Beinwell',
+		},
 	};
 }
 

@@ -1,5 +1,6 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, isNull, max } from 'drizzle-orm';
 import { datenbank } from '../index.ts';
+import type { AbgeschlosseneAnwendung } from '../../../wellness.ts';
 import { members, treatments, type NewTreatment } from '../schema.ts';
 
 /*
@@ -85,25 +86,171 @@ const anzeigeSpalten = {
  */
 const ordnung = [desc(treatments.angewendetAm), desc(treatments.id)];
 
-/** Das ganze Tagebuch, in fester Reihenfolge. Geordnet wird in der Seite. */
+/*
+ * **Offen heisst `abgeschlossen_am IS NULL`** (seit dem 2026-10-12, Entscheid
+ * Manuel). Die Bedingung steht einmal hier. Gelesen wird sie von
+ * `behandlungenLesen`, `behandlungLesen`, `behandlungAendern`,
+ * `behandlungWegnehmen`, `offeneAmOrtZaehlen` und vom UPDATE in
+ * `kulturAbschliessen`.
+ *
+ * **Ohne sie arbeiten, ausgeschrieben:** `behandlungEintragen` schreibt eine
+ * neue Zeile, die von selbst offen ist (die Spalte ist null); die
+ * `max`-Abfrage in `kulturAbschliessen` liest **alle** Zeilen der Stelle,
+ * offene wie abgeschlossene; `abschlussZuruecknehmen` und
+ * `abgeschlosseneBehandlungenLesen` meinen ausdrücklich abgeschlossene.
+ *
+ * **Auch Ändern, Wegnehmen und die Vorlage zum Wiederholen lesen nur offene
+ * Zeilen**, und das ist keine Vorsicht, sondern die Spec: abgeschlossene
+ * Zeilen werden weder gelöscht noch kopiert. Auf /wellness stehen sie nicht
+ * mehr, eine Kennung dazu kann also nur aus einer veralteten Seite kommen —
+ * und die bekommt denselben Satz wie eine weggenommene Zeile.
+ */
+const offen = isNull(treatments.abgeschlossenAm);
+
+/**
+ * Das offene Tagebuch, in fester Reihenfolge. Geordnet wird in der Seite.
+ *
+ * **Nur offene Zeilen**: was abgeschlossen ist, steht im Archiv und nirgends
+ * sonst. Weil `/` die fällig-Zahl aus genau dieser Funktion rechnet, gilt das
+ * dort ohne einen zweiten Filter.
+ */
 export function behandlungenLesen(): Behandlungszeile[] {
 	return datenbank()
 		.select(anzeigeSpalten)
 		.from(treatments)
 		.leftJoin(members, eq(members.id, treatments.memberId))
+		.where(offen)
 		.orderBy(...ordnung)
 		.all();
 }
 
-/** Eine einzelne Zeile — für die Rückfrage vor dem Wegnehmen. */
+/** Eine einzelne offene Zeile — für die Rückfrage vor dem Wegnehmen und als Vorlage zum Wiederholen. */
 export function behandlungLesen(id: number): Behandlungszeile | null {
 	const zeile = datenbank()
 		.select(anzeigeSpalten)
 		.from(treatments)
 		.leftJoin(members, eq(members.id, treatments.memberId))
-		.where(eq(treatments.id, id))
+		.where(and(eq(treatments.id, id), offen))
 		.get();
 	return zeile === undefined ? null : zeile;
+}
+
+/**
+ * Ort und Kultur als SQL-Bedingung — **null gleich null**, sonst Zeichen für
+ * Zeichen.
+ *
+ * Dieselbe Gleichheit wie `stelle` in src/lib/wellness.ts: `Tomaten` und
+ * `tomaten` sind zwei Kulturen. SQLite vergleicht Text mit `=` binär, also
+ * genau so. `= NULL` wäre in SQL nie wahr, darum der eigene Zweig.
+ */
+function amOrt(ort: string | null, kultur: string | null) {
+	return and(
+		ort === null ? isNull(treatments.ort) : eq(treatments.ort, ort),
+		kultur === null ? isNull(treatments.kultur) : eq(treatments.kultur, kultur)
+	);
+}
+
+/**
+ * Wie viele **offene** Zeilen an diesem Ort mit dieser Kultur stehen — für die
+ * Rückfrage vor dem Abschliessen. Ist es null, hat ein zweites Gerät schon
+ * abgeschlossen, und die Rückfrage wäre eine Frage nach nichts.
+ *
+ * Nur lesend: die Rückfrage ändert die Datenbank nicht.
+ */
+export function offeneAmOrtZaehlen(ort: string | null, kultur: string | null): number {
+	return datenbank()
+		.select({ id: treatments.id })
+		.from(treatments)
+		.where(and(amOrt(ort, kultur), offen))
+		.all().length;
+}
+
+/**
+ * Schliesst eine Kultur in einem Beet ab: alle **offenen** Zeilen mit diesem
+ * Ort und dieser Kultur bekommen **einen** gemeinsamen Zeitpunkt (Entscheid
+ * Manuel, 2026-10-12). Zurück kommt der Zeitpunkt und die Zahl der Zeilen;
+ * null, wenn keine offen war — dann hat ein zweites Gerät schon abgeschlossen.
+ *
+ * **Der Zeitpunkt ist eindeutig je Ort und Kultur.** Ort, Kultur und Zeitpunkt
+ * sind der Schlüssel eines Abschlusses (Archivzeile, `Rückgängig`). Zwei
+ * Abschlüsse derselben Kultur in derselben Sekunde — abschliessen, neu
+ * eintragen, wieder abschliessen — flössen sonst zu einem zusammen, und ein
+ * `Rückgängig` des zweiten öffnete auch den ersten. Liegt schon ein Abschluss
+ * auf oder nach `jetzt`, nimmt dieser eine Sekunde danach.
+ *
+ * In einer Transaktion, damit zwischen dem Lesen des letzten Abschlusses und
+ * dem Schreiben kein zweiter dazwischenkommt; better-sqlite3 führt sie
+ * synchron aus.
+ */
+export function kulturAbschliessen(
+	ort: string | null,
+	kultur: string | null,
+	jetzt: number
+): { abgeschlossenAm: number; anzahl: number } | null {
+	return datenbank().transaction((tx) => {
+		const bisher = tx
+			.select({ letzter: max(treatments.abgeschlossenAm) })
+			.from(treatments)
+			.where(amOrt(ort, kultur))
+			.get();
+		const letzter = bisher?.letzter ?? null;
+		const abgeschlossenAm = letzter !== null && letzter >= jetzt ? letzter + 1 : jetzt;
+		const zeilen = tx
+			.update(treatments)
+			.set({ abgeschlossenAm })
+			.where(and(amOrt(ort, kultur), offen))
+			.returning({ id: treatments.id })
+			.all();
+		return zeilen.length === 0 ? null : { abgeschlossenAm, anzahl: zeilen.length };
+	});
+}
+
+/**
+ * Nimmt **einen** Abschluss zurück: genau die Zeilen mit diesem Ort, dieser
+ * Kultur und diesem Zeitpunkt werden wieder offen. Zurück kommt ihre Zahl; 0
+ * heisst, den Abschluss gibt es nicht (mehr).
+ *
+ * Ein früherer Abschluss derselben Kultur trägt einen anderen Zeitpunkt und
+ * bleibt, wo er ist — siehe die Eindeutigkeit an `kulturAbschliessen`.
+ */
+export function abschlussZuruecknehmen(
+	ort: string | null,
+	kultur: string | null,
+	abgeschlossenAm: number
+): number {
+	return datenbank()
+		.update(treatments)
+		.set({ abgeschlossenAm: null })
+		.where(and(amOrt(ort, kultur), eq(treatments.abgeschlossenAm, abgeschlossenAm)))
+		.returning({ id: treatments.id })
+		.all().length;
+}
+
+/**
+ * Alle abgeschlossenen Zeilen, in fester Reihenfolge. Gebündelt wird in
+ * src/lib/wellness.ts (`abschluesseBuendeln`), und dort steht auch der Typ
+ * `AbgeschlosseneAnwendung` mit der Begründung, warum er weder Namen noch
+ * Wiederholung noch `createdAt` trägt — die Auswahl hier unten liest sie
+ * darum gar nicht.
+ */
+export function abgeschlosseneBehandlungenLesen(): AbgeschlosseneAnwendung[] {
+	const zeilen = datenbank()
+		.select({
+			id: treatments.id,
+			mittel: treatments.mittel,
+			kultur: treatments.kultur,
+			ort: treatments.ort,
+			angewendetAm: treatments.angewendetAm,
+			abgeschlossenAm: treatments.abgeschlossenAm,
+		})
+		.from(treatments)
+		.where(isNotNull(treatments.abgeschlossenAm))
+		.orderBy(desc(treatments.abgeschlossenAm), ...ordnung)
+		.all();
+	// Die Bedingung oben schliesst null aus; der Typ weiss das nicht.
+	return zeilen.flatMap((zeile) =>
+		zeile.abgeschlossenAm === null ? [] : [{ ...zeile, abgeschlossenAm: zeile.abgeschlossenAm }]
+	);
 }
 
 /**
@@ -154,8 +301,11 @@ export function behandlungEintragen(
  * wegzunehmen ist der **normale Ausgang** ihres Lebens — sie ist abgeerntet.
  * Eine Behandlung wegzunehmen ist immer eine **Richtigstellung**: sie ist
  * geschehen, und was hier verschwindet, ist die falsche Auskunft darüber, nicht
- * die Handlung. Darum gibt es kein `abgeschlossen` und keinen zweiten Zustand —
- * es gibt nichts abzuschliessen.
+ * die Handlung. **Das ist nicht dasselbe wie Abschliessen** (seit dem
+ * 2026-10-12, `kulturAbschliessen`): ein Abschluss sagt, dass eine Kultur im
+ * Beet fertig ist, und lässt alle Zeilen stehen — sie ziehen ins Archiv.
+ * Wegnehmen sagt, dass eine Zeile nie hätte dastehen sollen. Darum trifft es
+ * nur **offene** Zeilen: eine abgeschlossene wird nicht gelöscht.
  *
  * Das dritte, blattLoeschen in ./sheets.ts, ist wieder etwas anderes und als
  * einziges mit einer Schranke versehen — die Aufstellung im Ganzen steht dort.
@@ -189,7 +339,8 @@ export function behandlungEintragen(
  * zwei Leute, die dieselbe Zeile richtigstellen, sind kein Wettrennen, das
  * jemand verlieren müsste.
  *
- * false heisst: es gibt die Zeile nicht mehr — jemand hat sie weggenommen.
+ * false heisst: es gibt die Zeile nicht mehr als offene — jemand hat sie
+ * weggenommen oder ihre Kultur abgeschlossen.
  */
 export function behandlungAendern(
 	id: number,
@@ -204,7 +355,7 @@ export function behandlungAendern(
 	const zeile = datenbank()
 		.update(treatments)
 		.set(eingabe)
-		.where(eq(treatments.id, id))
+		.where(and(eq(treatments.id, id), offen))
 		.returning({ id: treatments.id })
 		.get();
 	return zeile !== undefined;
@@ -213,7 +364,7 @@ export function behandlungAendern(
 export function behandlungWegnehmen(id: number): { mittel: string; ort: string | null } | null {
 	const zeile = datenbank()
 		.delete(treatments)
-		.where(eq(treatments.id, id))
+		.where(and(eq(treatments.id, id), offen))
 		.returning({ mittel: treatments.mittel, ort: treatments.ort })
 		.get();
 	return zeile === undefined ? null : zeile;

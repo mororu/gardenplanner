@@ -68,7 +68,7 @@ import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-t
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 93;
+const ERWARTETE_BEHAUPTUNGEN = 105;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -1995,6 +1995,436 @@ try {
 	}
 
 	// -----------------------------------------------------------------------
+	// /wellness: eine Kultur abschliessen und rückgängig machen
+	// -----------------------------------------------------------------------
+	/*
+	 * **Abschliessen am Kulturtitel, Rückgängig in der Meldung**
+	 * (spec-wellness-abschliessen-ins-archiv.md, 2026-10-12) — mit und ohne
+	 * JavaScript. Was die Abfrageschicht und die actions dabei tun, prüft
+	 * `smoke` je Zeile der Matrix; hier gemessen wird, was gerendert zu sehen
+	 * ist: die Kultur fort aus Tagebuch und `Steht wieder an`, die Meldung,
+	 * der Knopf, und dass er das nächste Laden nicht überlebt.
+	 *
+	 * Ziel ist die **überfällige** Stelle der Saat (die erste Behandlung,
+	 * Schachtelhalmbrühe an den Tomaten in Beet 7): sie allein füllt `Steht
+	 * wieder an`, und ihr Abschluss lässt den Abschnitt darum ganz verschwinden.
+	 * Jeder Teil endet mit `Rückgängig`, damit die Saat danach wieder so
+	 * dasteht wie vorher — der Kontrast-Sweep unten liest /wellness noch.
+	 */
+	const ABSCHLUSS_ZIEL = saat.behandlungen[0];
+	const zielOrt = JSON.stringify(ABSCHLUSS_ZIEL.ort ?? '');
+	const zielKultur = JSON.stringify(ABSCHLUSS_ZIEL.kultur ?? '');
+	/*
+	 * **Die Rückfrage vor dem Abschliessen** (nachverhandelt am 12.10.2026,
+	 * Manuel) wird zusätzlich an der Kultur des **zweiten** Beets gemessen
+	 * (Brennnesseljauche an Kohlrabi in Hochbeet 3, die zweite Behandlung der
+	 * Saat): jenes Beet steht zugeklappt, und nur dort belegt ein offenes Beet
+	 * etwas — das erste steht ohnehin offen.
+	 */
+	const FRAGE_ZIEL = saat.behandlungen[1];
+	const zweitKultur = JSON.stringify(FRAGE_ZIEL.kultur ?? 'Ohne Kultur');
+	const erwarteteFrage = `${FRAGE_ZIEL.kultur ?? 'Ohne Kultur'} in ${FRAGE_ZIEL.ort ?? 'Ohne Beet'} abschliessen? Die Behandlungen verschwinden von hier und stehen danach im Archiv.`;
+	const erwarteteMeldung = `Abgeschlossen: ${ABSCHLUSS_ZIEL.kultur ?? 'Ohne Kultur'}, ${ABSCHLUSS_ZIEL.ort ?? 'Ohne Beet'}.`;
+	const erwarteteRueckmeldung = `Wieder offen: ${ABSCHLUSS_ZIEL.kultur ?? 'Ohne Kultur'}, ${ABSCHLUSS_ZIEL.ort ?? 'Ohne Beet'}.`;
+	/**
+	 * Liest aus einem Dokument (`document` oder ein geparstes), was diese
+	 * Messungen brauchen. **Jeder Zugriff auf ein Feld ist abgesichert**: fehlt
+	 * ein Formular oder ein Feld, kommt `false` oder null zurück und die
+	 * Behauptung darunter wird benannt rot, statt dass der Lauf an einem
+	 * TypeError im Browser endet.
+	 */
+	const STAND_LESEN = `
+		const stand = (dok) => {
+			const kulturForm = [...dok.querySelectorAll('form[action="?/abschliessen"]')].find(
+				(f) => f.querySelector('input[name="ort"]')?.value === ${zielOrt} &&
+					f.querySelector('input[name="kultur"]')?.value === ${zielKultur}
+			);
+			const rueck = dok.querySelector('form[action="?/zuruecknehmen"]');
+			const frage = dok.getElementById('abschliessen-frage');
+			const knoepfe = frage?.parentElement?.querySelector('.knoepfe') ?? null;
+			const erstes = knoepfe?.firstElementChild ?? null;
+			const bestaetigen = knoepfe?.querySelector('form[action="?/abschliessen"]') ?? null;
+			return {
+				frage: {
+					text: frage === null ? null : frage.textContent.replace(/\\s+/g, ' ').trim(),
+					beetOffen: frage?.closest('details.abschnitt')?.hasAttribute('open') ?? false,
+					sichtbar: frage !== null && dok === document ? frage.checkVisibility() : false,
+					abbrechenZuerst:
+						erstes?.tagName === 'A'
+							? new URL(erstes.getAttribute('href'), location.href).pathname
+							: null,
+					ort: bestaetigen?.querySelector('input[name="ort"]')?.value ?? null,
+					kultur: bestaetigen?.querySelector('input[name="kultur"]')?.value ?? null,
+					bestaetigt: bestaetigen?.querySelector('input[name="bestaetigt"]')?.value ?? null,
+				},
+				zweitKultur: [...dok.querySelectorAll('h4.marke')].some((h) => h.textContent.trim() === ${zweitKultur}),
+				kultur: kulturForm !== undefined,
+				anstehend: dok.getElementById('anstehend-marke') !== null,
+				meldung: dok.querySelector('.meldung')?.textContent.trim() ?? '',
+				rueckgaengig: rueck === null ? null : Object.fromEntries(new FormData(rueck)),
+			};
+		};`;
+	type Abschlussstand = {
+		frage: {
+			text: string | null;
+			beetOffen: boolean;
+			sichtbar: boolean;
+			abbrechenZuerst: string | null;
+			ort: string | null;
+			kultur: string | null;
+			bestaetigt: string | null;
+		};
+		zweitKultur: boolean;
+		kultur: boolean;
+		anstehend: boolean;
+		meldung: string;
+		rueckgaengig: Record<string, string> | null;
+	};
+	const ohneSkriptSenden = async (
+		aktion: 'abschliessen' | 'zuruecknehmen',
+		felder: Record<string, string>
+	): Promise<Abschlussstand> => {
+		await browser!.auswerten(`
+			const daten = new FormData();
+			for (const [name, wert] of Object.entries(${JSON.stringify(felder)})) daten.set(name, wert);
+			window.__ohneSkript = undefined;
+			fetch('?/' + ${JSON.stringify(aktion)}, { method: 'POST', body: daten, headers: { accept: 'text/html' } })
+				.then((antwort) => antwort.text())
+				.then((html) => { window.__ohneSkript = html; })
+				.catch((fehler) => { window.__ohneSkript = 'Wurf: ' + fehler; });
+			return true;`);
+		await browser!.warten(
+			"typeof window.__ohneSkript === 'string'",
+			`die Antwort auf ?/${aktion} ohne Skript ist da`
+		);
+		return browser!.auswerten<Abschlussstand>(`${STAND_LESEN}
+			return stand(new DOMParser().parseFromString(window.__ohneSkript, 'text/html'));`);
+	};
+
+	await browser.besuchen(`${adresse}/wellness`);
+	const vorAbschluss = await browser.auswerten<Abschlussstand>(
+		`${STAND_LESEN} return stand(document);`
+	);
+
+	/*
+	 * **Der Knopf `Abschliessen` heisst überall gleich** — sein zugänglicher
+	 * Name ist das Wort. Unterscheidbar wird er über die Beschreibung, und die
+	 * muss Kultur **und** Beet nennen: Tomaten in Beet 3 und in Beet 7 dürfen
+	 * nicht gleich klingen. Gemessen wird die aufgelöste Beschreibung
+	 * (`aria-describedby` → Texte der Ziele), dazu, dass jedes Formular beide
+	 * versteckten Felder trägt. Vorgeführt: die Beet-Kennung aus
+	 * `aria-describedby` genommen — die Beschreibung des Ziels hiesse dann nur
+	 * `Tomaten`.
+	 */
+	const abschliessenKnoepfe = await browser.auswerten<
+		{ felder: boolean; beschreibung: string; ort: string | null; kultur: string | null }[]
+	>(`
+		return [...document.querySelectorAll('form[action="?/abschliessen"]')].map((f) => {
+			const knopf = f.querySelector('button');
+			const ids = (knopf?.getAttribute('aria-describedby') ?? '').split(' ').filter(Boolean);
+			return {
+				felder: f.querySelector('input[name="ort"]') !== null && f.querySelector('input[name="kultur"]') !== null,
+				beschreibung: ids.map((id) => document.getElementById(id)?.textContent.trim() ?? '?').join(' '),
+				ort: f.querySelector('input[name="ort"]')?.value ?? null,
+				kultur: f.querySelector('input[name="kultur"]')?.value ?? null,
+			};
+		});`);
+	const zielBeschreibung = abschliessenKnoepfe.find(
+		(knopf) =>
+			knopf.ort === (ABSCHLUSS_ZIEL.ort ?? '') && knopf.kultur === (ABSCHLUSS_ZIEL.kultur ?? '')
+	)?.beschreibung;
+	pruefen(
+		'/wellness: jeder Knopf Abschliessen trägt Ort und Kultur und eine eindeutige Beschreibung aus Kultur und Beet',
+		abschliessenKnoepfe.length > 0 &&
+			abschliessenKnoepfe.every((knopf) => knopf.felder) &&
+			new Set(abschliessenKnoepfe.map((knopf) => knopf.beschreibung)).size ===
+				abschliessenKnoepfe.length &&
+			zielBeschreibung ===
+				`${ABSCHLUSS_ZIEL.kultur ?? 'Ohne Kultur'} ${ABSCHLUSS_ZIEL.ort ?? 'Ohne Beet'}`,
+		JSON.stringify(abschliessenKnoepfe)
+	);
+
+	/*
+	 * **Ohne JavaScript.** Der POST trägt genau die zwei versteckten Felder des
+	 * Formulars am Kulturtitel; die Antwort ist die ganze Seite, wie ein
+	 * Browser ohne Skript sie zeigte.
+	 */
+	const ohneSkriptHolen = async (pfad: string): Promise<Abschlussstand> => {
+		await browser!.auswerten(`
+			window.__neuGeladen = undefined;
+			fetch(${JSON.stringify(pfad)}, { headers: { accept: 'text/html' } })
+				.then((antwort) => antwort.text())
+				.then((html) => { window.__neuGeladen = html; })
+				.catch((fehler) => { window.__neuGeladen = 'Wurf: ' + fehler; });
+			return true;`);
+		await browser!.warten("typeof window.__neuGeladen === 'string'", `${pfad} ist geholt`);
+		return browser!.auswerten<Abschlussstand>(`${STAND_LESEN}
+			return stand(new DOMParser().parseFromString(window.__neuGeladen, 'text/html'));`);
+	};
+
+	/*
+	 * **Der erste Klick fragt nur**, ohne JavaScript: ein POST ohne
+	 * `bestaetigt`. Die Antwort trägt die Frage an der Kultur, das sonst
+	 * zugeklappte Beet steht offen (vom Server, sonst gibt es niemanden, der
+	 * es öffnete), `Abbrechen` steht zuerst und ist ein Link, und der
+	 * Bestätigen-Knopf schickt `bestaetigt=1`. Abgeschlossen ist nichts: die
+	 * Kultur steht da, und die Tomaten mahnen weiter unter `Steht wieder an`.
+	 */
+	const ohneSkriptFrage = await ohneSkriptSenden('abschliessen', {
+		ort: FRAGE_ZIEL.ort ?? '',
+		kultur: FRAGE_ZIEL.kultur ?? '',
+	});
+	pruefen(
+		'ohne JavaScript: der erste Klick fragt nur — Frage an der Kultur im offenen Beet, Abbrechen zuerst, Bestätigen mit bestaetigt=1, nichts abgeschlossen',
+		ohneSkriptFrage.frage.text === erwarteteFrage &&
+			ohneSkriptFrage.frage.beetOffen &&
+			ohneSkriptFrage.frage.abbrechenZuerst === '/wellness' &&
+			ohneSkriptFrage.frage.bestaetigt === '1' &&
+			ohneSkriptFrage.zweitKultur &&
+			ohneSkriptFrage.kultur &&
+			ohneSkriptFrage.anstehend &&
+			ohneSkriptFrage.meldung === '',
+		JSON.stringify(ohneSkriptFrage)
+	);
+	/*
+	 * **Abbrechen** ist ein Link und holt die Seite neu: danach keine Frage, und
+	 * die Kultur steht offen da.
+	 */
+	const ohneSkriptAbgebrochen = await ohneSkriptHolen(
+		ohneSkriptFrage.frage.abbrechenZuerst ?? '/wellness'
+	);
+	pruefen(
+		'ohne JavaScript: Abbrechen lässt alles offen — keine Frage, die Kultur steht da',
+		ohneSkriptAbgebrochen.frage.text === null &&
+			ohneSkriptAbgebrochen.zweitKultur &&
+			ohneSkriptAbgebrochen.kultur &&
+			ohneSkriptAbgebrochen.anstehend,
+		JSON.stringify(ohneSkriptAbgebrochen)
+	);
+
+	/*
+	 * **Die Bestätigung schliesst ab** — mit genau den Feldern, die das
+	 * Bestätigen-Formular der Frage trägt. Fehlt dort `bestaetigt`, fragt die
+	 * action ein zweites Mal, und die Behauptung darunter ist rot.
+	 */
+	const ohneSkriptTomatenFrage = await ohneSkriptSenden('abschliessen', {
+		ort: ABSCHLUSS_ZIEL.ort ?? '',
+		kultur: ABSCHLUSS_ZIEL.kultur ?? '',
+	});
+	const bestaetigungsfelder: Record<string, string> = {
+		ort: ohneSkriptTomatenFrage.frage.ort ?? '',
+		kultur: ohneSkriptTomatenFrage.frage.kultur ?? '',
+	};
+	if (ohneSkriptTomatenFrage.frage.bestaetigt !== null) {
+		bestaetigungsfelder.bestaetigt = ohneSkriptTomatenFrage.frage.bestaetigt;
+	}
+	const ohneSkriptAbgeschlossen = await ohneSkriptSenden('abschliessen', bestaetigungsfelder);
+	pruefen(
+		'ohne JavaScript: die Bestätigung schliesst ab — die Kultur ist fort aus Tagebuch und `Steht wieder an`, gemeldet, mit Rückgängig',
+		vorAbschluss.kultur &&
+			vorAbschluss.anstehend &&
+			!ohneSkriptAbgeschlossen.kultur &&
+			!ohneSkriptAbgeschlossen.anstehend &&
+			ohneSkriptAbgeschlossen.meldung === erwarteteMeldung &&
+			ohneSkriptAbgeschlossen.rueckgaengig !== null,
+		JSON.stringify({ vorher: vorAbschluss, nachher: ohneSkriptAbgeschlossen })
+	);
+
+	/*
+	 * **Der Knopf überlebt das nächste Laden nicht** — und die Kultur bleibt
+	 * dabei abgeschlossen. Gelesen über ein GET derselben Seite.
+	 */
+	await browser.auswerten(`
+		window.__neuGeladen = undefined;
+		fetch(location.pathname, { headers: { accept: 'text/html' } })
+			.then((antwort) => antwort.text())
+			.then((html) => { window.__neuGeladen = html; })
+			.catch((fehler) => { window.__neuGeladen = 'Wurf: ' + fehler; });
+		return true;`);
+	await browser.warten("typeof window.__neuGeladen === 'string'", 'die Seite ist neu geladen');
+	const neuGeladen = await browser.auswerten<Abschlussstand>(`${STAND_LESEN}
+		return stand(new DOMParser().parseFromString(window.__neuGeladen, 'text/html'));`);
+	pruefen(
+		'nach dem nächsten Laden ist Rückgängig fort, und die Kultur bleibt abgeschlossen',
+		neuGeladen.rueckgaengig === null && !neuGeladen.kultur && neuGeladen.meldung === '',
+		JSON.stringify(neuGeladen)
+	);
+
+	const ohneSkriptZurueck = await ohneSkriptSenden(
+		'zuruecknehmen',
+		ohneSkriptAbgeschlossen.rueckgaengig ?? {}
+	);
+	pruefen(
+		'ohne JavaScript: Rückgängig bringt die Kultur und `Steht wieder an` zurück, und der Knopf ist fort',
+		ohneSkriptZurueck.kultur &&
+			ohneSkriptZurueck.anstehend &&
+			ohneSkriptZurueck.meldung === erwarteteRueckmeldung &&
+			ohneSkriptZurueck.rueckgaengig === null,
+		JSON.stringify(ohneSkriptZurueck)
+	);
+
+	/*
+	 * **Mit JavaScript**, über `requestSubmit()` und damit durch `use:enhance`.
+	 * Gewartet wird wie oben auf das Lösen von `imFlug`, abgelesen am Knopf
+	 * `Eintragen`. Die Seite ist frisch geladen, damit der Stand der Messungen
+	 * ohne Skript — die nur Antworten lasen — hier nichts verdeckt.
+	 */
+	await browser.besuchen(`${adresse}/wellness`);
+	const mitSkriptSenden = async (ausloeser: string, was: string): Promise<void> => {
+		await browser!.auswerten(`
+			window.__durch = false;
+			const knopf = document.querySelector('form[action="?/eintragen"] button[type="submit"]');
+			let gesperrt = false;
+			const beobachter = new MutationObserver(() => {
+				if (knopf.disabled) gesperrt = true;
+				else if (gesperrt) {
+					beobachter.disconnect();
+					requestAnimationFrame(() => requestAnimationFrame(() => { window.__durch = true; }));
+				}
+			});
+			beobachter.observe(knopf, { attributes: true, attributeFilter: ['disabled'] });
+			${ausloeser}
+			return true;`);
+		await browser!.warten('window.__durch === true', was);
+	};
+	/*
+	 * Fehlt das Formular, wird nichts abgeschickt und das Warten sofort gelöst
+	 * — die Behauptung darunter ist dann rot und benannt, statt dass der Lauf
+	 * an einem TypeError oder einer Zeitüberschreitung endet.
+	 */
+	const kopfformular = (ort: string, kultur: string) =>
+		`const ziel = [...document.querySelectorAll('form[action="?/abschliessen"]')]
+			.find((f) => f.querySelector('input[name="bestaetigt"]') === null &&
+				f.querySelector('input[name="ort"]')?.value === ${JSON.stringify(ort)} &&
+				f.querySelector('input[name="kultur"]')?.value === ${JSON.stringify(kultur)});
+		if (ziel === undefined) window.__durch = true;
+		else ziel.requestSubmit();`;
+
+	/*
+	 * **Der erste Klick fragt nur**, mit JavaScript, an der Kultur im
+	 * zugeklappten zweiten Beet: `aufklappen` in `versand` öffnet es, die
+	 * Frage ist zu sehen, und abgeschlossen ist nichts.
+	 */
+	await mitSkriptSenden(
+		kopfformular(FRAGE_ZIEL.ort ?? '', FRAGE_ZIEL.kultur ?? ''),
+		'die Rückfrage mit JavaScript ist zurück'
+	);
+	const mitSkriptFrage = await browser.auswerten<Abschlussstand>(
+		`${STAND_LESEN} return stand(document);`
+	);
+	pruefen(
+		'mit JavaScript: der erste Klick fragt nur — das zugeklappte Beet geht auf, die Frage ist zu sehen, nichts abgeschlossen',
+		mitSkriptFrage.frage.text === erwarteteFrage &&
+			mitSkriptFrage.frage.sichtbar &&
+			mitSkriptFrage.frage.beetOffen &&
+			mitSkriptFrage.zweitKultur &&
+			mitSkriptFrage.kultur &&
+			mitSkriptFrage.anstehend &&
+			mitSkriptFrage.meldung === '',
+		JSON.stringify(mitSkriptFrage)
+	);
+
+	/*
+	 * **Abbrechen** mit JavaScript: der Link holt die Seite über den Router
+	 * neu, die Antwort der action ist verworfen, die Frage fort.
+	 */
+	const abbrechenDa = await browser.auswerten<boolean>(
+		"return document.querySelector('.bestaetigung .knoepfe a')?.checkVisibility() ?? false;"
+	);
+	if (abbrechenDa) {
+		await browser.klicken('.bestaetigung .knoepfe a');
+		await browser.warten(
+			"document.getElementById('abschliessen-frage') === null",
+			'die Frage ist nach Abbrechen fort'
+		);
+	}
+	const mitSkriptAbgebrochen = await browser.auswerten<Abschlussstand>(
+		`${STAND_LESEN} return stand(document);`
+	);
+	pruefen(
+		'mit JavaScript: Abbrechen lässt alles offen — keine Frage, die Kultur steht da',
+		abbrechenDa &&
+			mitSkriptAbgebrochen.frage.text === null &&
+			mitSkriptAbgebrochen.zweitKultur &&
+			mitSkriptAbgebrochen.kultur &&
+			mitSkriptAbgebrochen.anstehend,
+		JSON.stringify(mitSkriptAbgebrochen)
+	);
+	/*
+	 * Frisch laden, wie auch immer Abbrechen ausging: führte der Link woandershin,
+	 * liefen die Messungen darunter sonst auf der falschen Seite und endeten in
+	 * einem Wurf statt in benannten Behauptungen.
+	 */
+	await browser.besuchen(`${adresse}/wellness`);
+
+	/*
+	 * **Die Bestätigung schliesst ab**, mit JavaScript: erst fragen, dann das
+	 * Bestätigen-Formular der Frage abschicken.
+	 */
+	await mitSkriptSenden(
+		kopfformular(ABSCHLUSS_ZIEL.ort ?? '', ABSCHLUSS_ZIEL.kultur ?? ''),
+		'die Rückfrage zu den Tomaten ist zurück'
+	);
+	await mitSkriptSenden(
+		`const ziel = document.getElementById('abschliessen-frage')?.parentElement
+			?.querySelector('form[action="?/abschliessen"]') ?? null;
+		if (ziel === null) window.__durch = true;
+		else ziel.requestSubmit();`,
+		'das bestätigte Abschliessen mit JavaScript ist zurück'
+	);
+	const mitSkriptAbgeschlossen = await browser.auswerten<
+		Abschlussstand & { fokusAufMeldung: boolean; knopfSichtbar: boolean }
+	>(`${STAND_LESEN}
+		const knopf = document.querySelector('form[action="?/zuruecknehmen"] button');
+		return {
+			...stand(document),
+			fokusAufMeldung: document.activeElement === document.querySelector('.meldung'),
+			knopfSichtbar: knopf?.checkVisibility() ?? false,
+		};`);
+	pruefen(
+		'mit JavaScript: die Bestätigung schliesst ab — die Kultur ist fort, der Fokus liegt auf der Meldung, und Rückgängig ist zu sehen',
+		!mitSkriptAbgeschlossen.kultur &&
+			!mitSkriptAbgeschlossen.anstehend &&
+			mitSkriptAbgeschlossen.meldung === erwarteteMeldung &&
+			mitSkriptAbgeschlossen.fokusAufMeldung &&
+			mitSkriptAbgeschlossen.knopfSichtbar,
+		JSON.stringify(mitSkriptAbgeschlossen)
+	);
+
+	await mitSkriptSenden(
+		`const rueck = document.querySelector('form[action="?/zuruecknehmen"]');
+		if (rueck === null) window.__durch = true;
+		else rueck.requestSubmit();`,
+		'das Rückgängig mit JavaScript ist zurück'
+	);
+	const mitSkriptZurueck = await browser.auswerten<Abschlussstand>(
+		`${STAND_LESEN} return stand(document);`
+	);
+	pruefen(
+		'mit JavaScript: Rückgängig bringt die Kultur und `Steht wieder an` zurück, und der Knopf ist fort',
+		mitSkriptZurueck.kultur &&
+			mitSkriptZurueck.anstehend &&
+			mitSkriptZurueck.meldung === erwarteteRueckmeldung &&
+			mitSkriptZurueck.rueckgaengig === null,
+		JSON.stringify(mitSkriptZurueck)
+	);
+	/*
+	 * **Und der Fokus landet auf der Meldung**, nicht auf `body`. Der Knopf
+	 * `Rückgängig` trug ihn eben noch und ist jetzt fort; ein Fokus, der mit
+	 * seinem Element verschwindet, fällt an `body` zurück, und wer mit Tastatur
+	 * oder Screenreader arbeitet, steht dann am Anfang der Seite. Vorgeführt:
+	 * `versand` ohne Fokussprung für `zurueckgenommen`.
+	 */
+	const fokusNachRueckgaengig = await browser.auswerten<string>(`
+		const aktiv = document.activeElement;
+		return aktiv === document.querySelector('.meldung') ? 'meldung' : (aktiv?.tagName ?? '(keins)').toLowerCase();`);
+	pruefenGleich(
+		'mit JavaScript: nach Rückgängig liegt der Fokus auf der Meldung',
+		fokusNachRueckgaengig,
+		'meldung'
+	);
+
+	// -----------------------------------------------------------------------
 	// Die zweite Sitzung: als Adminperson
 	// -----------------------------------------------------------------------
 	/*
@@ -2783,13 +3213,17 @@ try {
 	 */
 	/*
 	 * **`ausDemPool` seit dem 2026-10-11**, als die Wellnessbehandlungen ins
-	 * Archiv kamen. Die Saat in scripts/pruefserver.ts trägt drei davon für
-	 * /wellness, und die von vor zwei Tagen fällt **je nach Tag im Monat** in
-	 * den offenen Monat oder in den davor. Eine Behauptung über alle sichtbaren
-	 * Zeilen dieses Monats wäre damit vom Kalender abhängig. Die zwei
-	 * Behauptungen über die Poolzeilen lesen darum nur die Zeilen mit dem
-	 * Herkunftswort `Aufgabe`; die Suche nach `schnecken` liest weiter alle,
-	 * denn dort ist genau ein Treffer die Zusage, gleich welcher Art.
+	 * Archiv kamen. Seit dem 2026-10-12 steht dort je abgeschlossene Kultur eine
+	 * Zeile, und die Saat in scripts/pruefserver.ts trägt eine davon — im
+	 * laufenden Monat, neben den zwei abgehakten Aufgaben. **Der Grund für den
+	 * Filter:** die zwei Behauptungen über die Poolzeilen sagen „genau diese
+	 * zwei abgehakten Aufgaben stehen im offenen Monat". Über alle sichtbaren
+	 * Zeilen gelesen, hinge das davon ab, was die Saat sonst noch ins Archiv
+	 * legt — heute die Bohnen in Beet 2, morgen vielleicht ein Termin —, und
+	 * jede neue Saatzeile machte sie rot, ohne dass am Pool etwas falsch wäre.
+	 * Darum lesen sie nur die Zeilen mit dem Herkunftswort `Aufgabe`; die
+	 * Suche nach `schnecken` liest weiter alle, denn dort ist genau ein Treffer
+	 * die Zusage, gleich welcher Art.
 	 *
 	 * **Die Grenze von `herkunftVon`:** es liest das letzte Stück nach einem `·`
 	 * in der Datumszeile. Das trägt, solange das Herkunftswort dort zuletzt
@@ -2802,6 +3236,7 @@ try {
 			sichtbar: string[];
 			ausDemPool: string[];
 			herkunft: string[];
+			zusatz: string[];
 			ansage: string;
 		}>(`
 			const karten = [...document.querySelectorAll('.karte')].filter((karte) => {
@@ -2816,6 +3251,7 @@ try {
 				sichtbar: karten.map(textVon),
 				ausDemPool: karten.filter((karte) => herkunftVon(karte) === 'Aufgabe').map(textVon),
 				herkunft: karten.map(herkunftVon),
+				zusatz: karten.map((karte) => karte.querySelector('.archiv__zusatz')?.textContent.trim() ?? ''),
 				ansage: region === null ? '(fehlt)' : region.textContent.trim(),
 			};`);
 
@@ -2880,38 +3316,33 @@ try {
 
 	/*
 	 * **Die Suche nach dem Herkunftswort `Wellness`**, seit dem 2026-10-11
-	 * (spec-wellness-im-archiv.md, zweites Abnahmekriterium). Es steht an der
-	 * Zeile, ohne in ihren Daten vorzukommen — dieselbe Lage wie `Termin`. Die
-	 * Saat trägt drei Behandlungen in verschiedenen Monaten; gefunden werden
-	 * müssen genau diese, jede mit dem Wort `Wellness`, und die Ansage sagt
-	 * dieselbe Zahl. Rot wird es, wenn `herkunft()` eine Art verschluckt (der
-	 * frühere ternäre Ausdruck machte aus `wellness` still `Aufgabe`) oder wenn
-	 * die load das Tagebuch nicht mehr liest.
+	 * (spec-wellness-im-archiv.md), und seit dem 2026-10-12 nach den
+	 * Abschlüssen (spec-wellness-abschliessen-ins-archiv.md). Gefunden werden
+	 * muss genau **eine** Zeile: die abgeschlossenen Bohnen der Saat, mit Text
+	 * `{Beet} · {Kultur}`, ihrer Mittelzeile und dem Wort `Wellness`. Die vier
+	 * offenen Behandlungen der Saat stehen nicht im Archiv — eine load, die sie
+	 * wieder einzeln läse, machte die Treffermenge grösser und diese Zeile rot.
 	 *
-	 * **Die erwarteten Texte kommen aus der Saat** (`saat.behandlungen`) und
-	 * werden hier mit derselben Regel gebildet wie in der load: vorhandene
-	 * Angaben, mit ` · ` verbunden. Das ist eine zweite Kopie der Regel und
-	 * prüft sie darum nicht — das tun die Vergleiche gegen ausgeschriebene Texte
-	 * in scripts/smoke-zugang.ts. Hier gemessen wird die Suche und das Wort.
+	 * **Die erwarteten Texte kommen aus der Saat** (`saat.abschluss`), wo sie
+	 * ausgeschrieben stehen; die Regel selbst prüft scripts/smoke-zugang.ts an
+	 * der load.
 	 *
 	 * **Gewartet wird auf das Ergebnis, nicht auf irgendeine Ansage.** Die
-	 * Region trug eben noch die Trefferzahl der Monatssuche, und die kann
-	 * dieselbe sein wie die der Wellnesssuche; „nicht leer" sähe dann den alten
-	 * Stand. Die Bedingung ist darum: es sind Zeilen sichtbar und alle tragen
-	 * `Wellness` — oder die Region sagt `Nichts gefunden.`, damit ein Fehler als
-	 * rote Behauptung endet und nicht als Zeitüberschreitung. Ein Zwischenstand
-	 * beim Tippen erfüllt die erste Hälfte nicht vorzeitig: jedes Präfix von
-	 * `Wellness` trifft alle Wellnesszeilen, die Treffermenge schrumpft also nie
-	 * unter die gesuchte.
+	 * Region trug eben noch die Trefferzahl der Monatssuche; „nicht leer" sähe
+	 * dann den alten Stand. Die Bedingung ist darum: es sind Zeilen sichtbar
+	 * und alle tragen `Wellness` — oder die Region sagt `Nichts gefunden.`,
+	 * damit ein Fehler als rote Behauptung endet und nicht als
+	 * Zeitüberschreitung. Ein Zwischenstand beim Tippen erfüllt die erste
+	 * Hälfte nicht vorzeitig: jedes Präfix von `Wellness` trifft alle
+	 * Wellnesszeilen, die Treffermenge schrumpft also nie unter die gesuchte.
 	 */
-	await browser.auswerten(`
-		const feld = document.querySelector('#archiv-suche');
-		feld.value = '';
-		feld.dispatchEvent(new Event('input', { bubbles: true }));
-		return true;`);
-	await browser.tippen('#archiv-suche', 'Wellness');
-	await browser.warten(
-		`(() => {
+	const suchfeldLeeren = () =>
+		browser!.auswerten(`
+			const feld = document.querySelector('#archiv-suche');
+			feld.value = '';
+			feld.dispatchEvent(new Event('input', { bubbles: true }));
+			return true;`);
+	const nurWellnessSichtbar = `(() => {
 			const region = document.querySelector('#archiv-treffer').textContent.trim();
 			if (region === 'Nichts gefunden.') return true;
 			const herkunft = [...document.querySelectorAll('.karte')]
@@ -2920,17 +3351,33 @@ try {
 					(karte.querySelector('.hinweis--ziffern')?.textContent ?? '').split('·').at(-1).trim()
 				);
 			return region !== '' && herkunft.length > 0 && herkunft.every((wort) => wort === 'Wellness');
-		})()`,
-		'die Suche zeigt nur noch Wellnesszeilen'
-	);
+		})()`;
+	await suchfeldLeeren();
+	await browser.tippen('#archiv-suche', 'Wellness');
+	await browser.warten(nurWellnessSichtbar, 'die Suche zeigt nur noch Wellnesszeilen');
 	const nachWellness = await sichtbareZeilen();
-	const wellnessErwartet = saat.behandlungen.map(({ mittel, kultur, ort }) =>
-		[mittel, kultur, ort].filter((teil) => teil !== null).join(' · ')
-	);
 	pruefenGleich(
-		'die Suche nach Wellness zeigt genau die Behandlungen der Saat, jede mit ihrem Herkunftswort',
-		`${[...nachWellness.sichtbar].sort().join(' | ')} / ${nachWellness.herkunft.join(',')} / ${nachWellness.ansage}`,
-		`${[...wellnessErwartet].sort().join(' | ')} / ${wellnessErwartet.map(() => 'Wellness').join(',')} / ${wellnessErwartet.length} Treffer`
+		'die Suche nach Wellness zeigt genau den Abschluss der Saat — Beet · Kultur, die Mittel mit Anzahl, das Herkunftswort',
+		`${nachWellness.sichtbar.join(' | ')} / ${nachWellness.zusatz.join(' | ')} / ${nachWellness.herkunft.join(',')} / ${nachWellness.ansage}`,
+		`${saat.abschluss.text} / ${saat.abschluss.zusatz} / Wellness / 1 Treffer`
+	);
+
+	/*
+	 * **Und die Suche findet die Mittel eines Abschlusses** (Spec: „Die Suche
+	 * im Archiv findet auch die Mittel dieser Zeile"). `Beinwell` steht nur in
+	 * der Mittelzeile — nicht im Text, nicht im Herkunftswort, nicht im Datum
+	 * —, also findet es die Zeile genau dann, wenn `durchsuchbar` den Zusatz
+	 * mitliest. Vorgeführt: `zeile.zusatz` aus `durchsuchbar` genommen, und die
+	 * Region sagt `Nichts gefunden.`.
+	 */
+	await suchfeldLeeren();
+	await browser.tippen('#archiv-suche', saat.abschluss.mittelwort);
+	await browser.warten(nurWellnessSichtbar, 'die Suche nach dem Mittel ist ausgewertet');
+	const nachMittel = await sichtbareZeilen();
+	pruefenGleich(
+		`die Suche nach einem Mittel (${saat.abschluss.mittelwort}) findet die Abschlusszeile`,
+		`${nachMittel.sichtbar.join(' | ')} / ${nachMittel.ansage}`,
+		`${saat.abschluss.text} / 1 Treffer`
 	);
 
 	/*

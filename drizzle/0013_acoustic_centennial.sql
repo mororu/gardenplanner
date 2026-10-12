@@ -1,0 +1,1 @@
+ALTER TABLE `treatments` ADD `abgeschlossen_am` integer;

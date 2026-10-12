@@ -91,8 +91,13 @@ import {
 	signupTasks,
 	tasks,
 } from '../src/lib/server/db/schema.ts';
-import { buendeln, letzteJeStelle, nachBeet } from '../src/lib/wellness.ts';
-import { behandlungEintragen, behandlungenLesen } from '../src/lib/server/db/queries/treatments.ts';
+import { abschluesseBuendeln, buendeln, letzteJeStelle, nachBeet } from '../src/lib/wellness.ts';
+import {
+	abgeschlosseneBehandlungenLesen,
+	behandlungEintragen,
+	behandlungenLesen,
+	kulturAbschliessen,
+} from '../src/lib/server/db/queries/treatments.ts';
 import { blattAnlegen, blattLesen } from '../src/lib/server/db/queries/sheets.ts';
 import type { AngemeldetesMitglied, NewTask } from '../src/lib/server/db/schema.ts';
 import {
@@ -232,6 +237,7 @@ import {
 } from '../src/lib/mitgliedsname.ts';
 import {
 	AUFGABE_NICHT_ANSPRECHBAR,
+	BEHANDLUNG_NICHT_ANSPRECHBAR,
 	DATUM_FEHLT,
 	EIGENE_RECHTE_GESCHUETZT,
 	EIGENER_ZUGANG_GESCHUETZT,
@@ -271,7 +277,7 @@ import {
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 746;
+const ERWARTETE_BEHAUPTUNGEN = 772;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -794,6 +800,21 @@ async function sitzungenLaden(): Promise<SitzungenModul> {
 	sitzungenModul ??=
 		(await import('../src/routes/sitzungen/+page.server.ts')) as unknown as SitzungenModul;
 	return sitzungenModul;
+}
+
+/*
+ * /wellness seit dem 2026-10-12: geprüft werden die zwei actions, die eine
+ * Kultur abschliessen und den Abschluss zurücknehmen
+ * (spec-wellness-abschliessen-ins-archiv.md). Die load braucht hier niemand —
+ * was offen ist, liest `behandlungenLesen` direkt.
+ */
+type WellnessModul = { actions: Record<string, Aktion> };
+let wellnessModul: WellnessModul | null = null;
+
+async function wellnessLaden(): Promise<WellnessModul> {
+	wellnessModul ??=
+		(await import('../src/routes/wellness/+page.server.ts')) as unknown as WellnessModul;
+	return wellnessModul;
 }
 
 async function archivLaden(): Promise<ArchivModul> {
@@ -11116,69 +11137,64 @@ try {
 	einzelaufgabeAbschliessen(archivTermin.id, archivMitglied.id);
 
 	/*
-	 * **Die dritte Quelle seit dem 2026-10-11: das Wellnesstagebuch.** Drei
-	 * Behandlungen, je eine Zeile der Matrix in der Spec: vollständig, ohne
-	 * Kultur und nur mit Mittel. Die zweite und die dritte messen, dass fehlende
-	 * Angaben samt Trenner wegfallen — am Ende und in der Mitte.
+	 * **Die dritte Quelle: das Wellnesstagebuch** — seit dem 2026-10-11 je
+	 * Behandlung eine Zeile, seit dem 2026-10-12 je **Abschluss** eine
+	 * (spec-wellness-abschliessen-ins-archiv.md). Hier gesät wird die Zeile der
+	 * Matrix ohne Kultur und Ort — Kompost, null, null — und über die echte
+	 * action abgeschlossen, damit die load schon eine Wellnesszeile mischt. Die
+	 * übrigen Zeilen der Matrix stehen im eigenen Block weiter unten.
 	 *
 	 * **`angewendetAm` ist ein Tagesende, wie es /wellness schreibt**, und nicht
 	 * `jetzt - n * TAG`: eine Uhrzeit in der Spalte wäre eine Datenlage, die die
 	 * Anwendung nie herstellt. Dieselbe Rechnung wie die Saat in
-	 * scripts/pruefserver.ts. Die Behauptungen vergleichen gegen den
-	 * gespeicherten Wert und nicht gegen ein Datum, darum hängen sie nicht am
-	 * Kalender.
+	 * scripts/pruefserver.ts.
 	 *
 	 * **Eingetragen von einem eigenen Mitglied, das keinen Termin hält.** Die
 	 * Behauptung, der Name komme in den Seitendaten nicht vor, wäre mit Tamara
 	 * wertlos: ihr Name steht über die Terminzeile ohnehin drin. `Wanda` kommt
 	 * sonst in keinem Block dieses Skripts vor (gemessen mit grep).
 	 */
+	const wellness = await wellnessLaden();
 	const wellnessMitglied = mitgliedAnlegen({
 		name: 'Wanda',
 		inviteTokenHash: tokenHashen(tokenErzeugen()),
 		isAdmin: false,
 	});
+	const wanda = { id: wellnessMitglied.id, name: wellnessMitglied.name };
 	const tagesendeVorTagen = (tage: number): number => {
 		const tagesende = tagesendeInUnixSekunden(heuteAlsFeldwert(archivJetzt - tage * TAG_SEKUNDEN));
 		if (tagesende === null) throw new Error(`Saatdatum nicht lesbar: vor ${tage} Tagen`);
 		return tagesende;
 	};
-	const wellnessVoll = behandlungEintragen(
-		{
-			mittel: 'Schachtelhalm',
-			kultur: 'Tomaten',
-			ort: 'Beet 3',
-			angewendetAm: tagesendeVorTagen(10),
-			intervallTage: 14,
-		},
-		{ id: wellnessMitglied.id, name: wellnessMitglied.name }
-	);
-	const wellnessNurMittel = behandlungEintragen(
-		{
-			mittel: 'Gesteinsmehl',
-			kultur: null,
-			ort: null,
-			angewendetAm: tagesendeVorTagen(20),
-			intervallTage: null,
-		},
-		{ id: wellnessMitglied.id, name: wellnessMitglied.name }
-	);
-	const wellnessOhneKultur = behandlungEintragen(
-		{
-			mittel: 'Kompost',
-			kultur: null,
-			ort: 'Beet 7',
-			angewendetAm: tagesendeVorTagen(30),
-			intervallTage: 28,
-		},
-		{ id: wellnessMitglied.id, name: wellnessMitglied.name }
-	);
-	const wellnessIds = [wellnessVoll.id, wellnessOhneKultur.id, wellnessNurMittel.id];
+	const behandlungSaen = (
+		mittel: string,
+		kultur: string | null,
+		ort: string | null,
+		tage: number,
+		intervallTage: number | null
+	): number =>
+		behandlungEintragen(
+			{ mittel, kultur, ort, angewendetAm: tagesendeVorTagen(tage), intervallTage },
+			wanda
+		).id;
+	const wellnessAktion = (aktion: string, felder: Record<string, string | Blob>) =>
+		routenausgang(() =>
+			wellness.actions[aktion](
+				alsMitglied('/wellness', ohneTokenHash(wellnessMitglied), felder).alsRequestEvent()
+			)
+		);
+	const kompostId = behandlungSaen('Kompost', null, null, 20, null);
+	const kompostAbschluss = await wellnessAktion('abschliessen', {
+		bestaetigt: '1',
+		ort: '',
+		kultur: '',
+	});
 
 	type Archivzeile = {
 		schluessel: string;
 		art: string;
 		text: string;
+		zusatz: string | null;
 		erledigtAm: number;
 		uebernehmer: string | null;
 	};
@@ -11191,7 +11207,8 @@ try {
 			archivListe.length ===
 				erledigteAufgabenAuflisten().length +
 					abgeschlosseneEinzelaufgabenLesen().length +
-					behandlungenLesen().length &&
+					abschluesseBuendeln(abgeschlosseneBehandlungenLesen()).length &&
+			archivListe.some((zeile) => zeile.art === 'wellness') &&
 			archivListe.every(
 				(zeile, stelle) =>
 					stelle === 0 || (archivListe[stelle - 1]?.erledigtAm ?? 0) >= zeile.erledigtAm
@@ -11237,94 +11254,6 @@ try {
 			.filter((zeile) => zeile.schluessel.startsWith('aufgabe-'))
 			.every((zeile) => zeile.uebernehmer === null),
 		JSON.stringify(archivListe.filter((zeile) => zeile.uebernehmer !== null).slice(0, 3))
-	);
-	/*
-	 * Die Wellnesszeilen: Schlüssel, Text, Zeitpunkt und kein Name — je Zeile
-	 * als ein Vergleich über alle vier Felder, damit ein Fehler im Hinweis
-	 * zeigt, welches Feld abweicht. Verglichen als JSON, weil pruefenGleich mit
-	 * `===` vergleicht und zwei gleiche Objekte damit nie gleich wären; die
-	 * Feldreihenfolge legt `wellnessZeile` selbst fest.
-	 */
-	const wellnessZeile = (id: number) => {
-		const zeile = archivListe.find((eintrag) => eintrag.schluessel === `wellness-${id}`);
-		return zeile === undefined
-			? null
-			: {
-					schluessel: zeile.schluessel,
-					art: zeile.art,
-					text: zeile.text,
-					erledigtAm: zeile.erledigtAm,
-					uebernehmer: zeile.uebernehmer,
-				};
-	};
-	pruefenGleich(
-		'eine Wellnessbehandlung steht im Archiv: Mittel · Kultur · Ort, am Anwendungstag, ohne Namen',
-		JSON.stringify(wellnessZeile(wellnessVoll.id)),
-		JSON.stringify({
-			schluessel: `wellness-${wellnessVoll.id}`,
-			art: 'wellness',
-			text: 'Schachtelhalm · Tomaten · Beet 3',
-			erledigtAm: wellnessVoll.angewendetAm,
-			uebernehmer: null,
-		})
-	);
-	pruefenGleich(
-		'und eine nur mit Mittel steht ohne leere Trenner da',
-		JSON.stringify(wellnessZeile(wellnessNurMittel.id)),
-		JSON.stringify({
-			schluessel: `wellness-${wellnessNurMittel.id}`,
-			art: 'wellness',
-			text: 'Gesteinsmehl',
-			erledigtAm: wellnessNurMittel.angewendetAm,
-			uebernehmer: null,
-		})
-	);
-	pruefenGleich(
-		'und eine ohne Kultur verliert nur deren Trenner, nicht den zum Ort',
-		JSON.stringify(wellnessZeile(wellnessOhneKultur.id)),
-		JSON.stringify({
-			schluessel: `wellness-${wellnessOhneKultur.id}`,
-			art: 'wellness',
-			text: 'Kompost · Beet 7',
-			erledigtAm: wellnessOhneKultur.angewendetAm,
-			uebernehmer: null,
-		})
-	);
-	/*
-	 * **Die Schlüsselmenge jeder Wellnesszeile**, und zwar die ganze: was hier
-	 * nicht steht, verlässt die load nicht. Das deckt die Never-Klauseln der
-	 * Spec zu `intervallTage`, `createdAt` und dem Namen auf einmal — die drei
-	 * Vergleiche darüber lesen nur die Felder, die sie nennen, und blieben grün,
-	 * wenn ein viertes dazukäme. Leer wäre die Menge kein Beweis; darum steht die
-	 * Zahl der Zeilen im Vergleich mit.
-	 */
-	const wellnessZeilen = archivListe.filter((zeile) => zeile.schluessel.startsWith('wellness-'));
-	pruefenGleich(
-		'jede Wellnesszeile trägt genau art, erledigtAm, schluessel, text und uebernehmer',
-		`${wellnessZeilen.length} / ${[
-			...new Set(
-				wellnessZeilen.map(
-					(zeile) => `${Object.keys(zeile).sort().join(',')} ${zeile.art === 'wellness'}`
-				)
-			),
-		].join(' | ')}`,
-		`${behandlungenLesen().length} / art,erledigtAm,schluessel,text,uebernehmer true`
-	);
-	/*
-	 * Der Name der eintragenden Person — und die Gegenprobe, dass es ihn zu
-	 * verschweigen gibt: das Tagebuch trägt ihn an genau diesen Zeilen.
-	 */
-	pruefen(
-		'der Name der eintragenden Person kommt in den Seitendaten von /archiv nicht vor',
-		!JSON.stringify(wertVon(archivStand)).includes(wellnessMitglied.name),
-		JSON.stringify(archivListe.filter((zeile) => zeile.schluessel.startsWith('wellness-')))
-	);
-	pruefen(
-		'obwohl das Tagebuch ihn an allen drei Behandlungen trägt und alle dort stehen bleiben',
-		behandlungenLesen().filter(
-			(zeile) => wellnessIds.includes(zeile.id) && zeile.name === wellnessMitglied.name
-		).length === wellnessIds.length,
-		JSON.stringify(behandlungenLesen().slice(0, 3))
 	);
 	pruefen(
 		'derselbe Termin ist damit aus `Alle Termine` verschwunden, der offene steht dort',
@@ -11387,6 +11316,467 @@ try {
 		!archivNachRueckgabe.includes(`aufgabe-${archivSpaet}`) &&
 			archivNachRueckgabe.includes(`aufgabe-${archivFrueh}`),
 		`Archiv danach: ${archivNachRueckgabe.join(' | ')}`
+	);
+
+	/*
+	 * -----------------------------------------------------------------------
+	 * /wellness → /archiv: eine Kultur abschliessen, erst dann ins Archiv
+	 * -----------------------------------------------------------------------
+	 *
+	 * **Je Zeile der Matrix in spec-wellness-abschliessen-ins-archiv.md
+	 * mindestens eine Behauptung**, über die echten actions und die echte load.
+	 * Die Zeile „Ohne Kultur/Ort" ist oben gesät und abgeschlossen worden.
+	 *
+	 * Tomaten in Beet 3: Schachtelhalm viermal (alle 7 Tage, zuletzt vor 10
+	 * Tagen — damit **fällig**), Brennnesseljauche zweimal, die jüngste vor 15
+	 * Tagen. Das Schachtelhalm ist damit das Mittel mit der jüngsten Anwendung
+	 * und steht vorn. Daneben Kohl in Beet 3, nicht fällig, der offen bleiben
+	 * muss.
+	 */
+	const kompostZeile = (
+		(wertVon(await routenausgang(() => archiv.load())).erledigte ?? []) as Archivzeile[]
+	).find((zeile) => zeile.schluessel === `wellness-${kompostId}`);
+	pruefenGleich(
+		'ohne Kultur und Ort: die Meldung nennt die Ersatzwörter, und die Archivzeile heisst `Ohne Beet · Ohne Kultur`',
+		JSON.stringify({
+			meldung: wertVon(kompostAbschluss).meldung,
+			text: kompostZeile?.text,
+			zusatz: kompostZeile?.zusatz,
+			erledigtAm: kompostZeile?.erledigtAm,
+		}),
+		JSON.stringify({
+			meldung: 'Abgeschlossen: Ohne Kultur, Ohne Beet.',
+			text: 'Ohne Beet · Ohne Kultur',
+			zusatz: 'Kompost 1×',
+			erledigtAm: wertVon(kompostAbschluss).abgeschlossenAm,
+		})
+	);
+
+	const tomatenIds = [
+		behandlungSaen('Schachtelhalm', 'Tomaten', 'Beet 3', 52, 7),
+		behandlungSaen('Brennnesseljauche', 'Tomaten', 'Beet 3', 36, 21),
+		behandlungSaen('Schachtelhalm', 'Tomaten', 'Beet 3', 38, 7),
+		behandlungSaen('Schachtelhalm', 'Tomaten', 'Beet 3', 24, 7),
+		behandlungSaen('Brennnesseljauche', 'Tomaten', 'Beet 3', 15, 21),
+		behandlungSaen('Schachtelhalm', 'Tomaten', 'Beet 3', 10, 7),
+	];
+	const kohlId = behandlungSaen('Schachtelhalm', 'Kohl', 'Beet 3', 10, 14);
+	const offeneIds = () => new Set(behandlungenLesen().map((zeile) => zeile.id));
+	const faelligAuf = async () => {
+		const ueberblick = wertVon(await startseiteLadenAn('/')).ueberblick as
+			{ faellig?: number } | undefined;
+		return ueberblick?.faellig ?? -1;
+	};
+	const wellnessImArchiv = async () =>
+		((wertVon(await routenausgang(() => archiv.load())).erledigte ?? []) as Archivzeile[]).filter(
+			(zeile) => zeile.art === 'wellness'
+		);
+	const archivzeileVon = (zeile: Archivzeile | undefined) =>
+		zeile === undefined
+			? null
+			: {
+					schluessel: zeile.schluessel,
+					text: zeile.text,
+					zusatz: zeile.zusatz,
+					erledigtAm: zeile.erledigtAm,
+					uebernehmer: zeile.uebernehmer,
+				};
+	const tomatenSchluessel = `wellness-${Math.min(...tomatenIds)}`;
+
+	/*
+	 * **Die Rückfrage vor dem Abschliessen** (nachverhandelt am 12.10.2026,
+	 * Manuel). Ein POST ohne `bestaetigt` fragt nur: er trägt Ort und Kultur
+	 * zurück, damit die Seite die Frage an die richtige Kultur stellt, und er
+	 * ändert die Datenbank nicht — gemessen an beiden Lesern, offen wie
+	 * abgeschlossen. Ist nichts Offenes da, gibt es nichts zu fragen.
+	 */
+	const vorFrage = JSON.stringify([behandlungenLesen(), abgeschlosseneBehandlungenLesen()]);
+	const frageTomaten = await wellnessAktion('abschliessen', { ort: 'Beet 3', kultur: 'Tomaten' });
+	pruefenGleich(
+		'abschliessen ohne bestaetigt fragt nur zurück, mit Ort und Kultur',
+		JSON.stringify(wertVon(frageTomaten)),
+		JSON.stringify({ art: 'fragenAbschliessen', ort: 'Beet 3', kultur: 'Tomaten' })
+	);
+	pruefen(
+		'und ein POST ohne bestaetigt lässt die Datenbank unverändert',
+		JSON.stringify([behandlungenLesen(), abgeschlosseneBehandlungenLesen()]) === vorFrage,
+		'offene oder abgeschlossene Zeilen haben sich verändert'
+	);
+	abgewiesen(
+		'die Rückfrage nach einer Kultur ohne offene Zeile wird mit dem Satz der veralteten Seite abgewiesen',
+		await wellnessAktion('abschliessen', { ort: 'Beet 3', kultur: 'Kürbis' }),
+		BEHANDLUNG_NICHT_ANSPRECHBAR
+	);
+
+	const faelligVorher = await faelligAuf();
+	const tomatenAbschluss = await wellnessAktion('abschliessen', {
+		bestaetigt: '1',
+		ort: 'Beet 3',
+		kultur: 'Tomaten',
+	});
+	const tomatenZeitpunkt = wertVon(tomatenAbschluss).abgeschlossenAm as number;
+	const nachAbschluss = offeneIds();
+	pruefen(
+		'Abschluss: alle sechs Zeilen von Tomaten in Beet 3 sind nicht mehr offen — und keine ist gelöscht, alle tragen denselben Zeitpunkt',
+		wertVon(tomatenAbschluss).meldung === 'Abgeschlossen: Tomaten, Beet 3.' &&
+			tomatenIds.every((id) => !nachAbschluss.has(id)) &&
+			abgeschlosseneBehandlungenLesen().filter(
+				(zeile) => tomatenIds.includes(zeile.id) && zeile.abgeschlossenAm === tomatenZeitpunkt
+			).length === tomatenIds.length,
+		JSON.stringify({ ausgang: tomatenAbschluss, offen: [...nachAbschluss] })
+	);
+	pruefenGleich(
+		'und die Planzeile auf `/` zählt eine fällige Wellnessbehandlung weniger — die Tomaten stehen nicht mehr unter `Steht wieder an`',
+		`${await faelligAuf()} / ${letzteJeStelle(behandlungenLesen()).some((zeile) => zeile.kultur === 'Tomaten')}`,
+		`${faelligVorher - 1} / false`
+	);
+	pruefen(
+		'eine andere Kultur im selben Beet bleibt offen',
+		nachAbschluss.has(kohlId),
+		JSON.stringify([...nachAbschluss])
+	);
+	pruefenGleich(
+		'im Archiv steht der Abschluss als eine Zeile: Beet · Kultur, die Mittel mit Anzahl (jüngste Anwendung zuerst), der Abschluss als Zeitpunkt, kein Name',
+		JSON.stringify(
+			archivzeileVon(
+				(await wellnessImArchiv()).find((zeile) => zeile.schluessel === tomatenSchluessel)
+			)
+		),
+		JSON.stringify({
+			schluessel: tomatenSchluessel,
+			text: 'Beet 3 · Tomaten',
+			zusatz: 'Schachtelhalm 4×, Brennnesseljauche 2×',
+			erledigtAm: tomatenZeitpunkt,
+			uebernehmer: null,
+		})
+	);
+
+	/*
+	 * **Abgeschlossene Zeilen werden weder gelöscht noch kopiert** (Spec,
+	 * _Never_). Auf /wellness stehen sie nicht mehr; eine Kennung dazu kann nur
+	 * aus einer veralteten Seite kommen. Wegnehmen löschte sie, Wiederholen
+	 * kopierte sie — beides wird abgewiesen, und die Zeilen bleiben gezählt.
+	 * Ändern ebenso: es schriebe an einer Zeile, die im Archiv schon steht.
+	 */
+	const vorFremdgriff = abgeschlosseneBehandlungenLesen().length;
+	const wegnehmenAbgeschlossen = await wellnessAktion('wegnehmen', {
+		id: String(tomatenIds[0]),
+		bestaetigt: '1',
+	});
+	const wiederholenAbgeschlossen = await wellnessAktion('wiederholen', {
+		id: String(tomatenIds[0]),
+	});
+	const aendernAbgeschlossen = await wellnessAktion('aendern', {
+		id: String(tomatenIds[0]),
+		mittel: 'Umgeschrieben',
+		kultur: 'Tomaten',
+		ort: 'Beet 3',
+		datum: heuteAlsFeldwert(archivJetzt),
+		intervall: '',
+	});
+	pruefen(
+		'eine abgeschlossene Zeile lässt sich weder wegnehmen noch wiederholen noch ändern — sie bleibt, wie sie war, und nichts kommt dazu',
+		wegnehmenAbgeschlossen.art === 'fehlschlag' &&
+			datenVon(aendernAbgeschlossen).meldung === BEHANDLUNG_NICHT_ANSPRECHBAR &&
+			!abgeschlosseneBehandlungenLesen().some((zeile) => zeile.mittel === 'Umgeschrieben') &&
+			datenVon(wegnehmenAbgeschlossen).meldung === BEHANDLUNG_NICHT_ANSPRECHBAR &&
+			wiederholenAbgeschlossen.art === 'fehlschlag' &&
+			datenVon(wiederholenAbgeschlossen).meldung === BEHANDLUNG_NICHT_ANSPRECHBAR &&
+			abgeschlosseneBehandlungenLesen().length === vorFremdgriff &&
+			!behandlungenLesen().some((zeile) => zeile.kultur === 'Tomaten'),
+		JSON.stringify({ wegnehmenAbgeschlossen, wiederholenAbgeschlossen, aendernAbgeschlossen })
+	);
+
+	/*
+	 * **Veraltet**: ein zweites Gerät schliesst dieselbe Kultur noch einmal ab.
+	 * Nichts ist mehr offen — es ändert sich nichts, und der Satz ist der für
+	 * die veraltete Seite.
+	 */
+	const vorVeraltetemAbschluss = JSON.stringify(abgeschlosseneBehandlungenLesen());
+	abgewiesen(
+		'Veraltet: Abschliessen ohne offene Zeile wird mit dem Satz der veralteten Seite abgewiesen',
+		await wellnessAktion('abschliessen', { bestaetigt: '1', ort: 'Beet 3', kultur: 'Tomaten' }),
+		BEHANDLUNG_NICHT_ANSPRECHBAR
+	);
+	pruefen(
+		'und ändert dabei nichts',
+		JSON.stringify(abgeschlosseneBehandlungenLesen()) === vorVeraltetemAbschluss,
+		'die abgeschlossenen Zeilen haben sich verändert'
+	);
+
+	/*
+	 * **Rückgängig**: genau die Zeilen dieses Abschlusses werden wieder offen,
+	 * und die Archivzeile ist fort. Der Abschluss ohne Kultur und Ort bleibt,
+	 * wo er ist.
+	 */
+	const zurueck = await wellnessAktion('zuruecknehmen', {
+		ort: 'Beet 3',
+		kultur: 'Tomaten',
+		abgeschlossenAm: String(tomatenZeitpunkt),
+	});
+	const nachRueckgaengig = offeneIds();
+	const archivNachRueckgaengig = (await wellnessImArchiv()).map((zeile) => zeile.schluessel);
+	pruefen(
+		'Rückgängig: alle sechs Tomatenzeilen sind wieder offen, die Archivzeile ist fort, der andere Abschluss bleibt',
+		wertVon(zurueck).meldung === 'Wieder offen: Tomaten, Beet 3.' &&
+			tomatenIds.every((id) => nachRueckgaengig.has(id)) &&
+			!archivNachRueckgaengig.includes(tomatenSchluessel) &&
+			archivNachRueckgaengig.includes(`wellness-${kompostId}`),
+		JSON.stringify({ zurueck, archiv: archivNachRueckgaengig })
+	);
+	abgewiesen(
+		'und ein zweites Rückgängig desselben Abschlusses findet nichts mehr',
+		await wellnessAktion('zuruecknehmen', {
+			ort: 'Beet 3',
+			kultur: 'Tomaten',
+			abgeschlossenAm: String(tomatenZeitpunkt),
+		}),
+		BEHANDLUNG_NICHT_ANSPRECHBAR
+	);
+
+	/*
+	 * **Neue Reihe**: abschliessen, danach neu eintragen, wieder abschliessen —
+	 * zwei Abschlüsse derselben Kultur, zwei Archivzeilen. Alles in derselben
+	 * Sekunde, und das ist der Fall, gegen den `kulturAbschliessen` den
+	 * Zeitpunkt eindeutig macht: ohne das flössen beide Abschlüsse zu einem
+	 * zusammen, und das Rückgängig des zweiten öffnete auch den ersten.
+	 */
+	const ersterAbschluss = wertVon(
+		await wellnessAktion('abschliessen', { bestaetigt: '1', ort: 'Beet 3', kultur: 'Tomaten' })
+	).abgeschlossenAm as number;
+	const neueReiheId = behandlungSaen('Schachtelhalm', 'Tomaten', 'Beet 3', 0, 7);
+	pruefen(
+		'Neue Reihe: nach dem Abschluss steht ein neuer Eintrag derselben Kultur als neue offene Gruppe da',
+		[...offeneIds()].filter((id) => [...tomatenIds, neueReiheId].includes(id)).join() ===
+			String(neueReiheId) &&
+			buendeln(behandlungenLesen()).some((beet) =>
+				beet.kulturen.some(
+					(kultur) =>
+						kultur.kultur === 'Tomaten' &&
+						kultur.mittel.length === 1 &&
+						kultur.mittel[0].eintraege.length === 1
+				)
+			),
+		JSON.stringify([...offeneIds()])
+	);
+	const zweiterAbschluss = wertVon(
+		await wellnessAktion('abschliessen', { bestaetigt: '1', ort: 'Beet 3', kultur: 'Tomaten' })
+	).abgeschlossenAm as number;
+	const tomatenImArchiv = (await wellnessImArchiv())
+		.filter((zeile) => zeile.text === 'Beet 3 · Tomaten')
+		.map((zeile) => `${zeile.zusatz} @${zeile.erledigtAm === zweiterAbschluss ? 'zwei' : 'eins'}`);
+	pruefenGleich(
+		'und ihr späterer Abschluss gibt eine zweite Archivzeile, mit eigenem Zeitpunkt',
+		`${zweiterAbschluss > ersterAbschluss} / ${tomatenImArchiv.sort().join(' | ')}`,
+		'true / Schachtelhalm 1× @zwei | Schachtelhalm 4×, Brennnesseljauche 2× @eins'
+	);
+	await wellnessAktion('zuruecknehmen', {
+		ort: 'Beet 3',
+		kultur: 'Tomaten',
+		abgeschlossenAm: String(zweiterAbschluss),
+	});
+	pruefen(
+		'Rückgängig des zweiten Abschlusses öffnet nur dessen Zeile — der erste bleibt abgeschlossen',
+		[...offeneIds()].filter((id) => [...tomatenIds, neueReiheId].includes(id)).join() ===
+			String(neueReiheId),
+		JSON.stringify([...offeneIds()])
+	);
+
+	/*
+	 * **Die Fehlerpfade von `zuruecknehmen`**, gegen den ersten Abschluss, der
+	 * jetzt noch steht. Fehlt der Zeitpunkt oder ist er keine Zahl, wird
+	 * abgewiesen; stimmt er, aber Ort oder Kultur nicht — auch nur in der
+	 * Schreibweise —, gibt es keinen solchen Abschluss. Keiner der Versuche
+	 * ändert etwas.
+	 */
+	const vorFehlerpfaden = JSON.stringify(abgeschlosseneBehandlungenLesen());
+	const fehlerpfade: [string, Record<string, string>][] = [
+		['ohne Zeitpunkt', { ort: 'Beet 3', kultur: 'Tomaten' }],
+		[
+			'mit Zeitpunkt, der keine Zahl ist',
+			{ ort: 'Beet 3', kultur: 'Tomaten', abgeschlossenAm: 'gestern' },
+		],
+		[
+			'mit richtigem Zeitpunkt, aber anderem Ort',
+			{ ort: 'Beet 4', kultur: 'Tomaten', abgeschlossenAm: String(ersterAbschluss) },
+		],
+		[
+			'mit richtigem Zeitpunkt, aber anderer Schreibweise der Kultur',
+			{ ort: 'Beet 3', kultur: 'tomaten', abgeschlossenAm: String(ersterAbschluss) },
+		],
+	];
+	for (const [wie, felder] of fehlerpfade) {
+		abgewiesen(
+			`zuruecknehmen ${wie} wird abgewiesen`,
+			await wellnessAktion('zuruecknehmen', felder),
+			BEHANDLUNG_NICHT_ANSPRECHBAR
+		);
+	}
+	pruefen(
+		'und keiner dieser Versuche ändert einen Abschluss',
+		JSON.stringify(abgeschlosseneBehandlungenLesen()) === vorFehlerpfaden,
+		'die abgeschlossenen Zeilen haben sich verändert'
+	);
+
+	/*
+	 * **Rückgängig des ersten Abschlusses, während schon eine neue offene Reihe
+	 * steht**: die sechs Zeilen werden wieder offen und fliessen mit der neuen
+	 * zu **einer** Gruppe zusammen — eine Kultur, Schachtelhalm 5×,
+	 * Brennnesseljauche 2×. Gewollt (siehe `zuruecknehmen`): offen ist offen,
+	 * das Tagebuch kennt keine Reihen.
+	 */
+	await wellnessAktion('zuruecknehmen', {
+		ort: 'Beet 3',
+		kultur: 'Tomaten',
+		abgeschlossenAm: String(ersterAbschluss),
+	});
+	const tomatenGruppen = buendeln(behandlungenLesen())
+		.flatMap((beet) => beet.kulturen.map((kultur) => ({ ort: beet.ort, ...kultur })))
+		.filter((kultur) => kultur.ort === 'Beet 3' && kultur.kultur === 'Tomaten')
+		.map((kultur) =>
+			kultur.mittel.map((buendel) => `${buendel.mittel} ${buendel.eintraege.length}×`).join(', ')
+		);
+	pruefenGleich(
+		'Rückgängig neben einer neuen offenen Reihe: beide fliessen zu einer Gruppe zusammen',
+		tomatenGruppen.join(' | '),
+		'Schachtelhalm 5×, Brennnesseljauche 2×'
+	);
+
+	/*
+	 * **Fehlende Felder** (Review, 2026-10-12). Ohne `ort` oder `kultur` — oder
+	 * mit einer Datei darin — galt ein POST früher als null und schloss die
+	 * echte Gruppe `Ohne Beet`/`Ohne Kultur` ab. Dafür steht hier eine offene
+	 * Zeile ohne Ort und Kultur, die jeden dieser Versuche überleben muss.
+	 */
+	const fehlendeFelder: [string, string, Record<string, string | Blob>][] = [
+		['abschliessen', 'ohne Ort', { kultur: '', bestaetigt: '1' }],
+		['abschliessen', 'ohne Kultur', { ort: '', bestaetigt: '1' }],
+		[
+			'abschliessen',
+			'mit einer Datei als Ort',
+			{ ort: new Blob(['']), kultur: '', bestaetigt: '1' },
+		],
+		['abschliessen', 'ohne Ort und Kultur', { bestaetigt: '1' }],
+		[
+			'zuruecknehmen',
+			'ohne Ort',
+			{ kultur: '', abgeschlossenAm: String(wertVon(kompostAbschluss).abgeschlossenAm) },
+		],
+	];
+	/*
+	 * **Je Versuch eine frische offene Zeile ohne Ort und Kultur**, damit jede
+	 * Probe für sich beisst: mit einer einzigen Zeile schlösse der erste
+	 * fehlerhafte Versuch sie ab, und alle weiteren fänden nichts Offenes mehr
+	 * und wären auch ohne die Regel abgewiesen.
+	 */
+	const offenOhneAlles: number[] = [];
+	for (const [aktion, wie, felder] of fehlendeFelder) {
+		offenOhneAlles.push(behandlungSaen('Kompost', null, null, 3, null));
+		abgewiesen(
+			`${aktion} ${wie} wird abgewiesen`,
+			await wellnessAktion(aktion, felder),
+			BEHANDLUNG_NICHT_ANSPRECHBAR
+		);
+	}
+	pruefen(
+		'und die offenen Zeilen ohne Ort und Kultur stehen danach noch offen, der Kompost-Abschluss steht noch',
+		offenOhneAlles.every((id) => offeneIds().has(id)) &&
+			abgeschlosseneBehandlungenLesen().some((zeile) => zeile.id === kompostId),
+		JSON.stringify([...offeneIds()])
+	);
+
+	/*
+	 * **Mischfälle von null gleich null**: Ort gesetzt mit Kultur null, und Ort
+	 * null mit Kultur gesetzt. Daneben je eine Zeile, die nur in der anderen
+	 * Angabe abweicht und offen bleiben muss — mit Lauch im selben Beet und
+	 * die Zeile ohne Ort und Kultur von eben.
+	 */
+	const beet9OhneKultur = behandlungSaen('Mulch', null, 'Beet 9', 4, null);
+	const beet9Lauch = behandlungSaen('Mulch', 'Lauch', 'Beet 9', 4, null);
+	const erdbeerenOhneOrt = behandlungSaen('Mulch', 'Erdbeeren', null, 4, null);
+	const beet9Abschluss = await wellnessAktion('abschliessen', {
+		bestaetigt: '1',
+		ort: 'Beet 9',
+		kultur: '',
+	});
+	const erdbeerenAbschluss = await wellnessAktion('abschliessen', {
+		bestaetigt: '1',
+		ort: '',
+		kultur: 'Erdbeeren',
+	});
+	const nachMischfaellen = offeneIds();
+	const mischArchiv = (await wellnessImArchiv())
+		.filter((zeile) =>
+			[`wellness-${beet9OhneKultur}`, `wellness-${erdbeerenOhneOrt}`].includes(zeile.schluessel)
+		)
+		.map((zeile) => `${zeile.text}: ${zeile.zusatz}`)
+		.sort();
+	pruefenGleich(
+		'Mischfälle: Ort mit Kultur null und Ort null mit Kultur treffen nur ihre eigene Zeile',
+		JSON.stringify({
+			meldungen: [wertVon(beet9Abschluss).meldung, wertVon(erdbeerenAbschluss).meldung],
+			offen: [beet9OhneKultur, beet9Lauch, erdbeerenOhneOrt, offenOhneAlles[0]].map((id) =>
+				nachMischfaellen.has(id)
+			),
+			archiv: mischArchiv,
+		}),
+		JSON.stringify({
+			meldungen: ['Abgeschlossen: Ohne Kultur, Beet 9.', 'Abgeschlossen: Erdbeeren, Ohne Beet.'],
+			offen: [false, true, false, true],
+			archiv: ['Beet 9 · Ohne Kultur: Mulch 1×', 'Ohne Beet · Erdbeeren: Mulch 1×'],
+		})
+	);
+
+	/*
+	 * **Die Eindeutigkeit des Zeitpunkts, deterministisch** (Review,
+	 * 2026-10-12). Die Probe über die actions oben hängt an der Uhr: fallen die
+	 * zwei Abschlüsse in verschiedene Sekunden, ist sie auch ohne die Regel
+	 * grün. Hier wird `kulturAbschliessen` direkt zweimal mit **demselben**
+	 * festen Zeitpunkt aufgerufen, dazwischen ein neuer Eintrag: erwartet sind
+	 * T und T + 1 und zwei Abschlüsse.
+	 */
+	const festesT = archivJetzt - 5 * TAG_SEKUNDEN;
+	behandlungSaen('Schachtelhalm', 'Erbsen', 'Beet 5', 8, null);
+	const erbsenEins = kulturAbschliessen('Beet 5', 'Erbsen', festesT);
+	behandlungSaen('Schachtelhalm', 'Erbsen', 'Beet 5', 2, null);
+	const erbsenZwei = kulturAbschliessen('Beet 5', 'Erbsen', festesT);
+	const erbsenAbschluesse = abschluesseBuendeln(abgeschlosseneBehandlungenLesen()).filter(
+		(abschluss) => abschluss.ort === 'Beet 5' && abschluss.kultur === 'Erbsen'
+	);
+	pruefenGleich(
+		'derselbe feste Zeitpunkt zweimal: der zweite Abschluss bekommt T + 1, und es sind zwei Abschlüsse',
+		`${(erbsenEins?.abgeschlossenAm ?? 0) - festesT} / ${(erbsenZwei?.abgeschlossenAm ?? 0) - festesT} / ${erbsenAbschluesse.length}`,
+		'0 / 1 / 2'
+	);
+
+	/*
+	 * **Die Schlüsselmenge jeder Wellnesszeile**, und zwar die ganze: was hier
+	 * nicht steht, verlässt die load nicht. Das deckt die Never-Klauseln der
+	 * Spec zu `intervallTage`, `createdAt` und dem Namen auf einmal. Leer wäre
+	 * die Menge kein Beweis; darum steht die Zahl der Zeilen im Vergleich mit —
+	 * an dieser Stelle fünf: der Kompost, Beet 9 ohne Kultur, die Erdbeeren
+	 * ohne Ort und die zwei Erbsenabschlüsse. Die Tomaten sind wieder offen.
+	 */
+	const archivAmEnde = wertVon(await routenausgang(() => archiv.load()));
+	const wellnessAmEnde = ((archivAmEnde.erledigte ?? []) as Archivzeile[]).filter(
+		(zeile) => zeile.art === 'wellness'
+	);
+	pruefenGleich(
+		'jede Wellnesszeile trägt genau art, erledigtAm, schluessel, text, uebernehmer und zusatz',
+		`${wellnessAmEnde.length} / ${[
+			...new Set(wellnessAmEnde.map((zeile) => Object.keys(zeile).sort().join(','))),
+		].join(' | ')}`,
+		'5 / art,erledigtAm,schluessel,text,uebernehmer,zusatz'
+	);
+	/*
+	 * Der Name der eintragenden Person — und die Gegenprobe, dass es ihn zu
+	 * verschweigen gibt: das Tagebuch trägt ihn an den offenen Zeilen.
+	 */
+	pruefen(
+		'der Name der eintragenden Person kommt in den Seitendaten von /archiv nicht vor, obwohl das Tagebuch ihn trägt',
+		!JSON.stringify(archivAmEnde).includes(wellnessMitglied.name) &&
+			behandlungenLesen().some((zeile) => zeile.name === wellnessMitglied.name),
+		JSON.stringify(wellnessAmEnde)
 	);
 
 	/*

@@ -1411,3 +1411,13 @@ werden** — sie sind zurückgestellt und nicht abgeschlossen.
 - source_spec: `_bmad-output/implementation-artifacts/spec-wellness-tagebuch-gebuendelt.md`
   summary: Der Sichtlauf misst auf /wellness die aufgeklappten Einzeleinträge (Ändern-Griffe, Wegnehmen-Knöpfe) nicht mehr auf Kontrast und Trefferfläche.
   evidence: Review 2026-10-12. Seit der Bündelung liegen sie in zugeklappten `details`; derselbe Fall wie `.dienst` (AGENTS.md): ein Zustand, den der Sichtlauf nicht herstellt, wird nie gemessen. Ein Messschritt mit aufgeklapptem Mittel würde es decken.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-wellness-abschliessen-ins-archiv.md`
+  summary: ERLEDIGT 2026-10-12 (Entscheid Manuel: Rückfrage vor dem Abschliessen, im selben Posten gebaut) — Ein versehentliches «Abschliessen» auf /wellness liess sich über die Oberfläche nur bis zum nächsten Laden zurücknehmen.
+  evidence: Review 2026-10-12. Der Knopf hat bewusst keine Rückfrage («weil umkehrbar»), umkehrbar ist er aber nur, solange die Meldung mit `Rückgängig` steht. Entscheid Manuel nötig: Rückfrage vor dem Abschliessen, oder Zurücknehmen aus dem Archiv (in der Spec unter Ask First).
+- source_spec: `_bmad-output/implementation-artifacts/spec-wellness-abschliessen-ins-archiv.md`
+  summary: Der Knopf `Rückgängig` in der Abschlussmeldung auf /wellness wird vom Kontrast-Sweep nie gemessen, und die Ansage der Meldung samt Knopf durch einen Screenreader ist ungeprüft (R5).
+  evidence: Review 2026-10-12. Der Knopf existiert nur in der Antwort einer action, den Zustand stellt der Sichtlauf für die Messung nicht her (dieselbe Lücke wie `.dienst`); er trägt `button-quiet` wie gemessene Knöpfe. Die Ansage braucht VoiceOver/TalkBack von Hand.
+- source_spec: `_bmad-output/implementation-artifacts/spec-wellness-abschliessen-ins-archiv.md`
+  summary: «Abschliessen» schliesst auch Zeilen derselben Kultur im Beet, die eine andere Person nach dem Laden der Seite eingetragen hat.
+  evidence: Review 2026-10-12. Die action trifft alle offenen Zeilen von Ort und Kultur zum Zeitpunkt des Klicks; eine höchste sichtbare id als Grenze würde das verhindern. Bei der Grösse des Gartens selten.

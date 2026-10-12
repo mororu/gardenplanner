@@ -871,6 +871,26 @@ export const treatments = sqliteTable('treatments', {
 	createdAt: integer('created_at')
 		.notNull()
 		.$defaultFn(() => Math.floor(Date.now() / 1000)),
+	/*
+	 * Wann die Kultur im Beet abgeschlossen wurde, in Unix-Sekunden — **nullbar,
+	 * und null heisst offen** (Entscheid Manuel, 2026-10-12).
+	 *
+	 * Abgeschlossen wird nicht eine Zeile, sondern **eine Kultur in einem Beet**:
+	 * alle offenen Zeilen mit gleichem Ort und gleicher Kultur bekommen
+	 * denselben Zeitpunkt. Ort, Kultur und dieser Zeitpunkt zusammen sind damit
+	 * der Schlüssel eines Abschlusses — das Archiv zeigt je Abschluss eine Zeile,
+	 * und `Rückgängig` auf /wellness setzt genau diese Zeilen wieder auf null.
+	 *
+	 * **Eine Spalte und keine zweite Tabelle.** Ein Abschluss trägt nichts als
+	 * seinen Zeitpunkt; eine Tabelle `abschluesse` mit Fremdschlüssel wäre eine
+	 * zweite Stelle für dieselbe Auskunft. **Und kein Löschen**: die Zeilen
+	 * bleiben, was sie sind, und verschwinden nur aus allem, was offene liest
+	 * (Tagebuch, `Steht wieder an`, die fällig-Zahl auf `/`).
+	 *
+	 * Ohne CHECK und ohne Index, aus den Gründen an den Nachbarspalten und am
+	 * Absatz unter dieser Tabelle.
+	 */
+	abgeschlossenAm: integer('abgeschlossen_am'),
 });
 
 /*

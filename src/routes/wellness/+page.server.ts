@@ -3,11 +3,14 @@ import type { Actions, RequestEvent, ServerLoadEvent } from '@sveltejs/kit';
 import { ortPruefen } from '../../lib/ernte.ts';
 import { abweisen } from '../../lib/server/abweisen.ts';
 import {
+	abschlussZuruecknehmen,
 	behandlungAendern,
 	behandlungEintragen,
 	behandlungLesen,
 	behandlungWegnehmen,
 	behandlungenLesen,
+	kulturAbschliessen,
+	offeneAmOrtZaehlen,
 	type Behandlungszeile,
 } from '../../lib/server/db/queries/treatments.ts';
 import { BEHANDLUNG_NICHT_ANSPRECHBAR } from '../../lib/texte.ts';
@@ -52,10 +55,11 @@ import {
  * sobald eine dritte Seite einen Ort aufnimmt, gehört die Prüfung in ein
  * eigenes Modul und nicht in ein drittes Mal dieselbe Zeile.
  *
- * **Keine zweite Stufe, an keiner der vier actions.** Der Wächter in
+ * **Keine zweite Stufe, an keiner der sechs actions.** Der Wächter in
  * src/hooks.server.ts hat einen Aufruf ohne gültige Sitzung schon mit 403
  * abgewiesen; danach darf jedes aktive Mitglied eintragen, fortschreiben,
- * richtigstellen und wegnehmen — auch an fremden Zeilen. Dieselbe Offenheit wie auf /ernte und aus demselben Grund:
+ * richtigstellen, wegnehmen und eine Kultur abschliessen — auch an fremden
+ * Zeilen. Dieselbe Offenheit wie auf /ernte und aus demselben Grund:
  * wer sieht, dass eine Zeile falsch ist, soll sie richtigstellen dürfen, ohne
  * die Person zu suchen, die sie geschrieben hat. Die Rückfrage bei `wegnehmen`
  * ist das Gegengewicht.
@@ -93,6 +97,35 @@ function zahlLesen(roh: unknown): number | null {
 /** Liest ein Textfeld als Zeichenkette, auch wenn es fehlt. */
 function textLesen(roh: unknown): string {
 	return typeof roh === 'string' ? roh : '';
+}
+
+/**
+ * Ort und Kultur aus den versteckten Feldern von `abschliessen` und
+ * `zuruecknehmen` — leer heisst null.
+ *
+ * **Ohne Trimmen und ohne Prüfung**, anders als beim Eintragen: hier wird
+ * nicht geschrieben, sondern gesucht, und zwar Zeichen für Zeichen (siehe
+ * `amOrt` in der Abfrageschicht). Ein Wert, den es nicht gibt, trifft keine
+ * Zeile und endet im Satz für die veraltete Seite. Leer ist als null
+ * eindeutig, weil gespeichert nie ein leerer Text steht: `ortPruefen` und
+ * `kulturPruefen` legen leer als null ab.
+ *
+ * **Fehlt ein Feld oder trägt es eine Datei, kommt null zurück** und die
+ * action weist ab. `textLesen` machte daraus eine leere Zeichenkette, und die
+ * hiesse hier null — ein POST ohne Felder schlösse dann die echte Gruppe
+ * `Ohne Beet`/`Ohne Kultur` ab. Das Formular schickt beide Felder immer mit,
+ * auch leer; wer sie weglässt, kommt nicht von dieser Seite.
+ */
+function stelleLesen(formular: FormData): { ort: string | null; kultur: string | null } | null {
+	const ort = formular.get('ort');
+	const kultur = formular.get('kultur');
+	if (typeof ort !== 'string' || typeof kultur !== 'string') return null;
+	return { ort: ort === '' ? null : ort, kultur: kultur === '' ? null : kultur };
+}
+
+/** Kultur und Beet für die Meldung — mit denselben Ersatzwörtern wie im Tagebuch. */
+function kulturImBeet(ort: string | null, kultur: string | null): string {
+	return `${kultur ?? 'Ohne Kultur'}, ${ort ?? 'Ohne Beet'}`;
 }
 
 /**
@@ -138,7 +171,8 @@ export function load({ locals }: ServerLoadEvent): {
  * und ist für alle sieben Seiten mit Formular dieselbe.
  *
  * `feld` ist `'mittel'`, `'kultur'`, `'ort'`, `'datum'` oder `'intervall'` am
- * Eintragen- wie am Ändern-Formular und null an den zwei Zeilen-Aktionen, die kein Feld haben.
+ * Eintragen- wie am Ändern-Formular und null an den vier actions, die kein Feld
+ * haben (wiederholen, wegnehmen, abschliessen, zuruecknehmen).
  * `zeile` trägt die Kennung der Behandlung, damit die Meldung an ihr steht statt
  * oben.
  *
@@ -454,6 +488,97 @@ export const actions = {
 			art: 'weggenommen' as const,
 			meldung: `Der Eintrag zu ${weg.mittel} ist weg.`,
 			zeile: id,
+		};
+	},
+
+	/**
+	 * Schliesst eine Kultur in einem Beet ab — alle offenen Zeilen mit diesem
+	 * Ort und dieser Kultur, mit einem gemeinsamen Zeitpunkt (Entscheid Manuel,
+	 * 2026-10-12). Sie verschwinden von dieser Seite und stehen als **eine**
+	 * Zeile im Archiv.
+	 *
+	 * **In zwei Schritten, an einer action** — nachverhandelt am 12.10.2026
+	 * (Manuel, nach dem Review): ein POST ohne `bestaetigt` ändert nichts und
+	 * fragt, erst der zweite schliesst ab. Dieselbe Bauform wie `wegnehmen`;
+	 * ohne JavaScript ist die Antwort auf den ersten POST ein vollständiges
+	 * Dokument mit der Frage an der Kultur. Der Grund für die Rückfrage, obwohl
+	 * es `Rückgängig` gibt: der Knopf hält nur bis zum nächsten Laden.
+	 *
+	 * Nach dem Bestätigen trägt die Antwort alles, was
+	 * `zuruecknehmen` braucht — Ort, Kultur und Zeitpunkt —, und die Seite
+	 * rendert daraus den Knopf `Rückgängig` in der Meldung. **In der
+	 * Oberfläche** lebt er nur in dieser Antwort; nach dem nächsten Laden ist
+	 * er fort (Spec, _Ask First_: Rückgängig aus dem Archiv). Die action
+	 * `zuruecknehmen` selbst kennt diese Grenze nicht — siehe dort.
+	 *
+	 * Ist nichts mehr offen — ein zweites Gerät hat schon abgeschlossen —,
+	 * ändert sich nichts, und es kommt der Satz für die veraltete Seite.
+	 */
+	abschliessen: async ({ request }: RequestEvent) => {
+		const formular = await request.formData();
+		const stelle = stelleLesen(formular);
+		if (stelle === null) {
+			return abweisen(BEHANDLUNG_NICHT_ANSPRECHBAR);
+		}
+		const { ort, kultur } = stelle;
+
+		// Schritt 1: fragen — nur lesend. `has` und nicht ein Wertvergleich, wie
+		// bei `wegnehmen`: das Feld ist eine Marke, kein Wert.
+		if (!formular.has('bestaetigt')) {
+			if (offeneAmOrtZaehlen(ort, kultur) === 0) {
+				return abweisen(BEHANDLUNG_NICHT_ANSPRECHBAR);
+			}
+			return { art: 'fragenAbschliessen' as const, ort, kultur };
+		}
+
+		// Schritt 2: schreiben.
+		const abschluss = kulturAbschliessen(ort, kultur, Math.floor(Date.now() / 1000));
+		if (abschluss === null) {
+			return abweisen(BEHANDLUNG_NICHT_ANSPRECHBAR);
+		}
+		return {
+			art: 'abgeschlossen' as const,
+			meldung: `Abgeschlossen: ${kulturImBeet(ort, kultur)}.`,
+			ort,
+			kultur,
+			abgeschlossenAm: abschluss.abgeschlossenAm,
+		};
+	},
+
+	/**
+	 * Nimmt einen Abschluss zurück — genau die Zeilen mit diesem Ort, dieser
+	 * Kultur und diesem Zeitpunkt werden wieder offen.
+	 *
+	 * Der Zeitpunkt kommt aus dem versteckten Feld des Knopfs `Rückgängig`. Ein
+	 * Wert, zu dem es keinen Abschluss gibt — erfunden, oder ein zweites Gerät
+	 * war schneller —, ändert nichts und bekommt denselben Satz wie jede
+	 * veraltete Seite.
+	 *
+	 * **Die action prüft nicht, ob der Abschluss gerade eben geschah.** Dass
+	 * `Rückgängig` nach dem nächsten Laden fort ist, ist eine Eigenschaft der
+	 * Oberfläche. Ein POST mit passendem Ort, passender Kultur und passendem
+	 * Zeitpunkt nimmt jeden Abschluss zurück, auch einen alten — dieselbe
+	 * Offenheit wie beim Ändern und Wegnehmen: jedes aktive Mitglied darf, und
+	 * der Wächter hat Aufrufe ohne Sitzung vorher abgewiesen.
+	 *
+	 * **Steht schon eine neue offene Reihe derselben Kultur da**, fliessen die
+	 * zurückgenommenen Zeilen mit ihr zu **einer** offenen Gruppe zusammen. Das
+	 * ist gewollt: offen ist offen, und das Tagebuch kennt keine Reihen,
+	 * sondern Beet, Kultur und Mittel.
+	 */
+	zuruecknehmen: async ({ request }: RequestEvent) => {
+		const formular = await request.formData();
+		const stelle = stelleLesen(formular);
+		const abgeschlossenAm = zahlLesen(formular.get('abgeschlossenAm'));
+		if (stelle === null || abgeschlossenAm === null) {
+			return abweisen(BEHANDLUNG_NICHT_ANSPRECHBAR);
+		}
+		if (abschlussZuruecknehmen(stelle.ort, stelle.kultur, abgeschlossenAm) === 0) {
+			return abweisen(BEHANDLUNG_NICHT_ANSPRECHBAR);
+		}
+		return {
+			art: 'zurueckgenommen' as const,
+			meldung: `Wieder offen: ${kulturImBeet(stelle.ort, stelle.kultur)}.`,
 		};
 	},
 } satisfies Actions;

@@ -128,6 +128,15 @@
 	/** Die Rückfrage vor dem Wegnehmen, wenn die action sie gestellt hat. */
 	const frage = $derived(form !== null && form.art === 'fragenWegnehmen' ? form : null);
 
+	/**
+		Die Rückfrage vor dem Abschliessen, wenn die action sie gestellt hat
+		(nachverhandelt am 12.10.2026, Manuel). Sie steht an **der** Kultur, deren
+		Ort und Kultur sie trägt — Zeichen für Zeichen, null gleich null.
+	*/
+	const abschlussFrage = $derived(form !== null && form.art === 'fragenAbschliessen' ? form : null);
+	const fragtAbschluss = (ort: string | null, kultur: string | null): boolean =>
+		abschlussFrage !== null && abschlussFrage.ort === ort && abschlussFrage.kultur === kultur;
+
 	/*
 		Ein Wurf in der action kommt als `result.type === 'error'` zurück. Der Satz
 		steht in derselben Live-Region wie ein Fehlschlag der action; einheitlich
@@ -300,8 +309,10 @@
 
 	/** Dasselbe für ein ganzes Beet, über alle Kulturen und Mittel darin. */
 	const beetOffen = (beet: (typeof tagebuch)[number]): boolean =>
-		beet.kulturen.some((kultur) =>
-			kultur.mittel.some((buendel) => eintraegeOffen(buendel.eintraege))
+		beet.kulturen.some(
+			(kultur) =>
+				fragtAbschluss(beet.ort, kultur.kultur) ||
+				kultur.mittel.some((buendel) => eintraegeOffen(buendel.eintraege))
 		);
 
 	const fehlerAmMittel = $derived(fehlerAm('mittel'));
@@ -354,16 +365,28 @@
 				: ''
 	);
 
-	/** Der Satz nach einer geglückten Handlung — vier actions, eine Region. */
+	/** Der Satz nach einer geglückten Handlung — sechs actions, eine Region. */
 	const meldungOben = $derived(
 		form !== null &&
 			(form.art === 'eingetragen' ||
 				form.art === 'wiederholt' ||
 				form.art === 'geaendert' ||
-				form.art === 'weggenommen')
+				form.art === 'weggenommen' ||
+				form.art === 'abgeschlossen' ||
+				form.art === 'zurueckgenommen')
 			? form.meldung
 			: ''
 	);
+
+	/**
+		Der Abschluss, den `Rückgängig` zurücknimmt — **nur aus der Antwort der
+		action**, nie aus den Seitendaten. Damit lebt der Knopf genau so lange wie
+		die Meldung: nach dem nächsten Laden ist `form` null und der Knopf fort.
+		Das ist eine Grenze **der Oberfläche**: die action `zuruecknehmen` nimmt
+		jeden Abschluss mit passendem Ort, Kultur und Zeitpunkt zurück — die
+		Begründung steht dort.
+	*/
+	const abschluss = $derived(form !== null && form.art === 'abgeschlossen' ? form : null);
 
 	let imFlug = $state(false);
 	let meldungKasten = $state<HTMLElement | null>(null);
@@ -450,6 +473,13 @@
 				aufklappen(document.getElementById(`wegnehmen-frage-${form.zeile}`));
 				return;
 			}
+			// Dasselbe für die Rückfrage vor dem Abschliessen: sie steht im Beet,
+			// das eben zugeklappt sein kann. Es gibt höchstens eine, darum eine
+			// feste Kennung.
+			if (form !== null && form.art === 'fragenAbschliessen') {
+				aufklappen(document.getElementById('abschliessen-frage'));
+				return;
+			}
 			meldungKasten?.focus();
 		};
 	};
@@ -474,11 +504,32 @@
 	<p class="meldung live" bind:this={meldungKasten} role="status" aria-live="polite" tabindex="-1">
 		{meldungOben}
 	</p>
+	{#if abschluss !== null}
+		<!--
+			`Rückgängig` zum eben geglückten Abschluss — **neben** der Live-Region und
+			nicht in ihr: ein Formular in einem <p> wäre kein gültiges Markup, und ein
+			Knopf in einer Region, die vorgelesen wird, würde mitgelesen. Der Fokus
+			springt nach dem Abschliessen auf die Meldung; der nächste Tab steht hier.
+
+			Die drei versteckten Felder sind der ganze Schlüssel des Abschlusses —
+			Ort, Kultur, Zeitpunkt. Leer heisst null, wie beim Abschliessen.
+
+			Ohne JavaScript kommt dasselbe Markup als Antwort auf den POST zurück; der
+			Knopf braucht nichts aus dem Browser.
+		-->
+		<form class="rueckgaengig" method="POST" action="?/zuruecknehmen" use:enhance={versand}>
+			<input type="hidden" name="ort" value={abschluss.ort ?? ''} />
+			<input type="hidden" name="kultur" value={abschluss.kultur ?? ''} />
+			<input type="hidden" name="abgeschlossenAm" value={abschluss.abgeschlossenAm} />
+			<button class="button-quiet button-quiet--kompakt" type="submit" disabled={imFlug}>
+				Rückgängig
+			</button>
+		</form>
+	{/if}
 
 	<p class="hinweis">
-		Jauche, Brühen und alles andere, was die Pflanzen stärkt. Anders als beim Erntestand bleibt hier
-		jede Zeile stehen — diese Mittel wirken nur in Wiederholung, und ohne „wann zuletzt" lässt sich
-		„wann wieder" nicht sagen. Die Rezepte stehen unter Wissen.
+		Jauche, Brühen und alles andere, was die Pflanzen stärkt. Jede Behandlung bleibt stehen, bis du
+		die Kultur im Beet abschliesst — dann steht sie im Archiv. Die Rezepte stehen unter Wissen.
 	</p>
 
 	{#if anstehend.length > 0}
@@ -735,7 +786,7 @@
 					ontoggle={(ereignis) => merken(`beet ${beet.schluessel}`, ereignis)}
 				>
 					<summary class="abschnitt__griff">
-						<h3 class="abschnittstitel">{beet.ort ?? 'Ohne Beet'}</h3>
+						<h3 class="abschnittstitel" id="tagebuch-{beetstelle}">{beet.ort ?? 'Ohne Beet'}</h3>
 						<ZeichenWinkel class="aufklapp" />
 					</summary>
 					<div class="abschnitt__inhalt">
@@ -748,7 +799,64 @@
 							in Beet 7 hiesse dann nach der Kultur in Beet 3.
 						-->
 							{@const marke = `tagebuch-${beetstelle}-${kulturstelle}`}
-							<h4 class="marke" id={marke}>{kultur.kultur ?? 'Ohne Kultur'}</h4>
+							<!--
+								**Abschliessen am Kulturtitel**, auch bei `Ohne Kultur` (Entscheid
+								Manuel, 2026-10-12): abgeschlossen wird die Kultur in diesem Beet,
+								alle Mittel darin. **Mit Rückfrage** (nachverhandelt am 12.10.2026,
+								Manuel): `Rückgängig` hält nur bis zum nächsten Laden. Der erste
+								Klick schickt ohne `bestaetigt` und bekommt die Frage zurück; sie
+								steht an Stelle des Knopfs, `Abbrechen` zuerst — dieselbe Bauform
+								wie die Rückfrage zum Wegnehmen.
+
+								Die versteckten Felder tragen Ort und Kultur **genau so, wie sie
+								gespeichert sind**; leer heisst null. Der Knopf hängt über
+								`aria-describedby` an der Marke **und** am Beettitel — er wird als
+								`Abschliessen, Tomaten Beet 3` gelesen. Nur die Marke reichte nicht:
+								Tomaten in Beet 3 und in Beet 7 hiessen dann gleich.
+							-->
+							<div class="kulturkopf">
+								<h4 class="marke" id={marke}>{kultur.kultur ?? 'Ohne Kultur'}</h4>
+								{#if !fragtAbschluss(beet.ort, kultur.kultur)}
+									<form method="POST" action="?/abschliessen" use:enhance={versand}>
+										<input type="hidden" name="ort" value={beet.ort ?? ''} />
+										<input type="hidden" name="kultur" value={kultur.kultur ?? ''} />
+										<button
+											class="button-quiet button-quiet--kompakt"
+											type="submit"
+											aria-describedby="{marke} tagebuch-{beetstelle}"
+											disabled={imFlug}
+										>
+											Abschliessen
+										</button>
+									</form>
+								{/if}
+							</div>
+							{#if fragtAbschluss(beet.ort, kultur.kultur)}
+								<div class="bestaetigung">
+									<p class="bestaetigung__text" id="abschliessen-frage">
+										{kultur.kultur ?? 'Ohne Kultur'} in {beet.ort ?? 'Ohne Beet'} abschliessen? Die Behandlungen
+										verschwinden von hier und stehen danach im Archiv.
+									</p>
+									<div class="knoepfe">
+										<!-- `Abbrechen` zuerst und als Link, wie beim Wegnehmen: er verwirft die
+										     Antwort der action, indem er die Seite neu holt. -->
+										<a class="button-quiet" href={resolve('/wellness')}>Abbrechen</a>
+										<form method="POST" action="?/abschliessen" use:enhance={versand}>
+											<input type="hidden" name="ort" value={beet.ort ?? ''} />
+											<input type="hidden" name="kultur" value={kultur.kultur ?? ''} />
+											<input type="hidden" name="bestaetigt" value="1" />
+											<button
+												class="button-quiet"
+												type="submit"
+												aria-describedby="abschliessen-frage"
+												disabled={imFlug}
+											>
+												Abschliessen
+											</button>
+										</form>
+									</div>
+								</div>
+							{/if}
 							<ul class="liste liste--getrennt" aria-labelledby={marke}>
 								{#each kultur.mittel as buendel (buendel.schluessel)}
 									<li class="karte karte--eng">
@@ -960,6 +1068,24 @@
 	*/
 	.eintraege__zeile + .eintraege__zeile {
 		border-top: var(--border-hairline) solid var(--hairline);
+	}
+
+	/*
+		Der Kulturtitel mit seinem Knopf in einer Zeile: die Marke links, der Knopf
+		rechts. Bricht um, wenn der Name der Kultur lang ist — der Knopf rutscht
+		dann unter die Marke, statt sie zu quetschen.
+	*/
+	.kulturkopf {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-2);
+	}
+
+	/* Der Knopf `Rückgängig` steht unter der Meldung, nicht über die ganze Breite. */
+	.rueckgaengig {
+		display: flex;
 	}
 
 	/*

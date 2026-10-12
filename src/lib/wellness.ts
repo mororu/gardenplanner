@@ -467,3 +467,105 @@ export function buendeln<T extends Anwendung>(zeilen: T[]): Beetbuendel<T>[] {
 	}
 	return [...beete.values()];
 }
+
+/**
+ * Eine abgeschlossene Zeile, wie das Archiv sie braucht — der **eine** Typ
+ * dafür: `abgeschlosseneBehandlungenLesen` in
+ * src/lib/server/db/queries/treatments.ts liefert genau ihn.
+ *
+ * **Ohne Namen, ohne Wiederholung und ohne `createdAt`** (Spec, _Never_: den
+ * Namen der eintragenden Person nicht ins Archiv, `intervallTage` und
+ * `createdAt` nicht in die Archiv-Seitendaten). Was die Abfrage nicht liefert,
+ * kann die load nicht weiterreichen — wer hier ein Feld ergänzt, öffnet diesen
+ * Weg.
+ */
+export type AbgeschlosseneAnwendung = {
+	id: number;
+	mittel: string;
+	kultur: string | null;
+	ort: string | null;
+	angewendetAm: number;
+	abgeschlossenAm: number;
+};
+
+/** Ein Abschluss: eine Kultur in einem Beet, zu einem Zeitpunkt abgeschlossen. */
+export type Abschluss = {
+	/** Die kleinste Kennung darin — eindeutig, weil jede Zeile zu genau einem Abschluss gehört. */
+	ersteId: number;
+	ort: string | null;
+	kultur: string | null;
+	abgeschlossenAm: number;
+	/** Je Mittel die Anzahl, das Mittel mit der jüngsten Anwendung zuerst. */
+	mittel: { mittel: string; anzahl: number }[];
+};
+
+/**
+ * Bündelt abgeschlossene Zeilen zu Abschlüssen — **je Ort, Kultur und
+ * Zeitpunkt einer** (Entscheid Manuel, 2026-10-12).
+ *
+ * Der Zeitpunkt gehört in den Schlüssel: wer Tomaten in Beet 3 abschliesst
+ * und im nächsten Jahr wieder, hat zwei Abschlüsse und im Archiv zwei Zeilen.
+ * `kulturAbschliessen` sorgt dafür, dass zwei Abschlüsse derselben Kultur
+ * nie denselben Zeitpunkt tragen.
+ *
+ * **Gezählt wird Zeichen für Zeichen**, wie in `stelle`: `Schachtelhalm` und
+ * `schachtelhalm` sind zwei Mittel. Die Mittel stehen nach ihrer jüngsten
+ * Anwendung, die jüngste zuerst, bei Gleichstand die höhere Kennung — dieselbe
+ * Wahl wie in `letzteJeStelle`.
+ *
+ * **Diese Funktion verlässt sich auf keine Eingabeordnung**: sie vergleicht
+ * selbst, aus dem Grund, der an `letzteJeStelle` steht. Die Abschlüsse kommen
+ * jüngster zuerst zurück, bei Gleichstand die kleinere erste Kennung zuerst.
+ */
+export function abschluesseBuendeln(zeilen: AbgeschlosseneAnwendung[]): Abschluss[] {
+	const gruppen = new Map<
+		string,
+		{
+			abschluss: Abschluss;
+			juengste: Map<string, { angewendetAm: number; id: number; anzahl: number }>;
+		}
+	>();
+	for (const zeile of zeilen) {
+		const schluessel = JSON.stringify([zeile.ort, zeile.kultur, zeile.abgeschlossenAm]);
+		let gruppe = gruppen.get(schluessel);
+		if (gruppe === undefined) {
+			gruppe = {
+				abschluss: {
+					ersteId: zeile.id,
+					ort: zeile.ort,
+					kultur: zeile.kultur,
+					abgeschlossenAm: zeile.abgeschlossenAm,
+					mittel: [],
+				},
+				juengste: new Map(),
+			};
+			gruppen.set(schluessel, gruppe);
+		}
+		gruppe.abschluss.ersteId = Math.min(gruppe.abschluss.ersteId, zeile.id);
+		const bisher = gruppe.juengste.get(zeile.mittel);
+		if (bisher === undefined) {
+			gruppe.juengste.set(zeile.mittel, {
+				angewendetAm: zeile.angewendetAm,
+				id: zeile.id,
+				anzahl: 1,
+			});
+		} else {
+			bisher.anzahl += 1;
+			if (
+				zeile.angewendetAm > bisher.angewendetAm ||
+				(zeile.angewendetAm === bisher.angewendetAm && zeile.id > bisher.id)
+			) {
+				bisher.angewendetAm = zeile.angewendetAm;
+				bisher.id = zeile.id;
+			}
+		}
+	}
+	return [...gruppen.values()]
+		.map(({ abschluss, juengste }) => ({
+			...abschluss,
+			mittel: [...juengste.entries()]
+				.sort(([, a], [, b]) => b.angewendetAm - a.angewendetAm || b.id - a.id)
+				.map(([mittel, { anzahl }]) => ({ mittel, anzahl })),
+		}))
+		.sort((a, b) => b.abgeschlossenAm - a.abgeschlossenAm || a.ersteId - b.ersteId);
+}
