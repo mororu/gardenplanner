@@ -2739,7 +2739,7 @@ try {
 	pruefen(
 		'und der Satz spricht von Rechten, nicht vom Zugang',
 		/verwaltungsrechte/i.test(EIGENE_RECHTE_GESCHUETZT) &&
-			EIGENE_RECHTE_GESCHUETZT !== EIGENER_ZUGANG_GESCHUETZT,
+			(EIGENE_RECHTE_GESCHUETZT as string) !== EIGENER_ZUGANG_GESCHUETZT,
 		JSON.stringify(EIGENE_RECHTE_GESCHUETZT)
 	);
 
