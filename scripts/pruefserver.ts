@@ -204,12 +204,20 @@ export type Saat = {
 	 */
 	abgehakteTexte: readonly [string, string];
 	/**
-	 * Die drei Behandlungen der Saat, mit den Angaben, die an einer Archivzeile
+	 * Die vier Behandlungen der Saat, mit den Angaben, die an einer Archivzeile
 	 * stehen. Seit dem 2026-10-11 liest smoke:sicht daraus, was die Suche nach
 	 * `Wellness` auf /archiv finden muss — statt die Texte ein zweites Mal von
-	 * Hand zu führen.
+	 * Hand zu führen. Seit dem 2026-10-12 auch, was die Mittelzeilen des
+	 * gebündelten Tagebuchs auf /wellness sagen müssen; dafür reisen Alter und
+	 * Wiederholung mit.
 	 */
-	behandlungen: readonly { mittel: string; kultur: string | null; ort: string | null }[];
+	behandlungen: readonly {
+		mittel: string;
+		kultur: string | null;
+		ort: string | null;
+		tage: number;
+		intervallTage: number | null;
+	}[];
 };
 
 /**
@@ -309,7 +317,7 @@ export function saeen(): Saat {
 	ernteEintragen({ kultur: 'Kürbis', ort: null, status: 'wachsen', laufend: false }, manu);
 
 	/*
-	 * **Drei Behandlungen, und eine davon überfällig** — aus demselben Grund wie
+	 * **Vier Behandlungen, und eine Stelle davon überfällig** — aus demselben Grund wie
 	 * die Erntezeilen darüber und mit einem Abschnitt mehr auf dem Spiel.
 	 *
 	 * /wellness rendert `Steht wieder an` nur, wenn eine Zeile eine Wiederholung
@@ -336,6 +344,13 @@ export function saeen(): Saat {
 	 * darum aus einem Feldwert statt aus `jetzt - n * TAG`: eine Uhrzeit in der
 	 * Spalte wäre eine Datenlage, die die Anwendung nie herstellt.
 	 *
+	 * **Die vierte seit dem 2026-10-12**: noch einmal Schachtelhalmbrühe an
+	 * den Tomaten in Beet 7, vor 34 Tagen. Das gebündelte Tagebuch zeigt je
+	 * Mittel eine Karte mit Anzahl, und ohne eine zweite Anwendung derselben
+	 * Stelle sähe der Sichtlauf nur `1×` — die Bündelung selbst wäre nie
+	 * gerendert. Sie ist älter als die erste, damit die Stelle überfällig bleibt
+	 * und `Steht wieder an` unverändert dasteht.
+	 *
 	 * Angelegt über die echte Abfrageschicht wie die Saat darüber.
 	 */
 	const jetztSekunden = Math.floor(Date.now() / 1000);
@@ -359,6 +374,7 @@ export function saeen(): Saat {
 			intervallTage: 21,
 		},
 		{ mittel: 'Kompost', kultur: null, ort: null, tage: 40, intervallTage: null },
+		{ mittel: 'Schachtelhalmbrühe', kultur: 'Tomaten', ort: 'Beet 7', tage: 34, intervallTage: 14 },
 	] as const;
 	for (const { mittel, kultur, ort, tage, intervallTage } of behandlungen) {
 		behandlungEintragen(
@@ -375,7 +391,7 @@ export function saeen(): Saat {
 		ueberfaelligText,
 		ueberfaelligWochen,
 		abgehakteTexte,
-		behandlungen: behandlungen.map(({ mittel, kultur, ort }) => ({ mittel, kultur, ort })),
+		behandlungen,
 	};
 }
 

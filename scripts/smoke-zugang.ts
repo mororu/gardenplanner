@@ -91,7 +91,7 @@ import {
 	signupTasks,
 	tasks,
 } from '../src/lib/server/db/schema.ts';
-import { letzteJeStelle, nachBeet } from '../src/lib/wellness.ts';
+import { buendeln, letzteJeStelle, nachBeet } from '../src/lib/wellness.ts';
 import { behandlungEintragen, behandlungenLesen } from '../src/lib/server/db/queries/treatments.ts';
 import { blattAnlegen, blattLesen } from '../src/lib/server/db/queries/sheets.ts';
 import type { AngemeldetesMitglied, NewTask } from '../src/lib/server/db/schema.ts';
@@ -271,7 +271,7 @@ import {
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 739;
+const ERWARTETE_BEHAUPTUNGEN = 746;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -10687,6 +10687,253 @@ try {
 			ausBeetordnung.includes(5),
 		`${JSON.stringify(ausBeetordnung)} gegen ${JSON.stringify(ausGegenrichtung)}`
 	);
+
+	/*
+	 * **Die Bündelung des Tagebuchs: Beet > Kultur > Mittel** (Entscheid Manuel,
+	 * 2026-10-12, spec-wellness-tagebuch-gebuendelt.md). Je Zeile der I/O-Matrix
+	 * eine Behauptung an der reinen Funktion, dazu drei Ränder: verschränkte
+	 * Beete, der Gleichstand am selben Tag und die leere Eingabe.
+	 *
+	 * **Was hier nicht steht:** die Abweisung hängt am Rendern und steht in
+	 * `smoke:sicht`. Der **gerenderte** Leerzustand (`Noch nichts eingetragen.`)
+	 * steht in keinem Lauf — die Saat des Sichtlaufs trägt immer Behandlungen,
+	 * und das Markup jenes Zweigs ist mit dieser Änderung unberührt geblieben.
+	 * Hier belegt ist nur, dass `buendeln` aus nichts nichts macht.
+	 *
+	 * Die Proben sind so gelegt, dass jede Zeile an einer eigenen Stelle bricht:
+	 * vier Mal Schachtelhalm an den Tomaten in Beet 3 (die Wiederholung), einmal
+	 * am Kohl daneben (zwei Kulturen), einmal `schachtelhalm` klein an den
+	 * Tomaten, zeitlich **zwischen** die grossgeschriebenen gelegt — damit steht
+	 * auch die Reihenfolge der Mittel nach ihrer jüngsten Anwendung auf dem Spiel
+	 * (die Schreibweise), Kompost ganz ohne Angabe (ohne Kultur und Ort)
+	 * und ein Beet 12, das natürlich hinter Beet 3 stehen muss.
+	 *
+	 * Gelesen wird eine Kurzform: je Mittel `[Mittel, Kennung der letzten,
+	 * Anzahl, Wiederholung der letzten, Kennungen der Einträge]`. Fehlt die
+	 * gesuchte Gruppe, ist die Kurzform `null` — die Behauptung wird rot, und der
+	 * Lauf geht weiter, statt an einem TypeError abzubrechen.
+	 */
+	const buendelProben = [
+		{
+			id: 1,
+			mittel: 'Schachtelhalm',
+			kultur: 'Tomaten',
+			ort: 'Beet 3',
+			angewendetAm: 100,
+			intervallTage: 14,
+		},
+		{
+			id: 2,
+			mittel: 'Schachtelhalm',
+			kultur: 'Tomaten',
+			ort: 'Beet 3',
+			angewendetAm: 200,
+			intervallTage: 14,
+		},
+		{
+			id: 3,
+			mittel: 'Schachtelhalm',
+			kultur: 'Tomaten',
+			ort: 'Beet 3',
+			angewendetAm: 300,
+			intervallTage: null,
+		},
+		{
+			id: 4,
+			mittel: 'Schachtelhalm',
+			kultur: 'Tomaten',
+			ort: 'Beet 3',
+			angewendetAm: 400,
+			intervallTage: 14,
+		},
+		{
+			id: 5,
+			mittel: 'Schachtelhalm',
+			kultur: 'Kohl',
+			ort: 'Beet 3',
+			angewendetAm: 250,
+			intervallTage: 14,
+		},
+		{ id: 6, mittel: 'Kompost', kultur: null, ort: null, angewendetAm: 50, intervallTage: null },
+		{
+			id: 7,
+			mittel: 'schachtelhalm',
+			kultur: 'Tomaten',
+			ort: 'Beet 3',
+			angewendetAm: 350,
+			intervallTage: null,
+		},
+		{
+			id: 8,
+			mittel: 'Brennnessel',
+			kultur: 'Tomaten',
+			ort: 'Beet 12',
+			angewendetAm: 10,
+			intervallTage: 21,
+		},
+	];
+	const gebuendelt = buendeln(buendelProben);
+	type Kurzform = [string, number, number, number | null, number[]][] | null;
+	const kurzformAus = (
+		buendel: ReturnType<typeof buendeln>,
+		ort: string | null,
+		kultur: string | null
+	): Kurzform =>
+		buendel
+			.find((beet) => beet.ort === ort)
+			?.kulturen.find((eintrag) => eintrag.kultur === kultur)
+			?.mittel.map((mittel) => [
+				mittel.mittel,
+				mittel.letzte.id,
+				mittel.eintraege.length,
+				mittel.letzte.intervallTage,
+				mittel.eintraege.map((zeile) => zeile.id),
+			]) ?? null;
+	const kurzform = (ort: string | null, kultur: string | null): string =>
+		JSON.stringify(kurzformAus(gebuendelt, ort, kultur));
+	pruefenGleich(
+		'buendeln: vier Mal dasselbe Mittel an derselben Kultur im selben Beet ist eine Karte — letzte zuerst, Anzahl 4, Wiederholung der jüngsten',
+		JSON.stringify(kurzformAus(gebuendelt, 'Beet 3', 'Tomaten')?.[0] ?? null),
+		JSON.stringify(['Schachtelhalm', 4, 4, 14, [4, 3, 2, 1]])
+	);
+	pruefenGleich(
+		'buendeln: dasselbe Mittel an zwei Kulturen eines Beets ergibt ein Beet mit zwei Kulturtiteln, je mit eigener Karte',
+		JSON.stringify(
+			gebuendelt
+				.filter((beet) => beet.ort === 'Beet 3')
+				.map((beet) => beet.kulturen.map((eintrag) => eintrag.kultur))
+		) +
+			' ' +
+			kurzform('Beet 3', 'Kohl'),
+		JSON.stringify([['Kohl', 'Tomaten']]) + ' ' + JSON.stringify([['Schachtelhalm', 5, 1, 14, [5]]])
+	);
+	pruefenGleich(
+		'buendeln: Beete natürlich geordnet, das ohne Ort zuunterst und darin die Kultur null',
+		JSON.stringify(
+			gebuendelt.map((beet) => [beet.ort, beet.kulturen.map((eintrag) => eintrag.kultur)])
+		) +
+			' ' +
+			kurzform(null, null),
+		JSON.stringify([
+			['Beet 3', ['Kohl', 'Tomaten']],
+			['Beet 12', ['Tomaten']],
+			[null, [null]],
+		]) +
+			' ' +
+			JSON.stringify([['Kompost', 6, 1, null, [6]]])
+	);
+	/*
+	 * **Die Mutation, gegen die das steht**, vorgeführt am 2026-10-12: der
+	 * Mittelschlüssel in `buendeln` über `zeile.mittel.toLowerCase()` gebildet
+	 * statt über `stelle`. Dann fallen `Schachtelhalm` und `schachtelhalm` in eine
+	 * Karte mit fünf Einträgen, und diese Zeile wird rot — mit ihr die erste,
+	 * deren Anzahl auf 5 springt. Eine zweite Mutation, ebenfalls vorgeführt:
+	 * `buendeln` ohne `nachBeet` über die Zeilen in Eingabereihenfolge — alle
+	 * vier Zeilen werden rot (Beet ohne Ort mitten zwischen den Beeten, Kohl
+	 * hinter Tomaten, letzte Anwendung 1 statt 4).
+	 */
+	pruefenGleich(
+		'buendeln: `Schachtelhalm` und `schachtelhalm` sind zwei Karten, die jüngere Anwendung zuerst',
+		kurzform('Beet 3', 'Tomaten'),
+		JSON.stringify([
+			['Schachtelhalm', 4, 4, 14, [4, 3, 2, 1]],
+			['schachtelhalm', 7, 1, null, [7]],
+		])
+	);
+
+	/*
+	 * **Verschränkte Beete.** `natuerlich` hält `Beet 03` und `Beet 3` für
+	 * gleich (die Ziffern vergleichen sich als Zahlen), `nachBeet` ordnet ihre
+	 * Zeilen darum nur nach dem Tag — und sie liegen ineinander. Gebündelt wird
+	 * trotzdem Zeichen für Zeichen: zwei Beete, nicht drei. Die erste Hälfte der
+	 * Behauptung hält fest, dass die Probe wirklich verschränkt ist; ohne sie
+	 * prüfte die zweite nach einer Änderung an `natuerlich` nichts mehr.
+	 *
+	 * Vorgeführt am 2026-10-12: `buendeln` mit einem Vergleich gegen die
+	 * Vorgängerzeile statt der Zuordnung ergibt drei Beete, und die Zeile wird
+	 * rot.
+	 */
+	const verschraenkt = [
+		{
+			id: 11,
+			mittel: 'Kompost',
+			kultur: null,
+			ort: 'Beet 03',
+			angewendetAm: 100,
+			intervallTage: null,
+		},
+		{
+			id: 12,
+			mittel: 'Kompost',
+			kultur: null,
+			ort: 'Beet 3',
+			angewendetAm: 200,
+			intervallTage: null,
+		},
+		{
+			id: 13,
+			mittel: 'Kompost',
+			kultur: null,
+			ort: 'Beet 03',
+			angewendetAm: 300,
+			intervallTage: null,
+		},
+	];
+	pruefenGleich(
+		'buendeln: `Beet 03` und `Beet 3` liegen in nachBeet verschränkt und ergeben trotzdem genau zwei Beete',
+		JSON.stringify([
+			nachBeet(verschraenkt).map((zeile) => zeile.ort),
+			buendeln(verschraenkt).map((beet) => [
+				beet.ort,
+				beet.kulturen.flatMap((kultur) =>
+					kultur.mittel.flatMap((mittel) => mittel.eintraege.map((zeile) => zeile.id))
+				),
+			]),
+		]),
+		JSON.stringify([
+			['Beet 03', 'Beet 3', 'Beet 03'],
+			[
+				['Beet 03', [13, 11]],
+				['Beet 3', [12]],
+			],
+		])
+	);
+
+	/*
+	 * **Der Gleichstand am selben Tag.** `angewendet_am` ist ein Tagesende und
+	 * für alle Zeilen eines Tages derselbe Wert; dann gewinnt die höhere
+	 * Kennung als `letzte` — dieselbe Wahl wie in `letzteJeStelle`, sonst
+	 * stünde auf der Karte eine andere Wiederholung, als `Steht wieder an`
+	 * rechnet. Die zwei Zeilen tragen darum verschiedene Wiederholungen.
+	 *
+	 * Vorgeführt am 2026-10-12: `letzte` bei jeder weiteren Zeile überschrieben
+	 * (also die zuletzt gelesene statt der ersten) macht diese Zeile rot.
+	 */
+	const gleicherTag = [
+		{
+			id: 20,
+			mittel: 'Jauche',
+			kultur: 'Kohl',
+			ort: 'Beet 5',
+			angewendetAm: 500,
+			intervallTage: 14,
+		},
+		{
+			id: 21,
+			mittel: 'Jauche',
+			kultur: 'Kohl',
+			ort: 'Beet 5',
+			angewendetAm: 500,
+			intervallTage: 7,
+		},
+	];
+	pruefenGleich(
+		'buendeln: zwei Anwendungen am selben Tag — die höhere Kennung ist die letzte, mit ihrer Wiederholung',
+		JSON.stringify(kurzformAus(buendeln(gleicherTag), 'Beet 5', 'Kohl')),
+		JSON.stringify([['Jauche', 21, 2, 7, [21, 20]]])
+	);
+
+	pruefenGleich('buendeln: aus keiner Zeile wird kein Beet', JSON.stringify(buendeln([])), '[]');
 
 	// -----------------------------------------------------------------------
 	// Das Löschen eines Blatts — nur mit Adminrecht, Entscheid Manuel 2026-09-20

@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import type { SubmitFunction } from '@sveltejs/kit';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import type { PageProps } from './$types';
 	import { datumKurz } from '$lib/client/utils/date';
 	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
@@ -21,6 +21,7 @@
 		MITTEL,
 		MITTELLISTE,
 		MITTEL_HOECHSTLAENGE,
+		buendeln,
 		letzteJeStelle,
 		nachBeet,
 		tageBisWieder,
@@ -65,12 +66,25 @@
 		Zeichenkettensortierung, und Zeilen ohne Ort stehen zuunterst. Die
 		Begründung in ganzer Länge steht dort.
 
-		**Beide Listen dieser Seite entstehen daraus**, und das ist der Grund, aus
-		dem die Sortierung hier oben steht und nicht an einer der zwei Stellen:
-		`Steht wieder an` soll in derselben Reihenfolge stehen wie das Tagebuch
-		darunter, sonst sucht man dieselbe Zeile zweimal an verschiedenen Plätzen.
+		**Beide Listen dieser Seite folgen dieser Ordnung**: `Steht wieder an`
+		entsteht aus `geordnet`, das Tagebuch aus `buendeln`, das dieselbe
+		`nachBeet` darüberlegt und nur bündelt. Sonst sucht man dieselbe Zeile
+		zweimal an verschiedenen Plätzen.
 	*/
 	const geordnet = $derived(nachBeet(data.tagebuch));
+
+	/**
+		Das Tagebuch, gebündelt: Beet > Kultur > Mittel > Einträge.
+
+		**Aus `data.tagebuch` und nicht aus `geordnet`, obwohl `buendeln` damit ein
+		zweites Mal sortiert.** Die Funktion legt `nachBeet` selbst darüber, weil
+		ihr Ergebnis von der Reihenfolge der Eingabe abhängt — jede Gruppe steht an
+		der Stelle ihrer ersten Zeile. Eine Fassung, die sich auf eine schon
+		geordnete Eingabe verliesse, wäre dieselbe Kopplung, die `letzteJeStelle`
+		am 2026-09-20 abgelegt hat. Der Preis ist eine zweite Sortierung über die
+		Zeilen eines Gartens, also über wenige hundert.
+	*/
+	const tagebuch = $derived(buendeln(data.tagebuch));
 
 	const anstehend = $derived(
 		letzteJeStelle(geordnet)
@@ -222,6 +236,74 @@
 	const zeileAbgewiesen = (id: number): boolean =>
 		form !== null && form.art === 'fehler' && form.zeile === id;
 
+	/**
+		Ob unter diesen Einträgen einer etwas zurückzutragen hat — eine Abweisung
+		beim Ändern oder die Rückfrage zum Wegnehmen. Dann stehen das Mittel und
+		das Beet darüber offen.
+
+		**Das gilt für den Anfangszustand, den der Server rendert** — ohne
+		JavaScript ist es der einzige, und ohne diese Bedingung stünde ein
+		Fehlersatz hinter einem zugeklappten Griff. Mit JavaScript liest das
+		Markup sie nur beim Entstehen eines Aufklappers (`istOffen`); danach
+		führt der Browser den Zustand, und `aufklappen` in `versand` öffnet die
+		Kette nach einer Abweisung oder Rückfrage. Entscheid Manuel, 12.10.2026,
+		nachverhandelt nach dem Review.
+	*/
+	const eintraegeOffen = (eintraege: { id: number }[]): boolean =>
+		eintraege.some(
+			(eintrag) => zeileAbgewiesen(eintrag.id) || (frage !== null && frage.zeile === eintrag.id)
+		);
+
+	/**
+		Der Aufklappzustand von Beet und Mittel — **anfangs vom Server, danach vom
+		Browser geführt** (Nachverhandlung vom 12.10.2026).
+
+		Zwei Teile, und beide sind nötig; beides ist gemessen, nicht vermutet:
+
+		- **Der Anfang wird einmal je Schlüssel gelesen und festgehalten**
+		  (`anfangszustand`). Svelte setzt `open` als Eigenschaft in einem Effekt,
+		  der alle Angaben eines Blocks zusammen schreibt und bei jeder Änderung
+		  einer davon neu läuft. Ein reaktiver Ausdruck fiel nach einem geglückten
+		  Ändern von true auf false, und das Beet klappte unter der Hand zu. Ein
+		  `untrack` daran half nicht: der Effekt läuft trotzdem neu und liest den
+		  Ausdruck dabei frisch.
+		- **Was der Browser aufklappt, wird gemerkt** (`ontoggle` in
+		  `aufklappzustand`). Ohne das schriebe derselbe Effekt beim nächsten Lauf
+		  den festgehaltenen Anfang zurück — ein Beet, das jemand aufgeklappt hat,
+		  ginge nach einem geglückten Ändern wieder zu. So liest der Effekt den
+		  Zustand, den das Element ohnehin hat, und ändert nichts.
+
+		Ein gewöhnliches Objekt für den Anfang und kein `$state`: es soll nichts
+		auslösen (und keine `Map`, die eslint mit `svelte/prefer-svelte-reactivity`
+		zu einer reaktiven machen will — genau das wäre hier falsch). Im
+		Server-HTML und beim Hydrieren entsteht es je frisch und liest dieselbe
+		Antwort, beide Male also denselben Wert. Ihre Grenze,
+		ausgeschrieben: ein Aufklapper, der mit demselben Schlüssel neu entsteht
+		(ein Beet, das leer wird und wiederkommt), bekommt den gemerkten Zustand
+		zurück. Das Öffnen nach einer Abweisung übernimmt mit JavaScript ohnehin
+		`aufklappen`.
+	*/
+	const anfangszustand: Record<string, boolean> = {};
+	const aufklappzustand = $state<Record<string, boolean>>({});
+	const istOffen = (schluessel: string, anfang: () => boolean): boolean => {
+		const gemerkt = aufklappzustand[schluessel];
+		if (gemerkt !== undefined) return gemerkt;
+		const bekannt = anfangszustand[schluessel];
+		if (bekannt !== undefined) return bekannt;
+		const wert = untrack(anfang);
+		anfangszustand[schluessel] = wert;
+		return wert;
+	};
+	const merken = (schluessel: string, ereignis: Event): void => {
+		aufklappzustand[schluessel] = (ereignis.currentTarget as HTMLDetailsElement).open;
+	};
+
+	/** Dasselbe für ein ganzes Beet, über alle Kulturen und Mittel darin. */
+	const beetOffen = (beet: (typeof tagebuch)[number]): boolean =>
+		beet.kulturen.some((kultur) =>
+			kultur.mittel.some((buendel) => eintraegeOffen(buendel.eintraege))
+		);
+
 	const fehlerAmMittel = $derived(fehlerAm('mittel'));
 	const fehlerAmKultur = $derived(fehlerAm('kultur'));
 	const fehlerAmOrt = $derived(fehlerAm('ort'));
@@ -287,6 +369,23 @@
 	let meldungKasten = $state<HTMLElement | null>(null);
 	let fehlerKasten = $state<HTMLElement | null>(null);
 
+	/**
+		Öffnet jedes `<details>`, in dem das Element steht — Formular, Mittel,
+		Beet —, von innen nach aussen.
+
+		**Auch die von Hand zugeklappten.** Das Markup öffnet Beet und Mittel nur
+		beim Entstehen (siehe `eintraegeOffen`); eine Abweisung in einem Beet, das
+		jemand eben zugeklappt hat, fände ihr Feld sonst nicht, und `focus()` auf
+		einem Element ohne Darstellung tut nichts — still, ohne Fehler.
+	*/
+	const aufklappen = (element: Element | null): void => {
+		let behaelter = element?.closest('details') ?? null;
+		while (behaelter !== null) {
+			behaelter.open = true;
+			behaelter = behaelter.parentElement?.closest('details') ?? null;
+		}
+	};
+
 	const versand: SubmitFunction = ({ cancel }) => {
 		if (imFlug) {
 			cancel();
@@ -333,7 +432,9 @@
 					feld === 'intervall'
 				) {
 					const kennung = zeile === null ? `neu-${feld}` : `aendern-${zeile}-${feld}`;
-					document.getElementById(kennung)?.focus();
+					const ziel = document.getElementById(kennung);
+					aufklappen(ziel);
+					ziel?.focus();
 					return;
 				}
 				fehlerKasten?.focus();
@@ -342,9 +443,13 @@
 			/*
 				Eine Rückfrage bekommt **keinen** Fokussprung nach oben: sie steht an
 				der Zeile, und der Blick soll dort bleiben. Dieselbe Entscheidung wie
-				beim Abernten auf /ernte.
+				beim Abernten auf /ernte. Aufgeklappt wird trotzdem: die Frage steht
+				in einem Mittel und einem Beet, die eben zugeklappt sein können.
 			*/
-			if (form !== null && form.art === 'fragenWegnehmen') return;
+			if (form !== null && form.art === 'fragenWegnehmen') {
+				aufklappen(document.getElementById(`wegnehmen-frage-${form.zeile}`));
+				return;
+			}
 			meldungKasten?.focus();
 		};
 	};
@@ -590,127 +695,281 @@
 		<!-- Der leere Zustand sagt, was gilt; der Weg heraus steht darüber. -->
 		<p class="leer">Noch nichts eingetragen.</p>
 	{:else}
-		<h2 class="marke" id="tagebuch-marke">Tagebuch</h2>
-		<ul class="liste liste--getrennt" aria-labelledby="tagebuch-marke">
-			{#each geordnet as eintrag (eintrag.id)}
-				{@const fragtHier = frage !== null && frage.zeile === eintrag.id}
-				<li class="karte karte--eng">
-					<p class="zeile__text">
-						{eintrag.mittel}{#if eintrag.kultur !== null}, {eintrag.kultur}{/if}{#if eintrag.ort !== null},
-							{eintrag.ort}{/if}
-					</p>
-					<!--
-						Name und Datum: nicht als Zuständigkeit, sondern als Herkunft — wann
-						es war und wen man fragen kann. Ein fehlender Name kann nur aus
-						einem Eingriff von Hand an der Datenbank stammen; die Zeile bleibt
-						dann trotzdem lesbar.
+		<!--
+			Das Tagebuch, **gebündelt nach Beet, Kultur und Mittel** (Entscheid
+			Manuel, 2026-10-12). Die Bündelung steht in `buendeln` in
+			$lib/wellness.ts; hier wird nur gerendert.
 
-						`angewendet_am` und nicht `created_at`: gefragt ist der Tag der
-						Behandlung, nicht der des Eintragens.
-					-->
-					<p class="hinweis hinweis--ziffern">
-						{datumKurz(eintrag.angewendetAm)} · {vorWann(
-							tageZurueck(eintrag.angewendetAm, data.jetzt)
-						)} · {eintrag.name ?? 'unbekannt'}
-					</p>
-					{#if eintrag.intervallTage !== null}
-						<p class="hinweis">Wiederholt sich alle {eintrag.intervallTage} Tage.</p>
-					{/if}
+			Vier Ebenen, aber nur **zwei Behälter** — DESIGN.md kennt Grund und Karte
+			und eine halbe dritte, keine weitere:
+			  - das Beet ist ein Abschnitt, ein Aufklapper mit Kante;
+			  - die Kultur ist ein Zwischentitel ohne eigenen Behälter, und als Marke
+			    zugleich der zugängliche Name der Liste darunter;
+			  - das Mittel ist eine Karte mit der letzten Anwendung und der Anzahl;
+			  - die Einträge stehen in der Karte als getrennte Zeilen hinter einem
+			    leichten Griff — keine Karte in der Karte.
 
-					{#if fragtHier && frage !== null}
-						<div class="bestaetigung">
-							<p class="bestaetigung__text" id="wegnehmen-frage-{eintrag.id}">
-								Den Eintrag zu {frage.mittel}{#if frage.ort !== null}, {frage.ort}{/if} wegnehmen? Die
-								Behandlung hat stattgefunden — weg ist nur die Auskunft darüber.
-							</p>
-							<div class="knoepfe">
-								<!-- `Abbrechen` steht zuerst: die Reihenfolge im DOM ist die
-								     Fokusreihenfolge, und die zusagende Handlung soll nicht die
-								     erste sein. Ein Link und kein Knopf — er verwirft die Antwort
-								     der action, indem er die Seite neu holt. -->
-								<a class="button-quiet" href={resolve('/wellness')}>Abbrechen</a>
-								<form method="POST" action="?/wegnehmen" use:enhance={versand}>
-									<input type="hidden" name="id" value={eintrag.id} />
-									<input type="hidden" name="bestaetigt" value="1" />
-									<button
-										class="button-quiet button-quiet--zerstoerend"
-										type="submit"
-										aria-describedby="wegnehmen-frage-{eintrag.id}"
-										disabled={imFlug}
-									>
-										Wegnehmen
-									</button>
-								</form>
-							</div>
-						</div>
-					{:else}
-						<!--
-							**Ändern und Wegnehmen stehen nebeneinander**, das Ändern zuerst:
-							es ist die häufigere und die harmlosere der zwei. Während die
-							Rückfrage zum Wegnehmen steht, sind beide fort — dort ist genau
-							eine Frage zu beantworten.
+			**Das erste Beet steht offen, die übrigen zugeklappt** — dieselbe
+			Abwägung wie beim Jahr auf /archiv: ganz zugeklappt zeigt die Seite nur
+			Beetnamen, ganz offen ist sie die lange Liste, gegen die diese Bündelung
+			gebaut ist.
 
-							Das Ändern ist ein `<details>` und das Wegnehmen ein Knopf, und
-							der Unterschied ist die Ehrlichkeit des Aufklappers: dahinter
-							kommt ein Formular mit fünf Feldern. Dieselbe geteilte
-							`.zeilenform` wie oben.
+			**`istOffen` am `open` von Beet und Mittel**, und das ist der Kern
+			der Nachverhandlung vom 12.10.2026: der Ausdruck wird gelesen, wenn der
+			Aufklapper entsteht — im Server-HTML und beim Hydrieren —, und danach
+			nicht mehr. Reaktiv klappte Svelte ein Beet nach einem geglückten Ändern
+			unter der Hand zu (der Ausdruck fällt auf false), und eine zweite
+			Abweisung in einem von Hand zugeklappten Beet (true bleibt true) liesse
+			es zu. Ab dem Entstehen führt der Browser den Zustand; nach einer
+			Abweisung oder Rückfrage öffnet `aufklappen` die Kette.
 
-							**Offen, sobald diese Zeile abgewiesen wurde** — vom Server
-							entschieden, nicht von einem Client-Zustand. Ohne JavaScript läuft
-							kein Rückruf, und ein zugeklapptes Formular mit einem Fehlersatz
-							darunter wäre eine Meldung über etwas, das man nicht sieht.
-							`form.zeile` sagt, welche Zeile gemeint ist; ohne diese Bedingung
-							klappten bei einem Tippfehler **alle** Zeilen auf.
+			Die `section` trägt den Namen `Tagebuch` über die Marke, wie die Liste
+			unter `Steht wieder an` den ihren.
+		-->
+		<section class="tagebuch" aria-labelledby="tagebuch-marke">
+			<h2 class="marke" id="tagebuch-marke">Tagebuch</h2>
+			{#each tagebuch as beet, beetstelle (beet.schluessel)}
+				<details
+					class="abschnitt"
+					open={istOffen(`beet ${beet.schluessel}`, () => beetstelle === 0 || beetOffen(beet))}
+					ontoggle={(ereignis) => merken(`beet ${beet.schluessel}`, ereignis)}
+				>
+					<summary class="abschnitt__griff">
+						<h3 class="abschnittstitel">{beet.ort ?? 'Ohne Beet'}</h3>
+						<ZeichenWinkel class="aufklapp" />
+					</summary>
+					<div class="abschnitt__inhalt">
+						{#each beet.kulturen as kultur, kulturstelle (kultur.schluessel)}
+							<!--
+							Die Kennung trägt **die Stelle von Beet und Kultur** und nicht
+							ihre Namen: beide sind getippter Text, und eine Kennung aus
+							Leerzeichen und Umlauten wäre keine. Zwei gleiche Kennungen im
+							Dokument liessen `aria-labelledby` die erste finden — die Liste
+							in Beet 7 hiesse dann nach der Kultur in Beet 3.
 						-->
-						<details class="zeilenform" open={zeileAbgewiesen(eintrag.id)}>
-							<summary class="zeilenform__griff">
-								<span>Ändern</span>
-								<ZeichenWinkel class="aufklapp" />
-							</summary>
-							<form
-								class="zeilenform__formular"
-								method="POST"
-								action="?/aendern"
-								use:enhance={versand}
-							>
-								<input type="hidden" name="id" value={eintrag.id} />
-								{#each AENDERFELDER as feld (feld.name)}
-									{@const fehler = fehlerAnZeile(feld.name, eintrag.id)}
-									{@const kennung = `aendern-${eintrag.id}-${feld.name}`}
-									<div>
-										<label class="feld__beschriftung" for={kennung}>{feld.wort}</label>
-										<input
-											class="feld"
-											id={kennung}
-											name={feld.name}
-											type={feld.art}
-											list={feld.liste}
-											required={feld.pflicht}
-											inputmode={feld.ziffern ? 'numeric' : undefined}
-											maxlength={feld.laenge}
-											min={feld.art === 'date' ? data.frueheste : undefined}
-											max={feld.art === 'date' ? data.spaeteste : undefined}
-											value={feld.wert(eintrag)}
-											aria-invalid={fehler !== '' ? 'true' : undefined}
-											aria-describedby={fehler !== '' ? `${kennung}-fehler` : undefined}
-										/>
-										<p class="fehler live" id="{kennung}-fehler" role="alert" aria-live="assertive">
-											{fehler}
+							{@const marke = `tagebuch-${beetstelle}-${kulturstelle}`}
+							<h4 class="marke" id={marke}>{kultur.kultur ?? 'Ohne Kultur'}</h4>
+							<ul class="liste liste--getrennt" aria-labelledby={marke}>
+								{#each kultur.mittel as buendel (buendel.schluessel)}
+									<li class="karte karte--eng">
+										<p class="zeile__text">{buendel.mittel}</p>
+										<!--
+										Die Wiederholung ist die der **jüngsten** Anwendung: sie
+										entscheidet, ob und wann das Mittel wieder ansteht — siehe
+										`letzteJeStelle`. Eine ältere Zeile mit anderem Abstand sagt
+										darüber nichts mehr.
+									-->
+										<p class="hinweis hinweis--ziffern">
+											zuletzt {datumKurz(buendel.letzte.angewendetAm)} · {buendel.eintraege
+												.length}×{buendel.letzte.intervallTage === null
+												? ''
+												: ` · alle ${buendel.letzte.intervallTage} Tage`}
 										</p>
-									</div>
+										<!--
+										**Anfangs offen, sobald einer der Einträge darin abgewiesen
+										wurde oder die Rückfrage zum Wegnehmen trägt** — vom Server
+										entschieden, aus demselben Grund wie das Ändern darunter: ohne
+										JavaScript klappt nichts nachträglich auf. `istOffen` aus dem
+										Grund, der am Beet steht.
+									-->
+										<details
+											class="eintraege"
+											open={istOffen(`mittel ${buendel.schluessel}`, () =>
+												eintraegeOffen(buendel.eintraege)
+											)}
+											ontoggle={(ereignis) => merken(`mittel ${buendel.schluessel}`, ereignis)}
+										>
+											<summary class="zeilenform__griff">
+												<span>Einträge</span>
+												<ZeichenWinkel class="aufklapp" />
+											</summary>
+											<ul class="liste">
+												{#each buendel.eintraege as eintrag (eintrag.id)}
+													{@const fragtHier = frage !== null && frage.zeile === eintrag.id}
+													<li class="eintraege__zeile">
+														<!--
+														Datum, Abstand und Name: nicht als Zuständigkeit,
+														sondern als Herkunft — wann es war und wen man fragen
+														kann. Ein fehlender Name kann nur aus einem Eingriff
+														von Hand an der Datenbank stammen; die Zeile bleibt
+														dann trotzdem lesbar.
+
+														`angewendet_am` und nicht `created_at`: gefragt ist der
+														Tag der Behandlung, nicht der des Eintragens.
+													-->
+														<p class="hinweis hinweis--ziffern">
+															{datumKurz(eintrag.angewendetAm)} · {vorWann(
+																tageZurueck(eintrag.angewendetAm, data.jetzt)
+															)} · {eintrag.name ?? 'unbekannt'}
+														</p>
+
+														{#if fragtHier && frage !== null}
+															<div class="bestaetigung">
+																<p class="bestaetigung__text" id="wegnehmen-frage-{eintrag.id}">
+																	Den Eintrag zu {frage.mittel}{#if frage.ort !== null}, {frage.ort}{/if}
+																	wegnehmen? Die Behandlung hat stattgefunden — weg ist nur die Auskunft
+																	darüber.
+																</p>
+																<div class="knoepfe">
+																	<!-- `Abbrechen` steht zuerst: die Reihenfolge im DOM ist die
+																     Fokusreihenfolge, und die zusagende Handlung soll nicht die
+																     erste sein. Ein Link und kein Knopf — er verwirft die Antwort
+																     der action, indem er die Seite neu holt. -->
+																	<a class="button-quiet" href={resolve('/wellness')}>Abbrechen</a>
+																	<form method="POST" action="?/wegnehmen" use:enhance={versand}>
+																		<input type="hidden" name="id" value={eintrag.id} />
+																		<input type="hidden" name="bestaetigt" value="1" />
+																		<button
+																			class="button-quiet button-quiet--zerstoerend"
+																			type="submit"
+																			aria-describedby="wegnehmen-frage-{eintrag.id}"
+																			disabled={imFlug}
+																		>
+																			Wegnehmen
+																		</button>
+																	</form>
+																</div>
+															</div>
+														{:else}
+															<!--
+															**Ändern und Wegnehmen stehen nebeneinander**, das
+															Ändern zuerst: es ist die häufigere und die harmlosere
+															der zwei. Während die Rückfrage zum Wegnehmen steht,
+															sind beide fort — dort ist genau eine Frage zu
+															beantworten.
+
+															Das Ändern ist ein `<details>` und das Wegnehmen ein
+															Knopf, und der Unterschied ist die Ehrlichkeit des
+															Aufklappers: dahinter kommt ein Formular mit fünf
+															Feldern. Dieselbe geteilte `.zeilenform` wie oben.
+
+															**Offen, sobald diese Zeile abgewiesen wurde** — vom
+															Server entschieden, nicht von einem Client-Zustand.
+															`form.zeile` sagt, welche Zeile gemeint ist; ohne diese
+															Bedingung klappten bei einem Tippfehler **alle** Zeilen
+															auf. Damit das Formular nicht hinter einem
+															geschlossenen Griff offen steht, öffnen dieselbe
+															Bedingung auch das Mittel und das Beet darüber
+															(`eintraegeOffen`, `beetOffen`).
+														-->
+															<details class="zeilenform" open={zeileAbgewiesen(eintrag.id)}>
+																<summary class="zeilenform__griff">
+																	<span>Ändern</span>
+																	<ZeichenWinkel class="aufklapp" />
+																</summary>
+																<form
+																	class="zeilenform__formular"
+																	method="POST"
+																	action="?/aendern"
+																	use:enhance={versand}
+																>
+																	<input type="hidden" name="id" value={eintrag.id} />
+																	{#each AENDERFELDER as feld (feld.name)}
+																		{@const fehler = fehlerAnZeile(feld.name, eintrag.id)}
+																		{@const kennung = `aendern-${eintrag.id}-${feld.name}`}
+																		<div>
+																			<label class="feld__beschriftung" for={kennung}
+																				>{feld.wort}</label
+																			>
+																			<input
+																				class="feld"
+																				id={kennung}
+																				name={feld.name}
+																				type={feld.art}
+																				list={feld.liste}
+																				required={feld.pflicht}
+																				inputmode={feld.ziffern ? 'numeric' : undefined}
+																				maxlength={feld.laenge}
+																				min={feld.art === 'date' ? data.frueheste : undefined}
+																				max={feld.art === 'date' ? data.spaeteste : undefined}
+																				value={feld.wert(eintrag)}
+																				aria-invalid={fehler !== '' ? 'true' : undefined}
+																				aria-describedby={fehler !== ''
+																					? `${kennung}-fehler`
+																					: undefined}
+																			/>
+																			<p
+																				class="fehler live"
+																				id="{kennung}-fehler"
+																				role="alert"
+																				aria-live="assertive"
+																			>
+																				{fehler}
+																			</p>
+																		</div>
+																	{/each}
+																	<button class="button-quiet" type="submit" disabled={imFlug}
+																		>Ablegen</button
+																	>
+																</form>
+															</details>
+															<form method="POST" action="?/wegnehmen" use:enhance={versand}>
+																<input type="hidden" name="id" value={eintrag.id} />
+																<button
+																	class="button-quiet button-quiet--kompakt"
+																	type="submit"
+																	disabled={imFlug}
+																>
+																	Wegnehmen
+																</button>
+															</form>
+														{/if}
+													</li>
+												{/each}
+											</ul>
+										</details>
+									</li>
 								{/each}
-								<button class="button-quiet" type="submit" disabled={imFlug}>Ablegen</button>
-							</form>
-						</details>
-						<form method="POST" action="?/wegnehmen" use:enhance={versand}>
-							<input type="hidden" name="id" value={eintrag.id} />
-							<button class="button-quiet button-quiet--kompakt" type="submit" disabled={imFlug}>
-								Wegnehmen
-							</button>
-						</form>
-					{/if}
-				</li>
+							</ul>
+						{/each}
+					</div>
+				</details>
 			{/each}
-		</ul>
+		</section>
 	{/if}
 </div>
+
+<style>
+	/*
+		Die Einträge eines Mittels, **in** der Karte und ohne eigenen Behälter —
+		eine Karte in der Karte wäre die dritte Ebene, die DESIGN.md nicht kennt.
+
+		Der Griff ist der geteilte `.zeilenform__griff`, nur ohne seinen
+		seitlichen Innenabstand: er steht hier nicht in einem Rahmen, sondern
+		bündig unter dem Text der Karte, und mit dem Abstand stünde er eingerückt
+		wie ein Kind der Zeile darüber. Die Höhe von 44px bleibt (`min-height`).
+	*/
+	.eintraege > summary {
+		padding-inline: 0;
+	}
+
+	/* Ein Eintrag: Datumszeile, dann Ändern und Wegnehmen oder die Rückfrage. */
+	.eintraege__zeile {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding-block: var(--space-2);
+	}
+
+	/*
+		Die Haarlinie steht **zwischen** zwei Einträgen und nicht über dem ersten.
+		Sie ist eine Trennlinie der Zeilen und gehört zu keinem Bedienelement;
+		über dem ersten Eintrag läge sie direkt unter dem Griff und sähe aus wie
+		seine Unterkante — eine Kante, die DESIGN.md einem Griff ausdrücklich
+		nicht gibt. Den Abstand zum Griff trägt der Innenabstand der Zeile.
+	*/
+	.eintraege__zeile + .eintraege__zeile {
+		border-top: var(--border-hairline) solid var(--hairline);
+	}
+
+	/*
+		Das Tagebuch als eine Region mit Namen. Der Abstand zwischen den Beeten ist
+		enger als der zwischen den Abschnitten der Seite: sie gehören zu einer
+		Liste.
+	*/
+	.tagebuch {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+</style>

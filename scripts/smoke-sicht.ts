@@ -68,7 +68,7 @@ import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-t
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 79;
+const ERWARTETE_BEHAUPTUNGEN = 93;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -1566,6 +1566,433 @@ try {
 		drehungOffen !== drehungZu && wiederOffen,
 		`offen ${drehungOffen}, zu ${drehungZu}, danach offen: ${wiederOffen}`
 	);
+
+	// -----------------------------------------------------------------------
+	// /wellness: das Tagebuch gebündelt, und eine Abweisung findet ihr Feld
+	// -----------------------------------------------------------------------
+	/*
+	 * **Die Bündelung nach Beet > Kultur > Mittel** (spec-wellness-tagebuch-
+	 * gebuendelt.md, 2026-10-12). Welche Zeilen zu welcher Karte gehören, prüft
+	 * `smoke` an `buendeln` selbst; hier gemessen wird, was nur gerendert zu
+	 * sehen ist: was offen steht, was die Mittelzeile sagt, wie die Einträge
+	 * aufgehen, und ob eine Abweisung oder Rückfrage in einem **zugeklappten**
+	 * Beet ihr Ziel noch findet — ohne JavaScript über das Server-HTML, mit
+	 * JavaScript über `aufklappen` in `versand`.
+	 *
+	 * Die Saat (scripts/pruefserver.ts) trägt vier Behandlungen in drei Beeten:
+	 * zweimal Schachtelhalmbrühe in Beet 7, Brennnesseljauche in Hochbeet 3,
+	 * Kompost ohne Ort. **Die Reihenfolge der Beete ist hier ausgeschrieben** und
+	 * nicht aus der Saat gerechnet: sie aus den Ortsnamen herzuleiten hiesse,
+	 * `natuerlich` ein zweites Mal zu schreiben. Was jede Mittelzeile sagen muss,
+	 * kommt dagegen aus der Saat — Anzahl, Wiederholung der jüngsten, und die
+	 * Gruppe, in der sie steht.
+	 *
+	 * Die Abweisung und die Rückfrage gehen an das **zweite** Beet: das erste
+	 * steht ohnehin offen, und eine Zusage über das Öffnen wäre dort grün, ohne
+	 * etwas zu belegen.
+	 *
+	 * Gemessen wird über `checkVisibility()` — aus dem Grund, der bei /archiv
+	 * steht: unter einem zugeklappten `<details>` behalten die Nachkommen in
+	 * Chrome ihre Rechtecke.
+	 *
+	 * **Die vorgeführten Mutationen** stehen im Spec Change Log der Spec, je
+	 * Behauptung mit dem, was rot wurde.
+	 */
+	const BEETE_DER_SAAT = ['Beet 7', 'Hochbeet 3', 'Ohne Beet'];
+	await browser.besuchen(`${adresse}/wellness`);
+	const tagebuchStand = await browser.auswerten<{
+		beete: string[];
+		offen: boolean[];
+		karten: { beet: string; kultur: string; mittel: string; hinweis: string }[];
+		eintraegeSichtbar: boolean;
+		zweitesSichtbar: boolean;
+		griffHoehen: number[];
+	}>(`
+		const beete = [...document.querySelectorAll('section.tagebuch details.abschnitt')];
+		const karten = beete.flatMap((beet) =>
+			[...beet.querySelectorAll('.karte')].map((karte) => {
+				const marke = document.getElementById(karte.closest('ul').getAttribute('aria-labelledby'));
+				return {
+					beet: beet.querySelector('summary').textContent.trim(),
+					kultur: marke === null ? '(ohne Marke)' : marke.textContent.trim(),
+					mittel: karte.querySelector('.zeile__text').textContent.trim(),
+					hinweis: karte.querySelector('.hinweis--ziffern').textContent.replace(/\\s+/g, ' ').trim(),
+				};
+			})
+		);
+		const erste = beete[0] ?? null;
+		return {
+			beete: beete.map((d) => d.querySelector('summary').textContent.trim()),
+			offen: beete.map((d) => d.open),
+			karten,
+			eintraegeSichtbar: erste?.querySelector('.eintraege__zeile')?.checkVisibility() ?? true,
+			zweitesSichtbar: beete[1]?.querySelector('.karte .zeile__text')?.checkVisibility() ?? true,
+			griffHoehen: [...(erste?.querySelectorAll('details.eintraege > summary') ?? [])].map((g) =>
+				Math.round(g.getBoundingClientRect().height)
+			),
+		};`);
+	pruefenGleich(
+		'/wellness: die Beete stehen in der Ordnung der Saat da, das erste offen, die übrigen zu',
+		tagebuchStand.beete
+			.map((beet, stelle) => `${beet} ${tagebuchStand.offen[stelle] ? 'offen' : 'zu'}`)
+			.join(' | '),
+		BEETE_DER_SAAT.map((beet, stelle) => `${beet} ${stelle === 0 ? 'offen' : 'zu'}`).join(' | ')
+	);
+
+	/*
+	 * **Je Stelle der Saat genau eine Karte**, und ihre Zeile genau so, wie die
+	 * Spec sie vorschreibt: `zuletzt {Datum} · {n}×`, und ` · alle {x} Tage` nur,
+	 * wenn die jüngste Anwendung eine Wiederholung trägt. Das Datum wird nur der
+	 * Form nach gelesen — es hängt am Tag des Laufs. Der Kompost ohne
+	 * Wiederholung ist die Karte, an der ein immer gerenderter Anhang auffällt;
+	 * die Schachtelhalmbrühe die, an der die Anzahl über 1 steht.
+	 */
+	const stellenDerSaat = new Map<
+		string,
+		{
+			beet: string;
+			kultur: string;
+			mittel: string;
+			anzahl: number;
+			tage: number;
+			intervallTage: number | null;
+		}
+	>();
+	for (const behandlung of saat.behandlungen) {
+		const schluessel = JSON.stringify([behandlung.mittel, behandlung.kultur, behandlung.ort]);
+		const bisher = stellenDerSaat.get(schluessel);
+		if (bisher === undefined) {
+			stellenDerSaat.set(schluessel, {
+				beet: behandlung.ort ?? 'Ohne Beet',
+				kultur: behandlung.kultur ?? 'Ohne Kultur',
+				mittel: behandlung.mittel,
+				anzahl: 1,
+				tage: behandlung.tage,
+				intervallTage: behandlung.intervallTage,
+			});
+		} else {
+			bisher.anzahl += 1;
+			if (behandlung.tage < bisher.tage) {
+				bisher.tage = behandlung.tage;
+				bisher.intervallTage = behandlung.intervallTage;
+			}
+		}
+	}
+	const DATUM_FORM = String.raw`\d{1,2}\. \S+ \d{4}`;
+	const mittelzeilenBefunde = [...stellenDerSaat.values()].flatMap((stelle) => {
+		const gefunden = tagebuchStand.karten.filter(
+			(karte) =>
+				karte.beet === stelle.beet &&
+				karte.kultur === stelle.kultur &&
+				karte.mittel === stelle.mittel
+		);
+		const anhang = stelle.intervallTage === null ? '' : ` · alle ${stelle.intervallTage} Tage`;
+		const form = new RegExp(`^zuletzt ${DATUM_FORM} · ${stelle.anzahl}×${anhang}$`);
+		if (gefunden.length !== 1)
+			return [`${stelle.mittel} in ${stelle.beet}: ${gefunden.length} Karten`];
+		return form.test(gefunden[0].hinweis)
+			? []
+			: [`${stelle.mittel}: ${JSON.stringify(gefunden[0].hinweis)}`];
+	});
+	pruefen(
+		`/wellness: je Stelle der Saat genau eine Karte, und ihre Zeile trägt Anzahl und — nur wenn gesetzt — die Wiederholung (${stellenDerSaat.size} Stellen, ${tagebuchStand.karten.length} Karten)`,
+		mittelzeilenBefunde.length === 0 && tagebuchStand.karten.length === stellenDerSaat.size,
+		mittelzeilenBefunde.join(' | ') || JSON.stringify(tagebuchStand.karten)
+	);
+	pruefen(
+		'/wellness: die Einträge stehen erst nach dem Aufklappen da, und das zweite Beet ist zu',
+		!tagebuchStand.eintraegeSichtbar && !tagebuchStand.zweitesSichtbar,
+		JSON.stringify({
+			eintraege: tagebuchStand.eintraegeSichtbar,
+			zweitesBeet: tagebuchStand.zweitesSichtbar,
+		})
+	);
+	pruefen(
+		`/wellness: jeder Einträge-Griff im ersten Beet ist mindestens ${TREFFER_MINIMUM}px hoch`,
+		tagebuchStand.griffHoehen.length > 0 &&
+			tagebuchStand.griffHoehen.every((hoehe) => hoehe >= TREFFER_MINIMUM),
+		`Höhen: ${tagebuchStand.griffHoehen.join(', ') || '(kein Griff)'}`
+	);
+
+	/*
+	 * **Der Einträge-Griff ist ein `.zeilenform__griff` ausserhalb einer
+	 * `.zeilenform`.** Die Drehung des Winkels hängt im Blatt an
+	 * `details[open] > .zeilenform__griff .aufklapp` und damit am `<details>`
+	 * irgendeiner Klasse; das wird hier gemessen statt angenommen. Geöffnet
+	 * wird die Karte mit mehr als einem Eintrag — nur dort gibt es eine Linie
+	 * **zwischen** zwei Einträgen, und die erste Zeile darf keine tragen: sie
+	 * läge direkt unter dem Griff.
+	 */
+	const MEHRFACH_GRIFF = await browser.auswerten<string>(`
+		const karten = [...document.querySelectorAll('section.tagebuch details.abschnitt[open] .karte')];
+		const karte = karten.find((k) => k.querySelectorAll('.eintraege__zeile').length > 1);
+		if (karte === undefined) return '';
+		karte.querySelector('details.eintraege').id = 'mehrfach-eintraege';
+		return '#mehrfach-eintraege > summary';`);
+	pruefen(
+		'/wellness: im ersten Beet steht eine Karte mit mehr als einem Eintrag',
+		MEHRFACH_GRIFF !== '',
+		'keine Karte mit zwei Einträgen im offenen Beet — die Saat trägt keine zweite Anwendung mehr?'
+	);
+	if (MEHRFACH_GRIFF !== '') {
+		const winkel = `return getComputedStyle(document.querySelector('${MEHRFACH_GRIFF} .aufklapp')).transform;`;
+		const winkelZu = await browser.auswerten<string>(winkel);
+		await browser.klicken(MEHRFACH_GRIFF);
+		const winkelOffen = await browser.auswerten<string>(winkel);
+		const linien = await browser.auswerten<string[]>(`
+			return [...document.querySelectorAll('#mehrfach-eintraege .eintraege__zeile')].map(
+				(zeile) => getComputedStyle(zeile).borderTopWidth
+			);`);
+		pruefen(
+			'/wellness: der Winkel am Einträge-Griff dreht sich beim Aufklappen',
+			winkelZu !== winkelOffen,
+			`zu ${winkelZu}, offen ${winkelOffen}`
+		);
+		pruefen(
+			'/wellness: die Einträge sind nur untereinander getrennt — keine Linie über dem ersten, eine über jedem weiteren',
+			linien.length > 1 &&
+				parseFloat(linien[0]) === 0 &&
+				linien.slice(1).every((breite) => parseFloat(breite) > 0),
+			`Linien oben: ${linien.join(', ')}`
+		);
+	}
+
+	/*
+	 * Das Ziel im zweiten Beet: das Mittelfeld des Ändern-Formulars seiner
+	 * ersten Zeile. Fehlt das Beet oder das Feld, endet das hier als benannte
+	 * rote Behauptung und nicht als Wurf an einer Null — und die Messungen
+	 * darunter laufen nicht, was die Schlusszählung zusätzlich rot macht.
+	 */
+	const ziel = await browser.auswerten<{ feld: string; id: string; wert: string } | null>(`
+		const beet = document.querySelectorAll('section.tagebuch details.abschnitt')[1];
+		const feld = beet?.querySelector('input[name="mittel"][id^="aendern-"]') ?? null;
+		if (feld === null) return null;
+		return {
+			feld: feld.id,
+			id: feld.form.querySelector('input[name="id"]').value,
+			wert: feld.value,
+		};`);
+	pruefen(
+		'/wellness: das zweite Beet trägt eine Zeile mit Ändern-Formular',
+		ziel !== null,
+		'kein zweites Beet oder kein Feld aendern-…-mittel darin'
+	);
+
+	if (ziel !== null) {
+		const zielFeld = JSON.stringify(ziel.feld);
+		const frageKennung = JSON.stringify(`wegnehmen-frage-${ziel.id}`);
+
+		/*
+		 * **Ohne JavaScript** — das zweite Abnahmekriterium der Spec. Ein POST
+		 * ohne den Kopf von `use:enhance` bekommt von SvelteKit die ganze Seite
+		 * zurück, genau die, die ein Browser ohne Skript anzeigen würde. Gelesen
+		 * wird das zurückgekommene HTML: die umgebenden `<details>` müssen das
+		 * Attribut `open` tragen — **vom Server**, denn ohne Skript gibt es
+		 * niemanden sonst, der es setzte.
+		 *
+		 * Der Weg über `window` hat einen Grund im Messkopf: `auswerten` reicht
+		 * einen Wert über `JSON.stringify` zurück, und ein Promise ergäbe dort
+		 * `{}`. Die Antwort wird darum abgelegt und mit `warten` abgeholt.
+		 */
+		const ohneSkript = async (
+			aktion: 'aendern' | 'wegnehmen',
+			ankerKennung: string
+		): Promise<{
+			beet: boolean;
+			mittel: boolean;
+			formular: boolean;
+			anker: boolean;
+			fehler: string;
+		}> => {
+			await browser!.auswerten(`
+				const feld = document.getElementById(${zielFeld});
+				let daten;
+				if (${JSON.stringify(aktion)} === 'aendern') {
+					daten = new FormData(feld.form);
+					daten.set('mittel', '   ');
+				} else {
+					daten = new FormData();
+					daten.set('id', ${JSON.stringify(ziel.id)});
+				}
+				window.__ohneSkript = undefined;
+				fetch('?/' + ${JSON.stringify(aktion)}, { method: 'POST', body: daten, headers: { accept: 'text/html' } })
+					.then((antwort) => antwort.text())
+					.then((html) => { window.__ohneSkript = html; })
+					.catch((fehler) => { window.__ohneSkript = 'Wurf: ' + fehler; });
+				return true;`);
+			await browser!.warten(
+				"typeof window.__ohneSkript === 'string'",
+				`die Antwort auf ?/${aktion} ohne Skript ist da`
+			);
+			return browser!.auswerten(`
+				const dok = new DOMParser().parseFromString(window.__ohneSkript, 'text/html');
+				const anker = dok.getElementById(${JSON.stringify(ankerKennung)});
+				if (anker === null) return { beet: false, mittel: false, formular: false, anker: false, fehler: '' };
+				return {
+					beet: anker.closest('details.abschnitt')?.hasAttribute('open') ?? false,
+					mittel: anker.closest('details.eintraege')?.hasAttribute('open') ?? false,
+					formular: anker.closest('details.zeilenform')?.hasAttribute('open') ?? false,
+					anker: true,
+					fehler: dok.getElementById(${JSON.stringify(ziel.feld + '-fehler')})?.textContent.trim() ?? '',
+				};`);
+		};
+
+		const abweisungOhneSkript = await ohneSkript('aendern', ziel.feld);
+		pruefen(
+			'ohne JavaScript kommt eine Abweisung in einem zugeklappten Beet mit offenem Beet, offenem Mittel und offenem Formular zurück',
+			abweisungOhneSkript.anker &&
+				abweisungOhneSkript.beet &&
+				abweisungOhneSkript.mittel &&
+				abweisungOhneSkript.formular &&
+				abweisungOhneSkript.fehler !== '',
+			JSON.stringify(abweisungOhneSkript)
+		);
+		const rueckfrageOhneSkript = await ohneSkript('wegnehmen', `wegnehmen-frage-${ziel.id}`);
+		pruefen(
+			'ohne JavaScript kommt die Wegnehmen-Rückfrage in einem zugeklappten Beet mit offenem Beet und offenem Mittel zurück',
+			rueckfrageOhneSkript.anker && rueckfrageOhneSkript.beet && rueckfrageOhneSkript.mittel,
+			JSON.stringify(rueckfrageOhneSkript)
+		);
+
+		/*
+		 * **Mit JavaScript.** Abgeschickt wird über `requestSubmit()`, also durch
+		 * `use:enhance`. Gewartet wird nicht auf einen Text — bei der zweiten
+		 * Abweisung steht derselbe Fehlersatz schon da —, sondern darauf, dass
+		 * `imFlug` einmal gesetzt und wieder gelöst war: abgelesen am Knopf
+		 * `Eintragen`, der als einziger Knopf der Seite immer dasteht und
+		 * `disabled={imFlug}` trägt. Zwei Bildaufbauten danach, damit der Fokus
+		 * nach `tick()` gesetzt ist.
+		 */
+		const abschickenUndAbwarten = async (ausloeser: string, was: string): Promise<void> => {
+			await browser!.auswerten(`
+				window.__durch = false;
+				const knopf = document.querySelector('form[action="?/eintragen"] button[type="submit"]');
+				let gesperrt = false;
+				const beobachter = new MutationObserver(() => {
+					if (knopf.disabled) gesperrt = true;
+					else if (gesperrt) {
+						beobachter.disconnect();
+						requestAnimationFrame(() => requestAnimationFrame(() => { window.__durch = true; }));
+					}
+				});
+				beobachter.observe(knopf, { attributes: true, attributeFilter: ['disabled'] });
+				${ausloeser}
+				return true;`);
+			await browser!.warten('window.__durch === true', was);
+		};
+		const ZUKLAPPEN = `
+			document.getElementById(${zielFeld}).closest('details.abschnitt').open = false;
+			document.getElementById(${zielFeld}).closest('details.eintraege').open = false;
+			document.activeElement?.blur();`;
+		const kette = () =>
+			browser!.auswerten<{
+				beet: boolean;
+				mittel: boolean;
+				formular: boolean;
+				fokus: string;
+				sichtbar: boolean;
+			}>(`
+				const feld = document.getElementById(${zielFeld});
+				return {
+					beet: feld.closest('details.abschnitt').open,
+					mittel: feld.closest('details.eintraege').open,
+					formular: feld.closest('details.zeilenform').open,
+					fokus: document.activeElement?.id ?? '(keins)',
+					sichtbar: feld.checkVisibility(),
+				};`);
+		const kettePasst = (stand: Awaited<ReturnType<typeof kette>>) =>
+			stand.beet && stand.mittel && stand.formular && stand.sichtbar && stand.fokus === ziel.feld;
+
+		/*
+		 * **(a) Eine Abweisung in einem von Hand zugeklappten Beet**, zweimal
+		 * hintereinander. Die zweite ist der Fall aus dem Review: das Markup
+		 * hätte dort true auf true gesetzt und damit nichts getan.
+		 */
+		await browser.auswerten(`${ZUKLAPPEN} return true;`);
+		await abschickenUndAbwarten(
+			`const feld = document.getElementById(${zielFeld}); feld.value = '   '; feld.form.requestSubmit();`,
+			'die erste Abweisung mit JavaScript ist zurück'
+		);
+		const ersteAbweisung = await kette();
+		pruefen(
+			'mit JavaScript öffnet eine Abweisung im zugeklappten Beet Beet, Mittel und Formular, und der Fokus liegt im Feld',
+			kettePasst(ersteAbweisung),
+			`${JSON.stringify(ersteAbweisung)}, erwartet Fokus auf ${ziel.feld}`
+		);
+		await browser.auswerten(`${ZUKLAPPEN} return true;`);
+		await abschickenUndAbwarten(
+			`const feld = document.getElementById(${zielFeld}); feld.value = '   '; feld.form.requestSubmit();`,
+			'die zweite Abweisung mit JavaScript ist zurück'
+		);
+		const zweiteAbweisung = await kette();
+		pruefen(
+			'und eine zweite Abweisung, nachdem das Beet wieder von Hand zugeklappt wurde, öffnet die Kette erneut',
+			kettePasst(zweiteAbweisung),
+			`${JSON.stringify(zweiteAbweisung)}, erwartet Fokus auf ${ziel.feld}`
+		);
+
+		/*
+		 * **(b) Ein geglücktes Ändern klappt nichts zu.** Abgeschickt wird mit
+		 * dem ursprünglichen Mittel, abgelesen vor der ersten Abweisung, also ohne
+		 * die Saat zu verändern — spätere Messungen auf /archiv lesen sie noch.
+		 * Nicht über `defaultValue`: Svelte setzt `value` als Eigenschaft, das
+		 * Attribut bleibt leer, und das `required` hielte den Versand still an.
+		 */
+		await abschickenUndAbwarten(
+			`const feld = document.getElementById(${zielFeld}); feld.value = ${JSON.stringify(ziel.wert)}; feld.form.requestSubmit();`,
+			'das geglückte Ändern ist zurück'
+		);
+		const nachErfolg = await browser.auswerten<{
+			beet: boolean;
+			mittel: boolean;
+			meldung: string;
+		}>(`
+			const feld = document.getElementById(${zielFeld});
+			return {
+				beet: feld.closest('details.abschnitt').open,
+				mittel: feld.closest('details.eintraege').open,
+				meldung: document.querySelector('.meldung').textContent.trim(),
+			};`);
+		pruefen(
+			'nach einem geglückten Ändern im zweiten Beet bleiben Beet und Mittel offen',
+			nachErfolg.beet && nachErfolg.mittel && nachErfolg.meldung !== '',
+			JSON.stringify(nachErfolg)
+		);
+
+		/*
+		 * **Die Rückfrage mit JavaScript**, wieder aus einem zugeklappten Beet.
+		 * Kein Fokussprung (Entscheid wie auf /ernte), aber die Frage muss zu
+		 * sehen sein — sonst steht eine Frage, die niemand findet, und alle
+		 * anderen Knöpfe der Zeile sind fort.
+		 */
+		await browser.auswerten(`${ZUKLAPPEN} return true;`);
+		await abschickenUndAbwarten(
+			`[...document.querySelectorAll('form[action="?/wegnehmen"]')]
+				.find((f) => f.querySelector('input[name="id"]').value === ${JSON.stringify(ziel.id)} &&
+					f.querySelector('input[name="bestaetigt"]') === null)
+				.requestSubmit();`,
+			'die Rückfrage mit JavaScript ist zurück'
+		);
+		const rueckfrage = await browser.auswerten<{
+			da: boolean;
+			sichtbar: boolean;
+			beet: boolean;
+			mittel: boolean;
+		}>(`
+			const frage = document.getElementById(${frageKennung});
+			if (frage === null) return { da: false, sichtbar: false, beet: false, mittel: false };
+			return {
+				da: true,
+				sichtbar: frage.checkVisibility(),
+				beet: frage.closest('details.abschnitt').open,
+				mittel: frage.closest('details.eintraege').open,
+			};`);
+		pruefen(
+			'mit JavaScript öffnet die Wegnehmen-Rückfrage im zugeklappten Beet Beet und Mittel, und die Frage ist zu sehen',
+			rueckfrage.da && rueckfrage.sichtbar && rueckfrage.beet && rueckfrage.mittel,
+			JSON.stringify(rueckfrage)
+		);
+	}
 
 	// -----------------------------------------------------------------------
 	// Die zweite Sitzung: als Adminperson

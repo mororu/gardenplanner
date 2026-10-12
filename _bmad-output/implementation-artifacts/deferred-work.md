@@ -1400,3 +1400,14 @@ werden** — sie sind zurückgestellt und nicht abgeschlossen.
 - source_spec: Befund am 2026-09-20 beim Bau der Dokumentablage
   summary: Eine **verwaiste Datei** in `dokumente/` wird von nichts gefunden und von nichts aufgeräumt.
   evidence: Abgelegt wird Datei-dann-Zeile, gelöscht Zeile-dann-Datei — beide Reihenfolgen sind so gewählt, dass ein Abbruch dazwischen höchstens eine Datei ohne Zeile hinterlässt und nie eine Zeile ohne Inhalt. Das ist die harmlose Richtung, und sie ist bewusst gewählt. Was fehlt, ist der Weg zurück: eine solche Datei ist unerreichbar, belegt Platz und wandert bei jeder Sicherung ins tar. Bei zwanzig Leuten und einer Handvoll Merkblättern ist das auf Jahre kein Fall, und ein automatischer Aufräumer wäre gefährlicher als das Problem — er löschte anhand einer Abfrage, deren Fehlschlag Dateien kostet. Die ruhige Fassung wäre ein Skript, das **meldet** statt löscht: welche Namen in `dokumente/` in keiner Zeile vorkommen. Erst nötig, wenn es je einen Abbruch gegeben hat.
+
+- source_spec: none
+  summary: Archiv bündelt Wellnessbehandlungen pro Monat zu einer Zeile je Beet/Kultur («Beet 3 · Tomaten: Schachtelhalm 2×, Jauche 1×», darunter «Okt 2026 · Wellness»).
+  evidence: Am 2026-10-12 von Manuel zusammen mit dem gebündelten Tagebuch entschieden und als zweites, getrennt auslieferbares Ziel abgetrennt; kommt direkt nach spec-wellness-tagebuch-gebuendelt.md.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-wellness-tagebuch-gebuendelt.md`
+  summary: «Abbrechen» in der Wegnehmen-Rückfrage auf /wellness lädt die Seite neu und klappt das gebündelte Tagebuch auf den Anfangszustand zurück (nur das erste Beet offen).
+  evidence: Review 2026-10-12. Der Link auf `/wellness` verwirft die Antwort der action durch Neuladen; in der flachen Liste war das harmlos, im gebündelten Tagebuch muss man Beet und Mittel erneut aufklappen. Ein Anker allein öffnet kein `details`; eine Lösung bräuchte einen Parameter oder Client-Logik.
+- source_spec: `_bmad-output/implementation-artifacts/spec-wellness-tagebuch-gebuendelt.md`
+  summary: Der Sichtlauf misst auf /wellness die aufgeklappten Einzeleinträge (Ändern-Griffe, Wegnehmen-Knöpfe) nicht mehr auf Kontrast und Trefferfläche.
+  evidence: Review 2026-10-12. Seit der Bündelung liegen sie in zugeklappten `details`; derselbe Fall wie `.dienst` (AGENTS.md): ein Zustand, den der Sichtlauf nicht herstellt, wird nie gemessen. Ein Messschritt mit aufgeklapptem Mittel würde es decken.

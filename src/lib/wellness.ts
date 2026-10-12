@@ -377,3 +377,93 @@ function natuerlich(a: string, b: string): number {
 	}
 	return links.length - rechts.length;
 }
+
+/** Ein Mittel an einer Kultur in einem Beet — eine Karte im Tagebuch. */
+export type Mittelbuendel<T extends Anwendung> = {
+	/** Mittel, Kultur und Ort, wie `stelle` sie bildet — eindeutig, als Schlüssel. */
+	schluessel: string;
+	mittel: string;
+	/** Die jüngste Anwendung; aus ihr kommen Datum und Wiederholung der Karte. */
+	letzte: T;
+	/** Alle Anwendungen dieses Mittels hier, jüngste zuerst — ihre Zahl ist die Anzahl der Karte. */
+	eintraege: T[];
+};
+
+/** Eine Kultur in einem Beet — ein Zwischentitel, kein Behälter. */
+export type Kulturbuendel<T extends Anwendung> = {
+	schluessel: string;
+	kultur: string | null;
+	mittel: Mittelbuendel<T>[];
+};
+
+/** Ein Beet — ein Abschnitt im Tagebuch. */
+export type Beetbuendel<T extends Anwendung> = {
+	schluessel: string;
+	ort: string | null;
+	kulturen: Kulturbuendel<T>[];
+};
+
+/**
+ * Das Tagebuch gebündelt: **Beet > Kultur > Mittel** (Entscheid Manuel,
+ * 2026-10-12). Je Mittel eine Karte mit der letzten Anwendung und der Anzahl;
+ * die Einzeleinträge stehen darunter.
+ *
+ * Der Grund ist die Wiederholung selbst: Schachtelhalm alle 14 Tage ergibt bis
+ * zum Herbst ein Dutzend Karten mit demselben Wort, und die Liste beantwortete
+ * „was war in Beet 3?" erst nach dem Scrollen über alle.
+ *
+ * **Diese Funktion sortiert nicht selbst.** Sie legt `nachBeet` darüber und
+ * bündelt in der Reihenfolge, in der die Zeilen von dort kommen — jede Gruppe
+ * steht an der Stelle ihrer ersten Zeile. Daraus folgt alles, was die Seite
+ * zusagt, ohne eine zweite Sortierlogik:
+ *   - Beete und Kulturen stehen natürlich geordnet, ohne Ort bzw. ohne Kultur
+ *     zuunterst — die Ordnung von `nachBeet`.
+ *   - Innerhalb einer Kultur ordnet `nachBeet` nach Tag absteigend und dann
+ *     nach Kennung absteigend. Die erste Zeile eines Mittels ist damit seine
+ *     jüngste, und die Mittel stehen nach ihrer jüngsten Anwendung, die
+ *     jüngste zuerst. Dieselbe Wahl wie in `letzteJeStelle`: der spätere Tag
+ *     gewinnt, bei Gleichstand die höhere Kennung.
+ *   - Die Einträge eines Mittels stehen jüngste zuerst.
+ *
+ * **Gebündelt wird Zeichen für Zeichen**, mit demselben Schlüssel wie `stelle`:
+ * `Schachtelhalm` und `schachtelhalm` sind zwei Karten, und die Begründung
+ * steht dort. Verglichen wird über eine Zuordnung und nicht über „gleich wie
+ * die Zeile davor": `natuerlich` hält `Beet 03` und `Beet 3` für gleich, ihre
+ * Zeilen können darum in `nachBeet` ineinander verschränkt stehen, und ein
+ * Vergleich mit dem Vorgänger schnitte ein Beet dann in mehrere Stücke.
+ */
+export function buendeln<T extends Anwendung>(zeilen: T[]): Beetbuendel<T>[] {
+	const beete = new Map<string, Beetbuendel<T>>();
+	const kulturen = new Map<string, Kulturbuendel<T>>();
+	const mittel = new Map<string, Mittelbuendel<T>>();
+	for (const zeile of nachBeet(zeilen)) {
+		const beetSchluessel = JSON.stringify([zeile.ort]);
+		let beet = beete.get(beetSchluessel);
+		if (beet === undefined) {
+			beet = { schluessel: beetSchluessel, ort: zeile.ort, kulturen: [] };
+			beete.set(beetSchluessel, beet);
+		}
+		const kulturSchluessel = JSON.stringify([zeile.ort, zeile.kultur]);
+		let kultur = kulturen.get(kulturSchluessel);
+		if (kultur === undefined) {
+			kultur = { schluessel: kulturSchluessel, kultur: zeile.kultur, mittel: [] };
+			kulturen.set(kulturSchluessel, kultur);
+			beet.kulturen.push(kultur);
+		}
+		const mittelSchluessel = stelle(zeile);
+		const buendel = mittel.get(mittelSchluessel);
+		if (buendel === undefined) {
+			const neu = {
+				schluessel: mittelSchluessel,
+				mittel: zeile.mittel,
+				letzte: zeile,
+				eintraege: [zeile],
+			};
+			mittel.set(mittelSchluessel, neu);
+			kultur.mittel.push(neu);
+		} else {
+			buendel.eintraege.push(zeile);
+		}
+	}
+	return [...beete.values()];
+}
