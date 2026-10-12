@@ -68,7 +68,7 @@ import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-t
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 78;
+const ERWARTETE_BEHAUPTUNGEN = 79;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -2354,18 +2354,48 @@ try {
 	 * eine Wache, die grün geblieben wäre, wenn die Aufklapper gar nicht
 	 * funktionierten. `checkVisibility()` beantwortet genau die gestellte Frage.
 	 */
+	/*
+	 * **`ausDemPool` seit dem 2026-10-11**, als die Wellnessbehandlungen ins
+	 * Archiv kamen. Die Saat in scripts/pruefserver.ts trägt drei davon für
+	 * /wellness, und die von vor zwei Tagen fällt **je nach Tag im Monat** in
+	 * den offenen Monat oder in den davor. Eine Behauptung über alle sichtbaren
+	 * Zeilen dieses Monats wäre damit vom Kalender abhängig. Die zwei
+	 * Behauptungen über die Poolzeilen lesen darum nur die Zeilen mit dem
+	 * Herkunftswort `Aufgabe`; die Suche nach `schnecken` liest weiter alle,
+	 * denn dort ist genau ein Treffer die Zusage, gleich welcher Art.
+	 *
+	 * **Die Grenze von `herkunftVon`:** es liest das letzte Stück nach einem `·`
+	 * in der Datumszeile. Das trägt, solange das Herkunftswort dort zuletzt
+	 * steht (`{datumKurz} · {herkunft}`) und `datumKurz` selbst kein `·`
+	 * enthält — heute `15. Sep 2026`. Bekäme die Zeile ein drittes Stück
+	 * dahinter, läse diese Messung jenes statt der Herkunft.
+	 */
 	const sichtbareZeilen = () =>
-		browser!.auswerten<{ sichtbar: string[]; ansage: string }>(`
-			const sichtbar = [...document.querySelectorAll('.karte .zeile__text')]
-				.filter((el) => el.checkVisibility())
-				.map((el) => el.textContent.trim());
+		browser!.auswerten<{
+			sichtbar: string[];
+			ausDemPool: string[];
+			herkunft: string[];
+			ansage: string;
+		}>(`
+			const karten = [...document.querySelectorAll('.karte')].filter((karte) => {
+				const text = karte.querySelector('.zeile__text');
+				return text !== null && text.checkVisibility();
+			});
+			const herkunftVon = (karte) =>
+				(karte.querySelector('.hinweis--ziffern')?.textContent ?? '').split('·').at(-1).trim();
+			const textVon = (karte) => karte.querySelector('.zeile__text').textContent.trim();
 			const region = document.querySelector('#archiv-treffer');
-			return { sichtbar, ansage: region === null ? '(fehlt)' : region.textContent.trim() };`);
+			return {
+				sichtbar: karten.map(textVon),
+				ausDemPool: karten.filter((karte) => herkunftVon(karte) === 'Aufgabe').map(textVon),
+				herkunft: karten.map(herkunftVon),
+				ansage: region === null ? '(fehlt)' : region.textContent.trim(),
+			};`);
 
 	const vorDerSuche = await sichtbareZeilen();
 	pruefenGleich(
 		'ohne Suche stehen beide abgehakten Zeilen offen da — und die Region sagt nichts',
-		`${[...vorDerSuche.sichtbar].sort().join(' | ')} / ${vorDerSuche.ansage || '(leer)'}`,
+		`${[...vorDerSuche.ausDemPool].sort().join(' | ')} / ${vorDerSuche.ansage || '(leer)'}`,
 		`${[gefundenText, weggelassenText].sort().join(' | ')} / (leer)`
 	);
 
@@ -2417,8 +2447,63 @@ try {
 	const nachMonat = await sichtbareZeilen();
 	pruefenGleich(
 		`die Suche findet auch den Monat, unter dem die Zeilen stehen (${monatUeberDerGruppe})`,
-		[...nachMonat.sichtbar].sort().join(' | '),
+		[...nachMonat.ausDemPool].sort().join(' | '),
 		[gefundenText, weggelassenText].sort().join(' | ')
+	);
+
+	/*
+	 * **Die Suche nach dem Herkunftswort `Wellness`**, seit dem 2026-10-11
+	 * (spec-wellness-im-archiv.md, zweites Abnahmekriterium). Es steht an der
+	 * Zeile, ohne in ihren Daten vorzukommen — dieselbe Lage wie `Termin`. Die
+	 * Saat trägt drei Behandlungen in verschiedenen Monaten; gefunden werden
+	 * müssen genau diese, jede mit dem Wort `Wellness`, und die Ansage sagt
+	 * dieselbe Zahl. Rot wird es, wenn `herkunft()` eine Art verschluckt (der
+	 * frühere ternäre Ausdruck machte aus `wellness` still `Aufgabe`) oder wenn
+	 * die load das Tagebuch nicht mehr liest.
+	 *
+	 * **Die erwarteten Texte kommen aus der Saat** (`saat.behandlungen`) und
+	 * werden hier mit derselben Regel gebildet wie in der load: vorhandene
+	 * Angaben, mit ` · ` verbunden. Das ist eine zweite Kopie der Regel und
+	 * prüft sie darum nicht — das tun die Vergleiche gegen ausgeschriebene Texte
+	 * in scripts/smoke-zugang.ts. Hier gemessen wird die Suche und das Wort.
+	 *
+	 * **Gewartet wird auf das Ergebnis, nicht auf irgendeine Ansage.** Die
+	 * Region trug eben noch die Trefferzahl der Monatssuche, und die kann
+	 * dieselbe sein wie die der Wellnesssuche; „nicht leer" sähe dann den alten
+	 * Stand. Die Bedingung ist darum: es sind Zeilen sichtbar und alle tragen
+	 * `Wellness` — oder die Region sagt `Nichts gefunden.`, damit ein Fehler als
+	 * rote Behauptung endet und nicht als Zeitüberschreitung. Ein Zwischenstand
+	 * beim Tippen erfüllt die erste Hälfte nicht vorzeitig: jedes Präfix von
+	 * `Wellness` trifft alle Wellnesszeilen, die Treffermenge schrumpft also nie
+	 * unter die gesuchte.
+	 */
+	await browser.auswerten(`
+		const feld = document.querySelector('#archiv-suche');
+		feld.value = '';
+		feld.dispatchEvent(new Event('input', { bubbles: true }));
+		return true;`);
+	await browser.tippen('#archiv-suche', 'Wellness');
+	await browser.warten(
+		`(() => {
+			const region = document.querySelector('#archiv-treffer').textContent.trim();
+			if (region === 'Nichts gefunden.') return true;
+			const herkunft = [...document.querySelectorAll('.karte')]
+				.filter((karte) => karte.querySelector('.zeile__text')?.checkVisibility())
+				.map((karte) =>
+					(karte.querySelector('.hinweis--ziffern')?.textContent ?? '').split('·').at(-1).trim()
+				);
+			return region !== '' && herkunft.length > 0 && herkunft.every((wort) => wort === 'Wellness');
+		})()`,
+		'die Suche zeigt nur noch Wellnesszeilen'
+	);
+	const nachWellness = await sichtbareZeilen();
+	const wellnessErwartet = saat.behandlungen.map(({ mittel, kultur, ort }) =>
+		[mittel, kultur, ort].filter((teil) => teil !== null).join(' · ')
+	);
+	pruefenGleich(
+		'die Suche nach Wellness zeigt genau die Behandlungen der Saat, jede mit ihrem Herkunftswort',
+		`${[...nachWellness.sichtbar].sort().join(' | ')} / ${nachWellness.herkunft.join(',')} / ${nachWellness.ansage}`,
+		`${[...wellnessErwartet].sort().join(' | ')} / ${wellnessErwartet.map(() => 'Wellness').join(',')} / ${wellnessErwartet.length} Treffer`
 	);
 
 	/*

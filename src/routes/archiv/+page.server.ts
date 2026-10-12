@@ -1,5 +1,6 @@
 import { abgeschlosseneEinzelaufgabenLesen } from '../../lib/server/db/queries/signup-tasks.ts';
 import { erledigteAufgabenAuflisten } from '../../lib/server/db/queries/tasks.ts';
+import { behandlungenLesen } from '../../lib/server/db/queries/treatments.ts';
 
 /*
  * /archiv — was in diesem Garten schon getan ist.
@@ -10,14 +11,20 @@ import { erledigteAufgabenAuflisten } from '../../lib/server/db/queries/tasks.ts
  * Modul mit nacktem Node, und tsconfig.scripts.json kennt weder das virtuelle
  * ./$types noch die $lib-Zuordnung.
  *
- * **Zwei Quellen, eine Liste** — seit dem 2026-09-17 (Entscheid Manuel). Die
- * abgehakten Poolaufgaben kommen aus ./queries/tasks.ts, die abgeschlossenen
- * Termine aus ./queries/signup-tasks.ts, und **zusammengeführt wird hier und
- * nicht dort**. Das ist AD-3 und AD-4: die Aufgabenarten haben bewusst keine
- * Basistabelle und keine gemeinsame Zuständigkeitsspalte, weil sie verschieden
- * verbindlich sind. Eine Abfrage, die beide Tabellen mischte, ebnete genau den
+ * **Drei Quellen, eine Liste** — zwei seit dem 2026-09-17, die dritte seit
+ * dem 2026-10-11 (beides Entscheid Manuel). Die abgehakten Poolaufgaben kommen
+ * aus ./queries/tasks.ts, die abgeschlossenen Termine aus
+ * ./queries/signup-tasks.ts, die Wellnessbehandlungen aus dem Tagebuch in
+ * ./queries/treatments.ts, und **zusammengeführt wird hier und nicht dort**.
+ * Das ist AD-3 und AD-4: die Aufgabenarten haben bewusst keine Basistabelle
+ * und keine gemeinsame Zuständigkeitsspalte, weil sie verschieden verbindlich
+ * sind. Eine Abfrage, die mehrere dieser Tabellen mischte, ebnete genau den
  * Unterschied ein, den das Schema zeigen soll. Was hier entsteht, ist keine
- * dritte Aufgabenart, sondern **eine Ansicht**: getan ist getan.
+ * weitere Aufgabenart, sondern **eine Ansicht**: getan ist getan — und eine
+ * Behandlung im Beet ist ebenso getane Arbeit wie ein abgehaktes Kästchen.
+ *
+ * Das Tagebuch auf /wellness bleibt dabei, was es ist: das Archiv liest es,
+ * es kopiert und entfernt nichts daraus.
  *
  * **Diese Seite hat keine action, und das ist eine Entscheidung** — dieselbe wie
  * auf /einzelaufgaben, mit einem eigenen Grund. Eine erledigte Aufgabe ist
@@ -27,6 +34,13 @@ import { erledigteAufgabenAuflisten } from '../../lib/server/db/queries/tasks.ts
  * durchgestrichen dasteht und `wiederOeffnen` daneben. Ein abgeschlossener
  * Termin hat gar keinen Rückweg; die Begründung steht an
  * einzelaufgabeAbschliessen.
+ *
+ * **Eine Wellnesszeile ist keine solche Historie.** Das Tagebuch auf /wellness
+ * lässt jede Behandlung ändern (`aendern`) und wegnehmen (`wegnehmen`), und
+ * das Archiv liest bei jedem Laden den Stand des Tagebuchs: eine geänderte
+ * Behandlung steht danach mit dem neuen Text und unter dem neuen Tag, eine
+ * weggenommene fehlt. Von hier aus ändert sich trotzdem nichts — das Archiv
+ * zeigt, was das Tagebuch gerade sagt, und führt keine eigene Kopie.
  *
  * scripts/smoke-zugang.ts hält das fest: dieses Modul exportiert kein `actions`.
  *
@@ -43,9 +57,10 @@ import { erledigteAufgabenAuflisten } from '../../lib/server/db/queries/tasks.ts
  */
 
 /**
- * Eine Zeile des Archivs — aus dem Pool oder aus den Terminen.
+ * Eine Zeile des Archivs — aus dem Pool, aus den Terminen oder aus dem
+ * Wellnesstagebuch.
  *
- * **Ein flacher Typ und kein unterschiedener Verbund** über die zwei Arten. Die
+ * **Ein flacher Typ und kein unterschiedener Verbund** über die Arten. Die
  * Seite stellt an eine Zeile genau drei Fragen: was war es, wann war es getan,
  * und steht ein Name daran. Eine Art-Marke daneben beantwortete eine vierte, die
  * niemand stellt — wer im Oktober nachliest, was der September gebracht hat,
@@ -56,8 +71,11 @@ import { erledigteAufgabenAuflisten } from '../../lib/server/db/queries/tasks.ts
  * **vor allen** zugesagt, und der Name gehört zur Sache. Eine Poolaufgabe ist
  * namenlos, und sie bleibt es auch hier — `completed_by` verlässt die
  * Abfrageschicht nicht (AD-5), und dieses Feld ist für jede Poolzeile null.
+ * Eine Wellnesszeile ist es ebenso (Entscheid Manuel, 2026-10-11): das
+ * Tagebuch kennt die eintragende Person, aber eine Behandlung ist keine
+ * Zusage vor allen, und der Name bleibt in der load.
  *
- * **`schluessel` und nicht `id`**: die Ids kommen aus zwei Tabellen und
+ * **`schluessel` und nicht `id`**: die Ids kommen aus drei Tabellen und
  * kollidieren. Zwei Zeilen mit demselben `{#each}`-Schlüssel sind kein
  * Schönheitsfehler, sondern ein Zustandsfehler — Svelte hält Knoten darüber
  * auseinander.
@@ -71,7 +89,8 @@ export type Archivzeile = {
 };
 
 /**
- * Woher eine Zeile kommt — aus dem Pool oder aus den Terminen.
+ * Woher eine Zeile kommt — aus dem Pool, aus den Terminen oder aus dem
+ * Wellnesstagebuch.
  *
  * **Seit dem 2026-09-17, und das nimmt eine Entscheidung zurück** (Entscheid
  * Manuel). Der Absatz darüber stand hier einen Tag lang mit dem Satz, eine
@@ -80,11 +99,12 @@ export type Archivzeile = {
  * andere nicht, und ohne Angabe sieht das nach einer Lücke aus statt nach dem
  * Unterschied, der es ist.
  *
- * **Zwei Werte und kein `istTermin: boolean`.** Ein Wahrheitswert benennt eine
- * der zwei Arten und lässt die andere namenlos; käme je eine dritte dazu, wäre
- * er die Stelle, an der jemand ein zweites Flag daneben setzt.
+ * **Eine Aufzählung und kein `istTermin: boolean`.** Ein Wahrheitswert benennt
+ * eine der Arten und lässt die übrigen namenlos. Seit dem 2026-10-11 gibt es
+ * die dritte, und sie kam als dritter Wert dazu statt als zweites Flag — genau
+ * der Fall, für den dieser Absatz stand.
  */
-export type Archivart = 'aufgabe' | 'termin';
+export type Archivart = 'aufgabe' | 'termin' | 'wellness';
 
 export function load(): { erledigte: Archivzeile[] } {
 	const ausDemPool: Archivzeile[] = erledigteAufgabenAuflisten().map((aufgabe) => ({
@@ -104,19 +124,41 @@ export function load(): { erledigte: Archivzeile[] } {
 		uebernehmer: termin.uebernehmer,
 	}));
 	/*
-	 * Beide Quellen kommen schon absteigend; das Zusammenfügen braucht trotzdem
-	 * einen eigenen Durchlauf, weil zwei sortierte Listen hintereinandergehängt
+	 * Aus dem Tagebuch nur, was an der Zeile steht: Mittel, Kultur und Ort,
+	 * fehlende Angaben samt Trenner weggelassen, und der Anwendungstag. **Der
+	 * Name verlässt die load nicht** (Entscheid Manuel, 2026-10-11), und
+	 * `intervallTage` und `createdAt` ebenso wenig — die Abbildung nimmt sie
+	 * ausdrücklich nicht mit, statt die Zeile durchzureichen.
+	 */
+	const ausDemTagebuch: Archivzeile[] = behandlungenLesen().map((behandlung) => ({
+		schluessel: `wellness-${behandlung.id}`,
+		art: 'wellness',
+		text: [behandlung.mittel, behandlung.kultur, behandlung.ort]
+			.filter((teil): teil is string => teil !== null && teil !== '')
+			.join(' · '),
+		erledigtAm: behandlung.angewendetAm,
+		uebernehmer: null,
+	}));
+	/*
+	 * Alle drei Quellen kommen schon absteigend; das Zusammenfügen braucht
+	 * trotzdem einen eigenen Durchlauf, weil sortierte Listen hintereinandergehängt
 	 * nicht sortiert sind.
 	 *
 	 * `sort` ist in JavaScript **stabil**, und darauf ruht hier eine Zusage: bei
 	 * gleichem Zeitpunkt — zwei Dinge in derselben Sekunde erledigt — behalten
 	 * die Zeilen die Reihenfolge, in der sie hier stehen, also erst der Pool,
-	 * dann die Termine. Ohne diese Eigenschaft wechselte die Liste zwischen zwei
-	 * Aufrufen ihre Anordnung, ohne dass sich etwas geändert hätte, und die
-	 * Gruppierung in der Komponente ist genau darauf angewiesen.
+	 * dann die Termine, dann die Behandlungen. Ohne diese Eigenschaft
+	 * wechselte die Liste zwischen zwei Aufrufen ihre Anordnung, ohne dass sich
+	 * etwas geändert hätte, und die Gruppierung in der Komponente ist genau
+	 * darauf angewiesen.
+	 *
+	 * Eine Behandlung trägt als Zeitpunkt das Tagesende ihres Anwendungstags
+	 * (23:59:59 Europe/Zurich) und steht darum über allem, was am selben Tag
+	 * abgehakt wurde. Das ist hingenommen: die Zeile zeigt nur das Datum, und
+	 * im Archiv zählt der Tag, nicht die Uhrzeit.
 	 */
 	return {
-		erledigte: [...ausDemPool, ...ausDenTerminen].sort(
+		erledigte: [...ausDemPool, ...ausDenTerminen, ...ausDemTagebuch].sort(
 			(eine, andere) => andere.erledigtAm - eine.erledigtAm
 		),
 	};

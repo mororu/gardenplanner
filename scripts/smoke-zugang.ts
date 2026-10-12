@@ -92,6 +92,7 @@ import {
 	tasks,
 } from '../src/lib/server/db/schema.ts';
 import { letzteJeStelle, nachBeet } from '../src/lib/wellness.ts';
+import { behandlungEintragen, behandlungenLesen } from '../src/lib/server/db/queries/treatments.ts';
 import { blattAnlegen, blattLesen } from '../src/lib/server/db/queries/sheets.ts';
 import type { AngemeldetesMitglied, NewTask } from '../src/lib/server/db/schema.ts';
 import {
@@ -150,6 +151,7 @@ import { tokenErzeugen, tokenHashen } from '../src/lib/server/token.ts';
 import {
 	FRIST_FENSTER_TAGE,
 	fristfenster,
+	heuteAlsFeldwert,
 	isoWocheVon,
 	istImFristfenster,
 	istWoche,
@@ -269,7 +271,7 @@ import {
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 733;
+const ERWARTETE_BEHAUPTUNGEN = 739;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -10866,15 +10868,83 @@ try {
 	});
 	einzelaufgabeAbschliessen(archivTermin.id, archivMitglied.id);
 
-	type Archivzeile = { schluessel: string; erledigtAm: number; uebernehmer: string | null };
+	/*
+	 * **Die dritte Quelle seit dem 2026-10-11: das Wellnesstagebuch.** Drei
+	 * Behandlungen, je eine Zeile der Matrix in der Spec: vollständig, ohne
+	 * Kultur und nur mit Mittel. Die zweite und die dritte messen, dass fehlende
+	 * Angaben samt Trenner wegfallen — am Ende und in der Mitte.
+	 *
+	 * **`angewendetAm` ist ein Tagesende, wie es /wellness schreibt**, und nicht
+	 * `jetzt - n * TAG`: eine Uhrzeit in der Spalte wäre eine Datenlage, die die
+	 * Anwendung nie herstellt. Dieselbe Rechnung wie die Saat in
+	 * scripts/pruefserver.ts. Die Behauptungen vergleichen gegen den
+	 * gespeicherten Wert und nicht gegen ein Datum, darum hängen sie nicht am
+	 * Kalender.
+	 *
+	 * **Eingetragen von einem eigenen Mitglied, das keinen Termin hält.** Die
+	 * Behauptung, der Name komme in den Seitendaten nicht vor, wäre mit Tamara
+	 * wertlos: ihr Name steht über die Terminzeile ohnehin drin. `Wanda` kommt
+	 * sonst in keinem Block dieses Skripts vor (gemessen mit grep).
+	 */
+	const wellnessMitglied = mitgliedAnlegen({
+		name: 'Wanda',
+		inviteTokenHash: tokenHashen(tokenErzeugen()),
+		isAdmin: false,
+	});
+	const tagesendeVorTagen = (tage: number): number => {
+		const tagesende = tagesendeInUnixSekunden(heuteAlsFeldwert(archivJetzt - tage * TAG_SEKUNDEN));
+		if (tagesende === null) throw new Error(`Saatdatum nicht lesbar: vor ${tage} Tagen`);
+		return tagesende;
+	};
+	const wellnessVoll = behandlungEintragen(
+		{
+			mittel: 'Schachtelhalm',
+			kultur: 'Tomaten',
+			ort: 'Beet 3',
+			angewendetAm: tagesendeVorTagen(10),
+			intervallTage: 14,
+		},
+		{ id: wellnessMitglied.id, name: wellnessMitglied.name }
+	);
+	const wellnessNurMittel = behandlungEintragen(
+		{
+			mittel: 'Gesteinsmehl',
+			kultur: null,
+			ort: null,
+			angewendetAm: tagesendeVorTagen(20),
+			intervallTage: null,
+		},
+		{ id: wellnessMitglied.id, name: wellnessMitglied.name }
+	);
+	const wellnessOhneKultur = behandlungEintragen(
+		{
+			mittel: 'Kompost',
+			kultur: null,
+			ort: 'Beet 7',
+			angewendetAm: tagesendeVorTagen(30),
+			intervallTage: 28,
+		},
+		{ id: wellnessMitglied.id, name: wellnessMitglied.name }
+	);
+	const wellnessIds = [wellnessVoll.id, wellnessOhneKultur.id, wellnessNurMittel.id];
+
+	type Archivzeile = {
+		schluessel: string;
+		art: string;
+		text: string;
+		erledigtAm: number;
+		uebernehmer: string | null;
+	};
 	const archivStand = await routenausgang(() => archiv.load());
 	const archivListe = (wertVon(archivStand).erledigte ?? []) as Archivzeile[];
 	const archivSchluessel = archivListe.map((zeile) => zeile.schluessel);
 	pruefen(
-		'die load von /archiv läuft ohne Ereignis und ordnet beide Quellen durchgehend nach dem Zeitpunkt',
+		'die load von /archiv läuft ohne Ereignis und ordnet alle drei Quellen durchgehend nach dem Zeitpunkt',
 		archivStand.art === 'wert' &&
 			archivListe.length ===
-				erledigteAufgabenAuflisten().length + abgeschlosseneEinzelaufgabenLesen().length &&
+				erledigteAufgabenAuflisten().length +
+					abgeschlosseneEinzelaufgabenLesen().length +
+					behandlungenLesen().length &&
 			archivListe.every(
 				(zeile, stelle) =>
 					stelle === 0 || (archivListe[stelle - 1]?.erledigtAm ?? 0) >= zeile.erledigtAm
@@ -10920,6 +10990,94 @@ try {
 			.filter((zeile) => zeile.schluessel.startsWith('aufgabe-'))
 			.every((zeile) => zeile.uebernehmer === null),
 		JSON.stringify(archivListe.filter((zeile) => zeile.uebernehmer !== null).slice(0, 3))
+	);
+	/*
+	 * Die Wellnesszeilen: Schlüssel, Text, Zeitpunkt und kein Name — je Zeile
+	 * als ein Vergleich über alle vier Felder, damit ein Fehler im Hinweis
+	 * zeigt, welches Feld abweicht. Verglichen als JSON, weil pruefenGleich mit
+	 * `===` vergleicht und zwei gleiche Objekte damit nie gleich wären; die
+	 * Feldreihenfolge legt `wellnessZeile` selbst fest.
+	 */
+	const wellnessZeile = (id: number) => {
+		const zeile = archivListe.find((eintrag) => eintrag.schluessel === `wellness-${id}`);
+		return zeile === undefined
+			? null
+			: {
+					schluessel: zeile.schluessel,
+					art: zeile.art,
+					text: zeile.text,
+					erledigtAm: zeile.erledigtAm,
+					uebernehmer: zeile.uebernehmer,
+				};
+	};
+	pruefenGleich(
+		'eine Wellnessbehandlung steht im Archiv: Mittel · Kultur · Ort, am Anwendungstag, ohne Namen',
+		JSON.stringify(wellnessZeile(wellnessVoll.id)),
+		JSON.stringify({
+			schluessel: `wellness-${wellnessVoll.id}`,
+			art: 'wellness',
+			text: 'Schachtelhalm · Tomaten · Beet 3',
+			erledigtAm: wellnessVoll.angewendetAm,
+			uebernehmer: null,
+		})
+	);
+	pruefenGleich(
+		'und eine nur mit Mittel steht ohne leere Trenner da',
+		JSON.stringify(wellnessZeile(wellnessNurMittel.id)),
+		JSON.stringify({
+			schluessel: `wellness-${wellnessNurMittel.id}`,
+			art: 'wellness',
+			text: 'Gesteinsmehl',
+			erledigtAm: wellnessNurMittel.angewendetAm,
+			uebernehmer: null,
+		})
+	);
+	pruefenGleich(
+		'und eine ohne Kultur verliert nur deren Trenner, nicht den zum Ort',
+		JSON.stringify(wellnessZeile(wellnessOhneKultur.id)),
+		JSON.stringify({
+			schluessel: `wellness-${wellnessOhneKultur.id}`,
+			art: 'wellness',
+			text: 'Kompost · Beet 7',
+			erledigtAm: wellnessOhneKultur.angewendetAm,
+			uebernehmer: null,
+		})
+	);
+	/*
+	 * **Die Schlüsselmenge jeder Wellnesszeile**, und zwar die ganze: was hier
+	 * nicht steht, verlässt die load nicht. Das deckt die Never-Klauseln der
+	 * Spec zu `intervallTage`, `createdAt` und dem Namen auf einmal — die drei
+	 * Vergleiche darüber lesen nur die Felder, die sie nennen, und blieben grün,
+	 * wenn ein viertes dazukäme. Leer wäre die Menge kein Beweis; darum steht die
+	 * Zahl der Zeilen im Vergleich mit.
+	 */
+	const wellnessZeilen = archivListe.filter((zeile) => zeile.schluessel.startsWith('wellness-'));
+	pruefenGleich(
+		'jede Wellnesszeile trägt genau art, erledigtAm, schluessel, text und uebernehmer',
+		`${wellnessZeilen.length} / ${[
+			...new Set(
+				wellnessZeilen.map(
+					(zeile) => `${Object.keys(zeile).sort().join(',')} ${zeile.art === 'wellness'}`
+				)
+			),
+		].join(' | ')}`,
+		`${behandlungenLesen().length} / art,erledigtAm,schluessel,text,uebernehmer true`
+	);
+	/*
+	 * Der Name der eintragenden Person — und die Gegenprobe, dass es ihn zu
+	 * verschweigen gibt: das Tagebuch trägt ihn an genau diesen Zeilen.
+	 */
+	pruefen(
+		'der Name der eintragenden Person kommt in den Seitendaten von /archiv nicht vor',
+		!JSON.stringify(wertVon(archivStand)).includes(wellnessMitglied.name),
+		JSON.stringify(archivListe.filter((zeile) => zeile.schluessel.startsWith('wellness-')))
+	);
+	pruefen(
+		'obwohl das Tagebuch ihn an allen drei Behandlungen trägt und alle dort stehen bleiben',
+		behandlungenLesen().filter(
+			(zeile) => wellnessIds.includes(zeile.id) && zeile.name === wellnessMitglied.name
+		).length === wellnessIds.length,
+		JSON.stringify(behandlungenLesen().slice(0, 3))
 	);
 	pruefen(
 		'derselbe Termin ist damit aus `Alle Termine` verschwunden, der offene steht dort',

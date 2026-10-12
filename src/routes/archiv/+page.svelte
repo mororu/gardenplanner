@@ -13,14 +13,24 @@
 	 * Fragen — `Zum Erledigen` und `Wer übernimmt` —, und beide klängen hier
 	 * falsch: im Archiv ist nichts mehr zu erledigen und übernimmt niemand mehr.
 	 * `Aufgabe` und `Termin` sind die Wörter, die AGENTS.md für die Dinge selbst
-	 * festhält, und sie stimmen auch im Rückblick.
+	 * festhält, und sie stimmen auch im Rückblick. `Wellness` seit dem
+	 * 2026-10-11, das Wort der Seite, aus der die Zeile kommt.
 	 *
 	 * **Steht seit dem 2026-09-20 oben und nicht mehr unten**, weil die Suche sie
 	 * braucht: `Termin` ist ein Wort, nach dem jemand sucht, und es steht an der
 	 * Zeile, ohne in ihren Daten vorzukommen.
+	 *
+	 * **Eine vollständige Abbildung und kein ternärer Ausdruck**, seit die dritte
+	 * Art dazukam: `art === 'termin' ? 'Termin' : 'Aufgabe'` machte aus einer
+	 * Wellnesszeile still eine `Aufgabe`. Der `Record` über den Arttyp lässt
+	 * `npm run check` brechen, wenn eine Art ohne Wort bleibt.
 	 */
-	const herkunft = (art: (typeof data.erledigte)[number]['art']): string =>
-		art === 'termin' ? 'Termin' : 'Aufgabe';
+	const herkunftswort: Record<(typeof data.erledigte)[number]['art'], string> = {
+		aufgabe: 'Aufgabe',
+		termin: 'Termin',
+		wellness: 'Wellness',
+	};
+	const herkunft = (art: (typeof data.erledigte)[number]['art']): string => herkunftswort[art];
 
 	/*
 		**Die Suche, seit dem 2026-09-20 (Entscheid Manuel).**
@@ -151,7 +161,7 @@
 		laufen am Monatsanfang auseinander).
 
 		**Ein Durchlauf und kein Sortieren.** Die Liste kommt absteigend nach dem
-		Zeitpunkt des Erledigens aus der load — die beide Quellen dort
+		Zeitpunkt des Erledigens aus der load — die alle Quellen dort
 		zusammensortiert —, und damit stehen die Zeilen eines Monats und die Monate
 		eines Jahres zwangsläufig beieinander: es genügt, die laufende Gruppe
 		weiterzuführen, solange Jahr und Monat dieselben bleiben. Das ist die eine
@@ -197,14 +207,21 @@
 	/archiv — die abgehakten Aufgaben, nach Monat, das Neueste zuerst.
 
 	**Keine Aktion auf dieser Seite**, und der Grund steht in der Nachbardatei:
-	eine erledigte Zeile ist Historie. Die Seite beantwortet die eine Frage, die
+	eine erledigte Aufgabe und ein abgeschlossener Termin sind Historie. Eine
+	Wellnesszeile ist es nicht ganz: sie spiegelt das Tagebuch auf /wellness,
+	und wer dort eine Behandlung ändert oder wegnimmt, ändert oder entfernt sie
+	auch hier. Ändern lässt sie sich trotzdem nur dort. Die Seite beantwortet die eine Frage, die
 	das Produkt bis dahin nirgends beantwortete — was ist schon getan.
 
-	**Zwei Arten in einer Liste** seit dem 2026-09-17: abgehakte Poolaufgaben und
-	abgeschlossene Termine, zusammengeführt in der load und hier nur noch nach
-	Monat gebündelt. Eine Poolzeile steht **ohne Namen** da — die Abfrage reicht
-	`completed_by` nicht heraus, der Zeilentyp verbietet es, und darum kann dort
-	auch dann keiner stehen, wenn eine spätere Änderung ihn zeigen wollte (AD-5).
+	**Drei Arten in einer Liste**: abgehakte Poolaufgaben und abgeschlossene
+	Termine seit dem 2026-09-17, Wellnessbehandlungen seit dem 2026-10-11,
+	zusammengeführt in der load und hier nur noch nach Monat gebündelt. Eine
+	Poolzeile steht **ohne Namen** da — die Abfrage reicht `completed_by` nicht
+	heraus, der Zeilentyp verbietet es, und darum kann dort auch dann keiner
+	stehen, wenn eine spätere Änderung ihn zeigen wollte (AD-5). Eine
+	Wellnesszeile ebenso (Entscheid Manuel, 2026-10-11): das Tagebuch kennt die
+	eintragende Person, aber eine Behandlung ist keine Zusage vor allen, und der
+	Name bleibt in der load.
 	Eine Terminzeile trägt ihren Übernehmer, weil bei ihr jemand vor allen
 	zugesagt hat; dieselbe Darstellung wie auf `Alle Termine`, aus der sie mit dem
 	Abschliessen verschwindet.

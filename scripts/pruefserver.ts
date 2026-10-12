@@ -203,6 +203,13 @@ export type Saat = {
 	 * muss. Darum haben sie kein Wort gemeinsam.
 	 */
 	abgehakteTexte: readonly [string, string];
+	/**
+	 * Die drei Behandlungen der Saat, mit den Angaben, die an einer Archivzeile
+	 * stehen. Seit dem 2026-10-11 liest smoke:sicht daraus, was die Suche nach
+	 * `Wellness` auf /archiv finden muss — statt die Texte ein zweites Mal von
+	 * Hand zu führen.
+	 */
+	behandlungen: readonly { mittel: string; kultur: string | null; ort: string | null }[];
 };
 
 /**
@@ -342,36 +349,23 @@ export function saeen(): Saat {
 		if (tagesende === null) throw new Error(`Saatdatum nicht lesbar: ${feldwert}`);
 		return tagesende;
 	};
-	behandlungEintragen(
-		{
-			mittel: 'Schachtelhalmbrühe',
-			kultur: 'Tomaten',
-			ort: 'Beet 7',
-			angewendetAm: tagVorTagen(20),
-			intervallTage: 14,
-		},
-		manu
-	);
-	behandlungEintragen(
+	const behandlungen = [
+		{ mittel: 'Schachtelhalmbrühe', kultur: 'Tomaten', ort: 'Beet 7', tage: 20, intervallTage: 14 },
 		{
 			mittel: 'Brennnesseljauche',
 			kultur: 'Kohlrabi',
 			ort: 'Hochbeet 3',
-			angewendetAm: tagVorTagen(2),
+			tage: 2,
 			intervallTage: 21,
 		},
-		manu
-	);
-	behandlungEintragen(
-		{
-			mittel: 'Kompost',
-			kultur: null,
-			ort: null,
-			angewendetAm: tagVorTagen(40),
-			intervallTage: null,
-		},
-		manu
-	);
+		{ mittel: 'Kompost', kultur: null, ort: null, tage: 40, intervallTage: null },
+	] as const;
+	for (const { mittel, kultur, ort, tage, intervallTage } of behandlungen) {
+		behandlungEintragen(
+			{ mittel, kultur, ort, angewendetAm: tagVorTagen(tage), intervallTage },
+			manu
+		);
+	}
 
 	return {
 		adminToken,
@@ -381,6 +375,7 @@ export function saeen(): Saat {
 		ueberfaelligText,
 		ueberfaelligWochen,
 		abgehakteTexte,
+		behandlungen: behandlungen.map(({ mittel, kultur, ort }) => ({ mittel, kultur, ort })),
 	};
 }
 
