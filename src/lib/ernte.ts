@@ -71,14 +71,14 @@ export type Erntestatus = (typeof ERNTESTATUS)[number];
  * Überschrift trägt den ganzen Gedanken, ein Knopf an einer Zeile nicht — bei
  * 375px stehen zwei davon nebeneinander.
  *
- * Der Satz zu `sofort` nennt das Beispiel mit, weil es die Stufe erst
- * entscheidbar macht: „optimal reif" allein sagt niemandem, ab wann eine
- * Zucchini zu gross ist.
+ * Der Satz zu `sofort` nannte bis zum 2026-10-12 ein Beispiel mit (Zucchini
+ * über zwanzig Zentimeter, dicke Bohnen, schiessender Salat). Seither steht er
+ * kurz, wie die zwei anderen Stufen (Entscheid Manuel in der Textdurchsicht).
  */
 export const ERNTETEXT: Record<Erntestatus, { titel: string; satz: string; kurz: string }> = {
 	sofort: {
 		titel: 'Sofort ernten',
-		satz: 'Optimal reif oder kurz vor überreif. Liegenlassen kostet Qualität — Zucchini über zwanzig Zentimeter, dicke Bohnen, Salat, der zu schiessen beginnt.',
+		satz: 'Perfekt reif oder kurz vor überreif.',
 		kurz: 'Sofort ernten',
 	},
 	/*

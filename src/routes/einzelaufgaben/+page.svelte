@@ -39,7 +39,8 @@
 		resolve() ist Pflicht für interne Ziele (svelte/no-navigation-without-resolve).
 	-->
 	<p class="hinweis">
-		Wer übernimmt, sagt vor allen zu. Freie stehen mit ihrem Knopf auf der
+		Wer eine Aufgabe übernimmt, bestätigt dies für alle sichtbar. Freie stehen mit ihrem Knopf auf
+		der
 		<a href={resolve('/')}>Startseite</a>, Abgeschlossenes im
 		<a href={resolve('/archiv')}>Archiv</a>.
 	</p>

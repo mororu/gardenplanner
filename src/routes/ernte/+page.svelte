@@ -329,7 +329,7 @@
 						-->
 						<p class="zeile__text zeichenwort"><ZeichenKreis />{DAUERERNTE_WORT}</p>
 						<p class="hinweis">
-							Regelmässiges Pflücken erhöht den Ertrag — Bohnen, Zucchini, Gurken, Erbsen,
+							Regelmässiges Pflücken erhöht den Ertrag. Z. B. Bohnen, Zucchini, Gurken, Erbsen,
 							Cherrytomaten. {DAUERERNTE_SATZ}
 						</p>
 					</div>
@@ -485,7 +485,7 @@
 				<span class="stufenwahl__text">
 					<span class="zeile__text">{DAUERERNTE_WORT}</span>
 					<span class="hinweis">
-						Regelmässiges Pflücken erhöht den Ertrag — Bohnen, Zucchini, Gurken, Erbsen,
+						Regelmässiges Pflücken erhöht den Ertrag. Z. B. Bohnen, Zucchini, Gurken, Erbsen,
 						Cherrytomaten. {DAUERERNTE_SATZ}
 					</span>
 				</span>
@@ -513,7 +513,7 @@
 		eine andere überspringt, ist für Vorleseprogramme eine falsche Auskunft über
 		die Gliederung.
 
-		Der leere Zustand steht **mit** darin: `Nichts reif gemeldet.` ist die
+		Der leere Zustand steht **mit** darin: `Es gibt nichts zu ernten.` ist die
 		Antwort auf dieselbe Frage.
 	-->
 	<details class="abschnitt" open>
@@ -523,7 +523,7 @@
 		</summary>
 		<div class="abschnitt__inhalt">
 			{#if data.stand.length === 0}
-				<p class="leer">Nichts reif gemeldet.</p>
+				<p class="leer">Es gibt nichts zu ernten.</p>
 			{/if}
 
 			{#each ERNTESTATUS as stufe (stufe)}
