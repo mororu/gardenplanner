@@ -2,7 +2,7 @@
 title: 'Notiz an der Erntezeile und Kurzname je Person'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-review'
+status: 'done'
 baseline_commit: '97ad1f76088b37eba9b096f55ddd620163bb9876'
 review_loop_iteration: 0
 context: ['spec-ernte-nach-beet.md']
@@ -129,3 +129,40 @@ context: ['spec-ernte-nach-beet.md']
 **Commands:**
 - `npm run build && npm run lint` -- grün, Zähler nachgeführt.
 - `npm run check` -- 0 Fehler, 0 Warnungen.
+
+## Suggested Review Order
+
+**Anzeigename**
+
+- Einstieg: eine Regel — Kurzname, sonst erstes Wort, sonst `unbekannt`.
+  [`mitgliedsname.ts:167`](../../src/lib/mitgliedsname.ts#L167)
+
+- Kurzname gefaltet wie ein Name, leer → null, 20 Zeichen.
+  [`mitgliedsname.ts:150`](../../src/lib/mitgliedsname.ts#L150)
+
+- Warnung bei gleichen Anzeigenamen aktiver Personen, NFC und ohne Gross/Klein.
+  [`mitgliedsname.ts:216`](../../src/lib/mitgliedsname.ts#L216)
+
+**Verwaltung**
+
+- Warnung über der Liste, weist nicht ab.
+  [`+page.svelte:562`](../../src/routes/verwaltung/+page.svelte#L562)
+
+**Notiz an der Erntezeile**
+
+- Freiwillig, 200 Zeichen, leer → null.
+  [`ernte.ts:366`](../../src/lib/ernte.ts#L366)
+
+- Zwei Schritte wie Abernten, mit Abdruck gegen veraltete Tabs.
+  [`+page.server.ts:255`](../../src/routes/ernte/+page.server.ts#L255)
+
+- Feld an der Zeile, wo sonst die Rückfrage steht.
+  [`+page.svelte:769`](../../src/routes/ernte/+page.svelte#L769)
+
+**Daten**
+
+- Zwei nullbare Spalten, eine Migration.
+  [`0014_natural_imperial_guard.sql`](../../drizzle/0014_natural_imperial_guard.sql)
+
+- Archivsuche findet weiter über den vollen Namen.
+  [`+page.server.ts:104`](../../src/routes/archiv/+page.server.ts#L104)
