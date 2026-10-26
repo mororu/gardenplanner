@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, RequestEvent, ServerLoadEvent } from '@sveltejs/kit';
-import { ortPruefen } from '../../lib/ernte.ts';
+import { ortFassen, ortPruefen } from '../../lib/ernte.ts';
 import { abweisen } from '../../lib/server/abweisen.ts';
 import {
 	abschlussZuruecknehmen,
@@ -103,12 +103,19 @@ function textLesen(roh: unknown): string {
  * Ort und Kultur aus den versteckten Feldern von `abschliessen` und
  * `zuruecknehmen` — leer heisst null.
  *
- * **Ohne Trimmen und ohne Prüfung**, anders als beim Eintragen: hier wird
- * nicht geschrieben, sondern gesucht, und zwar Zeichen für Zeichen (siehe
- * `amOrt` in der Abfrageschicht). Ein Wert, den es nicht gibt, trifft keine
- * Zeile und endet im Satz für die veraltete Seite. Leer ist als null
- * eindeutig, weil gespeichert nie ein leerer Text steht: `ortPruefen` und
- * `kulturPruefen` legen leer als null ab.
+ * **Ohne Prüfung**, anders als beim Eintragen: hier wird nicht geschrieben,
+ * sondern gesucht, und zwar Zeichen für Zeichen (siehe `amOrt` in der
+ * Abfrageschicht). Ein Wert, den es nicht gibt, trifft keine Zeile und endet
+ * im Satz für die veraltete Seite. Leer ist als null eindeutig, weil
+ * gespeichert nie ein leerer Text steht: `ortPruefen` und `kulturPruefen`
+ * legen leer als null ab.
+ *
+ * **Der Ort geht durch `ortFassen`**, dieselbe Fassung wie beim Speichern und
+ * bei der Umschreibung beim Start (seit dem 2026-10-26,
+ * spec-beet-schreibweise.md). Eine Seite, die vor dem Neustart geladen wurde,
+ * trägt im versteckten Feld noch `42`; gesucht wird damit trotzdem unter
+ * `Beet 42`, wo die Zeilen jetzt stehen. Gespeicherte Werte sind schon in
+ * dieser Fassung, an ihnen ändert sie nichts. Die Kultur bleibt ungefasst.
  *
  * **Fehlt ein Feld oder trägt es eine Datei, kommt null zurück** und die
  * action weist ab. `textLesen` machte daraus eine leere Zeichenkette, und die
@@ -120,7 +127,7 @@ function stelleLesen(formular: FormData): { ort: string | null; kultur: string |
 	const ort = formular.get('ort');
 	const kultur = formular.get('kultur');
 	if (typeof ort !== 'string' || typeof kultur !== 'string') return null;
-	return { ort: ort === '' ? null : ort, kultur: kultur === '' ? null : kultur };
+	return { ort: ortFassen(ort), kultur: kultur === '' ? null : kultur };
 }
 
 /** Kultur und Beet für die Meldung — mit denselben Ersatzwörtern wie im Tagebuch. */

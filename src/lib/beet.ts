@@ -1,17 +1,18 @@
 /*
- * Wie Beete geordnet und geschrieben werden — **die eine Stelle für „Beet 3 vor
- * Beet 12"** und, seit dem 2026-10-26, für „`42` ist `Beet 42`"
- * (`ortVereinheitlichen`, unten).
+ * Wie Beete geordnet und geschrieben werden — **die eine Stelle für „Beet 3
+ * vor Beet 12"** und, seit dem 2026-10-26, für „`42` ist `Beet 42`"
+ * (`ortVereinheitlichen`, unten; ihre Leser stehen dort).
  *
- * Die Ordnung hat zwei Leser: das Tagebuch auf /wellness (`nachBeet` in
- * ./wellness.ts) und die Ernteliste auf /ernte (`nachBeetGliedern` in
- * ./ernte.ts). Beide gliedern nach demselben Garten, und zwei Fassungen der Ordnung liefen beim ersten
- * Nachbessern auseinander: dasselbe Beet stünde auf zwei Seiten an zwei
- * verschiedenen Stellen.
+ * Die Ordnung (`leerZuletzt`, `natuerlich`) hat zwei Leser: das Tagebuch auf
+ * /wellness (`nachBeet` in ./wellness.ts) und die Ernteliste auf /ernte
+ * (`nachBeetGliedern` in ./ernte.ts). Beide gliedern nach demselben Garten,
+ * und zwei Fassungen der Ordnung liefen beim ersten Nachbessern auseinander:
+ * dasselbe Beet stünde auf zwei Seiten an zwei verschiedenen Stellen. Die zwei
+ * Funktionen sind am 2026-10-26 aus ./wellness.ts gezogen
+ * (spec-ernte-nach-beet.md), wo sie privat standen.
  *
- * Die zwei Funktionen der Ordnung sind am 2026-10-26 aus ./wellness.ts
- * gezogen (spec-ernte-nach-beet.md), wo sie privat standen. Das Modul hat keine Abhängigkeit, damit beide
- * Leser über nacktes Node ladbar bleiben (scripts/smoke-zugang.ts lädt sie so).
+ * Das Modul hat keine Abhängigkeit, damit jeder Leser über nacktes Node
+ * ladbar bleibt (scripts/smoke-zugang.ts lädt sie so).
  */
 
 /**
@@ -72,31 +73,38 @@ export function natuerlich(a: string, b: string): number {
  *
  * **Eine Nummer meint immer ein Beet.** `42`, `Beet 42`, `beet 42`, `Beet42`,
  * `B42`, `b 42` werden zu `Beet 42`; ein Doppelbeet `16/17` oder `16 / 17` zu
- * `Beet 16/17`. Führende Nullen fallen je Teil weg (`03` → `Beet 3`), sonst
- * blieben `Beet 3` und `Beet 03` zwei Beete. Gross und Klein des Präfixes zählen
- * nicht. Mehr als ein Schrägstrich (`1/2/3`) ist kein Doppelbeet und bleibt,
- * wie es steht.
+ * `Beet 16/17`. Eine Nummer darf einen Buchstaben tragen, der klein gesetzt
+ * wird: `2a`, `B2a`, `beet 2A` werden zu `Beet 2a`. Führende Nullen fallen je
+ * Teil weg (`03` → `Beet 3`, `00` → `Beet 0`), sonst blieben `Beet 3` und
+ * `Beet 03` zwei Beete. Gross und Klein des Präfixes zählen nicht. Mehr als
+ * ein Schrägstrich (`1/2/3`) ist kein Doppelbeet und bleibt, wie es steht.
  *
- * Die einzige Umschreibung ohne Nummer: `TU` (gleich wie geschrieben) wird zu
- * `Tunnel`. Jede andere Bezeichnung — `Sector C`, `XY`, `Tunnel 2` — bleibt
- * Zeichen für Zeichen, auch in Gross und Klein.
+ * **Der Tunnel ohne Nummernregel:** steht am Anfang das Wort `TU` oder
+ * `Tunnel`, in beliebiger Gross- und Kleinschreibung und gefolgt von nichts
+ * oder einem Leerzeichen, wird es `Tunnel`; der Rest bleibt, wie er steht.
+ * `TU`, `tunnel` → `Tunnel`; `TU 2`, `TUNNEL 2` → `Tunnel 2`. `Tunnelbeet`
+ * und `TU2` sind keine solchen Wörter und bleiben.
+ *
+ * Jede andere Bezeichnung — `Sector C`, `XY` — bleibt Zeichen für Zeichen, auch
+ * in Gross und Klein.
  *
  * Erwartet einen **gefalteten** Ort (`aufgabentextFalten`): Leerraum ist
- * zusammengezogen und getrimmt. Leer und die Vorgabe `Beet` behandelt
- * `ortPruefen` in ./ernte.ts, nicht diese Funktion.
- *
- * Zwei Leser: `ortPruefen` in ./ernte.ts (damit Ernte und Wellness beim
- * Speichern) und die Umschreibung vorhandener Zeilen beim Start
- * (`orteVereinheitlichen` in ./server/db/index.ts). Eine Fassung in SQL gibt es mit Absicht nicht — SQLite
- * kennt keine Regex, und eine zweite Kopie liefe auseinander.
+ * zusammengezogen und getrimmt. Falten, leer und die Vorgabe `Beet` behandelt
+ * `ortFassen` in ./ernte.ts, nicht diese Funktion. `ortFassen` ist ihr
+ * einziger direkter Leser; über ihn lesen `ortPruefen` (Speichern auf /ernte
+ * und /wellness), das Suchen einer Stelle auf /wellness (`stelleLesen`) und
+ * die Umschreibung beim Start (`orteVereinheitlichen` in
+ * ./server/db/index.ts). Eine Fassung in SQL gibt es mit Absicht nicht —
+ * SQLite kennt keine Regex, und eine zweite Kopie liefe auseinander.
  */
 export function ortVereinheitlichen(ort: string): string {
-	if (/^tu$/i.test(ort)) return 'Tunnel';
-	const nummer = /^(?:beet|b)?\s*(\d+)(?:\s*\/\s*(\d+))?$/i.exec(ort);
+	const tunnel = /^(?:tu|tunnel)(?= |$)/i.exec(ort);
+	if (tunnel !== null) return `Tunnel${ort.slice(tunnel[0].length)}`;
+	const nummer = /^(?:beet|b)?\s*(\d+[a-z]?)(?:\s*\/\s*(\d+[a-z]?))?$/i.exec(ort);
 	if (nummer === null) return ort;
 	// Als Zeichenkette gekürzt und nicht über Number(): eine Ziffernfolge mit
 	// mehr als sechzehn Stellen verlöre sonst Stellen.
-	const ohneNullen = (teil: string): string => teil.replace(/^0+(?=\d)/, '');
-	const teile = [nummer[1], nummer[2]].filter((teil) => teil !== undefined).map(ohneNullen);
+	const teil = (roh: string): string => roh.replace(/^0+(?=\d)/, '').toLowerCase();
+	const teile = [nummer[1], nummer[2]].filter((roh) => roh !== undefined).map(teil);
 	return `Beet ${teile.join('/')}`;
 }

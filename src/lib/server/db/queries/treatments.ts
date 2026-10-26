@@ -148,7 +148,9 @@ export function behandlungLesen(id: number): Behandlungszeile | null {
  * (`ortPruefen` schreibt `42` als `Beet 42`), und die Zeilen von vorher —
  * offene **und** abgeschlossene, damit auch `abschlussZuruecknehmen` sie
  * findet — schreibt `orteVereinheitlichen` in ../index.ts beim Start um
- * (spec-beet-schreibweise.md).
+ * (spec-beet-schreibweise.md). Der gesuchte Ort kommt auf /wellness durch
+ * dieselbe Fassung (`ortFassen` in `stelleLesen`), auch aus einer Seite von
+ * vor dem Neustart.
  */
 function amOrt(ort: string | null, kultur: string | null) {
 	return and(

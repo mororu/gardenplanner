@@ -696,7 +696,12 @@ docker compose logs nginx --tail 50
   ungesund ist, startet nginx nicht. Erst das `app`-Log lesen.
 - **Ein Update einspielen:** `git pull && docker compose up -d --build`. Die
   Migrationen laufen beim Start der Anwendung, es gibt keinen eigenen Schritt
-  dafür.
+  dafür. **Ab der Version mit der einen Beet-Schreibweise (2026-10-26) vorher
+  `sh scripts/backup.sh`**: der erste Start nach dem Update schreibt die Orte
+  aller Ernte- und Wellness-Zeilen um (`42` wird `Beet 42`,
+  spec-beet-schreibweise.md), und das lässt sich nur aus einer Sicherung
+  zurückholen. Die nächtliche Sicherung aus Schritt 12 kann bis zu einen Tag
+  alt sein.
 
 ### Benannte Kosten
 

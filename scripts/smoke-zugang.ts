@@ -100,7 +100,11 @@ import {
 	ortPruefen,
 	type Erntestatus,
 } from '../src/lib/ernte.ts';
-import { ernteAbernten, ernteEintragen } from '../src/lib/server/db/queries/harvests.ts';
+import {
+	ernteAbernten,
+	ernteEintragen,
+	erntezeileLesen,
+} from '../src/lib/server/db/queries/harvests.ts';
 import {
 	abgeschlosseneBehandlungenLesen,
 	behandlungEintragen,
@@ -288,7 +292,7 @@ import {
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 798;
+const ERWARTETE_BEHAUPTUNGEN = 810;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -826,6 +830,19 @@ async function wellnessLaden(): Promise<WellnessModul> {
 	wellnessModul ??=
 		(await import('../src/routes/wellness/+page.server.ts')) as unknown as WellnessModul;
 	return wellnessModul;
+}
+
+/*
+ * /ernte seit dem 2026-10-26: geprüft wird nur, dass `eintragen` den Ort in
+ * die eine Schreibweise bringt (spec-beet-schreibweise.md). Die übrigen
+ * actions und die load misst `smoke:sicht` am gerenderten Ergebnis.
+ */
+type ErnteModul = { actions: Record<string, Aktion> };
+let ernteModul: ErnteModul | null = null;
+
+async function ernteLaden(): Promise<ErnteModul> {
+	ernteModul ??= (await import('../src/routes/ernte/+page.server.ts')) as unknown as ErnteModul;
+	return ernteModul;
 }
 
 async function archivLaden(): Promise<ArchivModul> {
@@ -12147,9 +12164,9 @@ try {
 	 * trägt je Eingabe das Paar [vereinheitlicht, geprüft]. Danach die
 	 * Entscheide aus dem Spec Change Log, je eine Zeile.
 	 *
-	 * Die Eingaben der Matrix kommen gefaltet an, wie `ortPruefen` sie der
-	 * Regel gibt; nur `Beet ` (die Vorgabe im Feld) und ` 42 ` tragen Leerraum,
-	 * und an ihnen zählt nur die geprüfte Hälfte.
+	 * Die Regel erwartet gefaltete Eingaben, wie `ortFassen` sie ihr gibt. Wo
+	 * eine Eingabe Leerraum am Rand trägt (`Beet `, ` 42 `), zählt darum nur die
+	 * geprüfte Hälfte; die vereinheitlichte gibt sie unverändert zurück.
 	 *
 	 * Vorgeführt am 2026-10-26, jede einzeln und zurückgesetzt:
 	 *   - `^tu$` ohne `i` → `Tunnel` und `Gross/Klein des Präfixes` rot.
@@ -12162,6 +12179,13 @@ try {
 	 *   - `ortPruefen` prüft die Länge vor dem Vereinheitlichen → `Länge` rot.
 	 *   - `ortPruefen` ohne `ortVereinheitlichen` → jede Zeile mit Nummer und
 	 *     `TU` rot, dazu die zwei action-Proben unten.
+	 * Nach dem Review (2026-10-26), ebenso:
+	 *   - Buchstabe an der Nummer nicht zugelassen → `Nummer mit Buchstabe` rot.
+	 *   - Buchstabe nicht klein gesetzt → `Nummer mit Buchstabe` rot.
+	 *   - nur `TU` statt `TU`/`Tunnel` am Anfang → `Tunnel in fester
+	 *     Schreibung` rot.
+	 *   - Vorgabe exakt statt ohne Gross/Klein verglichen → `Vorgabe allein`
+	 *     rot.
 	 */
 	const ortProbe = (eingaben: string[]) =>
 		JSON.stringify(eingaben.map((eingabe) => [ortVereinheitlichen(eingabe), ortPruefen(eingabe)]));
@@ -12228,11 +12252,12 @@ try {
 		],
 		[
 			'Führende Nullen (Change Log)',
-			['03', 'Beet 03', 'B007', '0', '03/04'],
+			['03', 'Beet 03', 'B007', '0', '00', '03/04'],
 			[
 				['Beet 3', { ort: 'Beet 3' }],
 				['Beet 3', { ort: 'Beet 3' }],
 				['Beet 7', { ort: 'Beet 7' }],
+				['Beet 0', { ort: 'Beet 0' }],
 				['Beet 0', { ort: 'Beet 0' }],
 				['Beet 3/4', { ort: 'Beet 3/4' }],
 			],
@@ -12254,19 +12279,50 @@ try {
 				[`Beet ${nummerLang}1`, { fehler: ORT_ZU_LANG }],
 			],
 		],
+		[
+			'Nummer mit Buchstabe (Review)',
+			['2a', 'B2a', 'beet 2A', '02a', '16a/17'],
+			[
+				['Beet 2a', { ort: 'Beet 2a' }],
+				['Beet 2a', { ort: 'Beet 2a' }],
+				['Beet 2a', { ort: 'Beet 2a' }],
+				['Beet 2a', { ort: 'Beet 2a' }],
+				['Beet 16a/17', { ort: 'Beet 16a/17' }],
+			],
+		],
+		[
+			'Tunnel in fester Schreibung (Review); `Tunnelbeet` und `TU2` sind kein Wort Tunnel',
+			['tunnel', 'TUNNEL 2', 'TU 2', 'tunnel Nord', 'Tunnelbeet', 'TU2'],
+			[
+				['Tunnel', { ort: 'Tunnel' }],
+				['Tunnel 2', { ort: 'Tunnel 2' }],
+				['Tunnel 2', { ort: 'Tunnel 2' }],
+				['Tunnel Nord', { ort: 'Tunnel Nord' }],
+				['Tunnelbeet', { ort: 'Tunnelbeet' }],
+				['TU2', { ort: 'TU2' }],
+			],
+		],
+		[
+			'Vorgabe allein, ohne Gross/Klein (Review)',
+			['beet', 'BEET', ' Beet '],
+			[
+				['beet', { ort: null }],
+				['BEET', { ort: null }],
+				[' Beet ', { ort: null }],
+			],
+		],
 	] as [string, string[], [string, { ort: string | null } | { fehler: string }][]][]) {
 		pruefenGleich(`Ort ${zeile}: ${eingaben.join(' | ')}`, ortProbe(eingaben), ortSoll(soll));
 	}
 
 	/*
-	 * **Beim Speichern, über die action** (Abnahmekriterium `b 2` → `Beet 2`):
+	 * **Beim Speichern, über die actions** (Abnahmekriterium `b 2` → `Beet 2`):
 	 * Eintragen und Ändern auf /wellness laufen durch `felderPruefen` und damit
-	 * durch `ortPruefen`. /ernte ruft dieselbe Funktion; eine Attrappe für
-	 * jene Seite gibt es in diesem Skript nicht, und die eine Stelle der Regel
-	 * ist oben gemessen.
+	 * durch `ortPruefen`, Eintragen auf /ernte ruft `ortPruefen` selbst.
 	 *
 	 * Vorgeführt am 2026-10-26: `felderPruefen` trimmt den Ort nur, statt ihn
-	 * durch `ortPruefen` zu geben → beide Zeilen rot (`b 2`, `42`).
+	 * durch `ortPruefen` zu geben → beide Wellness-Zeilen rot (`b 2`, `42`);
+	 * dasselbe in `eintragen` auf /ernte → die Ernte-Zeile rot.
 	 */
 	const ortEingetragen = await wellnessAktion('eintragen', {
 		mittel: 'Ortsprobe',
@@ -12296,6 +12352,69 @@ try {
 	);
 	behandlungWegnehmen(ortZeile);
 
+	const ernteRoute = await ernteLaden();
+	const ernteEingetragen = await routenausgang(() =>
+		ernteRoute.actions.eintragen(
+			alsMitglied('/ernte', ohneTokenHash(wellnessMitglied), {
+				kultur: 'Ortsprobe',
+				ort: 'b 2',
+				status: 'sofort',
+			}).alsRequestEvent()
+		)
+	);
+	const ernteOrtZeile = Number(wertVon(ernteEingetragen).zeile);
+	pruefenGleich(
+		'Eintragen auf /ernte speichert `b 2` als `Beet 2`',
+		erntezeileLesen(ernteOrtZeile)?.ort ?? JSON.stringify(ernteEingetragen),
+		'Beet 2'
+	);
+	ernteAbernten(ernteOrtZeile);
+
+	/*
+	 * **Suchen aus einer Seite von vor dem Neustart:** ihr verstecktes Feld trägt
+	 * noch `42`, die Zeilen stehen nach der Umschreibung unter `Beet 42`.
+	 * `stelleLesen` gibt den Ort durch `ortFassen`, und Abschliessen wie
+	 * Zurücknehmen treffen damit beide Zeilen.
+	 *
+	 * Vorgeführt am 2026-10-26: `stelleLesen` ohne `ortFassen` (wie vorher,
+	 * nur leer als null) → diese Zeile rot (Abschliessen wird mit dem Satz der
+	 * veralteten Seite abgewiesen).
+	 */
+	const altOrtIds = [1, 2].map(
+		(tage) =>
+			behandlungEintragen(
+				{
+					mittel: 'Altseite',
+					kultur: 'Altkultur',
+					ort: 'Beet 42',
+					angewendetAm: tagesendeVorTagen(tage),
+					intervallTage: null,
+				},
+				wanda
+			).id
+	);
+	const altAbschluss = await wellnessAktion('abschliessen', {
+		bestaetigt: '1',
+		ort: '42',
+		kultur: 'Altkultur',
+	});
+	const altOffenNachAbschluss = altOrtIds.filter((id) => behandlungLesen(id) !== null).length;
+	const altZurueck = await wellnessAktion('zuruecknehmen', {
+		ort: '42',
+		kultur: 'Altkultur',
+		abgeschlossenAm: String(wertVon(altAbschluss).abgeschlossenAm),
+	});
+	const altOffenNachZurueck = altOrtIds.filter((id) => behandlungLesen(id) !== null).length;
+	pruefen(
+		'Abschliessen und Zurücknehmen mit `42` aus einer alten Seite treffen beide Zeilen unter `Beet 42`',
+		wertVon(altAbschluss).art === 'abgeschlossen' &&
+			altOffenNachAbschluss === 0 &&
+			wertVon(altZurueck).art === 'zurueckgenommen' &&
+			altOffenNachZurueck === 2,
+		JSON.stringify({ altAbschluss, altOffenNachAbschluss, altZurueck, altOffenNachZurueck })
+	);
+	for (const id of altOrtIds) behandlungWegnehmen(id);
+
 	/*
 	 * **Die Umschreibung beim Start**, an einer eigenen Datei in zwei
 	 * Unterprozessen — die Datenschicht dieses Prozesses ist längst gestartet
@@ -12303,44 +12422,58 @@ try {
 	 * hier nichts.
 	 *
 	 * Der erste Prozess sät über die Abfrageschicht, die den Ort ungeprüft
-	 * schreibt, die alten Schreibweisen: Ernte `42` und `Beet 42`, eine Ernte
-	 * `Sector C`; Behandlungen `42` und `Beet 42` derselben Kultur (offen) und
-	 * eine auf `042`, die er abschliesst. Der zweite Prozess startet die
-	 * Datenschicht neu, liest, was die Abnahmekriterien verlangen, und ruft die
-	 * Umschreibung **erst danach** ein zweites Mal — davor gerufen, hätte sie
-	 * die Arbeit des Starts nachgeholt, und die drei Proben davor wären grün,
-	 * auch wenn `datenschichtStarten` sie nicht ruft (so beim ersten Vorführen
-	 * gefunden).
+	 * schreibt, die alten Schreibweisen: Ernte `42`, `Beet 42`, ungefaltet
+	 * ` 42` und `Beet  42`, `Sector C` und `Beet` allein; Behandlungen `42` und
+	 * `Beet 42` derselben Kultur (offen) und eine auf `042`, die er
+	 * abschliesst. Der zweite Prozess startet die Datenschicht neu, liest, was
+	 * die Abnahmekriterien verlangen, und ruft die Umschreibung **erst danach**
+	 * ein zweites Mal — davor gerufen, hätte sie die Arbeit des Starts
+	 * nachgeholt, und die Proben davor wären grün, auch wenn
+	 * `datenschichtStarten` sie nicht ruft (so beim ersten Vorführen gefunden).
 	 *
-	 * Vorgeführt am 2026-10-26, jede einzeln und zurückgesetzt:
-	 *   - Aufruf in `datenschichtStarten` entfernt → Ernte (zwei Beete),
-	 *     Wellness, die abgeschlossene Zeile und der zweite Lauf rot.
-	 *   - `isNull(abgeschlossenAm)` an der Auswahl der Behandlungen → die
-	 *     abgeschlossene Zeile bleibt auf `042`, `Rückgängig` trifft 0 statt 1.
+	 * Vorgeführt am 2026-10-26 (nach dem Review an der neuen Fassung
+	 * wiederholt), jede einzeln und zurückgesetzt:
+	 *   - Aufruf in `datenschichtStarten` entfernt → Ernte (eigene Beete je
+	 *     Schreibweise), Wellness, die abgeschlossene Zeile, der zweite Lauf und
+	 *     die Meldung des Fehlerpfads rot.
+	 *   - nur offene Behandlungen ausgewählt → die abgeschlossene Zeile bleibt
+	 *     auf `042`, `Rückgängig` trifft 0 statt 1.
 	 *   - die Bedingung `ort === zeile.ort` entfernt (jede Zeile wird
-	 *     geschrieben) → der zweite Lauf meldet 6 statt 0.
+	 *     geschrieben) → der zweite Lauf meldet 8 statt 0.
+	 * Nach dem Review, ebenso:
+	 *   - `ortVereinheitlichen` statt `ortFassen` im Startschritt → Ernte rot
+	 *     (`Beet` allein bleibt ein eigenes Beet).
+	 *   - `tabellenMitOrt` auf `harvests` beschränkt → Wellness, die
+	 *     abgeschlossene Zeile, der Abgleich mit der Datei und beide Zeilen des
+	 *     Fehlerpfads rot.
+	 *   - ein eindeutiger Index auf `harvests(ort)` in der Saat → der Lauf
+	 *     selbst bricht (Neustart mit Exit 1, dazu jede Probe, die von ihm
+	 *     liest), und die Index-Probe nennt `harvests.probe_eindeutig`.
 	 */
 	const ortsprobe = join(arbeit, 'orte-probe.sqlite');
 	const ortsprobeUmgebung = { ...process.env, DATABASE_PATH: ortsprobe };
 	const modul = (pfad: string) => JSON.stringify(pathToFileURL(join(wurzel, pfad)).href);
-	const saat = starten(
-		[
-			'--input-type=module',
-			'-e',
-			`const db = await import(${modul('src/lib/server/db/index.ts')});` +
-				`const mitglieder = await import(${modul('src/lib/server/db/queries/members.ts')});` +
-				`const ernte = await import(${modul('src/lib/server/db/queries/harvests.ts')});` +
-				`const wellness = await import(${modul('src/lib/server/db/queries/treatments.ts')});` +
-				'db.datenschichtStarten();' +
-				"const m = mitglieder.mitgliedAnlegen({ name: 'Orla', inviteTokenHash: 'x', isAdmin: false });" +
-				'for (const [kultur, ort] of [["Kohl", "42"], ["Lauch", "Beet 42"], ["Salat", "Sector C"]])' +
-				'  ernte.ernteEintragen({ kultur, ort, status: "sofort", laufend: false }, m);' +
-				'for (const [kultur, ort] of [["Tomaten", "42"], ["Tomaten", "Beet 42"], ["Bohnen", "042"]])' +
-				'  wellness.behandlungEintragen({ mittel: "Jauche", kultur, ort, angewendetAm: 1000, intervallTage: null }, m);' +
-				'wellness.kulturAbschliessen("042", "Bohnen", 5000);',
-		],
-		ortsprobeUmgebung
-	);
+	/** Sät die alten Schreibweisen über die Abfrageschicht in eine frische Datei. */
+	const orteSaeen = (umgebung: Record<string, string | undefined>) =>
+		starten(
+			[
+				'--input-type=module',
+				'-e',
+				`const db = await import(${modul('src/lib/server/db/index.ts')});` +
+					`const mitglieder = await import(${modul('src/lib/server/db/queries/members.ts')});` +
+					`const ernte = await import(${modul('src/lib/server/db/queries/harvests.ts')});` +
+					`const wellness = await import(${modul('src/lib/server/db/queries/treatments.ts')});` +
+					'db.datenschichtStarten();' +
+					"const m = mitglieder.mitgliedAnlegen({ name: 'Orla', inviteTokenHash: 'x', isAdmin: false });" +
+					'for (const [kultur, ort] of [["Kohl", "42"], ["Lauch", "Beet 42"], ["Mais", " 42"], ["Rüebli", "Beet  42"], ["Salat", "Sector C"], ["Kresse", "Beet"]])' +
+					'  ernte.ernteEintragen({ kultur, ort, status: "sofort", laufend: false }, m);' +
+					'for (const [kultur, ort] of [["Tomaten", "42"], ["Tomaten", "Beet 42"], ["Bohnen", "042"]])' +
+					'  wellness.behandlungEintragen({ mittel: "Jauche", kultur, ort, angewendetAm: 1000, intervallTage: null }, m);' +
+					'wellness.kulturAbschliessen("042", "Bohnen", 5000);',
+			],
+			umgebung
+		);
+	const saat = orteSaeen(ortsprobeUmgebung);
 	pruefenGleich('die Saat der alten Schreibweisen läuft durch', saat.status, 0);
 	const neustart = starten(
 		[
@@ -12350,20 +12483,25 @@ try {
 				`const ernte = await import(${modul('src/lib/server/db/queries/harvests.ts')});` +
 				`const wellness = await import(${modul('src/lib/server/db/queries/treatments.ts')});` +
 				`const liste = await import(${modul('src/lib/ernte.ts')});` +
+				"const { getTableName } = await import('drizzle-orm');" +
 				'db.datenschichtStarten();' +
 				'const beete = liste.nachBeetGliedern(ernte.erntestandLesen()).map((b) => [b.ort, b.stufen.flatMap((s) => s.zeilen.map((z) => z.kultur)).sort()]);' +
 				'const abschluss = wellness.kulturAbschliessen("Beet 42", "Tomaten", 9000);' +
 				'const zurueck = wellness.abschlussZuruecknehmen("Beet 42", "Bohnen", 5000);' +
 				'const zweiterLauf = db.orteVereinheitlichen(db.datenbank());' +
-				'console.log(JSON.stringify({ zweiterLauf, beete, abschluss: abschluss?.anzahl ?? 0, zurueck }));',
+				'const tabellen = db.tabellenMitOrt().map((t) => getTableName(t)).sort();' +
+				'console.log(JSON.stringify({ zweiterLauf, beete, abschluss: abschluss?.anzahl ?? 0, zurueck, tabellen }));',
 		],
 		ortsprobeUmgebung
 	);
+	const startBefund = `${neustart.stdout}${neustart.stderr}`.slice(0, 600);
+	pruefenGleich('der Neustart über der alten Saat endet mit Exit 0', neustart.status, 0);
 	const nachStart = ((): {
 		zweiterLauf?: number;
 		beete?: unknown;
 		abschluss?: number;
 		zurueck?: number;
+		tabellen?: string[];
 	} => {
 		try {
 			return JSON.parse(neustart.stdout.trim().split('\n').at(-1) ?? '{}');
@@ -12371,13 +12509,13 @@ try {
 			return {};
 		}
 	})();
-	const startBefund = `${neustart.stdout}${neustart.stderr}`.slice(0, 400);
 	pruefen(
-		'Ernte `42` und `Beet 42`: nach dem Start ein Beet `Beet 42` auf /ernte, `Sector C` bleibt',
+		'Ernte `42`, `Beet 42`, ` 42`, `Beet  42`: nach dem Start ein Beet `Beet 42` auf /ernte, `Sector C` bleibt, `Beet` allein ist ohne Ort',
 		JSON.stringify(nachStart.beete) ===
 			JSON.stringify([
-				['Beet 42', ['Kohl', 'Lauch']],
+				['Beet 42', ['Kohl', 'Lauch', 'Mais', 'Rüebli']],
 				['Sector C', ['Salat']],
+				[null, ['Kresse']],
 			]),
 		startBefund
 	);
@@ -12395,6 +12533,107 @@ try {
 		'die Umschreibung ist idempotent: ein zweiter Lauf nach dem Start ändert keine Zeile',
 		nachStart.zweiterLauf === 0,
 		startBefund
+	);
+
+	/*
+	 * **Welche Tabellen die Umschreibung erfasst, gegen die Datei gehalten.**
+	 * `tabellenMitOrt` liest das Schema; hier steht daneben, welche Tabellen der
+	 * migrierten Datei eine Spalte `ort` tragen (`PRAGMA table_info` über jede
+	 * Tabelle aus `sqlite_master`). Keine Seite ist von Hand aufgezählt. Dazu:
+	 * kein eindeutiger Index einer dieser Tabellen enthält `ort` — mit einem
+	 * solchen bräche das Zusammenfallen von `42` und `Beet 42` den Start.
+	 */
+	const probeDatei = new Database(ortsprobe, { readonly: true });
+	const dateiTabellenMitOrt = (
+		probeDatei
+			.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+			.all() as { name: string }[]
+	)
+		.map((tabelle) => tabelle.name)
+		.filter((name) =>
+			(probeDatei.pragma(`table_info("${name}")`) as { name: string }[]).some(
+				(spalte) => spalte.name === 'ort'
+			)
+		)
+		.sort();
+	const eindeutigMitOrt = dateiTabellenMitOrt.flatMap((tabelle) =>
+		(probeDatei.pragma(`index_list("${tabelle}")`) as { name: string; unique: number }[])
+			.filter((index) => index.unique === 1)
+			.filter((index) =>
+				(probeDatei.pragma(`index_info("${index.name}")`) as { name: string }[]).some(
+					(spalte) => spalte.name === 'ort'
+				)
+			)
+			.map((index) => `${tabelle}.${index.name}`)
+	);
+	probeDatei.close();
+	pruefen(
+		'die Umschreibung erfasst genau die Tabellen der Datei mit einer Spalte `ort`',
+		dateiTabellenMitOrt.length > 0 &&
+			JSON.stringify(nachStart.tabellen) === JSON.stringify(dateiTabellenMitOrt),
+		`Schema ${JSON.stringify(nachStart.tabellen)}, Datei ${JSON.stringify(dateiTabellenMitOrt)}`
+	);
+	pruefen(
+		'kein eindeutiger Index einer Tabelle mit Ort enthält `ort`',
+		dateiTabellenMitOrt.length > 0 && eindeutigMitOrt.length === 0,
+		`eindeutig mit ort: ${eindeutigMitOrt.join(', ')}`
+	);
+
+	/*
+	 * **Der Fehlerpfad.** Eine frische Datei mit derselben Saat und einem
+	 * Auslöser, der jedes Umschreiben eines Orts in `treatments` abbricht. Die
+	 * Tabellen werden in der Reihenfolge des Schemas gelesen, `harvests` vor
+	 * `treatments`: die Ernte ist schon umgeschrieben, wenn der Abbruch kommt.
+	 * Erwartet: der Start wirft mit der benannten Meldung, und **beide**
+	 * Tabellen tragen danach ihre alten Orte — die Transaktion hat auch die
+	 * Ernte zurückgerollt.
+	 *
+	 * Vorgeführt am 2026-10-26: die Umschreibung ohne Transaktion (der Rumpf
+	 * direkt auf dem Handle) → die zweite Zeile rot, die Ernte steht auf
+	 * `Beet 42`; das `try` um den Aufruf in `datenschichtStarten` entfernt →
+	 * die erste Zeile rot (die Meldung ist die rohe des Auslösers).
+	 */
+	const fehlerprobe = join(arbeit, 'orte-fehler.sqlite');
+	const fehlerUmgebung = { ...process.env, DATABASE_PATH: fehlerprobe };
+	orteSaeen(fehlerUmgebung);
+	const orteLesen = () => {
+		const datei = new Database(fehlerprobe, { readonly: true });
+		const orte = JSON.stringify([
+			datei.prepare('SELECT ort FROM harvests ORDER BY id').all(),
+			datei.prepare('SELECT ort FROM treatments ORDER BY id').all(),
+		]);
+		datei.close();
+		return orte;
+	};
+	{
+		const datei = new Database(fehlerprobe);
+		datei.exec(
+			"CREATE TRIGGER ortsprobe_abbruch BEFORE UPDATE OF ort ON treatments BEGIN SELECT RAISE(ABORT, 'Ortsprobe bricht ab'); END;"
+		);
+		datei.close();
+	}
+	const orteVorher = orteLesen();
+	const fehlstart = starten(
+		[
+			'--input-type=module',
+			'-e',
+			`const db = await import(${modul('src/lib/server/db/index.ts')});` +
+				'try { db.datenschichtStarten(); console.log("kein Wurf"); }' +
+				'catch (fehler) { console.log(fehler.message); }',
+		],
+		fehlerUmgebung
+	);
+	pruefen(
+		'scheitert die Umschreibung, wirft der Start mit benannter Meldung und dem Grund',
+		fehlstart.stdout.includes('liessen sich nicht in die eine Schreibweise bringen') &&
+			fehlstart.stdout.includes('Ortsprobe bricht ab'),
+		`${fehlstart.stdout}${fehlstart.stderr}`.slice(0, 400)
+	);
+	const orteNachher = orteLesen();
+	pruefen(
+		'und lässt die Orte in beiden Tabellen unverändert, auch die schon umgeschriebene Ernte',
+		orteNachher === orteVorher && orteVorher.includes('"42"'),
+		`vorher ${orteVorher}, nachher ${orteNachher}`
 	);
 
 	// -----------------------------------------------------------------------

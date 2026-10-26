@@ -273,10 +273,40 @@ export function kulturPruefen(eingabe: string): { kultur: string } | { fehler: s
  * Das Leerzeichen am Ende gehört dazu: der Einfügepunkt steht danach, und
  * `Beet3` wäre die Meldung, die aus einer fehlenden Lücke entsteht. Seit dem
  * 2026-10-26 speichert `ortPruefen` auch diese als `Beet 3`; die Lücke bleibt
- * trotzdem, weil das Feld zeigen soll, was gespeichert wird.
- * `ortPruefen` faltet sie weg.
+ * trotzdem, weil das Feld zeigen soll, was gespeichert wird. `ortFassen`
+ * faltet sie weg.
  */
 export const ORT_VORGABE = 'Beet ';
+
+/**
+ * Der Ort, wie er gespeichert wird — **ohne Längenprüfung**, und leer heisst
+ * null. Die eine Fassung für drei Leser: `ortPruefen` (Speichern auf /ernte
+ * und /wellness), `stelleLesen` auf /wellness (das Suchen einer Stelle aus
+ * einem versteckten Feld) und `orteVereinheitlichen` beim Start
+ * (src/lib/server/db/index.ts). Zwei Kopien dieser drei Schritte liefen beim
+ * ersten Nachbessern auseinander, und dann fände das Suchen nicht mehr, was
+ * das Speichern geschrieben hat.
+ *
+ * 1. **Falten** mit `aufgabentextFalten`: unsichtbare Zeichen weg, Leerraum
+ *    zusammenziehen, trimmen.
+ * 2. **Vereinheitlichen** mit `ortVereinheitlichen` (./beet.ts): `42`, `B42`
+ *    und `beet 42` werden `Beet 42` (seit dem 2026-10-26,
+ *    spec-beet-schreibweise.md).
+ * 3. **Leer und die Vorgabe allein werden null.** Wer nichts eingibt, schickt
+ *    seit dem 2026-09-17 nicht die leere Zeichenkette, sondern `Beet `. Ohne
+ *    diesen Schritt trüge jede Zeile ohne Ortsangabe den Ort `Beet` — eine
+ *    Auskunft, die nichts sagt und in der Liste aussieht wie eine, die etwas
+ *    sagt. Verglichen wird gegen die **gefaltete** Vorgabe (das Leerzeichen
+ *    am Ende überlebt die Faltung nicht) und ohne Gross und Klein: `beet` und
+ *    `BEET` allein sagen so wenig wie `Beet`.
+ */
+export function ortFassen(eingabe: string): string | null {
+	const ort = ortVereinheitlichen(aufgabentextFalten(eingabe));
+	if (ort === '' || ort.toLowerCase() === aufgabentextFalten(ORT_VORGABE).toLowerCase()) {
+		return null;
+	}
+	return ort;
+}
 
 /**
  * Prüft den Ort: **darf leer sein**, und leer heisst null.
@@ -286,26 +316,20 @@ export const ORT_VORGABE = 'Beet ';
  * weiss es ohnehin, und ein Pflichtfeld hier wäre eine Hürde vor der Handlung,
  * die diese Seite ermöglichen soll.
  *
- * **Die unangetastete Vorgabe zählt als leer**, und das ist der Preis dafür,
- * dass sie überhaupt im Feld steht: wer nichts eingibt, schickt seit dem
- * 2026-09-17 nicht mehr die leere Zeichenkette, sondern `Beet `. Ohne diese
- * Zeile trüge jede Zeile ohne Ortsangabe den Ort `Beet` — eine Auskunft, die
- * nichts sagt und in der Liste aussieht wie eine, die etwas sagt.
+ * Gefasst wird mit `ortFassen`: gefaltet, in die eine Schreibweise gebracht,
+ * leer und die unangetastete Vorgabe als null. **Die Länge wird danach
+ * geprüft** — es zählt, was gespeichert würde. Ernte und Wellness rufen beide
+ * diese Funktion und lesen damit dieselbe Regel.
  *
- * Verglichen wird gegen die **gefaltete** Vorgabe und nicht gegen das Literal:
- * das Leerzeichen am Ende überlebt die Faltung nicht, und ein Vergleich gegen
- * `ORT_VORGABE` selbst träfe darum nie zu.
- *
- * **Gespeichert wird die eine Schreibweise** (seit dem 2026-10-26,
- * spec-beet-schreibweise.md): nach dem Falten schreibt `ortVereinheitlichen`
- * (./beet.ts) `42`, `B42` und `beet 42` als `Beet 42`, damit eine Nummer auf
- * /ernte und /wellness genau ein Beet ist. Die Länge wird **danach** geprüft —
- * es zählt, was gespeichert würde. Ernte und Wellness rufen beide diese
- * Funktion und lesen damit dieselbe Regel.
+ * Eine Folge, benannt: ein Ort, den die Umschreibung beim Start über die
+ * Grenze wachsen liess (eine Ziffernfolge mit mehr als 55 Stellen, plus
+ * `Beet `), steht gespeichert, wird aber beim Ändern einer Behandlung mit
+ * ORT_ZU_LANG abgewiesen, bis jemand ihn kürzt. Der Startschritt kann nichts
+ * abweisen und prüft darum keine Länge.
  */
 export function ortPruefen(eingabe: string): { ort: string | null } | { fehler: string } {
-	const ort = ortVereinheitlichen(aufgabentextFalten(eingabe));
-	if (ort === '' || ort === aufgabentextFalten(ORT_VORGABE)) return { ort: null };
+	const ort = ortFassen(eingabe);
+	if (ort === null) return { ort: null };
 	if ([...ort].length > ERNTE_HOECHSTLAENGE) return { fehler: ORT_ZU_LANG };
 	return { ort };
 }
@@ -371,7 +395,9 @@ export type Erntebeet<T> = {
  *   über eine Zuordnung mit dem gespeicherten Wert als Schlüssel und nicht über
  *   die Ordnung: `natuerlich` hält `Beet 03` und `Beet 3` für gleich, und eine
  *   Gruppierung über die Ordnung legte zwei Werte zusammen, die gespeichert
- *   verschieden sind.
+ *   verschieden sind. Gespeichert steht `Beet 03` seit dem 2026-10-26 nicht
+ *   mehr (`ortFassen` schreibt `Beet 3`); die Zuordnung bleibt trotzdem, weil
+ *   diese Funktion nicht voraussetzt, woher ihre Zeilen kommen.
  * - **Natürlich geordnet**, wie das Tagebuch auf /wellness (`leerZuletzt` aus
  *   ./beet.ts): `Beet 3` vor `Beet 12`, ohne Ort zuunterst. Bei Gleichstand
  *   (`Beet 03` gegen `Beet 3`) entscheidet der Zeichenvergleich, damit zwei
