@@ -83,10 +83,10 @@ import {
 import { AUFGABE_HOECHSTLAENGE, PLAN_HOECHSTZAHL } from '../src/lib/aufgabentext.ts';
 import { datenbank, datenschichtStarten } from '../src/lib/server/db/index.ts';
 import { ortVereinheitlichen } from '../src/lib/beet.ts';
+import { datumKurz, datumOhneJahr } from '../src/lib/client/utils/date.ts';
 import {
 	DIENSTART_TRAENKEN,
 	dutyWeeks,
-	harvests,
 	members,
 	ohneTokenHash,
 	sheets,
@@ -271,7 +271,6 @@ import {
 	EIGENER_ZUGANG_GESCHUETZT,
 	LETZTE_ADMINPERSON,
 	EINZELAUFGABE_NICHT_ANSPRECHBAR,
-	ERNTEZEILE_NICHT_ANSPRECHBAR,
 	FRIST_AUSSERHALB,
 	KEIN_ZUGANG,
 	MITGLIED_NICHT_ANSPRECHBAR,
@@ -308,7 +307,7 @@ import {
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 835;
+const ERWARTETE_BEHAUPTUNGEN = 831;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -4298,7 +4297,7 @@ try {
 		`verletzt: ${fehlendeTeile(regionenTeile).join(', ')}`
 	);
 	pruefenGleich(
-		'und es sind neun höfliche, achtunddreissig unterbrechende, eine Ansage und genau eine, die nur die CSS-Rolle braucht',
+		'und es sind neun höfliche, siebenunddreissig unterbrechende, eine Ansage und genau eine, die nur die CSS-Rolle braucht',
 		JSON.stringify(
 			liveTags
 				.map(([, roh]) => roh.replace(/\s+/g, ' '))
@@ -4345,7 +4344,11 @@ try {
 		// /wissen hat zwei Feldmeldungen dazubekommen (Titel und Datei des
 		// Ablegen-Formulars), /wissen/dokument/[id] bringt eine Meldungs- und eine
 		// Fehlerregion mit.
-		JSON.stringify({ hoeflich: 9, unterbrechend: 38, ansage: 1, keineRegion: 1 })
+		//
+		// -1 unterbrechend seit dem 2026-10-26 (spec-ernte-notiz-nur-beim-
+		// erfassen.md): das Notizfeld an der Erntekarte ist mit seiner
+		// Feldmeldung weg. Die am Notizfeld des Eintragen-Formulars bleibt.
+		JSON.stringify({ hoeflich: 9, unterbrechend: 37, ansage: 1, keineRegion: 1 })
 	);
 
 	const rueckmeldungRumpf = glatterRumpf(
@@ -13217,8 +13220,8 @@ try {
 	);
 
 	/*
-	 * /ernte: die Notiz beim Eintragen, das Ändern an der Karte, und der Name
-	 * an der Karte — eingetragen von Nici Mü.
+	 * /ernte: die Notiz beim Eintragen und der Name an der Karte — eingetragen
+	 * von Nici Mü.
 	 */
 	if (nici === undefined) throw new Error('Nici Müller fehlt — die Aufnahme oben ist gescheitert');
 	const niciLocals = ohneTokenHash(nici);
@@ -13271,97 +13274,110 @@ try {
 		JSON.stringify(datenVon(notizZuLang))
 	);
 
-	const notizGefragt = await ernteAktion('notizAendern', { id: String(notizZeileId) });
-	pruefen(
-		'der Stift fragt nur: die Antwort trägt Zeile und Notiz, geschrieben wird nichts',
-		notizGefragt.art === 'wert' &&
-			wertVon(notizGefragt).art === 'notizFragen' &&
-			wertVon(notizGefragt).zeile === notizZeileId &&
-			wertVon(notizGefragt).notiz === 'frühe Sorte, sehr gross' &&
-			erntezeileLesen(notizZeileId)?.notiz === 'frühe Sorte, sehr gross',
-		JSON.stringify(wertVon(notizGefragt))
-	);
 	/*
-	 * **Der Abdruck der Notiz** (Review vom 2026-10-26): ein Versand, der eine
-	 * andere Notiz gesehen hat als die gespeicherte, schreibt nicht und bekommt
-	 * den Satz der veralteten Seite.
+	 * **Die Notiz wird nur beim Eintragen gesetzt** (spec-ernte-notiz-nur-
+	 * beim-erfassen.md, 2026-10-26): /ernte trägt genau die drei actions
+	 * Eintragen, Umstufen und Abernten, und keine ändert eine Notiz. Dass ein
+	 * gebauter POST auf `?/notizAendern` am laufenden Server ins Leere geht und
+	 * die Zeile stehen lässt, misst smoke:sicht; hier steht die Menge der
+	 * actions selbst.
+	 *
+	 * Vorgeführt am 2026-10-26: die alte action `notizAendern` samt
+	 * `ernteNotizSetzen` wieder eingesetzt — die Zeile wurde rot.
 	 */
-	const notizVeraltet = await ernteAktion('notizAendern', {
-		id: String(notizZeileId),
-		bekannteNotiz: 'eine alte Fassung',
-		notiz: 'wenig',
-	});
-	const notizOhneAbdruck = await ernteAktion('notizAendern', {
-		id: String(notizZeileId),
-		notiz: 'wenig',
-	});
-	pruefen(
-		'eine Notiz aus einer veralteten Seite schreibt nicht — weder mit falschem noch ohne Abdruck',
-		notizVeraltet.art === 'fehlschlag' &&
-			datenVon(notizVeraltet).meldung === ERNTEZEILE_NICHT_ANSPRECHBAR &&
-			notizOhneAbdruck.art === 'fehlschlag' &&
-			datenVon(notizOhneAbdruck).meldung === ERNTEZEILE_NICHT_ANSPRECHBAR &&
-			erntezeileLesen(notizZeileId)?.notiz === 'frühe Sorte, sehr gross',
-		JSON.stringify({ veraltet: datenVon(notizVeraltet), ohne: datenVon(notizOhneAbdruck) })
+	pruefenGleich(
+		'/ernte trägt genau die actions eintragen, umstufen und abernten — keine ändert eine Notiz',
+		Object.keys(ernteKurz.actions).sort().join(', '),
+		'abernten, eintragen, umstufen'
 	);
-	const notizGeaendert = await ernteAktion('notizAendern', {
-		id: String(notizZeileId),
-		bekannteNotiz: 'frühe Sorte, sehr gross',
-		notiz: ' wenig ',
-	});
-	pruefen(
-		'die Notiz lässt sich an der Karte ändern',
-		notizGeaendert.art === 'wert' &&
-			wertVon(notizGeaendert).art === 'notizGesetzt' &&
-			erntezeileLesen(notizZeileId)?.notiz === 'wenig',
-		JSON.stringify(wertVon(notizGeaendert))
-	);
-	const notizAmFeldZuLang = await ernteAktion('notizAendern', {
-		id: String(notizZeileId),
-		notiz: `${notizGrenze}n`,
-	});
-	pruefen(
-		'eine zu lange Notiz an der Karte fällt am Feld dieser Zeile, mit dem Text, und ändert nichts',
-		notizAmFeldZuLang.art === 'fehlschlag' &&
-			datenVon(notizAmFeldZuLang).meldung === NOTIZ_ZU_LANG &&
-			datenVon(notizAmFeldZuLang).feld === 'aendernNotiz' &&
-			datenVon(notizAmFeldZuLang).zeile === notizZeileId &&
-			datenVon(notizAmFeldZuLang).eingabe === `${notizGrenze}n` &&
-			erntezeileLesen(notizZeileId)?.notiz === 'wenig',
-		JSON.stringify(datenVon(notizAmFeldZuLang))
-	);
-	const notizGeleert = await ernteAktion('notizAendern', {
-		id: String(notizZeileId),
-		bekannteNotiz: 'wenig',
-		notiz: '',
-	});
-	pruefen(
-		'eine geleerte Notiz ist entfernt — die Notizzeile fällt weg',
-		notizGeleert.art === 'wert' &&
-			erntezeileLesen(notizZeileId)?.notiz === null &&
-			String(wertVon(notizGeleert).meldung).includes('entfernt'),
-		JSON.stringify(wertVon(notizGeleert))
-	);
+
 	/*
-	 * Eine Notiz aus lauter Leerzeichen, von Hand in die Spalte gesetzt: die
-	 * Seite schickt sie als „keine" zurück, und das muss treffen — sonst wäre
-	 * die Zeile für immer gesperrt.
+	 * **Matrix „Datum": `datumOhneJahr` liefert Tag und Monat, ohne Jahr**
+	 * (spec-ernte-notiz-nur-beim-erfassen.md) — auch um 00:30 in der Zone des
+	 * Gartens, wo eine Rechnung in UTC den Vortag ergäbe —, und `datumKurz`
+	 * daneben behält sein Jahr. **Strukturell geprüft**, nicht gegen `26. Okt.`:
+	 * das Monatskürzel kommt aus der ICU-Fassung der Laufzeit (unter Node 25.8
+	 * `Okt.`, und für September `Sept.` statt eines älteren `Sep`), und die
+	 * Probe soll an der Gestalt hängen, nicht an einer Kürzelliste. Dass die
+	 * Karte auf /ernte diese Funktion zeigt, misst smoke:sicht am gerenderten
+	 * Dokument; eine Quelltextprobe hier hinge an Umbruch und Kommentaren. Dass
+	 * die anderen Seiten das Jahr behalten, prüft keine Wache (deferred-work.md).
+	 *
+	 * Vorgeführt am 2026-10-26: der Formatierer mit `timeZone: 'UTC'` statt der
+	 * Zone des Gartens — rot an `um 00:30`; mit `year: 'numeric'` — rot an allen
+	 * drei Teilen zu `datumOhneJahr`. Ohne `timeZone` bliebe die Zeile auf einer
+	 * Maschine in Europe/Zurich grün; die Probe misst das Ergebnis, nicht ob
+	 * die Zone ausgeschrieben ist.
 	 */
-	datenbank().update(harvests).set({ notiz: '   ' }).where(eq(harvests.id, notizZeileId)).run();
-	const notizAusLeerraum = await ernteAktion('notizAendern', {
-		id: String(notizZeileId),
-		bekannteNotiz: '   ',
-		notiz: 'zuerst',
-	});
+	const amTag = Date.UTC(2026, 9, 26, 10, 0) / 1000;
+	// Seit dem 25.10.2026 gilt in Zürich wieder MEZ (UTC+1): 23:30 UTC am 25.
+	// ist 00:30 am 26.
+	const kurzNachMitternacht = Date.UTC(2026, 9, 25, 23, 30) / 1000;
+	const tagUndMonat = /^26\. \p{L}+\.?$/u;
+	const datumTeile = [
+		['26.10.2026 hat die Gestalt `Tag. Monat`', tagUndMonat.test(datumOhneJahr(amTag))],
+		['um 00:30 in Zürich schon der 26.', tagUndMonat.test(datumOhneJahr(kurzNachMitternacht))],
+		['ohne Jahr', !/\d{4}/.test(datumOhneJahr(amTag))],
+		['datumKurz behält das Jahr', datumKurz(amTag).includes('2026')],
+	] as const;
 	pruefen(
-		'eine Notiz aus lauter Leerzeichen in der Spalte sperrt die Zeile nicht',
-		notizAusLeerraum.art === 'wert' && erntezeileLesen(notizZeileId)?.notiz === 'zuerst',
-		JSON.stringify(datenVon(notizAusLeerraum))
+		'Matrix „Datum": datumOhneJahr gibt Tag und Monat ohne Jahr, in der Zone des Gartens',
+		fehlendeTeile(datumTeile).length === 0,
+		`fehlt: ${fehlendeTeile(datumTeile).join(', ')} (${datumOhneJahr(amTag)} / ${datumOhneJahr(kurzNachMitternacht)})`
 	);
-	abgewiesen(
-		'eine Notiz an einer Zeile, die es nicht gibt, fällt mit dem Satz der Seite',
-		await ernteAktion('notizAendern', { id: '999999', notiz: 'wenig' }),
-		ERNTEZEILE_NICHT_ANSPRECHBAR
+
+	/*
+	 * **Eingaben reisen nur aus einer Abweisung des Eintragen-Formulars zurück
+	 * in dessen Felder** (Review zu spec-ernte-notiz-nur-beim-erfassen.md).
+	 * Zwei Hälften: `kulturWert` und `ortWert` lesen `eintragenAbgewiesen`, und
+	 * `EINTRAGEN_FELDER` in der Komponente ist genau die Menge der Marken, die
+	 * `+page.server.ts` beim Abweisen vergibt — eine neue Marke an einer Zeile
+	 * fiele sonst unbemerkt in die Felder des Formulars oder aus ihnen heraus.
+	 * Gelesen über Leerraum-gefalteten Quelltext ohne Kommentare; die Grenze:
+	 * eine Marke, die nicht als Literal an `abweisen(` steht, sähe die Probe
+	 * nicht.
+	 *
+	 * Vorgeführt am 2026-10-26: `&& eintragenAbgewiesen` aus `kulturWert`
+	 * gestrichen — rot am ersten Teil; `'notiz'` aus `EINTRAGEN_FELDER`
+	 * gestrichen — rot am zweiten.
+	 */
+	const ernteOhneKommentare = (quelle: string) =>
+		quelle
+			.replace(/<!--[\s\S]*?-->/g, '')
+			.replace(/\/\*[\s\S]*?\*\//g, '')
+			.replace(/^\s*\/\/.*$/gm, '')
+			.replace(/\s+/g, ' ');
+	const ernteKomponente = ernteOhneKommentare(
+		readFileSync(join(wurzel, 'src', 'routes', 'ernte', '+page.svelte'), 'utf8')
+	);
+	const ernteServer = ernteOhneKommentare(
+		readFileSync(join(wurzel, 'src', 'routes', 'ernte', '+page.server.ts'), 'utf8')
+	);
+	const felderListe =
+		/const EINTRAGEN_FELDER = \[([^\]]*)\] as const/.exec(ernteKomponente)?.[1] ?? '';
+	const felderKomponente = [...felderListe.matchAll(/'(\w+)'/g)].map((m) => m[1]).sort();
+	const felderServer = [
+		...new Set([...ernteServer.matchAll(/abweisen\([^,()]+, '(\w+)'/g)].map((m) => m[1])),
+	].sort();
+	const ernteRueckwegTeile = [
+		[
+			'kulturWert und ortWert lesen eintragenAbgewiesen',
+			/const kulturWert = \$derived\( form !== null && form\.art === 'fehler' && eintragenAbgewiesen \?/.test(
+				ernteKomponente
+			) &&
+				/const ortWert = \$derived\( form !== null && form\.art === 'fehler' && eintragenAbgewiesen \?/.test(
+					ernteKomponente
+				),
+		],
+		[
+			`EINTRAGEN_FELDER (${felderKomponente.join(', ')}) ist die Menge der Marken des Servers (${felderServer.join(', ')})`,
+			felderKomponente.length > 0 && felderKomponente.join(',') === felderServer.join(','),
+		],
+	] as const;
+	pruefen(
+		'/ernte: abgewiesene Eingaben reisen nur aus dem Eintragen-Formular in dessen Felder zurück',
+		fehlendeTeile(ernteRueckwegTeile).length === 0,
+		`fehlt: ${fehlendeTeile(ernteRueckwegTeile).join(', ')}`
 	);
 	ernteAbernten(notizZeileId);
 	if (ohneNotizZeile !== null) ernteAbernten(ohneNotizZeile.id);

@@ -14,7 +14,6 @@
 		ERNTE_HOECHSTLAENGE,
 		KULTUREN,
 		KULTURLISTE,
-		NOTIZ_AENDERN_WORT,
 		NOTIZ_HOECHSTLAENGE,
 		ORT_VORGABE,
 		nachBeetGliedern,
@@ -22,9 +21,8 @@
 	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
 	import ZeichenKreis from '$lib/components/ZeichenKreis.svelte';
 	import ZeichenKreuz from '$lib/components/ZeichenKreuz.svelte';
-	import ZeichenStift from '$lib/components/ZeichenStift.svelte';
 	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
-	import { datumKurz } from '$lib/client/utils/date';
+	import { datumOhneJahr } from '$lib/client/utils/date';
 
 	/*
 		/ernte — was reif ist, **nach Beet**, und im Beet das Dringende zuerst.
@@ -53,20 +51,17 @@
 		eintrag.ort === null ? eintrag.kultur : `${eintrag.kultur}, ${eintrag.ort}`;
 
 	/*
-		Die Rückmeldung eines geglückten Eintragens, Umstufens, Aberntens oder
-		einer gesetzten Notiz.
+		Die Rückmeldung eines geglückten Eintragens, Umstufens oder Aberntens.
 
-		Alle vier tragen ihren Satz fertig aus der action mit, samt Kultur — und
-		Eintragen wie Umstufen dazu die Zielstufe: die Beete sind zugeklappt, das Formular klappt nach dem
-		Absenden zu, und der Fokus springt nach oben. Ohne die Angaben sagte die
-		Meldung, dass etwas geklappt hat, aber nicht was und nicht wohin.
+		Alle drei tragen ihren Satz fertig aus der action mit, samt Kultur — und
+		Eintragen wie Umstufen dazu die Zielstufe: die Beete sind zugeklappt, das
+		Formular klappt nach dem Absenden zu, und der Fokus springt nach oben. Ohne
+		die Angaben sagte die Meldung, dass etwas geklappt hat, aber nicht was und
+		nicht wohin.
 	*/
 	const rueckmeldung = $derived(
 		form !== null &&
-			(form.art === 'eingetragen' ||
-				form.art === 'umgestuft' ||
-				form.art === 'abgeerntet' ||
-				form.art === 'notizGesetzt')
+			(form.art === 'eingetragen' || form.art === 'umgestuft' || form.art === 'abgeerntet')
 			? form.meldung
 			: ''
 	);
@@ -79,30 +74,6 @@
 	 * ohne JavaScript entsteht sie als vollständiges Dokument.
 	 */
 	const frage = $derived(form !== null && form.art === 'fragenAbernten' ? form : null);
-
-	/*
-		**Welche Zeile gerade ihr Notizfeld zeigt — oder null**
-		(spec-notiz-und-kurzname.md, 2026-10-26). Dieselbe Bauform wie `frage`
-		darüber: der Stift schickt einen POST ohne Notiz, und die Antwort trägt die
-		Zeile und die Notiz, die dort steht. Nach einer Abweisung am Feld bleibt es
-		offen, mit dem verworfenen Text darin — `feld: 'aendernNotiz'` und die
-		Zeile kommen vom Server, auch ohne JavaScript.
-	*/
-	const notizZeile = $derived(
-		form !== null && form.art === 'notizFragen'
-			? form.zeile
-			: form !== null && form.art === 'fehler' && form.feld === 'aendernNotiz'
-				? form.zeile
-				: null
-	);
-	const notizFehler = $derived(
-		form !== null && form.art === 'fehler' && form.feld === 'aendernNotiz' ? form.meldung : ''
-	);
-	/** Was im Notizfeld steht: der verworfene Text, sonst die gespeicherte Notiz. */
-	const notizWert = (eintrag: { notiz: string | null }): string =>
-		form !== null && form.art === 'fehler' && form.feld === 'aendernNotiz'
-			? form.eingabe
-			: (eintrag.notiz ?? '');
 
 	/*
 		**Welches Beet vom Server her offen kommt.** Alle Beete werden zugeklappt
@@ -121,10 +92,7 @@
 		    Change Log;
 		  - ein geglücktes Eintragen (Review vom 2026-10-26): die neue Zeile
 		    stünde sonst unsichtbar in einem zugeklappten Beet, und die Meldung
-		    oben sagte nur, dass es sie gibt;
-		  - das Notizfeld einer Zeile und eine gesetzte Notiz (2026-10-26,
-		    spec-notiz-und-kurzname.md) — aus denselben Gründen wie Rückfrage und
-		    Umstufen.
+		    oben sagte nur, dass es sie gibt.
 
 		Mit JavaScript liest das Markup diesen Wert nur beim Entstehen eines Beets
 		(`istOffen` darunter); danach führt der Browser den Zustand, und `versand`
@@ -133,8 +101,6 @@
 	const zielZeile = $derived(
 		form !== null &&
 			(form.art === 'fragenAbernten' ||
-				form.art === 'notizFragen' ||
-				form.art === 'notizGesetzt' ||
 				form.art === 'eingetragen' ||
 				form.art === 'umgestuft' ||
 				(form.art === 'fehler' && form.zeile !== null))
@@ -178,8 +144,16 @@
 	*/
 	let versandFehler = $state('');
 
-	/** Die Meldung an einem der vier Felder des Formulars. */
-	const fehlerAm = (feld: 'kultur' | 'ort' | 'status' | 'notiz'): string =>
+	/**
+	 * Die Marken der Felder des Eintragen-Formulars — **die eine Liste**, aus der
+	 * `fehlerAm` seinen Typ und `eintragenAbgewiesen` seine Menge liest. smoke
+	 * gleicht sie mit den Marken ab, die `eintragen` in +page.server.ts
+	 * tatsächlich vergibt.
+	 */
+	const EINTRAGEN_FELDER = ['kultur', 'ort', 'status', 'notiz'] as const;
+
+	/** Die Meldung an einem der Felder des Formulars. */
+	const fehlerAm = (feld: (typeof EINTRAGEN_FELDER)[number]): string =>
 		form !== null && form.art === 'fehler' && form.feld === feld ? form.meldung : '';
 
 	const fehlerAmKultur = $derived(fehlerAm('kultur'));
@@ -202,19 +176,26 @@
 		die zwei freien Textfelder dieser Seite. Dieselbe Bauform wie Titel und
 		Text auf /wissen, und aus demselben Grund: ohne JavaScript läuft kein
 		Rückruf, und ein Wert, der nur im Browser stünde, wäre fort.
+
+		**Nur aus einer Abweisung des Eintragen-Formulars** — einer mit `feld`
+		aus `EINTRAGEN_FELDER`, auch `notiz`: deren Abweisung trägt Kultur und Ort
+		ebenso zurück. Eine Abweisung an einer Zeile (`feld: null`) trägt heute
+		`''` in `eingabe`; die Bedingung hält das fest, statt sich darauf zu
+		verlassen. Bis zum 2026-10-26 reiste über `eingabe` auch die Notiz einer
+		Karte zurück und stand dann im Feld `Was ist reif` (Review zu
+		spec-notiz-und-kurzname.md); die Bedingung ist seit dem Review zu
+		spec-ernte-notiz-nur-beim-erfassen.md allgemein gefasst.
 	*/
-	/*
-		**Nur eine Abweisung des Eintragen-Formulars** trägt Text in dessen Felder.
-		Seit dem 2026-10-26 reist auch die Notiz einer Karte über `eingabe` zurück
-		(`feld: 'aendernNotiz'`). `formularOffen` ist genau die Menge der vier
-		Marken des Formulars; ohne die Bedingung stünde eine abgewiesene Notiz
-		danach im Feld `Was ist reif` (Review zu spec-notiz-und-kurzname.md).
-	*/
+	const eintragenAbgewiesen = $derived(
+		form !== null &&
+			form.art === 'fehler' &&
+			(EINTRAGEN_FELDER as readonly (string | null)[]).includes(form.feld)
+	);
 	const kulturWert = $derived(
-		form !== null && form.art === 'fehler' && formularOffen ? form.eingabe : ''
+		form !== null && form.art === 'fehler' && eintragenAbgewiesen ? form.eingabe : ''
 	);
 	const ortWert = $derived(
-		form !== null && form.art === 'fehler' && formularOffen ? form.zweiteEingabe : ''
+		form !== null && form.art === 'fehler' && eintragenAbgewiesen ? form.zweiteEingabe : ''
 	);
 
 	/**
@@ -257,28 +238,7 @@
 		*/
 		if (ergebnis.type !== 'success' && ergebnis.type !== 'failure') return;
 
-		const daten = ergebnis.data as { art?: unknown; feld?: unknown; zeile?: unknown } | undefined;
-		/*
-			Das Notizfeld an einer Karte — nach dem Stift und nach einer Abweisung
-			daran. Über die Kennung der Zeile, wie der Fokus auf /verwaltung an das
-			Namensfeld einer Zeile springt.
-		*/
-		if (
-			typeof daten?.zeile === 'number' &&
-			(daten.art === 'notizFragen' || (daten.art === 'fehler' && daten.feld === 'aendernNotiz'))
-		) {
-			/*
-				Fehlt das Feld — die Zeile ist zwischen Antwort und Rendern
-				abgeerntet worden —, an die Meldung oben statt ins Nichts.
-			*/
-			const feld = document.getElementById(`notiz-${daten.zeile}`);
-			if (feld !== null) {
-				feld.focus();
-				return;
-			}
-			meldungKasten?.focus();
-			return;
-		}
+		const daten = ergebnis.data as { art?: unknown; feld?: unknown } | undefined;
 		if (typeof daten?.art === 'string' && daten.art === 'fehler') {
 			const feld = typeof daten.feld === 'string' ? daten.feld : '';
 			if (feld !== '') {
@@ -684,7 +644,6 @@
 						<ul class="liste liste--getrennt" aria-labelledby={marke}>
 							{#each gruppe.zeilen as eintrag (eintrag.id)}
 								{@const fragtHier = frage !== null && frage.zeile === eintrag.id}
-								{@const notizHier = notizZeile === eintrag.id}
 								<!--
 									Die Farbe der Stufe liegt als Kante an der Karte, das **Wort** steht
 									im Zwischentitel darüber — kein Zustand hängt allein an der Farbe.
@@ -702,7 +661,10 @@
 										<!--
 											**Einzeilig**: die Kultur, bei Dauerernte das Kreiszeichen mit
 											vorgelesenem Wort, darunter klein Name und Datum — das Datum
-											immer, weil es sagt, wie frisch die Angabe ist. Der Satz `Alle
+											immer, weil es sagt, wie frisch die Angabe ist, und seit dem
+											2026-10-26 ohne Jahr (`datumOhneJahr`,
+											spec-ernte-notiz-nur-beim-erfassen.md): bei einer Ernte sagt
+											das Jahr nichts. Der Satz `Alle
 											zwei bis drei Tage durchgehen.` steht seit dem 2026-10-26 nur
 											noch in der Legende. Ein fehlender Name kann nur aus einem
 											Eingriff von Hand an der Datenbank stammen; die Zeile bleibt
@@ -716,18 +678,21 @@
 											</p>
 											<!--
 												Die Notiz klein unter der Kultur, und nur, wenn es eine gibt
-												(spec-notiz-und-kurzname.md). `.zeile__text` liegt nicht an ihr:
-												die Rolle ist die einer Zeile in einer Liste; den Umbruch eines
-												langen Worts trägt `.ernte__notiz` unten.
+												(spec-notiz-und-kurzname.md). Gesetzt wird sie nur beim
+												Eintragen; an der Karte ist sie seit dem 2026-10-26 nicht mehr
+												änderbar (spec-ernte-notiz-nur-beim-erfassen.md: ein dritter
+												Knopf liess der Kultur bei 375px 123px). `.zeile__text` liegt
+												nicht an ihr: die Rolle ist die einer Zeile in einer Liste; den
+												Umbruch eines langen Worts trägt `.ernte__notiz` unten.
 											-->
 											{#if eintrag.notiz !== null}
 												<p class="hinweis ernte__notiz">{eintrag.notiz}</p>
 											{/if}
 											<p class="hinweis hinweis--ziffern">
-												{eintrag.name ?? 'unbekannt'} · {datumKurz(eintrag.createdAt)}
+												{eintrag.name ?? 'unbekannt'} · {datumOhneJahr(eintrag.createdAt)}
 											</p>
 										</div>
-										{#if !fragtHier && !notizHier}
+										{#if !fragtHier}
 											<!--
 												**Die Knöpfe sehen 32px gross aus, ihr Trefferfeld bleibt 44px**
 												(`.knopf-klein` unten). Sie tragen ihren Namen selbst, mit Kultur
@@ -760,23 +725,6 @@
 														</button>
 													</form>
 												{/if}
-												<!--
-													Der Stift: ein POST **ohne** Notiz, und die Antwort zeigt das
-													Feld an dieser Zeile — die Bauform des X daneben, und die
-													Begründung, warum kein `<details>`, steht an der action
-													`notizAendern`.
-												-->
-												<form method="POST" action="?/notizAendern" use:enhance={versand}>
-													<input type="hidden" name="id" value={eintrag.id} />
-													<button
-														class="button-quiet button-quiet--kompakt knopf-klein knopf-klein--zeichen"
-														type="submit"
-														aria-label="{NOTIZ_AENDERN_WORT} {bezeichnung(eintrag)}"
-														disabled={imFlug}
-													>
-														<ZeichenStift class="" />
-													</button>
-												</form>
 												<form method="POST" action="?/abernten" use:enhance={versand}>
 													<input type="hidden" name="id" value={eintrag.id} />
 													<button
@@ -791,64 +739,6 @@
 											</div>
 										{/if}
 									</div>
-
-									{#if notizHier}
-										<!--
-											Das Notizfeld an der Zeile. `Abbrechen` steht zuerst und ist ein
-											Link, wie an der Rückfrage darunter. Ein leeres Feld entfernt die
-											Notiz; der Satz darunter sagt das, bevor es geschieht.
-										-->
-										<form
-											class="ernte__frage"
-											method="POST"
-											action="?/notizAendern"
-											use:enhance={versand}
-										>
-											<input type="hidden" name="id" value={eintrag.id} />
-											<!--
-												Der Abdruck der Notiz, wie diese Seite sie sah — leer heisst
-												„keine". Er entscheidet in der where-Klausel, ob geschrieben
-												wird: ein veralteter Tab drehte sonst eine neuere Notiz still
-												zurück. Dieselbe Klammer wie `bekannterName` auf /verwaltung.
-											-->
-											<input type="hidden" name="bekannteNotiz" value={eintrag.notiz ?? ''} />
-											<div>
-												<label class="feld__beschriftung" for="notiz-{eintrag.id}">
-													Notiz zu {bezeichnung(eintrag)}
-												</label>
-												<input
-													class="feld"
-													id="notiz-{eintrag.id}"
-													name="notiz"
-													type="text"
-													autocomplete="off"
-													maxlength={NOTIZ_HOECHSTLAENGE}
-													value={notizWert(eintrag)}
-													aria-invalid={notizFehler !== '' ? 'true' : undefined}
-													aria-describedby="notiz-hinweis-{eintrag.id}{notizFehler !== ''
-														? ` notiz-fehler-${eintrag.id}`
-														: ''}"
-												/>
-												<p class="hinweis hinweis--am-feld" id="notiz-hinweis-{eintrag.id}">
-													Leer speichern entfernt die Notiz.
-												</p>
-												<p
-													class="fehler live"
-													id="notiz-fehler-{eintrag.id}"
-													role="alert"
-													aria-live="assertive"
-												>
-													{notizFehler}
-												</p>
-											</div>
-											<div class="knoepfe">
-												<a class="button-quiet" href={resolve('/ernte')}>Abbrechen</a>
-												<button class="button-quiet" type="submit" disabled={imFlug}
-													>Speichern</button
-												>
-											</div>
-										</form>
-									{/if}
 
 									{#if fragtHier && frage !== null}
 										<div class="ernte__frage">
@@ -1051,23 +941,24 @@
 	}
 
 	/*
-		Der Abstand zwischen den Knöpfen ist so gross wie die zwei unsichtbaren
-		Ränder der Trefferfelder zusammen **und dazu --space-1**: die Felder
-		überlappen nicht, und zwischen ihnen bleibt ein schmaler Streifen, der
-		keinen trifft.
+		Der Abstand zwischen `Sofort` und dem X ist so gross wie die zwei
+		unsichtbaren Ränder der Trefferfelder zusammen: so berühren sie sich, ohne
+		sich zu überlappen.
 
-		Bis zum 2026-10-26 stiessen die Felder genau aneinander. Das trug, solange
-		neben dem X nur `Sofort` stand — dessen Mitte liegt weit von der Grenze.
-		Seit der Stift als zweiter 32px-Knopf daneben steht (spec-notiz-und-
-		kurzname.md), liegt seine Feldgrenze 22px neben seiner Mitte, und der
-		Sichtlauf traf dort an der Stelle 21,9px das X: der Browser trifft auf
-		ganze Pixel, und an einer Grenze ohne Abstand gewinnt das spätere Feld.
+		**An der Grenze gewinnt das spätere Feld** — der Browser trifft auf ganze
+		Pixel. Das trägt, weil neben dem X nur `Sofort` steht: dessen Mitte liegt
+		weit von der Grenze, und das X ist das spätere. Vom 2026-10-26 an stand
+		kurz ein Stift als zweiter 32px-Knopf daneben, und für ihn lag hier
+		zusätzlich --space-1 (seine Feldgrenze lag 22px neben seiner Mitte, und
+		der Sichtlauf traf dort das X). Mit dem Stift ist der Zuschlag wieder weg
+		(spec-ernte-notiz-nur-beim-erfassen.md); kommt ein Knopf dazu, ist die
+		Grenze neu zu messen. Gemessen wird das Trefferfeld in `smoke:sicht`.
 	*/
 	.ernte__knoepfe {
 		display: flex;
 		flex: 0 0 auto;
 		align-items: center;
-		gap: calc(var(--touch) - var(--knopf-klein) + var(--space-1));
+		gap: calc(var(--touch) - var(--knopf-klein));
 	}
 
 	/*
@@ -1107,8 +998,7 @@
 	}
 
 	/*
-		Die Rückfrage — und seit dem 2026-10-26 auch das Notizfeld an einer Zeile.
-		Aufgehellte Fläche statt einer roten Kante: die Karte trägt
+		Die Rückfrage. Aufgehellte Fläche statt einer roten Kante: die Karte trägt
 		schon die Farbe ihrer Stufe, und zwei Farbaussagen an einer Karte
 		behaupten zwei Dinge zugleich.
 	*/

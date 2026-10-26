@@ -12,7 +12,6 @@ import { abweisen } from '../../lib/server/abweisen.ts';
 import {
 	ernteAbernten,
 	ernteEintragen,
-	ernteNotizSetzen,
 	ernteUmstufen,
 	erntestandLesen,
 	erntezeileLesen,
@@ -29,10 +28,10 @@ import { ERNTEZEILE_NICHT_ANSPRECHBAR } from '../../lib/texte.ts';
  * dieses Modul mit nacktem Node, und tsconfig.scripts.json kennt weder das
  * virtuelle ./$types noch die $lib-Zuordnung.
  *
- * **Keine zweite Stufe, an keiner der vier actions.** Der Wächter in
+ * **Keine zweite Stufe, an keiner der drei actions.** Der Wächter in
  * src/hooks.server.ts hat einen Aufruf ohne gültige Sitzung schon mit 403
- * abgewiesen; danach darf jedes aktive Mitglied eintragen, umstufen, die
- * Notiz ändern und abernten — auch an fremden Zeilen. Das ist der Entscheid vom 2026-09-13 und
+ * abgewiesen; danach darf jedes aktive Mitglied eintragen, umstufen und
+ * abernten — auch an fremden Zeilen. Das ist der Entscheid vom 2026-09-13 und
  * die Aussage der Seite: was im Beet steht, sieht jede, die im Garten steht,
  * und wer sieht, dass nichts mehr da ist, soll das sagen dürfen, ohne die
  * eintragende Person zu suchen. Es gibt darum ausdrücklich **kein**
@@ -102,10 +101,9 @@ export function load({ locals }: ServerLoadEvent): { stand: Erntezeile[] } {
  * und ist für alle sechs Seiten mit Formular dieselbe.
  *
  * `feld` ist `'kultur'`, `'ort'`, `'status'` oder `'notiz'` am
- * Eintragen-Formular, `'aendernNotiz'` am Notizfeld einer Karte und null an
- * den drei Zeilen-Aktionen, wo sie kein Feld treffen (Umstufen, Abernten und
- * eine Notiz an einer Zeile, die es nicht mehr gibt oder die sich geändert hat). `zeile` trägt die Kennung der
- * Erntezeile, damit die Meldung an ihr steht statt oben.
+ * Eintragen-Formular und null an den zwei Zeilen-Aktionen, die kein Feld
+ * haben (Umstufen, Abernten). `zeile` trägt die Kennung der Erntezeile, damit
+ * die Meldung an ihr steht statt oben.
  *
  * `eingabe` trägt die verworfene Kultur zurück, `zweiteEingabe` den Ort — die
  * zwei freien Textfelder des Eintragen-Formulars, die zurückreisen. Ohne
@@ -115,9 +113,13 @@ export function load({ locals }: ServerLoadEvent): { stand: Erntezeile[] } {
  * trägt darum `maxlength` gleich der Servergrenze, und eine Längenabweisung der
  * Notiz entsteht nur über einen gebauten POST. Hingenommen und im Spec Change
  * Log festgehalten: wird ohne JavaScript Kultur oder Ort abgewiesen, ist die
- * getippte Notiz fort (mit JavaScript bleibt sie im Feld stehen). Am Notizfeld
- * einer Karte gibt es nur dieses eine Feld, und dort reist der Text über
- * `eingabe` zurück.
+ * getippte Notiz fort (mit JavaScript bleibt sie im Feld stehen).
+ *
+ * **Die Notiz wird nur beim Eintragen gesetzt** (spec-ernte-notiz-nur-beim-
+ * erfassen.md, 2026-10-26). Die action `notizAendern`, die sie an der Karte
+ * änderte, ist weg — ein dritter Knopf auf einer einzeiligen Karte war zu
+ * viel. Ein gebauter POST auf `?/notizAendern` trifft keine action und
+ * bekommt die Antwort von SvelteKit selbst (404).
  */
 export const actions = {
 	/**
@@ -223,97 +225,6 @@ export const actions = {
 		return {
 			art: 'umgestuft' as const,
 			meldung: `${zeile.kultur} steht jetzt unter „${ERNTETEXT[status].titel}".`,
-			zeile: id,
-		};
-	},
-
-	/**
-	 * Setzt, ändert oder entfernt die Notiz einer Zeile
-	 * (spec-notiz-und-kurzname.md, Entscheid Manuel vom 2026-10-26) — in zwei
-	 * Schritten, an einer action, wie `abernten` darunter.
-	 *
-	 * Jedes aktive Mitglied darf es an jeder Zeile, wie das Umstufen und aus
-	 * demselben Grund: wer im Beet steht und mehr weiss, schreibt es dazu. Ein
-	 * leeres Feld entfernt die Notiz — das ist kein Fehler, sondern der Weg
-	 * dorthin, und ohne Rückfrage: die Notiz ist mit einem Griff wieder
-	 * geschrieben.
-	 *
-	 * **Zwei Schritte, aber keine Rückfrage.** Ein POST ohne das Feld `notiz`
-	 * ändert nichts und antwortet mit dem Feld an der Zeile (`notizFragen`), samt
-	 * der Notiz, die dort steht; erst ein POST **mit** dem Feld schreibt — auch
-	 * ein leeres. Warum nicht ein `<details>` an der Karte wie das Ergänzen auf
-	 * /sitzungen: die Karte ist seit dem 2026-10-26 einzeilig, und ein Griff
-	 * unter der Zeile kostete jede Karte eine Zeile mehr. Der Stift steht darum
-	 * als dritter kleiner Knopf neben `Sofort` und dem X, und das Feld erscheint
-	 * dort, wo auch die Rückfrage vor dem Abernten erscheint (Spec Change Log).
-	 * Ohne JavaScript ist die Antwort auf den ersten POST ein vollständiges
-	 * Dokument mit dem Feld an der Zeile.
-	 *
-	 * Fehlende, unlesbare und abgeerntete Zeile fallen auf denselben Satz wie
-	 * beim Umstufen.
-	 */
-	notizAendern: async ({ request }: RequestEvent) => {
-		const formular = await request.formData();
-		const id = zahlLesen(formular.get('id'));
-		if (id === null) {
-			return abweisen(ERNTEZEILE_NICHT_ANSPRECHBAR);
-		}
-
-		// Schritt 1: das Feld zeigen. `has` und nicht ein Wertvergleich — ein
-		// leeres Feld ist ein Wert (es entfernt die Notiz), ein fehlendes keiner.
-		if (!formular.has('notiz')) {
-			const zeile = erntezeileLesen(id);
-			if (zeile === null) {
-				return abweisen(ERNTEZEILE_NICHT_ANSPRECHBAR, null, '', id);
-			}
-			return {
-				art: 'notizFragen' as const,
-				zeile: id,
-				kultur: zeile.kultur,
-				ort: zeile.ort,
-				notiz: zeile.notiz,
-			};
-		}
-
-		// Schritt 2: schreiben.
-		const notizRoh = textLesen(formular.get('notiz'));
-		const notiz = notizPruefen(notizRoh);
-		// Eine überlange Notiz an einer Zeile, die es nicht mehr gibt, bekäme
-		// sonst einen Satz an einem Feld, das nirgends steht; die Auskunft über
-		// die Zeile geht darum vor.
-		if ('fehler' in notiz) {
-			if (erntezeileLesen(id) === null) {
-				return abweisen(ERNTEZEILE_NICHT_ANSPRECHBAR, null, '', id);
-			}
-			return abweisen(notiz.fehler, 'aendernNotiz', notizRoh, id);
-		}
-
-		/*
-		 * **Der Abdruck der Notiz, die die absendende Seite sah** (Entscheid unter
-		 * Manuels Übertragung, Review vom 2026-10-26): geschrieben wird nur, wenn
-		 * er noch stimmt. Ohne ihn drehte ein veralteter Tab eine neuere Notiz
-		 * still zurück — dieselbe Klammer wie `bekannterName` und
-		 * `bekannterKurzname` auf /verwaltung. Leer und fehlend heissen „keine
-		 * Notiz", ebenso einer aus lauter Leerzeichen; sonst kein Falten, weil er ein
-		 * Abdruck ist und keine Eingabe.
-		 *
-		 * Abgeerntet, veraltet und unbekannt fallen danach auf einen Satz: in
-		 * allen Fällen ist die angezeigte Liste veraltet.
-		 */
-		const rohBekannt = formular.get('bekannteNotiz');
-		const bekannteNotiz =
-			typeof rohBekannt === 'string' && rohBekannt.trim() !== '' ? rohBekannt : null;
-		const zeile = ernteNotizSetzen(id, notiz.notiz, bekannteNotiz);
-		if (zeile === null) {
-			return abweisen(ERNTEZEILE_NICHT_ANSPRECHBAR, null, '', id);
-		}
-
-		return {
-			art: 'notizGesetzt' as const,
-			meldung:
-				zeile.notiz === null
-					? `Die Notiz an ${zeile.kultur} ist entfernt.`
-					: `Die Notiz an ${zeile.kultur} ist gespeichert.`,
 			zeile: id,
 		};
 	},

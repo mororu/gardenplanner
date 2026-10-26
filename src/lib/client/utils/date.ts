@@ -114,6 +114,31 @@ export function datumKasten(unixSekunden: number): { tag: string; monat: string 
 	};
 }
 
+/**
+ * Tag und Monat als **eine** Zeichenkette, ohne Jahr: `26. Okt.`
+ * (spec-ernte-notiz-nur-beim-erfassen.md, 2026-10-26).
+ *
+ * Für die Erntekarte, wo das Datum neben dem Namen steht
+ * (`{Name} · {Tag}. {Monat}`): eine Ernte ist eine Sache von Tagen, und das
+ * Jahr sagte dort nichts. Gedacht nur für diese Stelle; die anderen Seiten
+ * sollen `datumKurz` mit Jahr behalten (spec-ernte-notiz-nur-beim-erfassen.md).
+ * Eine Wache dafür gibt es nicht — am 2026-10-26 ruft allein
+ * src/routes/ernte/+page.svelte diese Funktion (gesucht mit `grep -rn
+ * "datumOhneJahr(" src`), offener Posten in deferred-work.md.
+ *
+ * Derselbe Formatierer wie `datumKasten` darüber, also dieselbe Zone: ein
+ * Eintrag um 00:30 trägt den Tag, an dem er im Garten gemacht wurde. Die
+ * Zeichenkette ist die von `Intl` selbst, nicht aus den Teilen von
+ * `datumKasten` zusammengesetzt — sonst stünde der Trenner `. ` ein zweites
+ * Mal von Hand hier.
+ *
+ * @param unixSekunden Zeitstempel in Unix-**Sekunden**, so wie er in der
+ *   Datenbank steht — nicht in Millisekunden.
+ */
+export function datumOhneJahr(unixSekunden: number): string {
+	return KURZES_DATUM.format(new Date(unixSekunden * 1000));
+}
+
 /*
  * Der Monatsname und das Jahr — **getrennt**, seit das Archiv nach beidem
  * gruppiert (2026-09-17, Entscheid Manuel).

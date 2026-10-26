@@ -157,13 +157,6 @@ export const ABERNTEN_WORT = 'Abgeerntet';
 export const SOFORT_KNOPF = 'Sofort';
 
 /**
- * Das Wort des Stifts an einer Karte: er malt nur das Zeichen, vorgelesen wird
- * `Notiz ändern {Kultur}, {Ort}` (spec-notiz-und-kurzname.md, 2026-10-26). Eine
- * Konstante, weil Markup und Prüfkette dasselbe Wort lesen.
- */
-export const NOTIZ_AENDERN_WORT = 'Notiz ändern';
-
-/**
  * Sagt, ob ein Wert aus dem Formular eine der drei Stufen ist.
  *
  * `unknown` und nicht FormDataEntryValue: das Typprüf-Programm der Skripte
@@ -360,8 +353,9 @@ export const NOTIZ_ZU_LANG = `Die Notiz ist zu lang. Höchstens ${NOTIZ_HOECHSTL
  *
  * Gefaltet mit `aufgabentextFalten` (unsichtbare Zeichen weg, Leerraum
  * zusammengezogen, getrimmt), dann die Länge — es zählt, was gespeichert würde.
- * Eine Notiz aus lauter Leerzeichen ist damit keine, und das ist zugleich der
- * Weg, eine Notiz zu entfernen: das Feld leeren und speichern.
+ * Eine Notiz aus lauter Leerzeichen ist damit keine. Gerufen nur beim
+ * Eintragen: an der Karte ist die Notiz seit dem 2026-10-26 nicht mehr
+ * änderbar (spec-ernte-notiz-nur-beim-erfassen.md).
  */
 export function notizPruefen(eingabe: string): { notiz: string | null } | { fehler: string } {
 	const notiz = aufgabentextFalten(eingabe);
