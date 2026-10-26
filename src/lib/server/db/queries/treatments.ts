@@ -1,5 +1,6 @@
 import { and, desc, eq, isNotNull, isNull, max } from 'drizzle-orm';
 import { datenbank } from '../index.ts';
+import { anzeigename, anzeigenameOderNull } from '../../../mitgliedsname.ts';
 import type { AbgeschlosseneAnwendung } from '../../../wellness.ts';
 import { members, treatments, type NewTreatment } from '../schema.ts';
 
@@ -70,8 +71,29 @@ const anzeigeSpalten = {
 	angewendetAm: treatments.angewendetAm,
 	intervallTage: treatments.intervallTage,
 	name: members.name,
+	kurzname: members.kurzname,
 	createdAt: treatments.createdAt,
 };
+
+/*
+ * `name` und `kurzname` sind Rohstoff: aus ihnen entsteht der Anzeigename
+ * (src/lib/mitgliedsname.ts), und nur der verlässt das Modul
+ * (spec-notiz-und-kurzname.md, 2026-10-26).
+ */
+const alsBehandlungszeile = ({
+	kurzname,
+	...zeile
+}: {
+	id: number;
+	mittel: string;
+	kultur: string | null;
+	ort: string | null;
+	angewendetAm: number;
+	intervallTage: number | null;
+	name: string | null;
+	kurzname: string | null;
+	createdAt: number;
+}): Behandlungszeile => ({ ...zeile, name: anzeigenameOderNull(zeile.name, kurzname) });
 
 /*
  * Der jüngste Tag zuerst, dann die höhere Kennung — eine **feste** Reihenfolge,
@@ -121,7 +143,8 @@ export function behandlungenLesen(): Behandlungszeile[] {
 		.leftJoin(members, eq(members.id, treatments.memberId))
 		.where(offen)
 		.orderBy(...ordnung)
-		.all();
+		.all()
+		.map(alsBehandlungszeile);
 }
 
 /** Eine einzelne offene Zeile — für die Rückfrage vor dem Wegnehmen und als Vorlage zum Wiederholen. */
@@ -132,7 +155,7 @@ export function behandlungLesen(id: number): Behandlungszeile | null {
 		.leftJoin(members, eq(members.id, treatments.memberId))
 		.where(and(eq(treatments.id, id), offen))
 		.get();
-	return zeile === undefined ? null : zeile;
+	return zeile === undefined ? null : alsBehandlungszeile(zeile);
 }
 
 /**
@@ -283,7 +306,7 @@ export function behandlungEintragen(
 		angewendetAm: number;
 		intervallTage: number | null;
 	},
-	mitglied: { id: number; name: string }
+	mitglied: { id: number; name: string; kurzname: string | null }
 ): Behandlungszeile {
 	const zeile = datenbank()
 		.insert(treatments)
@@ -298,7 +321,7 @@ export function behandlungEintragen(
 			createdAt: treatments.createdAt,
 		})
 		.get();
-	return { ...zeile, name: mitglied.name };
+	return { ...zeile, name: anzeigename(mitglied.name, mitglied.kurzname) };
 }
 
 /**

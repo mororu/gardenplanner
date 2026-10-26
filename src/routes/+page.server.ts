@@ -744,7 +744,11 @@ export const actions = {
 		}
 
 		// Schritt 2: schreiben.
-		const uebernommen = einzelaufgabeUebernehmen(id, { id: mitglied.id, name: mitglied.name });
+		const uebernommen = einzelaufgabeUebernehmen(id, {
+			id: mitglied.id,
+			name: mitglied.name,
+			kurzname: mitglied.kurzname,
+		});
 		// Unbekannt, schon übernommen und das verlorene Wettrennen fallen hier
 		// zusammen — dieselbe Bauform wie beim Abhaken.
 		if (uebernommen === null) {

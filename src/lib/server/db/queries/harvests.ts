@@ -1,5 +1,6 @@
 import { asc, desc, eq, sql } from 'drizzle-orm';
 import { ERNTESTATUS, type Erntestatus } from '../../../ernte.ts';
+import { anzeigename, anzeigenameOderNull } from '../../../mitgliedsname.ts';
 import { datenbank } from '../index.ts';
 import { harvests, members, type NewHarvest } from '../schema.ts';
 
@@ -25,6 +26,10 @@ import { harvests, members, type NewHarvest } from '../schema.ts';
  * Zugang beenden heisst deaktivieren —, aber der Typ soll nicht behaupten, was
  * allein eine Gewohnheit ist.
  *
+ * `name` ist seit dem 2026-10-26 der **Anzeigename** (`anzeigename` in
+ * src/lib/mitgliedsname.ts): der Kurzname, sonst das erste Wort des Namens.
+ * Der volle Name verlässt dieses Modul nicht.
+ *
  * **`memberId` reist nicht mit.** Anders als beim Tränkeplan, wo die Komponente
  * die eigene Zeile erkennen muss, um das Austragen anzubieten, darf hier jede
  * Person jede Zeile umstufen und abernten. Es gibt also nichts zu vergleichen,
@@ -36,6 +41,8 @@ export type Erntezeile = {
 	ort: string | null;
 	status: Erntestatus;
 	laufend: boolean;
+	/** Was jemand zur Ernte weiss, oder null (seit dem 2026-10-26). */
+	notiz: string | null;
 	name: string | null;
 	createdAt: number;
 };
@@ -46,7 +53,9 @@ const anzeigeSpalten = {
 	ort: harvests.ort,
 	status: harvests.status,
 	laufend: harvests.laufend,
+	notiz: harvests.notiz,
 	name: members.name,
+	kurzname: members.kurzname,
 	createdAt: harvests.createdAt,
 };
 
@@ -92,7 +101,9 @@ type Anzeigezeile = {
 	ort: string | null;
 	status: string;
 	laufend: boolean;
+	notiz: string | null;
 	name: string | null;
+	kurzname: string | null;
 	createdAt: number;
 };
 
@@ -104,9 +115,10 @@ type Anzeigezeile = {
  * die einzige ehrliche Antwort wäre, die Zeile trotzdem zu zeigen. Genau das
  * tut sie so, und `rang` oben sortiert sie ans Ende.
  */
-const alsErntezeile = (zeile: Anzeigezeile): Erntezeile => ({
+const alsErntezeile = ({ kurzname, ...zeile }: Anzeigezeile): Erntezeile => ({
 	...zeile,
 	status: zeile.status as Erntestatus,
+	name: anzeigenameOderNull(zeile.name, kurzname),
 });
 
 /** Der ganze Stand, dringend zuerst. */
@@ -139,8 +151,14 @@ export function erntezeileLesen(id: number): Erntezeile | null {
  * schon zur Verfügung, und ein zweiter Lesevorgang ergäbe dasselbe.
  */
 export function ernteEintragen(
-	eingabe: { kultur: string; ort: string | null; status: Erntestatus; laufend: boolean },
-	mitglied: { id: number; name: string }
+	eingabe: {
+		kultur: string;
+		ort: string | null;
+		status: Erntestatus;
+		laufend: boolean;
+		notiz: string | null;
+	},
+	mitglied: { id: number; name: string; kurzname: string | null }
 ): Erntezeile {
 	const zeile = datenbank()
 		.insert(harvests)
@@ -150,10 +168,15 @@ export function ernteEintragen(
 			kultur: harvests.kultur,
 			ort: harvests.ort,
 			laufend: harvests.laufend,
+			notiz: harvests.notiz,
 			createdAt: harvests.createdAt,
 		})
 		.get();
-	return { ...zeile, status: eingabe.status, name: mitglied.name };
+	return {
+		...zeile,
+		status: eingabe.status,
+		name: anzeigename(mitglied.name, mitglied.kurzname),
+	};
 }
 
 /**
@@ -171,6 +194,29 @@ export function ernteUmstufen(id: number, status: Erntestatus): Erntezeile | nul
 	const zeile = datenbank()
 		.update(harvests)
 		.set({ status })
+		.where(eq(harvests.id, id))
+		.returning({ id: harvests.id })
+		.get();
+	return zeile === undefined ? null : erntezeileLesen(zeile.id);
+}
+
+/**
+ * Setzt oder entfernt die Notiz einer Zeile (spec-notiz-und-kurzname.md,
+ * 2026-10-26).
+ *
+ * **Ohne Vorbedingung auf die eintragende Person und ohne eine auf die alte
+ * Notiz** — dieselbe Haltung wie beim Umstufen darüber, und aus demselben
+ * Grund: wer im Beet steht und mehr weiss, schreibt es dazu, ohne die Person
+ * zu suchen, die die Zeile angelegt hat. null entfernt die Notiz; die Notiz
+ * kommt fertig geprüft herein (`notizPruefen` in src/lib/ernte.ts).
+ *
+ * null zurück heisst: die Zeile gibt es nicht mehr — jemand hat sie
+ * abgeerntet.
+ */
+export function ernteNotizSetzen(id: number, notiz: string | null): Erntezeile | null {
+	const zeile = datenbank()
+		.update(harvests)
+		.set({ notiz })
 		.where(eq(harvests.id, id))
 		.returning({ id: harvests.id })
 		.get();

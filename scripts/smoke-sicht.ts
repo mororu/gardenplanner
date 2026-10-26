@@ -42,6 +42,7 @@ import {
 	holen,
 	keksAus,
 	saeen,
+	MITGLIED,
 	serverBeenden,
 	serverStarten,
 	wurzel,
@@ -68,7 +69,7 @@ import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-t
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 114;
+const ERWARTETE_BEHAUPTUNGEN = 119;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -1398,7 +1399,7 @@ try {
 	 * **Der Name wird an der Einzelaufgabe gesucht und nicht im ganzen Dokument.**
 	 *
 	 * Bis zum 2026-09-13 las diese Sonde `document.body.textContent` — tragfähig,
-	 * solange `Manu Mitglied` auf `/` nur dann vorkam, wenn jemand übernommen
+	 * solange der Name des Mitglieds auf `/` nur dann vorkam, wenn jemand übernommen
 	 * hatte. Die Ernte-Registerkarte nennt seither an jeder Zeile, wer sie
 	 * eingetragen hat, und die Saat legt sie unter demselben Namen an: die Sonde
 	 * wurde rot, obwohl niemand etwas übernommen hatte.
@@ -1415,7 +1416,10 @@ try {
 		return {
 			offen: document.querySelector('dialog.bestaetigung').open,
 			knopf: knopf !== null,
-			name: karte !== null && karte.textContent.includes('Manu Mitglied'),
+			// Der Anzeigename, seit dem 2026-10-26 der einzige, den die Karte
+			// trüge (spec-notiz-und-kurzname.md) — gegen den vollen Namen geprüft
+			// wäre diese Gegenprobe still bedeutungslos.
+			name: karte !== null && karte.textContent.includes(${JSON.stringify(MITGLIED.anzeigename)}),
 		};`);
 	pruefen(
 		'ein Enter direkt nach dem Öffnen sagt nichts zu — der Dialog schliesst, die Aufgabe bleibt frei',
@@ -2544,13 +2548,168 @@ try {
 		ernteKnoepfe.namen.join(' | '),
 		[
 			'Sofort ernten Kohlrabi, Freiland',
+			'Notiz ändern Kohlrabi, Freiland',
 			'Abgeerntet Kohlrabi, Freiland',
+			'Notiz ändern Zucchini, Hochbeet 3',
 			'Abgeerntet Zucchini, Hochbeet 3',
 			'Sofort ernten Salat, Hochbeet 3',
+			'Notiz ändern Salat, Hochbeet 3',
 			'Abgeerntet Salat, Hochbeet 3',
 			'Sofort ernten Kürbis',
+			'Notiz ändern Kürbis',
 			'Abgeerntet Kürbis',
 		].join(' | ')
+	);
+
+	/*
+	 * **Die Notiz an der Karte** (spec-notiz-und-kurzname.md, 2026-10-26).
+	 *
+	 * Erst das Gerenderte der Saat: Kohlrabi trägt eine Notiz, und sie steht
+	 * klein unter der Kultur und über `{Name} · {Datum}`; Salat trägt keine und
+	 * hat keine Notizzeile (Matrix „Notiz leer"). Die Namenszeile nennt den
+	 * Anzeigenamen des Mitglieds und nicht den vollen Namen (Matrix „Kurzname
+	 * gesetzt" am gerenderten Dokument).
+	 */
+	const notizSaat = await browser.auswerten<{
+		kohlrabi: string;
+		davor: boolean;
+		danach: string;
+		salat: number;
+	}>(`
+		const karteVon = (kultur) => [...document.querySelectorAll('section.beetliste .karte')]
+			.find((k) => k.querySelector('.zeile__text').textContent.trim() === kultur);
+		const kohlrabi = karteVon('Kohlrabi');
+		const notiz = kohlrabi?.querySelector('.ernte__notiz') ?? null;
+		return {
+			kohlrabi: notiz?.textContent.trim() ?? '',
+			davor: notiz?.previousElementSibling?.classList.contains('zeile__text') ?? false,
+			danach: notiz?.nextElementSibling?.textContent.trim() ?? '',
+			salat: karteVon('Salat')?.querySelectorAll('.ernte__notiz').length ?? -1,
+		};`);
+	pruefen(
+		'/ernte: die Notiz steht klein unter der Kultur und über Anzeigename · Datum, und eine Karte ohne Notiz hat keine Notizzeile',
+		notizSaat.kohlrabi === 'frühe Sorte, sehr gross' &&
+			notizSaat.davor &&
+			notizSaat.danach.startsWith(`${MITGLIED.anzeigename} · `) &&
+			!notizSaat.danach.includes(MITGLIED.name) &&
+			notizSaat.salat === 0,
+		JSON.stringify(notizSaat)
+	);
+
+	/*
+	 * **Ohne JavaScript: der Stift zeigt das Feld, ein POST mit Text setzt, ein
+	 * leerer entfernt** — das zweite Abnahmekriterium der Spec am gerenderten
+	 * Dokument. Dieselbe Bauform wie die Rückfrage darunter: POST ohne den Kopf
+	 * von `use:enhance`, gelesen wird das zurückgekommene HTML. An Zucchini in
+	 * Hochbeet 3.
+	 */
+	// Die Hilfen unten schliessen über den Browser; der Typ der äusseren
+	// Variable lässt null zu, darum hier einmal festgehalten.
+	const notizBrowser = browser;
+	if (notizBrowser === null) throw new Error('kein Browser für die Notizproben');
+	const ernteOhneSkriptSenden = async (
+		aktion: string,
+		felder: Record<string, string>
+	): Promise<void> => {
+		await notizBrowser.auswerten(`
+			const daten = new FormData();
+			for (const [k, v] of Object.entries(${JSON.stringify(felder)})) daten.set(k, v);
+			window.__ohneSkript = undefined;
+			fetch(${JSON.stringify(`?/${aktion}`)}, { method: 'POST', body: daten, headers: { accept: 'text/html' } })
+				.then((antwort) => antwort.text())
+				.then((html) => { window.__ohneSkript = html; })
+				.catch((fehler) => { window.__ohneSkript = 'Wurf: ' + fehler; });
+			return true;`);
+		await notizBrowser.warten(
+			"typeof window.__ohneSkript === 'string'",
+			`die Antwort auf ?/${aktion} ohne Skript ist da`
+		);
+	};
+	const zucchiniId = await notizBrowser.auswerten<string>(`
+		const knopf = [...document.querySelectorAll('section.beetliste .karte button')]
+			.find((k) => k.getAttribute('aria-label') === 'Notiz ändern Zucchini, Hochbeet 3');
+		return knopf?.form.querySelector('input[name="id"]').value ?? '';`);
+	const notizIm = (): Promise<{ feld: string | null; offen: string[]; notiz: string | null }> =>
+		notizBrowser.auswerten(`
+			const dok = new DOMParser().parseFromString(window.__ohneSkript, 'text/html');
+			const feld = dok.getElementById(${JSON.stringify(`notiz-${zucchiniId}`)});
+			const notiz = dok.getElementById(${JSON.stringify(`ernte-${zucchiniId}`)})?.querySelector('.ernte__notiz') ?? null;
+			return {
+				feld: feld === null ? null : feld.getAttribute('value') ?? '',
+				offen: [...dok.querySelectorAll('section.beetliste details.abschnitt')]
+					.filter((d) => d.hasAttribute('open'))
+					.map((d) => d.querySelector('h3').textContent.trim()),
+				notiz: notiz === null ? null : notiz.textContent.trim(),
+			};`);
+	await ernteOhneSkriptSenden('notizAendern', { id: zucchiniId });
+	const notizGefragt = await notizIm();
+	pruefen(
+		'/ernte ohne JavaScript: der Stift zeigt das Notizfeld an der Zeile, und genau ihr Beet kommt offen',
+		zucchiniId !== '' &&
+			notizGefragt.feld === '' &&
+			notizGefragt.offen.join(' | ') === 'Hochbeet 3' &&
+			notizGefragt.notiz === null,
+		JSON.stringify({ id: zucchiniId, ...notizGefragt })
+	);
+	await ernteOhneSkriptSenden('notizAendern', { id: zucchiniId, notiz: 'wenig' });
+	const notizGesetzt = await notizIm();
+	pruefen(
+		'/ernte ohne JavaScript: eine gespeicherte Notiz steht an der Karte, das Feld ist wieder zu',
+		notizGesetzt.notiz === 'wenig' && notizGesetzt.feld === null,
+		JSON.stringify(notizGesetzt)
+	);
+	await ernteOhneSkriptSenden('notizAendern', { id: zucchiniId, notiz: '' });
+	const notizGeleert = await notizIm();
+	pruefen(
+		'/ernte ohne JavaScript: eine geleerte Notiz fällt mit ihrer Zeile weg',
+		notizGeleert.notiz === null && notizGeleert.feld === null,
+		JSON.stringify(notizGeleert)
+	);
+
+	/*
+	 * **Mit JavaScript: der Stift, das Feld, Speichern.** Hochbeet 3 von Hand
+	 * aufgeklappt, der Stift an Zucchini über die gemessene Mitte geklickt; der
+	 * Fokus muss im Feld dieser Zeile landen (fokusNach). Dann `zuerst`
+	 * eingetragen und gespeichert — danach steht die Notiz an der Karte, und das
+	 * Beet ist offen.
+	 */
+	await browser.besuchen(`${adresse}/ernte`);
+	await browser.auswerten(`
+		const beet = [...document.querySelectorAll('section.beetliste details.abschnitt')]
+			.find((d) => d.querySelector('h3').textContent.trim() === 'Hochbeet 3');
+		beet.open = true;
+		[...beet.querySelectorAll('button')]
+			.find((k) => k.getAttribute('aria-label') === 'Notiz ändern Zucchini, Hochbeet 3').id = 'stift-unter-probe';
+		return true;`);
+	await browser.klicken('#stift-unter-probe');
+	await browser.warten(
+		`document.activeElement?.id === ${JSON.stringify(`notiz-${zucchiniId}`)}`,
+		'der Fokus steht im Notizfeld von Zucchini'
+	);
+	await browser.auswerten(`
+		const feld = document.getElementById(${JSON.stringify(`notiz-${zucchiniId}`)});
+		feld.value = 'zuerst';
+		feld.form.requestSubmit();
+		return true;`);
+	await browser.warten(
+		"document.querySelector('.meldung').textContent.includes('Zucchini')",
+		'die Rückmeldung zur Notiz an Zucchini ist da'
+	);
+	const notizMitSkript = await browser.auswerten<{
+		notiz: string;
+		sichtbar: boolean;
+		feld: boolean;
+	}>(`
+		const notiz = document.getElementById(${JSON.stringify(`ernte-${zucchiniId}`)})?.querySelector('.ernte__notiz');
+		return {
+			notiz: notiz?.textContent.trim() ?? '',
+			sichtbar: notiz?.checkVisibility() ?? false,
+			feld: document.getElementById(${JSON.stringify(`notiz-${zucchiniId}`)}) !== null,
+		};`);
+	pruefen(
+		'/ernte mit JavaScript: der Stift setzt den Fokus ins Feld, Speichern setzt die Notiz, und sie ist zu sehen',
+		notizMitSkript.notiz === 'zuerst' && notizMitSkript.sichtbar && !notizMitSkript.feld,
+		JSON.stringify(notizMitSkript)
 	);
 
 	/*

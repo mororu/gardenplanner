@@ -31,9 +31,34 @@ import {
 	kulturAbschliessen,
 } from '../src/lib/server/db/queries/treatments.ts';
 import { mitgliedAnlegen } from '../src/lib/server/db/queries/members.ts';
+import { anzeigename } from '../src/lib/mitgliedsname.ts';
 import { aufgabeAbhaken, aufgabenStapelAnlegen } from '../src/lib/server/db/queries/tasks.ts';
 import { tokenErzeugen, tokenHashen } from '../src/lib/server/token.ts';
 import { WOCHE_SEKUNDEN, heuteAlsFeldwert, tagesendeInUnixSekunden } from '../src/lib/zeit.ts';
+
+/**
+ * Die zwei Personen der Saat — **je eine Zeile der I/O-Matrix** aus
+ * spec-notiz-und-kurzname.md (2026-10-26): die Adminperson ohne Kurzname
+ * (`Vera`), das Mitglied mit Kurzname (`Manu M.`). Der volle Name steht nur
+ * noch in der Verwaltung und in der Auswahl, mit der sie eine Woche besetzt;
+ * überall sonst der Anzeigename. Die Prüfskripte lesen beide Fassungen von
+ * hier — eine Probe gegen den vollen Namen an einer Seite, die ihn gar nicht
+ * mehr zeigt, wäre still bedeutungslos.
+ *
+ * Der Anzeigename wird über `anzeigename` gerechnet und nicht abgeschrieben:
+ * eine zweite Fassung der Regel im Prüfskript bliebe grün, wenn die Regel
+ * selbst sich verschöbe.
+ */
+export const ADMINPERSON = {
+	name: 'Vera Verwaltung',
+	kurzname: null,
+	anzeigename: anzeigename('Vera Verwaltung', null),
+} as const;
+export const MITGLIED = {
+	name: 'Manu Mitglied',
+	kurzname: 'Manu M.',
+	anzeigename: anzeigename('Manu Mitglied', 'Manu M.'),
+} as const;
 
 export const GUTES_GEHEIMNIS = 'smoke-http-geheimnis-mit-genug-verschiedenen-zeichen-0123456789';
 
@@ -248,9 +273,15 @@ export function saeen(): Saat {
 	const adminHash = tokenHashen(adminToken);
 	const mitgliedHash = tokenHashen(mitgliedToken);
 
-	mitgliedAnlegen({ name: 'Vera Verwaltung', inviteTokenHash: adminHash, isAdmin: true });
+	mitgliedAnlegen({
+		name: ADMINPERSON.name,
+		kurzname: ADMINPERSON.kurzname,
+		inviteTokenHash: adminHash,
+		isAdmin: true,
+	});
 	const manu = mitgliedAnlegen({
-		name: 'Manu Mitglied',
+		name: MITGLIED.name,
+		kurzname: MITGLIED.kurzname,
 		inviteTokenHash: mitgliedHash,
 		isAdmin: false,
 	});
@@ -327,10 +358,30 @@ export function saeen(): Saat {
 	 * INSERT von Hand: eine Saat, die am Repository vorbeigeht, prüft eine
 	 * Datenlage, die die Anwendung so nie herstellt.
 	 */
-	ernteEintragen({ kultur: 'Zucchini', ort: 'Hochbeet 3', status: 'sofort', laufend: true }, manu);
-	ernteEintragen({ kultur: 'Salat', ort: 'Hochbeet 3', status: 'stehen', laufend: false }, manu);
-	ernteEintragen({ kultur: 'Kohlrabi', ort: 'Freiland', status: 'stehen', laufend: false }, manu);
-	ernteEintragen({ kultur: 'Kürbis', ort: null, status: 'wachsen', laufend: false }, manu);
+	ernteEintragen(
+		{ kultur: 'Zucchini', ort: 'Hochbeet 3', status: 'sofort', laufend: true, notiz: null },
+		manu
+	);
+	ernteEintragen(
+		{ kultur: 'Salat', ort: 'Hochbeet 3', status: 'stehen', laufend: false, notiz: null },
+		manu
+	);
+	ernteEintragen(
+		// Die eine Notiz der Saat (spec-notiz-und-kurzname.md): damit der Sichtlauf
+		// die Notizzeile an einer Karte sieht und der Kontrast-Sweep sie misst.
+		{
+			kultur: 'Kohlrabi',
+			ort: 'Freiland',
+			status: 'stehen',
+			laufend: false,
+			notiz: 'frühe Sorte, sehr gross',
+		},
+		manu
+	);
+	ernteEintragen(
+		{ kultur: 'Kürbis', ort: null, status: 'wachsen', laufend: false, notiz: null },
+		manu
+	);
 
 	/*
 	 * **Vier Behandlungen, und eine Stelle davon überfällig** — aus demselben Grund wie

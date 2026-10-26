@@ -6,6 +6,7 @@
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 	import { datumLang } from '$lib/client/utils/date';
 	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
+	import { anzeigename } from '$lib/mitgliedsname';
 	import type { ActionData, PageProps } from './$types';
 	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
 
@@ -86,9 +87,22 @@
 	*/
 	let versandFehler = $state('');
 
-	/** Die Meldung am Namensfeld einer Zeile, im aufgeklappten Formular selbst. */
+	/*
+		Die zwei Felder einer Zeile: Name und, seit dem 2026-10-26, Kurzname
+		(spec-notiz-und-kurzname.md). Eine Abweisung an einem der zwei trägt beide
+		Eingaben zurück — den Namen in `eingabe`, den Kurznamen in `zweiteEingabe`.
+	*/
+	const zeilenFeld = $derived(
+		form !== null &&
+			form.art === 'fehler' &&
+			(form.feld === 'neuerName' || form.feld === 'neuerKurzname')
+			? form.feld
+			: null
+	);
+
+	/** Die Meldung an einem Feld einer Zeile, im aufgeklappten Formular selbst. */
 	const fehlerAmNeuenNamen = $derived(
-		form !== null && form.art === 'fehler' && form.feld === 'neuerName' ? form.meldung : ''
+		form !== null && form.art === 'fehler' && zeilenFeld !== null ? form.meldung : ''
 	);
 
 	/**
@@ -102,7 +116,7 @@
 	 * im vollständigen HTML-Dokument, das ein POST ohne JavaScript zurückgibt.
 	 */
 	const fehlerZeile = $derived(
-		form !== null && form.art === 'fehler' && form.feld === 'neuerName' ? form.zeile : null
+		form !== null && form.art === 'fehler' && zeilenFeld !== null ? form.zeile : null
 	);
 
 	/** Die Meldung eines Fehlschlags, der an kein Feld gehört. */
@@ -119,6 +133,16 @@
 		form !== null && form.art === 'fehler' && form.feld === 'name' ? form.meldung : ''
 	);
 
+	/** Die Meldung am Kurznamenfeld der Aufnahme. */
+	const fehlerAmKurznamen = $derived(
+		form !== null && form.art === 'fehler' && form.feld === 'kurzname' ? form.meldung : ''
+	);
+
+	/** Ob die Antwort eine Abweisung der Aufnahme ist, an einem ihrer zwei Felder. */
+	const aufnahmeAbgewiesen = $derived(
+		form !== null && form.art === 'fehler' && (form.feld === 'name' || form.feld === 'kurzname')
+	);
+
 	/*
 		Die Eingabe bleibt nach einem Fehlschlag stehen — je Feld die eigene.
 
@@ -128,11 +152,17 @@
 		den er eben zu ändern versucht hat.
 	*/
 	const nameEingabe = $derived(
-		form !== null && form.art === 'fehler' && form.feld === 'name' ? form.eingabe : ''
+		form !== null && form.art === 'fehler' && aufnahmeAbgewiesen ? form.eingabe : ''
+	);
+	const kurznameEingabe = $derived(
+		form !== null && form.art === 'fehler' && aufnahmeAbgewiesen ? form.zweiteEingabe : ''
 	);
 
 	const neuerNameEingabe = $derived(
-		form !== null && form.art === 'fehler' && form.feld === 'neuerName' ? form.eingabe : ''
+		form !== null && form.art === 'fehler' && zeilenFeld !== null ? form.eingabe : ''
+	);
+	const neuerKurznameEingabe = $derived(
+		form !== null && form.art === 'fehler' && zeilenFeld !== null ? form.zweiteEingabe : ''
 	);
 
 	// -------------------------------------------------------------------
@@ -168,7 +198,7 @@
 	function fokusNach(ergebnis: ActionResult): void {
 		const daten =
 			ergebnis.type === 'success' || ergebnis.type === 'failure'
-				? (ergebnis.data as { art?: unknown; zeile?: unknown } | undefined)
+				? (ergebnis.data as { art?: unknown; zeile?: unknown; feld?: unknown } | undefined)
 				: undefined;
 		const art = typeof daten?.art === 'string' ? daten.art : '';
 
@@ -192,7 +222,9 @@
 			*/
 			const zeile = typeof daten?.zeile === 'number' ? daten.zeile : null;
 			if (zeile !== null) {
-				document.getElementById(`neuer-name-${zeile}`)?.focus();
+				// An das Feld, das nicht trägt: Name oder Kurzname dieser Zeile.
+				const feld = daten?.feld === 'neuerKurzname' ? 'neuer-kurzname' : 'neuer-name';
+				document.getElementById(`${feld}-${zeile}`)?.focus();
 				return;
 			}
 			fehlerKasten?.focus();
@@ -481,10 +513,53 @@
 			auf ein leeres Element zeigt, sagt nichts.
 		-->
 		<p class="fehler live" id="name-fehler" role="alert" aria-live="assertive">{fehlerAmNamen}</p>
+		<!--
+			**Der Kurzname** (spec-notiz-und-kurzname.md, 2026-10-26): wie die Person
+			ausserhalb der Verwaltung heisst. Freiwillig — leer gilt das erste Wort
+			des Namens. Gebraucht wird er, wo zwei Personen sonst gleich hiessen;
+			die Warnung über der Liste sagt, bei wem.
+		-->
+		<div>
+			<label class="feld__beschriftung" for="kurzname">Kurzname</label>
+			<input
+				class="feld"
+				id="kurzname"
+				name="kurzname"
+				type="text"
+				autocomplete="off"
+				maxlength={data.kurznamengrenze}
+				value={kurznameEingabe}
+				aria-describedby={fehlerAmKurznamen === ''
+					? 'kurzname-hinweis'
+					: 'kurzname-hinweis kurzname-fehler'}
+				aria-invalid={fehlerAmKurznamen === '' ? undefined : 'true'}
+			/>
+			<p class="hinweis hinweis--am-feld" id="kurzname-hinweis">
+				Freiwillig — leer gilt der Vorname. So steht die Person an Ernte, Tränkeplan und Terminen.
+			</p>
+		</div>
+		<p class="fehler live" id="kurzname-fehler" role="alert" aria-live="assertive">
+			{fehlerAmKurznamen}
+		</p>
 		<button class="button-primary" type="submit" disabled={imFlug}>Aufnehmen</button>
 	</form>
 
 	<h2 class="abschnittstitel" id="mitglieder-titel">Mitglieder</h2>
+	<!--
+		**Die Warnung bei gleichem Anzeigenamen** (spec-notiz-und-kurzname.md):
+		zwei aktive Personen, die ausserhalb der Verwaltung gleich heissen. Sie
+		warnt und weist nicht ab — die Begründung steht an `gleicheAnzeigenamen`
+		in $lib/mitgliedsname. Im Text und nicht in einer Farbe; die Abhilfe steht
+		im Satz.
+	-->
+	{#each data.gleicheNamen as gleich (gleich.anzeigename)}
+		<p class="fliesstext namensgleich">
+			Gleicher Name ausserhalb der Verwaltung: {gleich.namen.join(', ')} heissen {gleich.namen
+				.length === 2
+				? 'beide'
+				: 'alle'} „{gleich.anzeigename}". Gib einer Person einen Kurznamen.
+		</p>
+	{/each}
 	<ul class="liste" aria-labelledby="mitglieder-titel">
 		{#each data.mitglieder as mitglied (mitglied.id)}
 			<li class="zeile">
@@ -525,6 +600,13 @@
 					ausgelieferte Seite reiste.
 				-->
 				<p class="hinweis">Aufgenommen am {datumLang(mitglied.createdAt)}</p>
+				{#if mitglied.isActive}
+					<!--
+						Wie die Person ausserhalb der Verwaltung heisst — die Verwaltung selbst
+						zeigt den vollen Namen (spec-notiz-und-kurzname.md).
+					-->
+					<p class="hinweis">Angezeigt als {anzeigename(mitglied.name, mitglied.kurzname)}</p>
+				{/if}
 
 				{#if !mitglied.isActive}
 					<!-- Beendet steht im **Text**, nicht in einer Farbe. -->
@@ -588,6 +670,8 @@
 								also neu, und die nächste Abschrift ist wieder frisch.
 							-->
 							<input type="hidden" name="bekannterName" value={mitglied.name} />
+							<!-- Derselbe Abdruck für den Kurznamen; leer heisst „keiner". -->
+							<input type="hidden" name="bekannterKurzname" value={mitglied.kurzname ?? ''} />
 							<div>
 								<label
 									class="feld__beschriftung"
@@ -612,9 +696,38 @@
 									maxlength={data.namensgrenze}
 									value={fehlerHier ? neuerNameEingabe : mitglied.name}
 									aria-labelledby="neuer-name-label-{mitglied.id} mitglied-name-{mitglied.id}"
-									aria-invalid={fehlerHier ? 'true' : undefined}
-									aria-describedby={fehlerHier ? `neuer-name-fehler-${mitglied.id}` : undefined}
+									aria-invalid={fehlerHier && zeilenFeld === 'neuerName' ? 'true' : undefined}
+									aria-describedby={fehlerHier && zeilenFeld === 'neuerName'
+										? `neuer-name-fehler-${mitglied.id}`
+										: undefined}
 								/>
+							</div>
+							<div>
+								<label
+									class="feld__beschriftung"
+									id="neuer-kurzname-label-{mitglied.id}"
+									for="neuer-kurzname-{mitglied.id}"
+								>
+									Kurzname
+								</label>
+								<!-- Leer gilt der Vorname; der Hinweis sagt das am Feld. -->
+								<input
+									class="feld"
+									id="neuer-kurzname-{mitglied.id}"
+									name="neuerKurzname"
+									type="text"
+									autocomplete="off"
+									maxlength={data.kurznamengrenze}
+									value={fehlerHier ? neuerKurznameEingabe : (mitglied.kurzname ?? '')}
+									aria-labelledby="neuer-kurzname-label-{mitglied.id} mitglied-name-{mitglied.id}"
+									aria-invalid={fehlerHier && zeilenFeld === 'neuerKurzname' ? 'true' : undefined}
+									aria-describedby={fehlerHier && zeilenFeld === 'neuerKurzname'
+										? `neuer-kurzname-hinweis-${mitglied.id} neuer-name-fehler-${mitglied.id}`
+										: `neuer-kurzname-hinweis-${mitglied.id}`}
+								/>
+								<p class="hinweis hinweis--am-feld" id="neuer-kurzname-hinweis-{mitglied.id}">
+									Freiwillig — leer gilt der Vorname.
+								</p>
 							</div>
 							<button
 								class="button-quiet"
@@ -818,5 +931,10 @@
 
 	.zeile__marke {
 		color: var(--ink-secondary);
+	}
+
+	/* Der Abstand der Warnung zur Liste darunter; der Satz selbst ist Fliesstext. */
+	.namensgleich {
+		margin-block-end: var(--space-2);
 	}
 </style>

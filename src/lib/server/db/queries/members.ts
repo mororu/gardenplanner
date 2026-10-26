@@ -1,4 +1,4 @@
-import { and, count, desc, eq, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import { datenbank } from '../index.ts';
 import { members, type AngemeldetesMitglied, type Member, type NewMember } from '../schema.ts';
 
@@ -43,9 +43,15 @@ export function mitgliedNachId(id: number): Member | null {
  *
  * createdAt kommt aus dem Schema ($defaultFn), nicht von hier — sonst müsste
  * jede künftige Einfügestelle den Zeitstempel wiederholen.
+ *
+ * `kurzname` ist freiwillig und fehlt als null: scripts/create-admin.ts legt
+ * das erste Mitglied ohne Kurznamen an (spec-notiz-und-kurzname.md), und
+ * gesetzt wird er in der Verwaltung. Er kommt fertig geprüft herein
+ * (`kurznamePruefen` in ../../../mitgliedsname.ts).
  */
 export function mitgliedAnlegen(daten: {
 	name: string;
+	kurzname?: string | null;
 	inviteTokenHash: string;
 	isAdmin: boolean;
 }): Member {
@@ -53,6 +59,7 @@ export function mitgliedAnlegen(daten: {
 		.insert(members)
 		.values({
 			name: daten.name,
+			kurzname: daten.kurzname ?? null,
 			inviteTokenHash: daten.inviteTokenHash,
 			isAdmin: daten.isAdmin,
 		} satisfies NewMember)
@@ -76,13 +83,14 @@ export function mitgliedAnlegen(daten: {
 const ohneHashSpalte = {
 	id: members.id,
 	name: members.name,
+	kurzname: members.kurzname,
 	isAdmin: members.isAdmin,
 	isActive: members.isActive,
 	createdAt: members.createdAt,
 	/*
 	 * Die Klammer, die diese Liste gegen ohneTokenHash in ../schema.ts hält.
 	 *
-	 * Beide Stellen schreiben dieselben fünf Spalten aus und begründen das
+	 * Beide Stellen schreiben dieselben sechs Spalten aus und begründen das
 	 * beide mit „eine neue Spalte soll hier auffallen" — nichts erzwang, dass
 	 * sie in **beiden** auffällt. Eine neue Spalte, die nur in einer
 	 * nachgetragen wird, fehlt still in der Verwaltungsliste oder reist still
@@ -286,7 +294,7 @@ export function aktivesMitgliedLesen(id: number): AngemeldetesMitglied | null {
  * künftige Aufrufstelle, und eine von ihnen täte es falsch. Ein beendeter
  * Zugang wird nicht umbenannt — es gibt an ihm nichts mehr zu tun.
  *
- * **`bekannterName` entscheidet das Wettrennen in der where-Klausel**, nicht in
+ * **Der bekannte Stand (`bekannt`) entscheidet das Wettrennen in der where-Klausel**, nicht in
  * der Route. Geschrieben wird nur, wenn in der Spalte noch genau der Name steht,
  * den die absendende Seite gesehen hat. Dieselbe Bauform wie bei aufgabeAbhaken
  * in ./tasks.ts, wo `completed_at IS NULL` das Wettrennen zweier Abhakender
@@ -306,21 +314,38 @@ export function aktivesMitgliedLesen(id: number): AngemeldetesMitglied | null {
  * **einen** Satz — und der ist auf alle drei die richtige Auskunft: `Lade die
  * Liste neu.`
  *
+ * Seit dem 2026-10-26 reist der **Kurzname** mit (spec-notiz-und-kurzname.md):
+ * er wird im selben Formular gepflegt und steht darum unter derselben Klammer.
+ * Ein veralteter Tab, der nur den Kurznamen änderte, drehte sonst eine neuere
+ * Umbenennung ebenso still zurück.
+ *
  * Der Name kommt geprüft und gefaltet herein — namePruefen in
- * ../../../mitgliedsname.ts ist die eine Stelle, die das entscheidet.
- * `bekannterName` dagegen kommt **ungefaltet** und wird es auch nicht: er ist
+ * ../../../mitgliedsname.ts ist die eine Stelle, die das entscheidet, für den
+ * Kurznamen kurznamePruefen daneben. Der bekannte Stand dagegen kommt
+ * **ungefaltet** und wird es auch nicht: er ist
  * kein Name, den jemand eingibt, sondern der Abdruck dessen, was in der Spalte
  * stand. Eine Faltung darauf verglich etwas anderes, als gespeichert ist.
  */
 export function mitgliedUmbenennen(
 	id: number,
-	name: string,
-	bekannterName: string
+	neu: { name: string; kurzname: string | null },
+	bekannt: { name: string; kurzname: string | null }
 ): AngemeldetesMitglied | null {
 	const zeile = datenbank()
 		.update(members)
-		.set({ name })
-		.where(and(eq(members.id, id), eq(members.isActive, true), eq(members.name, bekannterName)))
+		.set({ name: neu.name, kurzname: neu.kurzname })
+		.where(
+			and(
+				eq(members.id, id),
+				eq(members.isActive, true),
+				eq(members.name, bekannt.name),
+				// null ist kein Wert, mit dem `=` etwas trifft: ein bekannter Kurzname
+				// »keiner« vergleicht über IS NULL.
+				bekannt.kurzname === null
+					? isNull(members.kurzname)
+					: eq(members.kurzname, bekannt.kurzname)
+			)
+		)
 		.returning(ohneHashSpalte)
 		.get();
 	return zeile ?? null;

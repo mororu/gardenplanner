@@ -32,6 +32,26 @@ export const members = sqliteTable('members', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	name: text('name').notNull(),
 	/*
+	 * Wie die Oberfläche die Person nennt, wo sie nicht verwaltet wird — oder
+	 * null. **Nullbar, und null ist der Normalfall**: dann gilt das erste Wort
+	 * von `name` (`anzeigename` in src/lib/mitgliedsname.ts, die eine Stelle der
+	 * Regel). Gesetzt wird er in der Verwaltung, und nur dort, wo zwei Personen
+	 * sonst gleich hiessen (spec-notiz-und-kurzname.md, 2026-10-26).
+	 *
+	 * **Eine Spalte und keine Ableitung aus `name`.** `name` ist ein einziges
+	 * Feld; ein Nachname lässt sich daraus nicht verlässlich lesen (`Anna Maria
+	 * Meier`, `Meier Anna`, `Anna (Beet 12)`), und zwei Personen mit gleichem
+	 * Vornamen und gleichem Anfangsbuchstaben des Nachnamens gibt es im Garten
+	 * schon. Eine Ableitung, die das nicht trägt, wäre eine Regel, die jemand
+	 * von Hand überstimmen müsste — dann gleich von Hand.
+	 *
+	 * **Kein unique.** Die Verwaltung warnt bei zwei aktiven Personen mit
+	 * demselben Anzeigenamen und weist nicht ab: der Anzeigename einer Person
+	 * ohne Kurzname hängt an ihrem Namen, und eine Eindeutigkeit über eine
+	 * Spalte deckte diesen Fall gar nicht.
+	 */
+	kurzname: text('kurzname'),
+	/*
 	 * Nur der SHA-256-Hash des Einladungstokens, 64 Hex-Zeichen. Der Klartext
 	 * wird nie gespeichert, nie geloggt und nie ausgeliefert — er erscheint genau
 	 * einmal auf der Konsole von scripts/create-admin.ts.
@@ -90,6 +110,7 @@ export function ohneTokenHash(mitglied: Member): AngemeldetesMitglied {
 	return {
 		id: mitglied.id,
 		name: mitglied.name,
+		kurzname: mitglied.kurzname,
 		isAdmin: mitglied.isAdmin,
 		isActive: mitglied.isActive,
 		createdAt: mitglied.createdAt,
@@ -579,6 +600,18 @@ export const harvests = sqliteTable('harvests', {
 	 * und wer die Zeile schreibt, weiss es besser als eine Liste im Code.
 	 */
 	laufend: integer('laufend', { mode: 'boolean' }).notNull().default(false),
+	/*
+	 * Was jemand zur Ernte weiss — `frühe Sorte, sehr gross, pflücken und evtl.
+	 * kurz einfrieren`, `wenig`, `zuerst` (Liste vom 26.10.2026). **Nullbar,
+	 * und leer heisst null**, aus demselben Grund wie bei `ort`: „nicht
+	 * angegeben" hat genau einen Wert.
+	 *
+	 * Die Grenze steht in TypeScript (NOTIZ_HOECHSTLAENGE in src/lib/ernte.ts,
+	 * geprüft über notizPruefen), nicht in SQL — dieselbe Begründung wie bei
+	 * `kultur`. Ändern darf sie jede Person an jeder Zeile, wie das Umstufen
+	 * (Entscheid Manuel, 2026-10-26).
+	 */
+	notiz: text('notiz'),
 	/* Wer den Stand behauptet hat. Siehe die Begründung an der Tabelle. */
 	memberId: integer('member_id')
 		.notNull()

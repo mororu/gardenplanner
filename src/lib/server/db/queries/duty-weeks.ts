@@ -1,5 +1,6 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { datenbank } from '../index.ts';
+import { anzeigename, anzeigenameOderNull } from '../../../mitgliedsname.ts';
 import { DIENSTART_TRAENKEN, dutyWeeks, members } from '../schema.ts';
 import { isoWocheVon, wochenSchluessel, type Woche } from '../../../zeit.ts';
 
@@ -74,6 +75,7 @@ export function dienstwochenLesen(fenster: readonly Woche[]): Dienstwoche[] {
 			jahr: dutyWeeks.isoJahr,
 			woche: dutyWeeks.isoWoche,
 			name: members.name,
+			kurzname: members.kurzname,
 			mitgliedId: members.id,
 			istAktiv: members.isActive,
 		})
@@ -95,7 +97,8 @@ export function dienstwochenLesen(fenster: readonly Woche[]): Dienstwoche[] {
 		return {
 			jahr,
 			woche,
-			name: besetzt ? (zeile?.name ?? null) : null,
+			// Der Anzeigename, nicht der volle Name (spec-notiz-und-kurzname.md).
+			name: besetzt ? anzeigenameOderNull(zeile?.name ?? null, zeile?.kurzname ?? null) : null,
 			mitgliedId: besetzt ? (zeile?.mitgliedId ?? null) : null,
 		};
 	});
@@ -186,7 +189,7 @@ export function eigeneDienstwoche(
  */
 export function dienstwocheEintragen(woche: Woche, mitgliedId: number): { name: string } | null {
 	const mitglied = datenbank()
-		.select({ name: members.name })
+		.select({ name: members.name, kurzname: members.kurzname })
 		.from(members)
 		.where(and(eq(members.id, mitgliedId), eq(members.isActive, true)))
 		.get();
@@ -206,7 +209,7 @@ export function dienstwocheEintragen(woche: Woche, mitgliedId: number): { name: 
 		.returning({ id: dutyWeeks.id })
 		.get();
 
-	return zeile === undefined ? null : { name: mitglied.name };
+	return zeile === undefined ? null : { name: anzeigename(mitglied.name, mitglied.kurzname) };
 }
 
 export function dienstwocheAustragen(woche: Woche, mitgliedId: number): Woche | null {
@@ -227,7 +230,7 @@ export function dienstwocheAustragen(woche: Woche, mitgliedId: number): Woche | 
 
 export function dienstwocheBesetzen(woche: Woche, mitgliedId: number): { name: string } | null {
 	const mitglied = datenbank()
-		.select({ name: members.name })
+		.select({ name: members.name, kurzname: members.kurzname })
 		.from(members)
 		.where(and(eq(members.id, mitgliedId), eq(members.isActive, true)))
 		.get();
@@ -247,5 +250,5 @@ export function dienstwocheBesetzen(woche: Woche, mitgliedId: number): { name: s
 		})
 		.run();
 
-	return { name: mitglied.name };
+	return { name: anzeigename(mitglied.name, mitglied.kurzname) };
 }

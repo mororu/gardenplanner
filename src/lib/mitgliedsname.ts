@@ -89,3 +89,124 @@ export function namePruefen(eingabe: string): { name: string } | { fehler: strin
 	if ([...name].length > NAME_HOECHSTLAENGE) return { fehler: NAME_ZU_LANG };
 	return { name };
 }
+
+/*
+ * **Der Kurzname** (spec-notiz-und-kurzname.md, 2026-10-26).
+ *
+ * Wo die Oberfläche eine Person nennt — an einer Erntezeile, im Tränkeplan, an
+ * einem übernommenen Termin, im Archiv —, steht nicht der volle Name, sondern
+ * der **Anzeigename**: der Kurzname, wenn einer gesetzt ist, sonst das erste
+ * Wort des Namens. Der volle Name bleibt dort, wo zwei Personen unterschieden
+ * werden müssen: in der Verwaltung, in der Auswahl, mit der die Verwaltung
+ * eine Woche im Tränkeplan besetzt, und in der Traktandenliste als abgelegter
+ * Datei (die Begründungen im Spec Change Log).
+ *
+ * **Der Kurzname ist von Hand gepflegt und wird nicht abgeleitet** (Entscheid
+ * Manuel, 2026-10-26). Im Garten gibt es zwei Personen mit gleichem Vornamen
+ * und gleichem Anfangsbuchstaben des Nachnamens; `members.name` ist ein
+ * einziges Feld, und ein Nachname lässt sich daraus nicht verlässlich lesen.
+ * Die Regel „erstes Wort" gilt darum nur, solange niemand etwas anderes
+ * eingetragen hat — und die Verwaltung sagt, wo das nötig ist
+ * (`gleicheAnzeigenamen` unten).
+ *
+ * Die Regel steht **hier und nirgends sonst** — kein SQL-Ausdruck für das erste
+ * Wort. Die Abfragen lesen `name` und `kurzname` und rufen `anzeigename`; eine
+ * zweite Fassung in SQL liefe beim ersten Unterschied (Leerraum, Unicode)
+ * still auseinander.
+ */
+
+/**
+ * Die Längengrenze des Kurznamens, serverseitig durchgesetzt.
+ *
+ * 20 Zeichen: ein Kurzname ist ein Vorname mit einem Zusatz (`Nici Mü`,
+ * `Anna B. 12`), kein zweiter Name. Gezählt in Codepoints wie bei namePruefen.
+ */
+export const KURZNAME_HOECHSTLAENGE = 20;
+
+/** Der Text für die Überlänge. Eine Wurfstelle. */
+export const KURZNAME_ZU_LANG = `Der Kurzname ist zu lang. Höchstens ${KURZNAME_HOECHSTLAENGE} Zeichen.`;
+
+/**
+ * Der Kurzname, wie er in die Datenbank geht: gefaltet wie ein Name, **leer
+ * wird null** — oder ein Fehler, wenn er zu lang ist.
+ *
+ * Leer ist kein Fehler, sondern der Normalfall: dann gilt das erste Wort des
+ * Namens. Ein Kurzname aus lauter unsichtbaren Zeichen fällt durch die Faltung
+ * auf leer und damit auf null — er wäre sonst eine leere Lücke an jeder Stelle,
+ * an der die Person genannt wird.
+ */
+export function kurznamePruefen(eingabe: string): { kurzname: string | null } | { fehler: string } {
+	const kurzname = unsichtbarEntfernen(eingabe).replace(/\s+/g, ' ').trim();
+	if (kurzname === '') return { kurzname: null };
+	if ([...kurzname].length > KURZNAME_HOECHSTLAENGE) return { fehler: KURZNAME_ZU_LANG };
+	return { kurzname };
+}
+
+/**
+ * Wie die Oberfläche eine Person nennt: der Kurzname, sonst das erste Wort des
+ * Namens.
+ *
+ * Getrennt wird am ersten Leerraum. Ein gespeicherter Name ist über namePruefen
+ * gefaltet und hat darum keinen Leerraum am Rand; die Funktion trimmt trotzdem,
+ * weil sie nicht voraussetzt, woher ihre Werte kommen (ein Eingriff von Hand an
+ * der Datenbank). Ein Name aus einem einzigen Wort bleibt ganz, und ein leerer
+ * Kurzname zählt wie keiner.
+ */
+export function anzeigename(name: string, kurzname: string | null): string {
+	const kurz = kurzname?.trim() ?? '';
+	if (kurz !== '') return kurz;
+	const gekuerzt = name.trim();
+	return gekuerzt.split(/\s+/, 1)[0] ?? gekuerzt;
+}
+
+/**
+ * Der Anzeigename einer Zeile aus einem leftJoin, oder null, wenn die
+ * Mitgliedszeile fehlt.
+ *
+ * Für die Abfragen, deren Spalte `name` aus einem leftJoin auf members kommt
+ * und darum nullbar ist. Ein fehlender Name kann nur aus einem Eingriff von
+ * Hand an der Datenbank stammen; die Seiten schreiben dann `unbekannt`.
+ */
+export function anzeigenameOderNull(name: string | null, kurzname: string | null): string | null {
+	return name === null ? null : anzeigename(name, kurzname);
+}
+
+/** Zwei oder mehr aktive Personen, die in der Oberfläche gleich heissen. */
+export type GleicherAnzeigename = { anzeigename: string; namen: string[] };
+
+/**
+ * Welche **aktiven** Personen denselben Anzeigenamen tragen — für die Warnung
+ * in der Verwaltung.
+ *
+ * Die Verwaltung **warnt und weist nicht ab** (spec-notiz-und-kurzname.md): wer
+ * `Nici Meier` aufnimmt, während `Nici Müller` schon da ist, hat nichts falsch
+ * gemacht, nur steht danach an zwei Erntezeilen `Nici`. Die Abhilfe ist ein
+ * Kurzname, und die Warnung sagt, bei wem.
+ *
+ * Verglichen wird **ohne Gross und Klein** (`toLocaleLowerCase('de-CH')`):
+ * `nici` und `Nici` sind zwei Zeichenketten, aber an einer Erntezeile dieselbe
+ * Auskunft. Beendete Zugänge zählen nicht — sie erscheinen nirgends mehr als
+ * handelnde Person, und eine Warnung über sie hiesse, einen Kurznamen für
+ * jemanden zu pflegen, der nicht mehr da ist.
+ *
+ * Rein und ohne Datenbank, damit scripts/smoke-zugang.ts es direkt prüfen kann.
+ * Die Reihenfolge der Gruppen folgt der ersten Person jeder Gruppe in der
+ * Eingabe; die Verwaltung reicht ihre Liste schon nach Name sortiert herein.
+ */
+export function gleicheAnzeigenamen(
+	mitglieder: readonly { name: string; kurzname: string | null; isActive: boolean }[]
+): GleicherAnzeigename[] {
+	const gruppen = new Map<string, GleicherAnzeigename>();
+	for (const mitglied of mitglieder) {
+		if (!mitglied.isActive) continue;
+		const angezeigt = anzeigename(mitglied.name, mitglied.kurzname);
+		const schluessel = angezeigt.toLocaleLowerCase('de-CH');
+		const gruppe = gruppen.get(schluessel);
+		if (gruppe === undefined) {
+			gruppen.set(schluessel, { anzeigename: angezeigt, namen: [mitglied.name] });
+		} else {
+			gruppe.namen.push(mitglied.name);
+		}
+	}
+	return [...gruppen.values()].filter((gruppe) => gruppe.namen.length > 1);
+}

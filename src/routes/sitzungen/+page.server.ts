@@ -7,6 +7,7 @@ import {
 	protokollVermerken,
 	traktandenAbraeumen,
 	traktandenLesen,
+	traktandenMitVollemNamenLesen,
 	traktandenlistenLesen,
 	traktandenlisteVermerken,
 	traktandumAendern,
@@ -249,7 +250,9 @@ export const actions = {
 			redirect(303, '/');
 		}
 
-		const punkte = traktandenLesen();
+		// Der volle Name, nicht der Anzeigename: die Datei liegt ausserhalb der
+		// Anwendung (siehe traktandenMitVollemNamenLesen).
+		const punkte = traktandenMitVollemNamenLesen();
 		if (punkte.length === 0) {
 			return abweisen(TRAKTANDEN_LEER, null);
 		}

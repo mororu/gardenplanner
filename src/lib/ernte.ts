@@ -157,6 +157,13 @@ export const ABERNTEN_WORT = 'Abgeerntet';
 export const SOFORT_KNOPF = 'Sofort';
 
 /**
+ * Das Wort des Stifts an einer Karte: er malt nur das Zeichen, vorgelesen wird
+ * `Notiz ändern {Kultur}, {Ort}` (spec-notiz-und-kurzname.md, 2026-10-26). Eine
+ * Konstante, weil Markup und Prüfkette dasselbe Wort lesen.
+ */
+export const NOTIZ_AENDERN_WORT = 'Notiz ändern';
+
+/**
  * Sagt, ob ein Wert aus dem Formular eine der drei Stufen ist.
  *
  * `unknown` und nicht FormDataEntryValue: das Typprüf-Programm der Skripte
@@ -332,6 +339,35 @@ export function ortPruefen(eingabe: string): { ort: string | null } | { fehler: 
 	if (ort === null) return { ort: null };
 	if ([...ort].length > ERNTE_HOECHSTLAENGE) return { fehler: ORT_ZU_LANG };
 	return { ort };
+}
+
+/**
+ * Die Längengrenze der Notiz an einer Erntezeile, serverseitig durchgesetzt
+ * (spec-notiz-und-kurzname.md, 2026-10-26).
+ *
+ * 200 und nicht ERNTE_HOECHSTLAENGE: die Notiz ist ein Satz und kein Name —
+ * `frühe Sorte, sehr gross, pflücken und evtl. kurz einfrieren` hat 58
+ * Zeichen und ist die längste der Liste vom 26.10.2026. Das `maxlength` am
+ * Feld trägt dieselbe Zahl; abgewiesen wird damit nur ein gebauter POST.
+ */
+export const NOTIZ_HOECHSTLAENGE = 200;
+
+export const NOTIZ_ZU_LANG = `Die Notiz ist zu lang. Höchstens ${NOTIZ_HOECHSTLAENGE} Zeichen.`;
+
+/**
+ * Prüft die Notiz: **darf leer sein**, und leer heisst null — nach dem Muster
+ * von `ortPruefen`, ohne dessen Vorgabe und ohne Vereinheitlichung.
+ *
+ * Gefaltet mit `aufgabentextFalten` (unsichtbare Zeichen weg, Leerraum
+ * zusammengezogen, getrimmt), dann die Länge — es zählt, was gespeichert würde.
+ * Eine Notiz aus lauter Leerzeichen ist damit keine, und das ist zugleich der
+ * Weg, eine Notiz zu entfernen: das Feld leeren und speichern.
+ */
+export function notizPruefen(eingabe: string): { notiz: string | null } | { fehler: string } {
+	const notiz = aufgabentextFalten(eingabe);
+	if (notiz === '') return { notiz: null };
+	if ([...notiz].length > NOTIZ_HOECHSTLAENGE) return { fehler: NOTIZ_ZU_LANG };
+	return { notiz };
 }
 
 /**

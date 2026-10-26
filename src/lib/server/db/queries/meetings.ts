@@ -1,5 +1,6 @@
 import { asc, desc, eq } from 'drizzle-orm';
 import { datenbank } from '../index.ts';
+import { anzeigenameOderNull } from '../../../mitgliedsname.ts';
 import {
 	agendaItems,
 	agendaLists,
@@ -42,7 +43,9 @@ import {
 /**
  * Ein Traktandum, wie die Seite es sieht.
  *
- * `name` ist nullbar, obwohl `member_id` es nicht ist: der leftJoin liefert
+ * `name` ist der Anzeigename (seit dem 2026-10-26, src/lib/mitgliedsname.ts),
+ * ausser aus `traktandenMitVollemNamenLesen`. Er ist nullbar, obwohl
+ * `member_id` es nicht ist: der leftJoin liefert
  * null, wenn die Mitgliedszeile fehlt. Kein Weg der Anwendung löscht eine —
  * Zugang beenden heisst deaktivieren —, aber der Typ soll nicht behaupten, was
  * allein eine Gewohnheit ist.
@@ -91,11 +94,40 @@ export type Protokoll = {
  * zwischen zwei Aufrufen ihr Aussehen.
  */
 export function traktandenLesen(): Traktandum[] {
+	return traktandenAbfragen().map(({ kurzname, ...punkt }) => ({
+		...punkt,
+		name: anzeigenameOderNull(punkt.name, kurzname),
+	}));
+}
+
+/**
+ * Die Sammlung wie `traktandenLesen`, aber mit dem **vollen** Namen — für die
+ * Traktandenliste als abgelegte Datei und für nichts sonst.
+ *
+ * Die Seite nennt eine Person seit dem 2026-10-26 beim Anzeigenamen
+ * (spec-notiz-und-kurzname.md); die Datei liegt ausserhalb der Anwendung und
+ * soll in Jahren noch sagen, wer einen Punkt aufgebracht hat, auch wenn es
+ * dann zwei `Nici` gibt oder der Kurzname ein anderer ist. Eine Ausnahme aus
+ * dem _Ask First_ der Spec, entschieden unter der Übertragung vom 2026-10-26
+ * und im Spec Change Log festgehalten.
+ */
+export function traktandenMitVollemNamenLesen(): Traktandum[] {
+	return traktandenAbfragen().map((punkt) => ({
+		id: punkt.id,
+		text: punkt.text,
+		name: punkt.name,
+		createdAt: punkt.createdAt,
+	}));
+}
+
+/** Die eine Abfrage hinter beiden Lesern: dieselbe Ordnung, beide Namen. */
+function traktandenAbfragen() {
 	return datenbank()
 		.select({
 			id: agendaItems.id,
 			text: agendaItems.text,
 			name: members.name,
+			kurzname: members.kurzname,
 			createdAt: agendaItems.createdAt,
 		})
 		.from(agendaItems)
@@ -166,12 +198,17 @@ export function traktandenlistenLesen(): Traktandenliste[] {
 		.select({
 			id: agendaLists.id,
 			name: members.name,
+			kurzname: members.kurzname,
 			createdAt: agendaLists.createdAt,
 		})
 		.from(agendaLists)
 		.leftJoin(members, eq(members.id, agendaLists.memberId))
 		.orderBy(desc(agendaLists.createdAt), desc(agendaLists.id))
-		.all();
+		.all()
+		.map(({ kurzname, ...liste }) => ({
+			...liste,
+			name: anzeigenameOderNull(liste.name, kurzname),
+		}));
 }
 
 /**
@@ -227,12 +264,17 @@ export function protokolleLesen(): Protokoll[] {
 			id: minutes.id,
 			sitzungAm: minutes.sitzungAm,
 			name: members.name,
+			kurzname: members.kurzname,
 			createdAt: minutes.createdAt,
 		})
 		.from(minutes)
 		.leftJoin(members, eq(members.id, minutes.memberId))
 		.orderBy(desc(minutes.sitzungAm), desc(minutes.createdAt))
-		.all();
+		.all()
+		.map(({ kurzname, ...protokoll }) => ({
+			...protokoll,
+			name: anzeigenameOderNull(protokoll.name, kurzname),
+		}));
 }
 
 /**

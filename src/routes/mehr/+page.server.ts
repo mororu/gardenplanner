@@ -1,5 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { ServerLoadEvent } from '@sveltejs/kit';
+import { anzeigename } from '../../lib/mitgliedsname.ts';
 
 /*
  * /mehr — der Einstieg zu den seltenen Handlungen.
@@ -26,6 +27,8 @@ export function load({ locals }: ServerLoadEvent): { name: string; istAdmin: boo
 	}
 
 	// Nur die zwei Werte, die die Seite zeigt. Nichts aus der Mitgliedszeile
-	// reist mit, was die Seite nicht anzeigt.
-	return { name: mitglied.name, istAdmin: mitglied.isAdmin };
+	// reist mit, was die Seite nicht anzeigt. Der Name ist seit dem 2026-10-26
+	// der Anzeigename, wie überall ausserhalb der Verwaltung
+	// (spec-notiz-und-kurzname.md).
+	return { name: anzeigename(mitglied.name, mitglied.kurzname), istAdmin: mitglied.isAdmin };
 }

@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm';
 import { datenbank } from '../index.ts';
+import { anzeigename, anzeigenameOderNull } from '../../../mitgliedsname.ts';
 import { members, signupTasks, type NewSignupTask } from '../schema.ts';
 
 /*
@@ -70,15 +71,17 @@ export type Einzelaufgabe = {
  * hier nicht steht, kann keine load-Funktion verlassen — insbesondere
  * `member_id` und `created_at`, die keine Ansicht zeigt.
  *
- * `name` und `istAktiv` sind Rohstoff und keine Anzeigewerte: aus ihnen entsteht
- * in `alsEinzelaufgabe` das eine Feld `uebernehmer`, und nur das verlässt das
- * Modul.
+ * `name`, `kurzname` und `istAktiv` sind Rohstoff und keine Anzeigewerte: aus
+ * ihnen entsteht in `alsEinzelaufgabe` das eine Feld `uebernehmer`, und nur das
+ * verlässt das Modul. Seit dem 2026-10-26 trägt es den Anzeigenamen
+ * (`anzeigename` in src/lib/mitgliedsname.ts), nicht den vollen Namen.
  */
 const anzeigeSpalten = {
 	id: signupTasks.id,
 	titel: signupTasks.titel,
 	terminAt: signupTasks.terminAt,
 	name: members.name,
+	kurzname: members.kurzname,
 	istAktiv: members.isActive,
 	completedAt: signupTasks.completedAt,
 };
@@ -147,6 +150,7 @@ type Anzeigezeile = {
 	titel: string;
 	terminAt: number;
 	name: string | null;
+	kurzname: string | null;
 	istAktiv: boolean | null;
 	completedAt: number | null;
 };
@@ -178,7 +182,7 @@ function alsEinzelaufgabe(zeile: Anzeigezeile): Einzelaufgabe {
 		terminAt: zeile.terminAt,
 		// `=== true` und nicht `!!`: istAktiv ist bei fehlender Mitgliedszeile null,
 		// und null soll hier dasselbe bedeuten wie false, nicht etwas Drittes.
-		uebernehmer: zeile.istAktiv === true ? zeile.name : null,
+		uebernehmer: zeile.istAktiv === true ? anzeigenameOderNull(zeile.name, zeile.kurzname) : null,
 		// Der Zeitpunkt bleibt in der Datenschicht, nach draussen geht das Ja.
 		erledigt: zeile.completedAt !== null,
 	};
@@ -315,7 +319,8 @@ export function abgeschlosseneEinzelaufgabenLesen(): AbgeschlossenerTermin[] {
 						{
 							id: zeile.id,
 							titel: zeile.titel,
-							uebernehmer: zeile.istAktiv === true ? zeile.name : null,
+							uebernehmer:
+								zeile.istAktiv === true ? anzeigenameOderNull(zeile.name, zeile.kurzname) : null,
 							erledigtAm: zeile.completedAt,
 						},
 					]
@@ -389,7 +394,7 @@ export function freieEinzelaufgabeLesen(id: number): Einzelaufgabe | null {
  */
 export function einzelaufgabeUebernehmen(
 	id: number,
-	mitglied: { id: number; name: string }
+	mitglied: { id: number; name: string; kurzname: string | null }
 ): Einzelaufgabe | null {
 	const zeile = datenbank()
 		.update(signupTasks)
@@ -403,7 +408,13 @@ export function einzelaufgabeUebernehmen(
 		.get();
 	// Erledigt ist hier zwangsläufig falsch: übernommen wird nur, was frei ist,
 	// und frei() schliesst Abgeschlossenes aus.
-	return zeile === undefined ? null : { ...zeile, uebernehmer: mitglied.name, erledigt: false };
+	return zeile === undefined
+		? null
+		: {
+				...zeile,
+				uebernehmer: anzeigename(mitglied.name, mitglied.kurzname),
+				erledigt: false,
+			};
 }
 
 /**

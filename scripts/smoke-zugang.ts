@@ -95,14 +95,18 @@ import {
 import { abschluesseBuendeln, buendeln, letzteJeStelle, nachBeet } from '../src/lib/wellness.ts';
 import {
 	ERNTE_HOECHSTLAENGE,
+	NOTIZ_HOECHSTLAENGE,
+	NOTIZ_ZU_LANG,
 	ORT_ZU_LANG,
 	nachBeetGliedern,
+	notizPruefen,
 	ortPruefen,
 	type Erntestatus,
 } from '../src/lib/ernte.ts';
 import {
 	ernteAbernten,
 	ernteEintragen,
+	erntestandLesen,
 	erntezeileLesen,
 } from '../src/lib/server/db/queries/harvests.ts';
 import {
@@ -116,6 +120,7 @@ import {
 import { blattAnlegen, blattLesen } from '../src/lib/server/db/queries/sheets.ts';
 import type { AngemeldetesMitglied, NewTask } from '../src/lib/server/db/schema.ts';
 import {
+	aktiveMitgliederAuflisten,
 	mitgliedAnlegen,
 	mitgliedDeaktivieren,
 	mitgliederZaehlen,
@@ -128,6 +133,7 @@ import {
  * Oberfläche, sondern eine der Abfrage.
  */
 import {
+	dienstwocheAustragen,
 	dienstwocheBesetzen,
 	dienstwochenLesen,
 	eigeneDienstwoche,
@@ -245,9 +251,14 @@ import { dokumentAblageLesen, dokumenteLesen } from '../src/lib/server/db/querie
  * nicht als 81 im Skript: sie wird aus NAME_HOECHSTLAENGE gerechnet.
  */
 import {
+	KURZNAME_HOECHSTLAENGE,
+	KURZNAME_ZU_LANG,
 	NAME_FEHLT,
 	NAME_HOECHSTLAENGE,
 	NAME_ZU_LANG,
+	anzeigename,
+	gleicheAnzeigenamen,
+	kurznamePruefen,
 	namePruefen,
 } from '../src/lib/mitgliedsname.ts';
 import {
@@ -258,6 +269,7 @@ import {
 	EIGENER_ZUGANG_GESCHUETZT,
 	LETZTE_ADMINPERSON,
 	EINZELAUFGABE_NICHT_ANSPRECHBAR,
+	ERNTEZEILE_NICHT_ANSPRECHBAR,
 	FRIST_AUSSERHALB,
 	KEIN_ZUGANG,
 	MITGLIED_NICHT_ANSPRECHBAR,
@@ -292,7 +304,7 @@ import {
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 810;
+const ERWARTETE_BEHAUPTUNGEN = 831;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -2534,7 +2546,11 @@ try {
 	const emmaVorSchreibversuch = zeileAbdruck(emmaId);
 	pruefenGleich(
 		'mitgliedUmbenennen trifft eine beendete Zeile nicht — is_active = 1 steht im UPDATE',
-		mitgliedUmbenennen(emmaId, 'Emma Neu', 'Emma Studer'),
+		mitgliedUmbenennen(
+			emmaId,
+			{ name: 'Emma Neu', kurzname: null },
+			{ name: 'Emma Studer', kurzname: null }
+		),
 		null
 	);
 	pruefenGleich(
@@ -4278,7 +4294,7 @@ try {
 		`verletzt: ${fehlendeTeile(regionenTeile).join(', ')}`
 	);
 	pruefenGleich(
-		'und es sind neun höfliche, vierunddreissig unterbrechende, eine Ansage und genau eine, die nur die CSS-Rolle braucht',
+		'und es sind neun höfliche, siebenunddreissig unterbrechende, eine Ansage und genau eine, die nur die CSS-Rolle braucht',
 		JSON.stringify(
 			liveTags
 				.map(([, roh]) => roh.replace(/\s+/g, ' '))
@@ -4325,7 +4341,7 @@ try {
 		// /wissen hat zwei Feldmeldungen dazubekommen (Titel und Datei des
 		// Ablegen-Formulars), /wissen/dokument/[id] bringt eine Meldungs- und eine
 		// Fehlerregion mit.
-		JSON.stringify({ hoeflich: 9, unterbrechend: 34, ansage: 1, keineRegion: 1 })
+		JSON.stringify({ hoeflich: 9, unterbrechend: 37, ansage: 1, keineRegion: 1 })
 	);
 
 	const rueckmeldungRumpf = glatterRumpf(
@@ -7152,7 +7168,9 @@ try {
 		[
 			'/verwaltung zieht sie aus dem Modul und ruft sie in beiden actions',
 			NAMENSMODUL.test(verwaltungServer) &&
-				(verwaltungServer.match(/namePruefen\(/g) ?? []).length === 2,
+				// `\b`, seit es kurznamePruefen gibt (2026-10-26): ohne die Wortgrenze
+				// zählte der Ausdruck dessen zwei Aufrufe als Namensprüfungen mit.
+				(verwaltungServer.match(/\bnamePruefen\(/g) ?? []).length === 2,
 		],
 		[
 			'scripts/create-admin.ts zieht sie aus dem Modul, statt selbst zu falten',
@@ -7515,14 +7533,26 @@ try {
 			/value=\{fehlerHier \? neuerNameEingabe : mitglied\.name\}/.test(umbenennenFormular),
 		],
 		[
-			'aria-invalid hängt am Fehlschlag dieser Zeile',
-			/aria-invalid=\{fehlerHier \? 'true' : undefined\}/.test(umbenennenFormular),
+			/*
+			 * Seit dem 2026-10-26 trägt die Zeile zwei Felder (Name, Kurzname), und
+			 * die Kante gehört an das Feld, das nicht trägt — Zeile **und** Marke.
+			 */
+			'aria-invalid hängt am Fehlschlag dieser Zeile und dieses Feldes',
+			/aria-invalid=\{fehlerHier && zeilenFeld === 'neuerName' \? 'true' : undefined\}/.test(
+				umbenennenFormular
+			) &&
+				/aria-invalid=\{fehlerHier && zeilenFeld === 'neuerKurzname' \? 'true' : undefined\}/.test(
+					umbenennenFormular
+				),
 		],
 		[
 			'und das Feld zeigt im Fehlerfall auf den Satz dieser Zeile',
-			/aria-describedby=\{fehlerHier \? `neuer-name-fehler-\$\{mitglied\.id\}` : undefined\}/.test(
+			/aria-describedby=\{fehlerHier && zeilenFeld === 'neuerName' \? `neuer-name-fehler-\$\{mitglied\.id\}` : undefined\}/.test(
 				umbenennenFormular
-			),
+			) &&
+				/aria-describedby=\{fehlerHier && zeilenFeld === 'neuerKurzname' \? `neuer-kurzname-hinweis-\$\{mitglied\.id\} neuer-name-fehler-\$\{mitglied\.id\}`/.test(
+					umbenennenFormular
+				),
 		],
 		[
 			// Ohne den Knopf gibt es ohne JavaScript keinen Weg abzuschicken, und
@@ -7613,10 +7643,18 @@ try {
 			 * und wer danach aufnimmt, nimmt jemanden unter dem Namen auf, den er
 			 * eben zu ändern versucht hat.
 			 */
-			"nameEingabe liest nur Fehlschläge mit der Marke 'name'",
-			/const nameEingabe = \$derived\( form !== null && form\.art === 'fehler' && form\.feld === 'name' \?/.test(
+			/*
+			 * Seit dem 2026-10-26 über `aufnahmeAbgewiesen`: auch eine Abweisung am
+			 * Kurznamen der Aufnahme trägt den Namen zurück — aber weiterhin nur
+			 * die zwei Marken der Aufnahme, keine einer Zeile.
+			 */
+			"nameEingabe liest nur Fehlschläge mit den Marken 'name' und 'kurzname'",
+			/const nameEingabe = \$derived\( form !== null && form\.art === 'fehler' && aufnahmeAbgewiesen \?/.test(
 				verwaltungGlatt
-			),
+			) &&
+				/const aufnahmeAbgewiesen = \$derived\( form !== null && form\.art === 'fehler' && \(form\.feld === 'name' \|\| form\.feld === 'kurzname'\) \);/.test(
+					verwaltungGlatt
+				),
 		],
 		[
 			// Ohne diesen Zweig sagt ein geglücktes Umbenennen gar nichts an, während
@@ -7637,7 +7675,10 @@ try {
 			 * hängen an je einer Zeile in fokusNach.
 			 */
 			'fokusNach springt bei einer abgewiesenen Zeile an deren Feld',
-			/document\.getElementById\(`neuer-name-\$\{zeile\}`\)\?\.focus\(\)/.test(fokusRumpf) &&
+			/const feld = daten\?\.feld === 'neuerKurzname' \? 'neuer-kurzname' : 'neuer-name';/.test(
+				fokusRumpf
+			) &&
+				/document\.getElementById\(`\$\{feld\}-\$\{zeile\}`\)\?\.focus\(\)/.test(fokusRumpf) &&
 				/meldungKasten\?\.focus\(\)/.test(fokusRumpf),
 		],
 		[
@@ -8415,9 +8456,9 @@ try {
 		jetztFest + 2 * TAG_SEKUNDEN
 	);
 	for (const zeile of [meinAbgelaufen, meinBald, meinSpaeter]) {
-		einzelaufgabeUebernehmen(zeile.id, { id: nico.id, name: nico.name });
+		einzelaufgabeUebernehmen(zeile.id, nico);
 	}
-	einzelaufgabeUebernehmen(fremdBald.id, { id: vera.id, name: vera.name });
+	einzelaufgabeUebernehmen(fremdBald.id, vera);
 
 	/*
 	 * **Abschliessen — die zwei Vorbedingungen und die Zusage der Historie.**
@@ -8439,7 +8480,7 @@ try {
 		'Schneckenzaun kontrollieren',
 		jetztFest + 3 * TAG_SEKUNDEN
 	);
-	einzelaufgabeUebernehmen(meinerZumSchliessen.id, { id: nico.id, name: nico.name });
+	einzelaufgabeUebernehmen(meinerZumSchliessen.id, nico);
 
 	const fremderVersuch = einzelaufgabeAbschliessen(meinerZumSchliessen.id, vera.id);
 	const eigenerVersuch = einzelaufgabeAbschliessen(meinerZumSchliessen.id, nico.id);
@@ -8492,7 +8533,7 @@ try {
 		'Rankgitter abbauen',
 		jetztFest + 5 * TAG_SEKUNDEN
 	);
-	einzelaufgabeUebernehmen(vonAbtretender.id, { id: abtretende.id, name: abtretende.name });
+	einzelaufgabeUebernehmen(vonAbtretender.id, abtretende);
 	einzelaufgabeAbschliessen(vonAbtretender.id, abtretende.id);
 	mitgliedDeaktivieren(abtretende.id);
 	pruefen(
@@ -8532,14 +8573,8 @@ try {
 	 * Genau darum steht daneben die Behauptung über den Namen — sie zeigt, dass
 	 * die **erste** Zusage die ist, die stehenbleibt.
 	 */
-	const ersteZusage = einzelaufgabeUebernehmen(mittlererTermin.id, {
-		id: nico.id,
-		name: nico.name,
-	});
-	const zweiteZusage = einzelaufgabeUebernehmen(mittlererTermin.id, {
-		id: vera.id,
-		name: vera.name,
-	});
+	const ersteZusage = einzelaufgabeUebernehmen(mittlererTermin.id, nico);
+	const zweiteZusage = einzelaufgabeUebernehmen(mittlererTermin.id, vera);
 	pruefen(
 		'die erste Zusage trifft die Zeile, die zweite keine',
 		ersteZusage?.uebernehmer === nico.name && zweiteZusage === null,
@@ -8575,7 +8610,7 @@ try {
 		inviteTokenHash: tokenHashen(tokenErzeugen()),
 		isAdmin: false,
 	});
-	einzelaufgabeUebernehmen(spaeterTermin.id, { id: scheidende.id, name: scheidende.name });
+	einzelaufgabeUebernehmen(spaeterTermin.id, scheidende);
 	pruefenGleich(
 		'vor dem Beenden trägt die Einzelaufgabe den Namen der scheidenden Person',
 		einzelaufgabenLesen().find((zeile) => zeile.id === spaeterTermin.id)?.uebernehmer ?? null,
@@ -8592,8 +8627,7 @@ try {
 	pruefen(
 		'sie steht wieder in der freien Liste und lässt sich neu übernehmen',
 		freieEinzelaufgabenLesen().some((zeile) => zeile.id === spaeterTermin.id) &&
-			einzelaufgabeUebernehmen(spaeterTermin.id, { id: vera.id, name: vera.name })?.uebernehmer ===
-				vera.name,
+			einzelaufgabeUebernehmen(spaeterTermin.id, vera)?.uebernehmer === vera.name,
 		JSON.stringify(einzelZeile(spaeterTermin.id))
 	);
 
@@ -11203,7 +11237,7 @@ try {
 	// wieder weg — sonst zählten spätere Blöcke eine Zeile mit, die sie nie gesät
 	// haben, und wären aus einem fremden Grund rot.
 	const wachsZeile = ernteEintragen(
-		{ kultur: 'Kürbis', ort: 'Beet 9', status: 'wachsen', laufend: false },
+		{ kultur: 'Kürbis', ort: 'Beet 9', status: 'wachsen', laufend: false, notiz: null },
 		nicoLocals
 	);
 	let reifNachher = -1;
@@ -11343,8 +11377,13 @@ try {
 	 * meint.
 	 */
 	const archiv = await archivLaden();
+	/*
+	 * Mit Kurznamen seit dem 2026-10-26 (spec-notiz-und-kurzname.md): das
+	 * Archiv nennt `Tami N.` und nicht `Tamara Nüesch`.
+	 */
 	const archivMitglied = mitgliedAnlegen({
-		name: 'Tamara',
+		name: 'Tamara Nüesch',
+		kurzname: 'Tami N.',
 		inviteTokenHash: tokenHashen(tokenErzeugen()),
 		isAdmin: false,
 	});
@@ -11391,11 +11430,8 @@ try {
 		'Regentonne am Geräteschuppen entleeren',
 		archivJetzt + 4 * TAG_SEKUNDEN
 	);
-	einzelaufgabeUebernehmen(archivTermin.id, { id: archivMitglied.id, name: archivMitglied.name });
-	einzelaufgabeUebernehmen(archivTerminOffen.id, {
-		id: archivMitglied.id,
-		name: archivMitglied.name,
-	});
+	einzelaufgabeUebernehmen(archivTermin.id, archivMitglied);
+	einzelaufgabeUebernehmen(archivTerminOffen.id, archivMitglied);
 	einzelaufgabeAbschliessen(archivTermin.id, archivMitglied.id);
 
 	/*
@@ -11412,7 +11448,7 @@ try {
 	 * scripts/pruefserver.ts.
 	 *
 	 * **Eingetragen von einem eigenen Mitglied, das keinen Termin hält.** Die
-	 * Behauptung, der Name komme in den Seitendaten nicht vor, wäre mit Tamara
+	 * Behauptung, der Name komme in den Seitendaten nicht vor, wäre mit Tami
 	 * wertlos: ihr Name steht über die Terminzeile ohnehin drin. `Wanda` kommt
 	 * sonst in keinem Block dieses Skripts vor (gemessen mit grep).
 	 */
@@ -11422,7 +11458,7 @@ try {
 		inviteTokenHash: tokenHashen(tokenErzeugen()),
 		isAdmin: false,
 	});
-	const wanda = { id: wellnessMitglied.id, name: wellnessMitglied.name };
+	const wanda = wellnessMitglied;
 	const tagesendeVorTagen = (tage: number): number => {
 		const tagesende = tagesendeInUnixSekunden(heuteAlsFeldwert(archivJetzt - tage * TAG_SEKUNDEN));
 		if (tagesende === null) throw new Error(`Saatdatum nicht lesbar: vor ${tage} Tagen`);
@@ -11506,7 +11542,7 @@ try {
 	);
 	pruefen(
 		'ein abgeschlossener Termin steht mit seinem Übernehmer im Archiv, ein offener gar nicht',
-		archivTerminZeile?.uebernehmer === archivMitglied.name &&
+		archivTerminZeile?.uebernehmer === 'Tami N.' &&
 			!archivSchluessel.includes(`termin-${archivTerminOffen.id}`),
 		`Terminzeile: ${JSON.stringify(archivTerminZeile ?? null)}`
 	);
@@ -12652,8 +12688,15 @@ try {
 	 * Behauptung selbst.
 	 */
 	const sitzungenSeite = await sitzungenLaden();
+	/*
+	 * Ruth trägt seit dem 2026-10-26 einen Nachnamen **und** einen Kurznamen
+	 * (spec-notiz-und-kurzname.md): die Seite nennt sie `Ruthli`, die abgelegte
+	 * Datei `Ruth Gerber`. Mit einem einzigen Wort als Namen wären Anzeigename
+	 * und voller Name gleich, und keine Behauptung unten unterschiede sie.
+	 */
 	const traktandenMitglied = mitgliedAnlegen({
-		name: 'Ruth',
+		name: 'Ruth Gerber',
+		kurzname: 'Ruthli',
 		inviteTokenHash: tokenHashen(tokenErzeugen()),
 		isAdmin: false,
 	});
@@ -12686,7 +12729,7 @@ try {
 	pruefen(
 		'gespeichert ist die gefaltete Fassung, mit Name und Zeitpunkt als Herkunft',
 		gesaet?.text === 'Wasseranschluss beim oberen Beet reparieren lassen' &&
-			gesaet?.name === traktandenMitglied.name &&
+			gesaet?.name === 'Ruthli' &&
 			Number.isInteger(gesaet?.createdAt),
 		JSON.stringify(gesaet ?? null)
 	);
@@ -12709,7 +12752,7 @@ try {
 		'jedes Mitglied ergänzt jedes Traktandum — und der Name daran bleibt der erste',
 		fremdErgaenzt.art === 'wert' &&
 			ergaenzt?.text === 'Wasseranschluss beim oberen Beet reparieren lassen, Offerte liegt vor' &&
-			ergaenzt?.name === traktandenMitglied.name,
+			ergaenzt?.name === 'Ruthli',
 		JSON.stringify(ergaenzt ?? null)
 	);
 	abgewiesen(
@@ -12755,7 +12798,7 @@ try {
 		['die action meldet, wie viele Punkte gewandert sind', gezogen.art === 'wert'],
 		['die Sammlung ist danach leer', traktandenLesen().length === 0],
 		['und es steht genau eine gezogene Liste da', listen.length === 1],
-		['sie trägt den Namen dessen, der gezogen hat', listen[0]?.name === traktandenMitglied.name],
+		['sie trägt den Anzeigenamen dessen, der gezogen hat', listen[0]?.name === 'Ruthli'],
 		[
 			'die Datei trägt beide Punkte, nummeriert',
 			listeninhalt.includes(
@@ -12763,8 +12806,14 @@ try {
 			) && listeninhalt.includes('2. Termin für den Herbstbummel festlegen'),
 		],
 		[
-			'und die Herkunft jedes Punktes steht darunter',
-			listeninhalt.includes(traktandenMitglied.name) &&
+			/*
+			 * Mit dem **vollen** Namen, nicht dem Anzeigenamen der Seite: die Datei
+			 * liegt ausserhalb der Anwendung (traktandenMitVollemNamenLesen,
+			 * Spec Change Log vom 2026-10-26).
+			 */
+			'und die Herkunft jedes Punktes steht darunter, mit dem vollen Namen',
+			listeninhalt.includes('\n   Ruth Gerber · ') &&
+				!listeninhalt.includes('Ruthli') &&
 				listeninhalt.includes(traktandenZweite.name),
 		],
 		[
@@ -12844,6 +12893,397 @@ try {
 	// Die zwei gesäten Punkte sind damit verbraucht; der Zähler oben hält fest,
 	// dass sie es waren.
 	void vorDemZiehen;
+
+	// -----------------------------------------------------------------------
+	// Notiz an der Erntezeile und Kurzname je Person (spec-notiz-und-kurzname.md,
+	// 2026-10-26). Erst die reinen Regeln je Zeile der I/O-Matrix, dann die
+	// actions auf /verwaltung und /ernte, dann jede Seite, die eine Person nennt.
+	// -----------------------------------------------------------------------
+	pruefenGleich(
+		'Matrix „Kein Kurzname": Manuel Agner heisst ausserhalb der Verwaltung Manuel',
+		anzeigename('Manuel Agner', null),
+		'Manuel'
+	);
+	pruefenGleich(
+		'Matrix „Kurzname gesetzt": Nici Müller mit Kurzname Nici Mü heisst Nici Mü',
+		anzeigename('Nici Müller', 'Nici Mü'),
+		'Nici Mü'
+	);
+	const kurzGrenze = 'k'.repeat(KURZNAME_HOECHSTLAENGE);
+	const kurznameTeile = [
+		[
+			'gefaltet wie ein Name',
+			JSON.stringify(kurznamePruefen('  Nici ​  Mü ')) === JSON.stringify({ kurzname: 'Nici Mü' }),
+		],
+		['leer wird null', JSON.stringify(kurznamePruefen('')) === JSON.stringify({ kurzname: null })],
+		[
+			'lauter unsichtbare Zeichen werden null',
+			JSON.stringify(kurznamePruefen('​ ​')) === JSON.stringify({ kurzname: null }),
+		],
+		[
+			'die Grenze selbst trägt',
+			JSON.stringify(kurznamePruefen(kurzGrenze)) === JSON.stringify({ kurzname: kurzGrenze }),
+		],
+		[
+			'ein Zeichen darüber fällt mit dem Satz aus dem Modul',
+			JSON.stringify(kurznamePruefen(`${kurzGrenze}k`)) ===
+				JSON.stringify({ fehler: KURZNAME_ZU_LANG }),
+		],
+		['ein leerer Kurzname zählt wie keiner', anzeigename('Pia Roth', '') === 'Pia'],
+	] as const;
+	pruefen(
+		'kurznamePruefen faltet, macht leer zu null und hält die Grenze',
+		fehlendeTeile(kurznameTeile).length === 0,
+		`fehlt: ${fehlendeTeile(kurznameTeile).join(', ')}`
+	);
+	const gleichTeile = [
+		[
+			'Matrix „Doppelt": zwei aktive Nici ohne Kurzname ergeben eine Warnung mit beiden Namen',
+			JSON.stringify(
+				gleicheAnzeigenamen([
+					{ name: 'Nici Meier', kurzname: null, isActive: true },
+					{ name: 'Nici Müller', kurzname: null, isActive: true },
+				])
+			) === JSON.stringify([{ anzeigename: 'Nici', namen: ['Nici Meier', 'Nici Müller'] }]),
+		],
+		[
+			'ein beendeter Zugang zählt nicht',
+			gleicheAnzeigenamen([
+				{ name: 'Nici Meier', kurzname: null, isActive: true },
+				{ name: 'Nici Müller', kurzname: null, isActive: false },
+			]).length === 0,
+		],
+		[
+			'ein Kurzname löst die Gleichheit auf',
+			gleicheAnzeigenamen([
+				{ name: 'Nici Meier', kurzname: null, isActive: true },
+				{ name: 'Nici Müller', kurzname: 'Nici Mü', isActive: true },
+			]).length === 0,
+		],
+		[
+			'ohne Gross und Klein verglichen',
+			gleicheAnzeigenamen([
+				{ name: 'Nici Meier', kurzname: null, isActive: true },
+				{ name: 'Anna Müller', kurzname: 'nici', isActive: true },
+			]).length === 1,
+		],
+	] as const;
+	pruefen(
+		'gleicheAnzeigenamen findet genau die aktiven Personen, die gleich heissen',
+		fehlendeTeile(gleichTeile).length === 0,
+		`fehlt: ${fehlendeTeile(gleichTeile).join(', ')}`
+	);
+	const notizGrenze = 'n'.repeat(NOTIZ_HOECHSTLAENGE);
+	const notizTeile = [
+		['leer wird null', JSON.stringify(notizPruefen('')) === JSON.stringify({ notiz: null })],
+		[
+			'Leerraum allein wird null',
+			JSON.stringify(notizPruefen('   ')) === JSON.stringify({ notiz: null }),
+		],
+		[
+			'gefaltet',
+			JSON.stringify(notizPruefen('  frühe Sorte,\n sehr gross ')) ===
+				JSON.stringify({ notiz: 'frühe Sorte, sehr gross' }),
+		],
+		[
+			'die Grenze selbst trägt',
+			JSON.stringify(notizPruefen(notizGrenze)) === JSON.stringify({ notiz: notizGrenze }),
+		],
+		[
+			'ein Zeichen darüber fällt mit dem Satz aus dem Modul',
+			JSON.stringify(notizPruefen(`${notizGrenze}n`)) === JSON.stringify({ fehler: NOTIZ_ZU_LANG }),
+		],
+	] as const;
+	pruefen(
+		'notizPruefen ist freiwillig, gefaltet und begrenzt',
+		fehlendeTeile(notizTeile).length === 0,
+		`fehlt: ${fehlendeTeile(notizTeile).join(', ')}`
+	);
+
+	/*
+	 * /verwaltung: der Kurzname beim Aufnehmen und Umbenennen, und die Warnung.
+	 * Eine eigene Adminperson, damit der Block von keiner Saat weiter oben
+	 * abhängt.
+	 */
+	const kurzVerwaltung = await verwaltungLaden();
+	const kurzAdmin = mitgliedAnlegen({
+		name: 'Kora Kurz',
+		inviteTokenHash: tokenHashen(tokenErzeugen()),
+		isAdmin: true,
+	});
+	const kurzAdminLocals = ohneTokenHash(kurzAdmin);
+	const aufnehmenMitKurz = async (name: string, kurzname: string): Promise<Routenausgang> =>
+		routenausgang(() =>
+			kurzVerwaltung.actions.aufnehmen(
+				alsMitglied('/verwaltung', kurzAdminLocals, { name, kurzname }).alsRequestEvent()
+			)
+		);
+	const mitgliedNachName = (name: string) =>
+		datenbank().select().from(members).where(eq(members.name, name)).get();
+
+	const niciAufgenommen = await aufnehmenMitKurz('Nici Müller', '  Nici   Mü ');
+	const nici = mitgliedNachName('Nici Müller');
+	pruefen(
+		'aufnehmen speichert den Kurznamen gefaltet',
+		niciAufgenommen.art === 'wert' && nici?.kurzname === 'Nici Mü',
+		JSON.stringify(nici ?? null)
+	);
+	const zuLangAufgenommen = await aufnehmenMitKurz('Lena Lang', `${kurzGrenze}k`);
+	const zuLangDaten = datenVon(zuLangAufgenommen);
+	pruefen(
+		'ein zu langer Kurzname weist die Aufnahme ab, am Kurznamenfeld, und beide Eingaben reisen zurück',
+		zuLangAufgenommen.art === 'fehlschlag' &&
+			zuLangDaten.meldung === KURZNAME_ZU_LANG &&
+			zuLangDaten.feld === 'kurzname' &&
+			zuLangDaten.eingabe === 'Lena Lang' &&
+			zuLangDaten.zweiteEingabe === `${kurzGrenze}k` &&
+			mitgliedNachName('Lena Lang') === undefined,
+		JSON.stringify(zuLangDaten)
+	);
+
+	const gleicheNamenLaden = async (): Promise<{ anzeigename: string; namen: string[] }[]> =>
+		(wertVon(
+			await routenausgang(() =>
+				kurzVerwaltung.load(alsMitglied('/verwaltung', kurzAdminLocals).alsRequestEvent())
+			)
+		).gleicheNamen ?? []) as { anzeigename: string; namen: string[] }[];
+	const ersteGleiche = await aufnehmenMitKurz('Nico Weber', '');
+	const zweiteGleiche = await aufnehmenMitKurz('Nico Brunner', '');
+	const nicoBrunner = mitgliedNachName('Nico Brunner');
+	const warnungNico = (await gleicheNamenLaden()).find((gruppe) =>
+		gruppe.namen.includes('Nico Brunner')
+	);
+	pruefen(
+		'zwei aktive Personen mit gleichem Anzeigenamen: aufgenommen wird trotzdem, und die load warnt mit beiden Namen',
+		ersteGleiche.art === 'wert' &&
+			zweiteGleiche.art === 'wert' &&
+			warnungNico !== undefined &&
+			warnungNico.namen.includes('Nico Weber'),
+		JSON.stringify(warnungNico ?? null)
+	);
+
+	const umbenennenMitKurz = async (felder: Record<string, string>): Promise<Routenausgang> =>
+		routenausgang(() =>
+			kurzVerwaltung.actions.umbenennen(
+				alsMitglied('/verwaltung', kurzAdminLocals, felder).alsRequestEvent()
+			)
+		);
+	const nicoId = String(nicoBrunner?.id ?? 0);
+	const kurzVeraltet = await umbenennenMitKurz({
+		mitgliedId: nicoId,
+		bekannterName: 'Nico Brunner',
+		bekannterKurzname: 'Nico X',
+		neuerName: 'Nico Brunner',
+		neuerKurzname: 'Nico B.',
+	});
+	pruefen(
+		'ein veralteter bekannter Kurzname schreibt nicht — derselbe Satz wie ein veralteter Name',
+		kurzVeraltet.art === 'fehlschlag' &&
+			datenVon(kurzVeraltet).meldung === MITGLIED_NICHT_ANSPRECHBAR &&
+			mitgliedNachName('Nico Brunner')?.kurzname === null,
+		JSON.stringify(datenVon(kurzVeraltet))
+	);
+	const kurzGesetzt = await umbenennenMitKurz({
+		mitgliedId: nicoId,
+		bekannterName: 'Nico Brunner',
+		bekannterKurzname: '',
+		neuerName: 'Nico Brunner',
+		neuerKurzname: 'Nico B.',
+	});
+	pruefen(
+		'umbenennen setzt den Kurznamen, und die Warnung für diese Person ist fort',
+		kurzGesetzt.art === 'wert' &&
+			mitgliedNachName('Nico Brunner')?.kurzname === 'Nico B.' &&
+			!(await gleicheNamenLaden()).some((gruppe) => gruppe.namen.includes('Nico Brunner')),
+		JSON.stringify(datenVon(kurzGesetzt))
+	);
+	const kurzZuLang = await umbenennenMitKurz({
+		mitgliedId: nicoId,
+		bekannterName: 'Nico Brunner',
+		bekannterKurzname: 'Nico B.',
+		neuerName: 'Nico Brunner',
+		neuerKurzname: `${kurzGrenze}k`,
+	});
+	const kurzZuLangDaten = datenVon(kurzZuLang);
+	pruefen(
+		'ein zu langer Kurzname beim Umbenennen fällt am Feld dieser Zeile, mit beiden Eingaben',
+		kurzZuLang.art === 'fehlschlag' &&
+			kurzZuLangDaten.meldung === KURZNAME_ZU_LANG &&
+			kurzZuLangDaten.feld === 'neuerKurzname' &&
+			kurzZuLangDaten.zeile === nicoBrunner?.id &&
+			kurzZuLangDaten.eingabe === 'Nico Brunner' &&
+			kurzZuLangDaten.zweiteEingabe === `${kurzGrenze}k` &&
+			mitgliedNachName('Nico Brunner')?.kurzname === 'Nico B.',
+		JSON.stringify(kurzZuLangDaten)
+	);
+	const kurzGeleert = await umbenennenMitKurz({
+		mitgliedId: nicoId,
+		bekannterName: 'Nico Brunner',
+		bekannterKurzname: 'Nico B.',
+		neuerName: 'Nico Brunner',
+		neuerKurzname: '  ',
+	});
+	pruefen(
+		'ein leerer Kurzname beim Umbenennen entfernt ihn — dann gilt wieder der Vorname',
+		kurzGeleert.art === 'wert' && mitgliedNachName('Nico Brunner')?.kurzname === null,
+		JSON.stringify(datenVon(kurzGeleert))
+	);
+
+	/*
+	 * /ernte: die Notiz beim Eintragen, das Ändern an der Karte, und der Name
+	 * an der Karte — eingetragen von Nici Mü.
+	 */
+	if (nici === undefined) throw new Error('Nici Müller fehlt — die Aufnahme oben ist gescheitert');
+	const niciLocals = ohneTokenHash(nici);
+	const ernteKurz = await ernteLaden();
+	const ernteAktion = (aktion: string, felder: Record<string, string>) =>
+		routenausgang(() =>
+			ernteKurz.actions[aktion](alsMitglied('/ernte', niciLocals, felder).alsRequestEvent())
+		);
+	const mitNotiz = await ernteAktion('eintragen', {
+		kultur: 'Bohnen',
+		ort: 'Beet 77',
+		status: 'sofort',
+		notiz: '  frühe Sorte,  sehr gross ',
+	});
+	const notizZeileId = Number(wertVon(mitNotiz).zeile);
+	const notizZeile = erntezeileLesen(notizZeileId);
+	pruefen(
+		'eintragen speichert die Notiz gefaltet, und die Karte nennt den Anzeigenamen — Nici Mü, nicht Nici Müller',
+		mitNotiz.art === 'wert' &&
+			notizZeile?.notiz === 'frühe Sorte, sehr gross' &&
+			notizZeile?.name === 'Nici Mü' &&
+			erntestandLesen().find((zeile) => zeile.id === notizZeileId)?.name === 'Nici Mü',
+		JSON.stringify(notizZeile)
+	);
+	const ohneNotiz = await ernteAktion('eintragen', {
+		kultur: 'Mangold',
+		ort: 'Beet 77',
+		status: 'stehen',
+		notiz: '',
+	});
+	const ohneNotizZeile = erntezeileLesen(Number(wertVon(ohneNotiz).zeile));
+	pruefen(
+		'Matrix „Notiz leer": eine leere Notiz wird null — die Karte zeigt dann keine Notizzeile',
+		ohneNotiz.art === 'wert' && ohneNotizZeile !== null && ohneNotizZeile.notiz === null,
+		JSON.stringify(ohneNotizZeile)
+	);
+	const vorZuLang = erntestandLesen().length;
+	const notizZuLang = await ernteAktion('eintragen', {
+		kultur: 'Erbsen',
+		ort: 'Beet 77',
+		status: 'sofort',
+		notiz: `${notizGrenze}n`,
+	});
+	pruefen(
+		'eine zu lange Notiz weist das Eintragen ab, an ihrem Feld, und legt nichts an',
+		notizZuLang.art === 'fehlschlag' &&
+			datenVon(notizZuLang).meldung === NOTIZ_ZU_LANG &&
+			datenVon(notizZuLang).feld === 'notiz' &&
+			erntestandLesen().length === vorZuLang,
+		JSON.stringify(datenVon(notizZuLang))
+	);
+
+	const notizGefragt = await ernteAktion('notizAendern', { id: String(notizZeileId) });
+	pruefen(
+		'der Stift fragt nur: die Antwort trägt Zeile und Notiz, geschrieben wird nichts',
+		notizGefragt.art === 'wert' &&
+			wertVon(notizGefragt).art === 'notizFragen' &&
+			wertVon(notizGefragt).zeile === notizZeileId &&
+			wertVon(notizGefragt).notiz === 'frühe Sorte, sehr gross' &&
+			erntezeileLesen(notizZeileId)?.notiz === 'frühe Sorte, sehr gross',
+		JSON.stringify(wertVon(notizGefragt))
+	);
+	const notizGeaendert = await ernteAktion('notizAendern', {
+		id: String(notizZeileId),
+		notiz: ' wenig ',
+	});
+	pruefen(
+		'die Notiz lässt sich an der Karte ändern',
+		notizGeaendert.art === 'wert' &&
+			wertVon(notizGeaendert).art === 'notizGesetzt' &&
+			erntezeileLesen(notizZeileId)?.notiz === 'wenig',
+		JSON.stringify(wertVon(notizGeaendert))
+	);
+	const notizAmFeldZuLang = await ernteAktion('notizAendern', {
+		id: String(notizZeileId),
+		notiz: `${notizGrenze}n`,
+	});
+	pruefen(
+		'eine zu lange Notiz an der Karte fällt am Feld dieser Zeile, mit dem Text, und ändert nichts',
+		notizAmFeldZuLang.art === 'fehlschlag' &&
+			datenVon(notizAmFeldZuLang).meldung === NOTIZ_ZU_LANG &&
+			datenVon(notizAmFeldZuLang).feld === 'aendernNotiz' &&
+			datenVon(notizAmFeldZuLang).zeile === notizZeileId &&
+			datenVon(notizAmFeldZuLang).eingabe === `${notizGrenze}n` &&
+			erntezeileLesen(notizZeileId)?.notiz === 'wenig',
+		JSON.stringify(datenVon(notizAmFeldZuLang))
+	);
+	const notizGeleert = await ernteAktion('notizAendern', { id: String(notizZeileId), notiz: '' });
+	pruefen(
+		'eine geleerte Notiz ist entfernt — die Notizzeile fällt weg',
+		notizGeleert.art === 'wert' &&
+			erntezeileLesen(notizZeileId)?.notiz === null &&
+			String(wertVon(notizGeleert).meldung).includes('entfernt'),
+		JSON.stringify(wertVon(notizGeleert))
+	);
+	abgewiesen(
+		'eine Notiz an einer Zeile, die es nicht gibt, fällt mit dem Satz der Seite',
+		await ernteAktion('notizAendern', { id: '999999', notiz: 'wenig' }),
+		ERNTEZEILE_NICHT_ANSPRECHBAR
+	);
+	ernteAbernten(notizZeileId);
+	if (ohneNotizZeile !== null) ernteAbernten(ohneNotizZeile.id);
+
+	/*
+	 * Der Anzeigename auf jeder übrigen Seite, die eine Person nennt — und die
+	 * eine Auswahl, die beim vollen Namen bleibt.
+	 */
+	const kurzWoche = { jahr: 2099, woche: 10 };
+	const besetzt = dienstwocheBesetzen(kurzWoche, nici.id);
+	const kurzPlan = dienstwochenLesen([kurzWoche])[0];
+	dienstwocheAustragen(kurzWoche, nici.id);
+	const kurzTermin = einzelaufgabeAusschreiben(
+		'Kurzname am Termin prüfen',
+		Math.floor(Date.now() / 1000) + 5 * TAG_SEKUNDEN
+	);
+	const kurzUebernommen = einzelaufgabeUebernehmen(kurzTermin.id, nici);
+	const kurzBehandlung = behandlungEintragen(
+		{ mittel: 'Brennnesseljauche', kultur: null, ort: null, angewendetAm: 0, intervallTage: null },
+		nici
+	);
+	const kurzMehr = wertVon(
+		await routenausgang(async () =>
+			(await mehrLaden()).load(alsMitglied('/mehr', niciLocals).alsRequestEvent())
+		)
+	);
+	const anzeigeTeile = [
+		[
+			'im Tränkeplan, beim Besetzen und in der Liste',
+			besetzt?.name === 'Nici Mü' && kurzPlan?.name === 'Nici Mü',
+		],
+		[
+			'an einem übernommenen Termin',
+			kurzUebernommen?.uebernehmer === 'Nici Mü' &&
+				einzelaufgabenLesen().find((zeile) => zeile.id === kurzTermin.id)?.uebernehmer ===
+					'Nici Mü',
+		],
+		[
+			'im Wellness-Tagebuch',
+			kurzBehandlung.name === 'Nici Mü' && behandlungLesen(kurzBehandlung.id)?.name === 'Nici Mü',
+		],
+		['auf /mehr', kurzMehr.name === 'Nici Mü'],
+		[
+			'und die Auswahl, mit der die Verwaltung eine Woche besetzt, bleibt beim vollen Namen',
+			aktiveMitgliederAuflisten().some((mitglied) => mitglied.name === 'Nici Müller'),
+		],
+	] as const;
+	pruefen(
+		'Nici Mü steht überall, wo die Oberfläche eine Person nennt',
+		fehlendeTeile(anzeigeTeile).length === 0,
+		`fehlt: ${fehlendeTeile(anzeigeTeile).join(', ')}`
+	);
+	behandlungWegnehmen(kurzBehandlung.id);
 } catch (fehler) {
 	unerwarteterWurf('smoke', fehler);
 } finally {

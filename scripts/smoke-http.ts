@@ -80,6 +80,8 @@ import {
 	keksAus,
 	attributWert,
 	saeen,
+	ADMINPERSON,
+	MITGLIED,
 	serverBeenden,
 	serverStarten,
 	wurzel,
@@ -980,7 +982,11 @@ try {
 	 */
 	pruefen(
 		'und kein Name aus der Mitgliederliste',
-		!planOhneRechteHtml.includes('Vera Verwaltung'),
+		// Beide Fassungen: die Auswahl trüge den vollen Namen, jede andere Stelle
+		// den Anzeigenamen (spec-notiz-und-kurzname.md). Nur den vollen zu suchen,
+		// prüfte seit dem 2026-10-26 eine Stelle, die ihn ohnehin nicht zeigt.
+		!planOhneRechteHtml.includes(ADMINPERSON.name) &&
+			planOhneRechteHtml.match(new RegExp(`>\\s*${ADMINPERSON.anzeigename}\\s*<`)) === null,
 		planOhneRechteHtml.slice(0, 200)
 	);
 
@@ -1036,7 +1042,9 @@ try {
 			// Die Auswahl trägt die Namen: ohne sie wäre das Formular ohne
 			// JavaScript unbedienbar, weil es nichts zu wählen gäbe.
 			'die Auswahl führt die aktiven Mitglieder namentlich',
-			planAlsAdminHtml.includes('Vera Verwaltung') && planAlsAdminHtml.includes('Manu Mitglied'),
+			// Beim **vollen** Namen: wer eine Woche besetzt, muss zwei Personen mit
+			// gleichem Kurznamen unterscheiden können (Spec Change Log, 2026-10-26).
+			planAlsAdminHtml.includes(ADMINPERSON.name) && planAlsAdminHtml.includes(MITGLIED.name),
 		],
 	] as const;
 	pruefen(
@@ -1280,6 +1288,13 @@ try {
 	const eingetragenerName = (
 		new RegExp(`<option value="${erstesMitglied}"[^>]*>([^<]*)<`).exec(erstesFormular)?.[1] ?? ''
 	).trim();
+	/*
+	 * Die Auswahl führt den **vollen** Namen, der Plan den Anzeigenamen
+	 * (spec-notiz-und-kurzname.md, 2026-10-26). Welcher Anzeigename zur
+	 * gewählten Option gehört, sagt die Saat, nicht ein zweites Raten.
+	 */
+	const eingetragenerAnzeigename =
+		[ADMINPERSON, MITGLIED].find((person) => person.name === eingetragenerName)?.anzeigename ?? '';
 	const startseiteMitDienst = await holen(port, '/', { keks: mitgliedKeks });
 	const startseiteMitDienstHtml = await startseiteMitDienst.text();
 	const startseiteOhneDienst = await holen(port, '/', { keks: adminKeks });
@@ -1462,7 +1477,12 @@ try {
 	const nichtAdminTeile = [
 		[
 			'der Name der zuständigen Person steht da — die Gegenprobe',
-			eingetragenerName !== '' && nachBesetzenHtml.includes(eingetragenerName),
+			eingetragenerAnzeigename !== '' && nachBesetzenHtml.includes(eingetragenerAnzeigename),
+		],
+		[
+			// Der Plan nennt den Anzeigenamen und nie den vollen Namen.
+			'und zwar beim Anzeigenamen, nicht beim vollen Namen',
+			eingetragenerName !== '' && !nachBesetzenHtml.includes(eingetragenerName),
 		],
 		['aber kein Besetzen-Formular', !/action="\?\/besetzen"/.test(nachBesetzenHtml)],
 		['keine Auswahl', !/<select\b/.test(nachBesetzenHtml)],
@@ -1471,7 +1491,8 @@ try {
 			// Die Adminperson steht in keiner Dienstwoche und dürfte darum nirgends
 			// auftauchen — der Rest der Namensliste ist fort.
 			'und der Name aus der Auswahl, der keine Woche hat, fehlt',
-			!nachBesetzenHtml.includes('Vera Verwaltung'),
+			!nachBesetzenHtml.includes(ADMINPERSON.name) &&
+				nachBesetzenHtml.match(new RegExp(`>\\s*${ADMINPERSON.anzeigename}\\s*<`)) === null,
 		],
 		[
 			'weder Hash noch Klartext-Token',
@@ -1812,7 +1833,7 @@ try {
 			 *
 			 * **Gesucht wird im Block der Einzelaufgaben und nicht im ganzen
 			 * Dokument.** Bis zum 2026-09-13 las die Zeile das volle HTML — das
-			 * trug, solange `Manu Mitglied` auf `/` nur vorkam, wenn jemand
+			 * trug, solange der Name des Mitglieds auf `/` nur vorkam, wenn jemand
 			 * übernommen hatte. Die Ernte-Registerkarte nennt seither an jeder
 			 * Zeile die eintragende Person, und die geteilte Saat legt sie unter
 			 * demselben Namen an: die Zeile wurde rot, obwohl nichts geschrieben
@@ -1821,7 +1842,8 @@ try {
 			 */
 			'und nichts ist geschrieben — die Aufgabe steht weiterhin als frei da',
 			einzelBlock(nachFrageHtml).includes('noch niemand') &&
-				!einzelBlock(nachFrageHtml).includes('Manu Mitglied'),
+				!einzelBlock(nachFrageHtml).includes(MITGLIED.anzeigename) &&
+				!einzelBlock(nachFrageHtml).includes(MITGLIED.name),
 		],
 	] as const;
 	pruefen(
@@ -1849,7 +1871,10 @@ try {
 		['die Startseite zeigt die Einzelaufgabe nicht mehr', !nachZusageHtml.includes(einzelTitel)],
 		['und damit auch keinen Knopf `Übernehmen` mehr', !/>\s*Übernehmen\s*</.test(nachZusageHtml)],
 		['die Unterseite zeigt sie', unterseiteHtml.includes(einzelTitel)],
-		['mit dem Namen der zusagenden Person', unterseiteHtml.includes('Manu Mitglied')],
+		[
+			'mit dem Anzeigenamen der zusagenden Person, nicht dem vollen Namen',
+			unterseiteHtml.includes(MITGLIED.anzeigename) && !unterseiteHtml.includes(MITGLIED.name),
+		],
 		['und ohne `noch niemand` an dieser Zeile', !unterseiteHtml.includes('noch niemand')],
 		[
 			/*
@@ -1924,7 +1949,10 @@ try {
 		['der Seitenbereich ist überhaupt geschnitten', beideSeite !== ''],
 		['die übernommene Zeile steht da', beideSeite.includes(einzelTitel)],
 		['die freie ebenso', beideSeite.includes(zweiterTitel)],
-		['die übernommene trägt den Namen der zusagenden Person', beideSeite.includes('Manu Mitglied')],
+		[
+			'die übernommene trägt den Anzeigenamen der zusagenden Person',
+			beideSeite.includes(MITGLIED.anzeigename) && !beideSeite.includes(MITGLIED.name),
+		],
 		[
 			'die freie trägt `noch niemand` — und zwar genau einmal',
 			beideSeite.split('noch niemand').length - 1 === 1,

@@ -13,7 +13,14 @@ import {
 	rechteNehmen,
 } from '../../lib/server/db/queries/members.ts';
 import type { AngemeldetesMitglied } from '../../lib/server/db/schema.ts';
-import { NAME_HOECHSTLAENGE, namePruefen } from '../../lib/mitgliedsname.ts';
+import {
+	KURZNAME_HOECHSTLAENGE,
+	NAME_HOECHSTLAENGE,
+	gleicheAnzeigenamen,
+	kurznamePruefen,
+	namePruefen,
+	type GleicherAnzeigename,
+} from '../../lib/mitgliedsname.ts';
 import { tokenErzeugen, tokenHashen } from '../../lib/server/token.ts';
 import {
 	EIGENE_RECHTE_GESCHUETZT,
@@ -101,6 +108,8 @@ export function load({ locals }: ServerLoadEvent): {
 	ichId: number;
 	mitglieder: AngemeldetesMitglied[];
 	namensgrenze: number;
+	kurznamengrenze: number;
+	gleicheNamen: GleicherAnzeigename[];
 } {
 	const ich = adminOderWeg(locals);
 	// mitgliederAuflisten gibt die Zeilen **ohne** invite_token_hash zurück.
@@ -111,7 +120,18 @@ export function load({ locals }: ServerLoadEvent): {
 	// Import läuft über diese Datei und nicht über $lib in der Komponente: die
 	// Regel liegt auf der Serverseite, und eine zweite Einstiegstür zu ihr wäre
 	// eine zweite Stelle, an der sie sich lösen könnte.
-	return { ichId: ich.id, mitglieder: mitgliederAuflisten(), namensgrenze: NAME_HOECHSTLAENGE };
+	//
+	// gleicheNamen trägt die Warnung: aktive Personen, die ausserhalb der
+	// Verwaltung gleich heissen (spec-notiz-und-kurzname.md). Gewarnt und nicht
+	// abgewiesen — die Begründung steht an gleicheAnzeigenamen.
+	const mitglieder = mitgliederAuflisten();
+	return {
+		ichId: ich.id,
+		mitglieder,
+		namensgrenze: NAME_HOECHSTLAENGE,
+		kurznamengrenze: KURZNAME_HOECHSTLAENGE,
+		gleicheNamen: gleicheAnzeigenamen(mitglieder),
+	};
 }
 
 /*
@@ -125,6 +145,12 @@ export function load({ locals }: ServerLoadEvent): {
  * Mitgliederliste hingehören, die kein eigenes Feld hat. `eingabe` trägt den
  * abgewiesenen Namen zurück, damit er nach einem Fehlschlag nicht neu getippt
  * werden muss.
+ *
+ * Seit dem 2026-10-26 trägt jedes der zwei Formulare ein zweites Feld, den
+ * Kurznamen, mit eigener Marke: `kurzname` an der Aufnahme, `neuerKurzname`
+ * am Umbenennen. Sein Text reist über `zweiteEingabe` zurück, der Name über
+ * `eingabe` — beide bei jeder Abweisung eines der zwei Felder, damit keiner
+ * der zwei Werte verlorengeht.
  *
  * **Zwei Marken und nicht eine**, obwohl beide Felder einen Namen tragen: `name`
  * gehört dem Aufnahmeformular, und zwei Felder unter einer Marke wären die
@@ -158,16 +184,25 @@ export const actions = {
 		const formular = await request.formData();
 		const roh = formular.get('name');
 		const eingabe = typeof roh === 'string' ? roh : '';
+		const rohKurz = formular.get('kurzname');
+		const kurzEingabe = typeof rohKurz === 'string' ? rohKurz : '';
 		const geprueft = namePruefen(eingabe);
 		// Der Name wird geprüft, **bevor** ein Token entsteht: ein Token für ein
 		// Mitglied, das es nicht gibt, wäre Zufall ohne Besitzer.
 		if ('fehler' in geprueft) {
-			return abweisen(geprueft.fehler, 'name', eingabe);
+			return abweisen(geprueft.fehler, 'name', eingabe, null, kurzEingabe);
+		}
+		// Der Kurzname danach, in der Reihenfolge des Formulars. Leer ist kein
+		// Fehler, sondern null: dann gilt das erste Wort des Namens.
+		const kurz = kurznamePruefen(kurzEingabe);
+		if ('fehler' in kurz) {
+			return abweisen(kurz.fehler, 'kurzname', eingabe, null, kurzEingabe);
 		}
 
 		const token = tokenErzeugen();
 		const mitglied = mitgliedAnlegen({
 			name: geprueft.name,
+			kurzname: kurz.kurzname,
 			inviteTokenHash: tokenHashen(token),
 			isAdmin: false,
 		});
@@ -302,12 +337,18 @@ export const actions = {
 
 		const roh = formular.get('neuerName');
 		const eingabe = typeof roh === 'string' ? roh : '';
+		const rohKurz = formular.get('neuerKurzname');
+		const kurzEingabe = typeof rohKurz === 'string' ? rohKurz : '';
 		const geprueft = namePruefen(eingabe);
 		if ('fehler' in geprueft) {
 			// Die Zeile geht mit zurück. Ohne sie stünde der Satz zwar am richtigen
 			// **Feldtyp**, aber an keiner bestimmten Zeile — und ohne JavaScript
 			// könnte die Seite ihn nirgends anbringen.
-			return abweisen(geprueft.fehler, 'neuerName', eingabe, id);
+			return abweisen(geprueft.fehler, 'neuerName', eingabe, id, kurzEingabe);
+		}
+		const kurz = kurznamePruefen(kurzEingabe);
+		if ('fehler' in kurz) {
+			return abweisen(kurz.fehler, 'neuerKurzname', eingabe, id, kurzEingabe);
 		}
 
 		/*
@@ -322,14 +363,19 @@ export const actions = {
 		 * Kein eigener Zweig für einen Fall ohne eigene Handlung.
 		 */
 		const rohBekannt = formular.get('bekannterName');
+		// Der bekannte Kurzname: leer heisst „keiner" — dieselbe Abbildung wie
+		// beim Speichern, ohne Faltung, weil er ein Abdruck ist und keine Eingabe.
+		const rohBekanntKurz = formular.get('bekannterKurzname');
+		const bekannterKurzname =
+			typeof rohBekanntKurz === 'string' && rohBekanntKurz !== '' ? rohBekanntKurz : null;
 		// is_active = 1 und der bekannte Name stehen in der Query, nicht hier. Die
 		// zweite Prüfung auf null ist keine Verdopplung der ersten, sondern
 		// schliesst das Fenster dazwischen: zwischen Auskunft und UPDATE kann ein
 		// Widerruf oder eine fremde Umbenennung laufen.
 		const mitglied = mitgliedUmbenennen(
 			id,
-			geprueft.name,
-			typeof rohBekannt === 'string' ? rohBekannt : ''
+			{ name: geprueft.name, kurzname: kurz.kurzname },
+			{ name: typeof rohBekannt === 'string' ? rohBekannt : '', kurzname: bekannterKurzname }
 		);
 		if (mitglied === null) {
 			return abweisen(MITGLIED_NICHT_ANSPRECHBAR);

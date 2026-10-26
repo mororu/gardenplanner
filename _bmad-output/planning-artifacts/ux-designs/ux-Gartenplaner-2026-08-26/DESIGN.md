@@ -150,6 +150,7 @@ components:
     grouping: Beet ({components.section}, details, closed by default) > Stufe (subheading) > Karte
     beetCount: '{typography.meta}, {colors.ink-secondary}, "{n} sofort · {m} langsam"'
     cardButtons: '{spacing.knopf-klein} visible, {spacing.touch} hit area'
+    cardNote: '{typography.meta}, {colors.ink-secondary}, below the Kultur, only when present'
   harvest-legend:
     shell: '{components.section}'
     openByDefault: false
@@ -340,7 +341,7 @@ Ein Abschnittstitel ist ein Nomen (`Ernten`, `Zwischendurch`) oder die Frage, di
 
 ### `harvest-list`
 
-Die Liste auf `/ernte`, seit dem 2026-10-26 **nach Beet gegliedert** (spec-ernte-nach-beet.md): ein `section` mit eigener Überschrift trägt alle Beete, und je Ort steht darin ein Aufklapper (`details.abschnitt`) in der Form von `{components.section}`, natürlich geordnet (`Beet 3` vor `Beet 12`), ohne Ort `Ohne Beet` zuunterst — dieselbe Ordnung wie das Tagebuch auf `/wellness`. Im Kopf Name und Zähler in `{typography.meta}`, im Beet die Stufen als Zwischentitel (`Sofort ernten`, dann `Langsam ernten`), darunter je Kultur eine einzeilige Karte mit dem Streifen ihrer Stufe, klein Name und Datum. Rechts an einer langsamen Karte der Knopf `Sofort`, an jeder Karte das X zum Abernten. Beide Knöpfe **sehen** `{spacing.knopf-klein}` (32px, Token `--knopf-klein`) gross aus; ihr Trefferfeld bleibt bei `{spacing.touch}` und liegt unsichtbar um sie herum — dieselbe Trennung von sichtbarer Grösse und Trefferfeld wie bei `task-box`.
+Die Liste auf `/ernte`, seit dem 2026-10-26 **nach Beet gegliedert** (spec-ernte-nach-beet.md): ein `section` mit eigener Überschrift trägt alle Beete, und je Ort steht darin ein Aufklapper (`details.abschnitt`) in der Form von `{components.section}`, natürlich geordnet (`Beet 3` vor `Beet 12`), ohne Ort `Ohne Beet` zuunterst — dieselbe Ordnung wie das Tagebuch auf `/wellness`. Im Kopf Name und Zähler in `{typography.meta}`, im Beet die Stufen als Zwischentitel (`Sofort ernten`, dann `Langsam ernten`), darunter je Kultur eine einzeilige Karte mit dem Streifen ihrer Stufe, klein eine Notiz, wenn es eine gibt, und klein Name und Datum — der Name ist seit dem 2026-10-26 der Anzeigename (Kurzname, sonst Vorname; spec-notiz-und-kurzname.md). Rechts an einer langsamen Karte der Knopf `Sofort`, an jeder Karte der Stift für die Notiz und das X zum Abernten; der Stift zeigt das Notizfeld an der Zeile, dort, wo auch die Rückfrage zum Abernten steht. Die Knöpfe **sehen** `{spacing.knopf-klein}` (32px, Token `--knopf-klein`) gross aus; ihr Trefferfeld bleibt bei `{spacing.touch}` und liegt unsichtbar um sie herum — dieselbe Trennung von sichtbarer Grösse und Trefferfeld wie bei `task-box`.
 
 ### `harvest-legend`
 
