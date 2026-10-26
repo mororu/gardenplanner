@@ -142,6 +142,13 @@ export function behandlungLesen(id: number): Behandlungszeile | null {
  * Dieselbe Gleichheit wie `stelle` in src/lib/wellness.ts: `Tomaten` und
  * `tomaten` sind zwei Kulturen. SQLite vergleicht Text mit `=` binär, also
  * genau so. `= NULL` wäre in SQL nie wahr, darum der eigene Zweig.
+ *
+ * **Beim Ort trifft das seit dem 2026-10-26 alle Zeilen eines Beets**: der
+ * Vergleich bleibt exakt, aber gespeichert steht nur noch eine Schreibweise
+ * (`ortPruefen` schreibt `42` als `Beet 42`), und die Zeilen von vorher —
+ * offene **und** abgeschlossene, damit auch `abschlussZuruecknehmen` sie
+ * findet — schreibt `orteVereinheitlichen` in ../index.ts beim Start um
+ * (spec-beet-schreibweise.md).
  */
 function amOrt(ort: string | null, kultur: string | null) {
 	return and(

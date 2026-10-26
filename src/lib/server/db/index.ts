@@ -3,6 +3,8 @@ import { dirname, resolve } from 'node:path';
 import Database from 'better-sqlite3';
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { eq, isNotNull } from 'drizzle-orm';
+import { ortVereinheitlichen } from '../../beet.ts';
 import * as schema from './schema.ts';
 
 /*
@@ -25,7 +27,9 @@ type Datenschicht = BetterSQLite3Database<typeof schema>;
 let datenschicht: Datenschicht | null = null;
 
 /**
- * Öffnet die Datenbank, setzt die Pragmas und fährt die Migrationskette hoch.
+ * Öffnet die Datenbank, setzt die Pragmas, fährt die Migrationskette hoch und
+ * bringt die Orte vorhandener Zeilen in die eine Schreibweise
+ * (`orteVereinheitlichen`, unten).
  * Mehrfach gerufen tut der zweite Aufruf nichts — ein Prozess, eine Verbindung.
  *
  * Jeder Fehlschlag wird eine benannte deutsche Meldung, nie ein Stacktrace.
@@ -96,7 +100,74 @@ export function datenschichtStarten(): void {
 		);
 	}
 
+	try {
+		orteVereinheitlichen(geöffnet);
+	} catch (fehler) {
+		throw new Error(
+			`Die Orte in ${pfad} liessen sich nicht in die eine Schreibweise bringen: ${meldung(fehler)}\n` +
+				'Die Umschreibung lief in einer Transaktion; kein Ort ist verändert.',
+			{ cause: fehler }
+		);
+	}
+
 	datenschicht = geöffnet;
+}
+
+/**
+ * Bringt den Ort jeder vorhandenen Zeile in `harvests` und `treatments` in die
+ * eine Schreibweise von `ortVereinheitlichen` (src/lib/beet.ts) — `42` und
+ * `B42` werden `Beet 42` (spec-beet-schreibweise.md, 2026-10-26). Zurück kommt
+ * die Zahl der umgeschriebenen Zeilen.
+ *
+ * **Warum beim Start und nicht als Migration unter drizzle/:** SQLite kennt
+ * keine Regex, und eine Fassung mit GLOB wäre die zweite Kopie der Regel neben
+ * src/lib/beet.ts — zwei Fassungen, die beim ersten Nachbessern
+ * auseinanderlaufen. Der Schritt ist **idempotent**: er schreibt nur Zeilen, deren
+ * Ort sich ändert, und nach einem Lauf ist das keine mehr. Er läuft darum bei
+ * jedem Start und kostet danach ein Lesen beider Tabellen; beide tragen eine
+ * Handvoll bis wenige hundert Zeilen.
+ *
+ * **Alle Zeilen, auch abgeschlossene:** `amOrt` in queries/treatments.ts
+ * vergleicht exakt. Bliebe eine abgeschlossene Zeile auf `42`, fände
+ * `abschlussZuruecknehmen` sie unter `Beet 42` nicht mehr.
+ *
+ * In **einer** Transaktion über beide Tabellen: ein Fehler mitten im Lauf
+ * hinterlässt keine halb umgeschriebene Datei. Vor dem ersten Ausrollen dieser
+ * Umschreibung gehört eine Sicherung gezogen (scripts/backup.sh) — der Schritt
+ * ist nicht umkehrbar, weil er die frühere Schreibweise nicht aufhebt.
+ *
+ * Hingenommen (Spec Change Log): fallen zwei frühere Stellen zusammen und
+ * tragen Abschlüsse mit gleichem Zeitpunkt, stehen sie im Archiv als einer.
+ */
+export function orteVereinheitlichen(handle: Datenschicht): number {
+	return handle.transaction((tx) => {
+		let umgeschrieben = 0;
+		const ernte = tx
+			.select({ id: schema.harvests.id, ort: schema.harvests.ort })
+			.from(schema.harvests)
+			.where(isNotNull(schema.harvests.ort))
+			.all();
+		for (const zeile of ernte) {
+			if (zeile.ort === null) continue;
+			const ort = ortVereinheitlichen(zeile.ort);
+			if (ort === zeile.ort) continue;
+			tx.update(schema.harvests).set({ ort }).where(eq(schema.harvests.id, zeile.id)).run();
+			umgeschrieben += 1;
+		}
+		const behandlungen = tx
+			.select({ id: schema.treatments.id, ort: schema.treatments.ort })
+			.from(schema.treatments)
+			.where(isNotNull(schema.treatments.ort))
+			.all();
+		for (const zeile of behandlungen) {
+			if (zeile.ort === null) continue;
+			const ort = ortVereinheitlichen(zeile.ort);
+			if (ort === zeile.ort) continue;
+			tx.update(schema.treatments).set({ ort }).where(eq(schema.treatments.id, zeile.id)).run();
+			umgeschrieben += 1;
+		}
+		return umgeschrieben;
+	});
 }
 
 /**

@@ -245,12 +245,17 @@ export type Anwendung = {
  * verdrängen einander nicht.
  *
  * **Verglichen wird Zeichen für Zeichen.** `Brennnesseljauche` und
- * `brennnesseljauche` sind damit zwei Stellen, und `Beet 7` und `Beet7` auch.
- * Der Preis ist benannt und nicht versteckt: eine abweichende Schreibweise
- * lässt eine Behandlung doppelt anstehen. Dagegen hilft die Vorschlagsliste am
- * Feld, nicht eine Normalisierung hier — die müsste entscheiden, welche der
- * zwei Schreibweisen sie anzeigt, und läge bei `Beet 7` / `Beet sieben` ohnehin
- * daneben.
+ * `brennnesseljauche` sind damit zwei Stellen. Der Preis ist benannt und nicht
+ * versteckt: eine abweichende Schreibweise lässt eine Behandlung doppelt
+ * anstehen. Dagegen hilft die Vorschlagsliste am Feld, nicht eine
+ * Normalisierung hier — die müsste entscheiden, welche der zwei Schreibweisen
+ * sie anzeigt, und läge bei `Beet 7` / `Beet sieben` ohnehin daneben.
+ *
+ * **Beim Ort ist die Schreibweise seit dem 2026-10-26 schon vorher eine**
+ * (spec-beet-schreibweise.md): `ortPruefen` speichert `7`, `B7` und `Beet7` als
+ * `Beet 7`, und ältere Zeilen sind beim Start umgeschrieben. Das geschieht beim
+ * Speichern und nicht hier; hier gilt weiter Zeichen für Zeichen, und eine
+ * Bezeichnung ohne Nummer (`Sector C` gegen `sector c`) bleibt zwei Stellen.
  */
 function stelle(zeile: Anwendung): string {
 	return JSON.stringify([zeile.mittel, zeile.kultur, zeile.ort]);
@@ -393,9 +398,12 @@ export type Beetbuendel<T extends Anwendung> = {
  * **Gebündelt wird Zeichen für Zeichen**, mit demselben Schlüssel wie `stelle`:
  * `Schachtelhalm` und `schachtelhalm` sind zwei Karten, und die Begründung
  * steht dort. Verglichen wird über eine Zuordnung und nicht über „gleich wie
- * die Zeile davor": `natuerlich` (./beet.ts) hält `Beet 03` und `Beet 3` für gleich, ihre
- * Zeilen können darum in `nachBeet` ineinander verschränkt stehen, und ein
- * Vergleich mit dem Vorgänger schnitte ein Beet dann in mehrere Stücke.
+ * die Zeile davor": `natuerlich` (./beet.ts) hält `Beet 03` und `Beet 3` für
+ * gleich, ihre Zeilen können darum in `nachBeet` ineinander verschränkt stehen,
+ * und ein Vergleich mit dem Vorgänger schnitte ein Beet dann in mehrere Stücke.
+ * Gespeichert steht `Beet 03` seit dem 2026-10-26 nicht mehr (`ortPruefen`
+ * schreibt `Beet 3`, spec-beet-schreibweise.md); die Zuordnung bleibt trotzdem,
+ * weil diese Funktion nicht voraussetzt, woher ihre Zeilen kommen.
  */
 export function buendeln<T extends Anwendung>(zeilen: T[]): Beetbuendel<T>[] {
 	const beete = new Map<string, Beetbuendel<T>>();

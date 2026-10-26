@@ -2,8 +2,8 @@
 title: 'Eine Schreibweise je Beet, auf Ernte und Wellness'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
-baseline_commit: 'ccaafde26302b093187b9f1314e5ec40bfe34d6d'
+status: 'in-progress'
+baseline_commit: 'df663539d60c066ae439e3749d768b29063b4f31'
 review_loop_iteration: 0
 context: ['spec-ernte-nach-beet.md']
 ---
@@ -48,5 +48,53 @@ context: ['spec-ernte-nach-beet.md']
 1. ~~**`Sector C` und `XY`**~~ — geklärt am 26.10.2026: Bezeichnungen ohne Nummer überschreiben `Beet` und bleiben unverändert (Manuel).
 2. ~~**Wellness**~~ — bestätigt am 26.10.2026 (Manuel): Wellness wird gleich vereinheitlicht wie die Ernte — beim Eintragen, beim Ändern einer Behandlung und in der einmaligen Umschreibung vorhandener Zeilen. Danach fallen `42` und `Beet 42` auch im Tagebuch, in `Steht wieder an` und im Archiv auf ein Beet. `spec-wellness-tagebuch-gebuendelt.md` (_Never_: „Normalisieren ... beim Bündeln") bleibt wörtlich richtig, weil nicht beim Bündeln, sondern beim Speichern vereinheitlicht wird; der Eintrag dort bekommt beim Bau einen Verweis hierher.
 
+## Code Map
+
+- `src/lib/ernte.ts` -- `ERNTE_HOECHSTLAENGE` (60) :232, `ORT_ZU_LANG` :238, `ORT_VORGABE` :277, `ortPruefen` :297–302 (faltet mit `aufgabentextFalten`, leer/Vorgabe → null, Länge). Hier hinein gehört der Aufruf der neuen Regel; Kommentar :279–296 mitziehen.
+- `src/lib/beet.ts` -- geteiltes Modul seit Teil 1 (`leerZuletzt`, `natuerlich`); natürlicher Ort für die Regel `ortVereinheitlichen` (rein, ohne Abhängigkeiten, über nacktes Node ladbar).
+- `src/routes/ernte/+page.server.ts` :139–157 `eintragen` → `ortPruefen`. `src/routes/wellness/+page.server.ts` `felderPruefen` :207–250 (ruft `ortPruefen` :227) für `eintragen` :265 und `aendern` :398; `wiederholen` :326 kopiert `vorlage.ort` (nach der Umschreibung unkritisch); `stelleLesen` :119 übernimmt versteckte Felder ungeprüft für `abschliessen`/`zuruecknehmen`.
+- `src/lib/server/db/queries/treatments.ts` -- `amOrt` :146 vergleicht exakt (`eq(treatments.ort, ort)`) für `offeneAmOrtZaehlen` :160, `kulturAbschliessen` :185, `abschlussZuruecknehmen` :216: darum müssen **alle** alten Zeilen (offen und abgeschlossen) umgeschrieben werden. Kommentar :137–145.
+- `src/lib/server/db/index.ts` :89 -- `migrate(…, { migrationsFolder: 'drizzle' })` in `datenschichtStarten` (hooks.server.ts:38, pruefserver, smoke-zugang, create-admin). Kein Vorbild für Datenmigration in `drizzle/` (kein UPDATE). Tabellen `harvests` (schema.ts:556) und `treatments` (schema.ts:820).
+- `src/lib/wellness.ts` -- Kommentare :247–253 („Zeichen für Zeichen … `Beet 7` und `Beet7`"), :393, :476 werden teilweise unwahr; `spec-wellness-tagebuch-gebuendelt.md` :22/:33 bekommt einen Verweis.
+- `scripts/smoke-zugang.ts` -- `ortPruefen` ist heute **nirgends** getestet; Ort-Proben an reinen Funktionen :10957–10998 (`Beet 03`/`Beet 3` bleiben beim Bündeln zwei — gilt weiter, die Vereinheitlichung liegt beim Speichern). `ERWARTETE_BEHAUPTUNGEN = 778` :282.
+- `scripts/pruefserver.ts` -- Saat-Orte (`Hochbeet 3`, `Freiland`, `Beet 7`, `Beet 2`, null) sind schon in fester Form; die Umschreibung ändert keinen.
+- `scripts/db-check.ts` -- Drift-Prüfung (generate gegen Schema); eine reine Datenumschreibung ohne Schemaänderung bleibt grün.
+
+## Tasks & Acceptance
+
+**Execution:**
+- [x] `src/lib/beet.ts` -- reine Funktion `ortVereinheitlichen(ort: string): string` nach der Matrix und den Entscheiden im Change Log -- die eine Stelle der Regel.
+- [x] `src/lib/ernte.ts` -- `ortPruefen` faltet, vereinheitlicht, prüft dann Länge und leer -- Ernte und Wellness lesen damit dieselbe Regel.
+- [x] `src/lib/server/db/index.ts` (oder ein Modul daneben) -- nach `migrate()` ein idempotenter Schritt, der in `harvests` und `treatments` jede Zeile mit `ortVereinheitlichen(ort) !== ort` umschreibt, in einer Transaktion -- vorhandene Zeilen fallen auf ein Beet, auch `abschliessen` trifft sie.
+- [x] Kommentare `src/lib/wellness.ts`, `treatments.ts`, `spec-wellness-tagebuch-gebuendelt.md` (Verweis) -- nichts behaupten, was nicht mehr stimmt.
+- [x] `scripts/smoke-zugang.ts` -- Proben je Matrixzeile an `ortVereinheitlichen` und an `ortPruefen`; Probe für den Startschritt (Zeilen `42` und `Beet 42` in beiden Tabellen → nach `datenschichtStarten` eine Stelle; zweiter Lauf ändert nichts) -- jede einmal rot vorgeführt.
+
+**Acceptance Criteria:**
+- Given eine Ernte mit Ort `13` und eine mit `Beet 13`, when der Server startet, then stehen beide auf /ernte unter einem Beet `Beet 13`.
+- Given Wellness-Zeilen `42` und `Beet 42` derselben Kultur, when abgeschlossen wird, then schliesst ein Klick beide ab.
+- Given Eingabe `b 2` im Ortsfeld, when eingetragen, then gespeichert `Beet 2`.
+- Given `npm run build && npm run lint && npm run check`, then grün.
+
 ## Spec Change Log
 
+- **2026-10-26, vor dem Bau — Entscheide unter der Übertragung von Manuel („melde dich bei Problemen und wenn fertig"), Ask First der Matrix:**
+  - Gross/Klein egal für das Präfix: `beet 2`, `BEET 2`, `b2`, `B 2` → `Beet 2`; `tu`, `Tu` → `Tunnel`.
+  - Führende Nullen fallen weg: `03`, `Beet 03` → `Beet 3` (sonst blieben `Beet 3` und `Beet 03` zwei Beete, genau das, was die Spec beheben soll).
+  - Doppelbeete mit Leerzeichen um den Schrägstrich: `16 / 17` → `Beet 16/17`; je Teil führende Nullen weg.
+  - Länge wird **nach** dem Vereinheitlichen geprüft (60 Zeichen wie heute).
+  - Umschreibung als **TS-Schritt beim Start** nach `migrate()`, nicht als SQL-Migration: SQLite kennt keine Regex, und eine GLOB-Fassung wäre die zweite Kopie der Regel neben `src/lib/beet.ts`. Idempotent, darum unschädlich bei jedem Start; ändert nur Zeilen, deren Ort sich ändert. Kein Vorbild im Repo — bewusst neu.
+  - Hingenommen: Fallen zwei frühere Stellen zusammen und tragen Abschlüsse mit gleichem `abgeschlossenAm`, verschmelzen sie im Archiv zu einem Eintrag. Eine vor dem Neustart geladene Seite trifft beim Abschliessen keine Zeile mehr und bekommt den Satz für die veraltete Seite.
+  - Vermiedener Zustand: eine Regel in zwei Sprachen, die auseinanderläuft; `Beet 03` neben `Beet 3`.
+- **2026-10-26 (R3):** Die Spec liegt mit rund 1140 Wörtern (`wc -w`) über dem Zielband. Sie trägt ein einziges Ziel (eine Regel, ihre zwei Leser, die Umschreibung); Grösse als Annahme abgenommen unter der Übertragung vom 26.10.2026. `baseline_commit` auf den Stand nach Teil 1 gesetzt — der Entwurf trug noch den von Teil 1.
+- **2026-10-26, beim Bau — Formen ausserhalb der Matrix (Ask First, unter der Übertragung entschieden):**
+  - `Beet42` (Präfix ohne Lücke) wird `Beet 42`. Grund: es ist dieselbe reine Nummer mit dem Präfix, und `src/lib/wellness.ts` nannte genau `Beet 7`/`Beet7` als den Preis der Zeichen-für-Zeichen-Gleichheit. Vermiedener Zustand: zwei Beete aus einer fehlenden Lücke.
+  - Mehr als ein Schrägstrich (`1/2/3`) ist kein Doppelbeet und bleibt unverändert; `TU` mit Zusatz (`TU 2`) bleibt ebenfalls unverändert. Grund: beides steht in keiner Zeile der Matrix, und die Spec erlaubt nur `TU` als Umschreibung ohne Nummer. Vermiedener Zustand: eine Regel, die mehr umschreibt, als entschieden ist.
+  - `0` und `00` werden `Beet 0` (Nullen gekürzt, die letzte Ziffer bleibt).
+- **2026-10-26, beim Bau — Startschritt:** `orteVereinheitlichen(handle)` steht in `src/lib/server/db/index.ts`, gerufen nach `migrate()`; ein Fehler wird eine benannte Meldung wie bei der Migration, und die Transaktion lässt dann jeden Ort unverändert. Die Funktion ist exportiert, damit die Probe den zweiten Lauf zählen kann. Hingenommen: ein Ort, der vereinheitlicht über 60 Zeichen wächst (eine Ziffernfolge mit mehr als 55 Stellen), wird beim Start trotzdem geschrieben — der Startschritt prüft keine Länge, weil er nichts abweisen kann.
+- **2026-10-26, beim Bau — Prüfung:** das Abnahmekriterium `b 2` → `Beet 2` ist an der action von /wellness (Eintragen und Ändern) gemessen. /ernte ruft dieselbe `ortPruefen` (`src/routes/ernte/+page.server.ts`), hat aber in `smoke-zugang.ts` keine Attrappe; dort ist nur die geteilte Funktion gemessen. Beim Vorführen gefunden: der zweite Lauf der Umschreibung stand in der Probe zuerst **vor** dem Lesen und holte die Arbeit des Starts nach — ohne den Aufruf in `datenschichtStarten` blieben Ernte- und Wellness-Probe grün. Er steht jetzt zuletzt; die Mutation macht vier Proben rot.
+
+## Verification
+
+**Commands:**
+- `npm run build && npm run lint` -- grün, Zähler nachgeführt.
+- `npm run check` -- 0 Fehler, 0 Warnungen.

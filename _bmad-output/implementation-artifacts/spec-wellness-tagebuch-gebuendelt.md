@@ -92,6 +92,7 @@ Vier logische Ebenen, aber nur zwei Behälter: Abschnitt (Beet) und Karte (Mitte
 - **12.10.2026, Abweisung in Hochbeet 3 statt Beet 7.** Was: die Proben zur Abweisung und Rückfrage gehen an das **zweite** Beet der Saat (`Hochbeet 3`), nicht an Beet 7 wie in der Matrix. Warum: Beet 7 ist das erste und steht ohnehin offen; eine Zusage über das Öffnen wäre dort grün, ohne etwas zu belegen. Vermiedener Zustand: eine Wache, die die Zeile der Matrix scheinbar abdeckt und nichts misst.
 - **12.10.2026, Saat erweitert.** Was: eine zweite Schachtelhalmbrühe in Beet 7 (vor 34 Tagen, älter als die erste). Warum: sonst sähe der Sichtlauf nur `1×`, und die Bündelung wäre nie gerendert. `Steht wieder an` bleibt unverändert, weil die jüngste Anwendung dieselbe bleibt.
 - **12.10.2026, Leerzustand.** Was: belegt ist nur `buendeln([])` → `[]` in `smoke`. Der gerenderte Leerzustand steht in keinem Lauf, weil die Saat immer Behandlungen trägt; sein Markup ist unverändert geblieben.
+- **26.10.2026, Verweis auf `spec-beet-schreibweise.md`.** Seit jener Spec speichert `ortPruefen` den Ort in einer Schreibweise (`42`, `B42` → `Beet 42`), und ältere Zeilen werden beim Start umgeschrieben. Der Gruppenschlüssel und die _Never_-Klausel „Normalisieren ... beim Bündeln" bleiben wörtlich richtig: vereinheitlicht wird beim Speichern, nicht beim Bündeln. Was sich für das Tagebuch ändert: `42` und `Beet 42` kommen dort gar nicht mehr als zwei Werte an.
 
 ### Vorgeführte Mutationen
 

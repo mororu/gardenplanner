@@ -1,5 +1,5 @@
 import { aufgabentextFalten } from './aufgabentext.ts';
-import { leerZuletzt } from './beet.ts';
+import { leerZuletzt, ortVereinheitlichen } from './beet.ts';
 
 /*
  * Was eine Erntezeile ist — **die eine Stelle**, an der das steht.
@@ -271,8 +271,10 @@ export function kulturPruefen(eingabe: string): { kultur: string } | { fehler: s
  * Beet ist.
  *
  * Das Leerzeichen am Ende gehört dazu: der Einfügepunkt steht danach, und
- * `Beet3` wäre die Meldung, die aus einer fehlenden Lücke entsteht.
- * `ortPruefen` faltet es weg.
+ * `Beet3` wäre die Meldung, die aus einer fehlenden Lücke entsteht. Seit dem
+ * 2026-10-26 speichert `ortPruefen` auch diese als `Beet 3`; die Lücke bleibt
+ * trotzdem, weil das Feld zeigen soll, was gespeichert wird.
+ * `ortPruefen` faltet sie weg.
  */
 export const ORT_VORGABE = 'Beet ';
 
@@ -293,9 +295,16 @@ export const ORT_VORGABE = 'Beet ';
  * Verglichen wird gegen die **gefaltete** Vorgabe und nicht gegen das Literal:
  * das Leerzeichen am Ende überlebt die Faltung nicht, und ein Vergleich gegen
  * `ORT_VORGABE` selbst träfe darum nie zu.
+ *
+ * **Gespeichert wird die eine Schreibweise** (seit dem 2026-10-26,
+ * spec-beet-schreibweise.md): nach dem Falten schreibt `ortVereinheitlichen`
+ * (./beet.ts) `42`, `B42` und `beet 42` als `Beet 42`, damit eine Nummer auf
+ * /ernte und /wellness genau ein Beet ist. Die Länge wird **danach** geprüft —
+ * es zählt, was gespeichert würde. Ernte und Wellness rufen beide diese
+ * Funktion und lesen damit dieselbe Regel.
  */
 export function ortPruefen(eingabe: string): { ort: string | null } | { fehler: string } {
-	const ort = aufgabentextFalten(eingabe);
+	const ort = ortVereinheitlichen(aufgabentextFalten(eingabe));
 	if (ort === '' || ort === aufgabentextFalten(ORT_VORGABE)) return { ort: null };
 	if ([...ort].length > ERNTE_HOECHSTLAENGE) return { fehler: ORT_ZU_LANG };
 	return { ort };
@@ -355,12 +364,14 @@ export type Erntebeet<T> = {
  * Dringlichkeit über den ganzen Garten musste nach dem eigenen Ort abgesucht
  * werden.
  *
- * - **Ein Beet je Ort, Zeichen für Zeichen.** `42` und `Beet 42` sind zwei
- *   Beete; sie zusammenzuführen ist eine eigene Spec (spec-beet-schreibweise.md),
- *   nicht diese. Gruppiert wird darum über eine Zuordnung mit dem gespeicherten
- *   Wert als Schlüssel und nicht über die Ordnung: `natuerlich` hält `Beet 03`
- *   und `Beet 3` für gleich, und eine Gruppierung über die Ordnung legte sie
- *   zusammen.
+ * - **Ein Beet je Ort, Zeichen für Zeichen.** Dass `42` und `Beet 42` dasselbe
+ *   Beet sind, entscheidet nicht diese Funktion, sondern das Speichern:
+ *   `ortPruefen` schreibt beide als `Beet 42`, und die Zeilen von vorher sind
+ *   beim Start umgeschrieben (spec-beet-schreibweise.md). Gruppiert wird hier
+ *   über eine Zuordnung mit dem gespeicherten Wert als Schlüssel und nicht über
+ *   die Ordnung: `natuerlich` hält `Beet 03` und `Beet 3` für gleich, und eine
+ *   Gruppierung über die Ordnung legte zwei Werte zusammen, die gespeichert
+ *   verschieden sind.
  * - **Natürlich geordnet**, wie das Tagebuch auf /wellness (`leerZuletzt` aus
  *   ./beet.ts): `Beet 3` vor `Beet 12`, ohne Ort zuunterst. Bei Gleichstand
  *   (`Beet 03` gegen `Beet 3`) entscheidet der Zeichenvergleich, damit zwei

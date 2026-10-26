@@ -82,6 +82,7 @@ import {
 } from '../src/lib/server/auth.ts';
 import { AUFGABE_HOECHSTLAENGE, PLAN_HOECHSTZAHL } from '../src/lib/aufgabentext.ts';
 import { datenbank, datenschichtStarten } from '../src/lib/server/db/index.ts';
+import { ortVereinheitlichen } from '../src/lib/beet.ts';
 import {
 	DIENSTART_TRAENKEN,
 	dutyWeeks,
@@ -92,11 +93,19 @@ import {
 	tasks,
 } from '../src/lib/server/db/schema.ts';
 import { abschluesseBuendeln, buendeln, letzteJeStelle, nachBeet } from '../src/lib/wellness.ts';
-import { nachBeetGliedern, type Erntestatus } from '../src/lib/ernte.ts';
+import {
+	ERNTE_HOECHSTLAENGE,
+	ORT_ZU_LANG,
+	nachBeetGliedern,
+	ortPruefen,
+	type Erntestatus,
+} from '../src/lib/ernte.ts';
 import { ernteAbernten, ernteEintragen } from '../src/lib/server/db/queries/harvests.ts';
 import {
 	abgeschlosseneBehandlungenLesen,
 	behandlungEintragen,
+	behandlungLesen,
+	behandlungWegnehmen,
 	behandlungenLesen,
 	kulturAbschliessen,
 } from '../src/lib/server/db/queries/treatments.ts';
@@ -279,7 +288,7 @@ import {
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 778;
+const ERWARTETE_BEHAUPTUNGEN = 798;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -12126,6 +12135,266 @@ try {
 		'die Protokollablage vergibt ihre Namen selbst und liest nur solche zurück',
 		fehlendeTeile(ablageTeile).length === 0,
 		`fehlt: ${fehlendeTeile(ablageTeile).join(', ')}`
+	);
+
+	// -----------------------------------------------------------------------
+	// Eine Schreibweise je Beet — spec-beet-schreibweise.md (2026-10-26)
+	// -----------------------------------------------------------------------
+	/*
+	 * **Die I/O-Matrix der Spec, Zeile für Zeile, an beiden Stellen**: an der
+	 * Regel selbst (`ortVereinheitlichen`, src/lib/beet.ts) und an `ortPruefen`
+	 * (src/lib/ernte.ts), über die Ernte und Wellness speichern. Jede Probe
+	 * trägt je Eingabe das Paar [vereinheitlicht, geprüft]. Danach die
+	 * Entscheide aus dem Spec Change Log, je eine Zeile.
+	 *
+	 * Die Eingaben der Matrix kommen gefaltet an, wie `ortPruefen` sie der
+	 * Regel gibt; nur `Beet ` (die Vorgabe im Feld) und ` 42 ` tragen Leerraum,
+	 * und an ihnen zählt nur die geprüfte Hälfte.
+	 *
+	 * Vorgeführt am 2026-10-26, jede einzeln und zurückgesetzt:
+	 *   - `^tu$` ohne `i` → `Tunnel` und `Gross/Klein des Präfixes` rot.
+	 *   - führende Nullen nicht gekürzt → `Führende Nullen` rot, dazu unten
+	 *     die abgeschlossene Zeile auf `042`.
+	 *   - Präfix ohne `b` (nur `beet`) → `Kürzel`, `Gross/Klein`, `Führende
+	 *     Nullen` (`B007`) und das Eintragen von `b 2` rot.
+	 *   - `\s*` um den Schrägstrich entfernt → `Leerzeichen um den Schrägstrich`
+	 *     rot.
+	 *   - `ortPruefen` prüft die Länge vor dem Vereinheitlichen → `Länge` rot.
+	 *   - `ortPruefen` ohne `ortVereinheitlichen` → jede Zeile mit Nummer und
+	 *     `TU` rot, dazu die zwei action-Proben unten.
+	 */
+	const ortProbe = (eingaben: string[]) =>
+		JSON.stringify(eingaben.map((eingabe) => [ortVereinheitlichen(eingabe), ortPruefen(eingabe)]));
+	const ortSoll = (paare: [string, { ort: string | null } | { fehler: string }][]) =>
+		JSON.stringify(paare);
+	const nummerLang = '1'.repeat(ERNTE_HOECHSTLAENGE - 'Beet '.length);
+	for (const [zeile, eingaben, soll] of [
+		['Nur Nummer', ['42'], [['Beet 42', { ort: 'Beet 42' }]]],
+		['Schon richtig', ['Beet 42'], [['Beet 42', { ort: 'Beet 42' }]]],
+		[
+			'Kürzel',
+			['B2', 'B42', 'B 42'],
+			[
+				['Beet 2', { ort: 'Beet 2' }],
+				['Beet 42', { ort: 'Beet 42' }],
+				['Beet 42', { ort: 'Beet 42' }],
+			],
+		],
+		[
+			'Doppelbeet',
+			['33/34', '16/17'],
+			[
+				['Beet 33/34', { ort: 'Beet 33/34' }],
+				['Beet 16/17', { ort: 'Beet 16/17' }],
+			],
+		],
+		[
+			'Tunnel',
+			['TU', 'Tunnel 2'],
+			[
+				['Tunnel', { ort: 'Tunnel' }],
+				['Tunnel 2', { ort: 'Tunnel 2' }],
+			],
+		],
+		[
+			'Ohne Nummer',
+			['Sector C', 'XY'],
+			[
+				['Sector C', { ort: 'Sector C' }],
+				['XY', { ort: 'XY' }],
+			],
+		],
+		[
+			'Leer',
+			['Beet ', ''],
+			[
+				['Beet ', { ort: null }],
+				['', { ort: null }],
+			],
+		],
+		[
+			'Gross/Klein des Präfixes (Change Log)',
+			['beet 2', 'BEET 2', 'b2', 'b 2', 'Beet2', 'tu', 'Tu', 'sector c'],
+			[
+				['Beet 2', { ort: 'Beet 2' }],
+				['Beet 2', { ort: 'Beet 2' }],
+				['Beet 2', { ort: 'Beet 2' }],
+				['Beet 2', { ort: 'Beet 2' }],
+				['Beet 2', { ort: 'Beet 2' }],
+				['Tunnel', { ort: 'Tunnel' }],
+				['Tunnel', { ort: 'Tunnel' }],
+				['sector c', { ort: 'sector c' }],
+			],
+		],
+		[
+			'Führende Nullen (Change Log)',
+			['03', 'Beet 03', 'B007', '0', '03/04'],
+			[
+				['Beet 3', { ort: 'Beet 3' }],
+				['Beet 3', { ort: 'Beet 3' }],
+				['Beet 7', { ort: 'Beet 7' }],
+				['Beet 0', { ort: 'Beet 0' }],
+				['Beet 3/4', { ort: 'Beet 3/4' }],
+			],
+		],
+		[
+			'Leerzeichen um den Schrägstrich (Change Log); drei Teile sind kein Doppelbeet',
+			['16 / 17', '1/2/3', ' 42 '],
+			[
+				['Beet 16/17', { ort: 'Beet 16/17' }],
+				['1/2/3', { ort: '1/2/3' }],
+				[' 42 ', { ort: 'Beet 42' }],
+			],
+		],
+		[
+			'Länge nach dem Vereinheitlichen (Change Log)',
+			[nummerLang, `${nummerLang}1`],
+			[
+				[`Beet ${nummerLang}`, { ort: `Beet ${nummerLang}` }],
+				[`Beet ${nummerLang}1`, { fehler: ORT_ZU_LANG }],
+			],
+		],
+	] as [string, string[], [string, { ort: string | null } | { fehler: string }][]][]) {
+		pruefenGleich(`Ort ${zeile}: ${eingaben.join(' | ')}`, ortProbe(eingaben), ortSoll(soll));
+	}
+
+	/*
+	 * **Beim Speichern, über die action** (Abnahmekriterium `b 2` → `Beet 2`):
+	 * Eintragen und Ändern auf /wellness laufen durch `felderPruefen` und damit
+	 * durch `ortPruefen`. /ernte ruft dieselbe Funktion; eine Attrappe für
+	 * jene Seite gibt es in diesem Skript nicht, und die eine Stelle der Regel
+	 * ist oben gemessen.
+	 *
+	 * Vorgeführt am 2026-10-26: `felderPruefen` trimmt den Ort nur, statt ihn
+	 * durch `ortPruefen` zu geben → beide Zeilen rot (`b 2`, `42`).
+	 */
+	const ortEingetragen = await wellnessAktion('eintragen', {
+		mittel: 'Ortsprobe',
+		kultur: '',
+		ort: 'b 2',
+		datum: heuteAlsFeldwert(archivJetzt),
+		intervall: '',
+	});
+	const ortZeile = Number(wertVon(ortEingetragen).zeile);
+	pruefenGleich(
+		'Eintragen auf /wellness speichert `b 2` als `Beet 2`',
+		behandlungLesen(ortZeile)?.ort ?? JSON.stringify(ortEingetragen),
+		'Beet 2'
+	);
+	const ortGeaendert = await wellnessAktion('aendern', {
+		id: String(ortZeile),
+		mittel: 'Ortsprobe',
+		kultur: '',
+		ort: '42',
+		datum: heuteAlsFeldwert(archivJetzt),
+		intervall: '',
+	});
+	pruefenGleich(
+		'Ändern auf /wellness speichert `42` als `Beet 42`',
+		behandlungLesen(ortZeile)?.ort ?? JSON.stringify(ortGeaendert),
+		'Beet 42'
+	);
+	behandlungWegnehmen(ortZeile);
+
+	/*
+	 * **Die Umschreibung beim Start**, an einer eigenen Datei in zwei
+	 * Unterprozessen — die Datenschicht dieses Prozesses ist längst gestartet
+	 * und merkt sich ihre Verbindung, ein zweiter `datenschichtStarten()` täte
+	 * hier nichts.
+	 *
+	 * Der erste Prozess sät über die Abfrageschicht, die den Ort ungeprüft
+	 * schreibt, die alten Schreibweisen: Ernte `42` und `Beet 42`, eine Ernte
+	 * `Sector C`; Behandlungen `42` und `Beet 42` derselben Kultur (offen) und
+	 * eine auf `042`, die er abschliesst. Der zweite Prozess startet die
+	 * Datenschicht neu, liest, was die Abnahmekriterien verlangen, und ruft die
+	 * Umschreibung **erst danach** ein zweites Mal — davor gerufen, hätte sie
+	 * die Arbeit des Starts nachgeholt, und die drei Proben davor wären grün,
+	 * auch wenn `datenschichtStarten` sie nicht ruft (so beim ersten Vorführen
+	 * gefunden).
+	 *
+	 * Vorgeführt am 2026-10-26, jede einzeln und zurückgesetzt:
+	 *   - Aufruf in `datenschichtStarten` entfernt → Ernte (zwei Beete),
+	 *     Wellness, die abgeschlossene Zeile und der zweite Lauf rot.
+	 *   - `isNull(abgeschlossenAm)` an der Auswahl der Behandlungen → die
+	 *     abgeschlossene Zeile bleibt auf `042`, `Rückgängig` trifft 0 statt 1.
+	 *   - die Bedingung `ort === zeile.ort` entfernt (jede Zeile wird
+	 *     geschrieben) → der zweite Lauf meldet 6 statt 0.
+	 */
+	const ortsprobe = join(arbeit, 'orte-probe.sqlite');
+	const ortsprobeUmgebung = { ...process.env, DATABASE_PATH: ortsprobe };
+	const modul = (pfad: string) => JSON.stringify(pathToFileURL(join(wurzel, pfad)).href);
+	const saat = starten(
+		[
+			'--input-type=module',
+			'-e',
+			`const db = await import(${modul('src/lib/server/db/index.ts')});` +
+				`const mitglieder = await import(${modul('src/lib/server/db/queries/members.ts')});` +
+				`const ernte = await import(${modul('src/lib/server/db/queries/harvests.ts')});` +
+				`const wellness = await import(${modul('src/lib/server/db/queries/treatments.ts')});` +
+				'db.datenschichtStarten();' +
+				"const m = mitglieder.mitgliedAnlegen({ name: 'Orla', inviteTokenHash: 'x', isAdmin: false });" +
+				'for (const [kultur, ort] of [["Kohl", "42"], ["Lauch", "Beet 42"], ["Salat", "Sector C"]])' +
+				'  ernte.ernteEintragen({ kultur, ort, status: "sofort", laufend: false }, m);' +
+				'for (const [kultur, ort] of [["Tomaten", "42"], ["Tomaten", "Beet 42"], ["Bohnen", "042"]])' +
+				'  wellness.behandlungEintragen({ mittel: "Jauche", kultur, ort, angewendetAm: 1000, intervallTage: null }, m);' +
+				'wellness.kulturAbschliessen("042", "Bohnen", 5000);',
+		],
+		ortsprobeUmgebung
+	);
+	pruefenGleich('die Saat der alten Schreibweisen läuft durch', saat.status, 0);
+	const neustart = starten(
+		[
+			'--input-type=module',
+			'-e',
+			`const db = await import(${modul('src/lib/server/db/index.ts')});` +
+				`const ernte = await import(${modul('src/lib/server/db/queries/harvests.ts')});` +
+				`const wellness = await import(${modul('src/lib/server/db/queries/treatments.ts')});` +
+				`const liste = await import(${modul('src/lib/ernte.ts')});` +
+				'db.datenschichtStarten();' +
+				'const beete = liste.nachBeetGliedern(ernte.erntestandLesen()).map((b) => [b.ort, b.stufen.flatMap((s) => s.zeilen.map((z) => z.kultur)).sort()]);' +
+				'const abschluss = wellness.kulturAbschliessen("Beet 42", "Tomaten", 9000);' +
+				'const zurueck = wellness.abschlussZuruecknehmen("Beet 42", "Bohnen", 5000);' +
+				'const zweiterLauf = db.orteVereinheitlichen(db.datenbank());' +
+				'console.log(JSON.stringify({ zweiterLauf, beete, abschluss: abschluss?.anzahl ?? 0, zurueck }));',
+		],
+		ortsprobeUmgebung
+	);
+	const nachStart = ((): {
+		zweiterLauf?: number;
+		beete?: unknown;
+		abschluss?: number;
+		zurueck?: number;
+	} => {
+		try {
+			return JSON.parse(neustart.stdout.trim().split('\n').at(-1) ?? '{}');
+		} catch {
+			return {};
+		}
+	})();
+	const startBefund = `${neustart.stdout}${neustart.stderr}`.slice(0, 400);
+	pruefen(
+		'Ernte `42` und `Beet 42`: nach dem Start ein Beet `Beet 42` auf /ernte, `Sector C` bleibt',
+		JSON.stringify(nachStart.beete) ===
+			JSON.stringify([
+				['Beet 42', ['Kohl', 'Lauch']],
+				['Sector C', ['Salat']],
+			]),
+		startBefund
+	);
+	pruefen(
+		'Wellness `42` und `Beet 42` derselben Kultur: ein Abschliessen schliesst beide ab',
+		nachStart.abschluss === 2,
+		startBefund
+	);
+	pruefen(
+		'auch die abgeschlossene Zeile auf `042` ist umgeschrieben: `Rückgängig` unter `Beet 42` trifft sie',
+		nachStart.zurueck === 1,
+		startBefund
+	);
+	pruefen(
+		'die Umschreibung ist idempotent: ein zweiter Lauf nach dem Start ändert keine Zeile',
+		nachStart.zweiterLauf === 0,
+		startBefund
 	);
 
 	// -----------------------------------------------------------------------
