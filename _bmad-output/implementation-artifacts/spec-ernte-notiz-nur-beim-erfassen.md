@@ -2,7 +2,7 @@
 title: 'Ernte: Notiz nur beim Erfassen, Datum ohne Jahr'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-review'
+status: 'done'
 baseline_commit: '9bf60d637394b786382f7785dc2dc7aed7314394'
 review_loop_iteration: 0
 context: ['spec-notiz-und-kurzname.md', 'spec-ernte-nach-beet.md']
