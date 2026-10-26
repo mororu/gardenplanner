@@ -364,10 +364,13 @@ export const actions = {
 		 */
 		const rohBekannt = formular.get('bekannterName');
 		// Der bekannte Kurzname: leer heisst „keiner" — dieselbe Abbildung wie
-		// beim Speichern, ohne Faltung, weil er ein Abdruck ist und keine Eingabe.
+		// beim Speichern, sonst ohne Faltung, weil er ein Abdruck ist und keine Eingabe.
 		const rohBekanntKurz = formular.get('bekannterKurzname');
+		// Ein Abdruck aus lauter Leerzeichen heisst ebenfalls „keiner": die Seite
+		// schreibt ihn so ins versteckte Feld, wenn die Spalte so steht, und die
+		// Query vergleicht ihn dann über IS NULL oder leer.
 		const bekannterKurzname =
-			typeof rohBekanntKurz === 'string' && rohBekanntKurz !== '' ? rohBekanntKurz : null;
+			typeof rohBekanntKurz === 'string' && rohBekanntKurz.trim() !== '' ? rohBekanntKurz : null;
 		// is_active = 1 und der bekannte Name stehen in der Query, nicht hier. Die
 		// zweite Prüfung auf null ist keine Verdopplung der ersten, sondern
 		// schliesst das Fenster dazwischen: zwischen Auskunft und UPDATE kann ein

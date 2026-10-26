@@ -62,6 +62,7 @@ import { blattAnlegen } from '../src/lib/server/db/queries/sheets.ts';
 import { dokumentAnlegen } from '../src/lib/server/db/queries/documents.ts';
 import { ablagenamenErzeugen, dateiAblegen } from '../src/lib/server/ablage.ts';
 import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-tasks.ts';
+import { NOTIZ_HOECHSTLAENGE } from '../src/lib/ernte.ts';
 
 /**
  * So viele Behauptungen muss ein vollständiger Lauf ablegen, die Schlusszählung
@@ -69,7 +70,7 @@ import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-t
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 119;
+const ERWARTETE_BEHAUPTUNGEN = 120;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -2641,6 +2642,27 @@ try {
 					.map((d) => d.querySelector('h3').textContent.trim()),
 				notiz: notiz === null ? null : notiz.textContent.trim(),
 			};`);
+	/*
+	 * Wie ein Browser ohne Skript: erst der Stift, dann das Formular mit genau
+	 * dem Abdruck `bekannteNotiz`, den das zurückgekommene Dokument trägt (Review
+	 * vom 2026-10-26). Ein Abdruck, den die Seite falsch ausliefert, endete
+	 * hier im Satz der veralteten Seite.
+	 */
+	const abdruckIm = (): Promise<string | null> =>
+		notizBrowser.auswerten(`
+			const dok = new DOMParser().parseFromString(window.__ohneSkript, 'text/html');
+			const feld = dok.getElementById(${JSON.stringify(`notiz-${zucchiniId}`)});
+			const abdruck = feld?.form?.querySelector('input[name="bekannteNotiz"]') ?? null;
+			return abdruck === null ? null : abdruck.getAttribute('value') ?? '';`);
+	const notizSenden = async (notiz: string): Promise<void> => {
+		await ernteOhneSkriptSenden('notizAendern', { id: zucchiniId });
+		const abdruck = await abdruckIm();
+		await ernteOhneSkriptSenden('notizAendern', {
+			id: zucchiniId,
+			bekannteNotiz: abdruck ?? '(kein Abdruck im Dokument)',
+			notiz,
+		});
+	};
 	await ernteOhneSkriptSenden('notizAendern', { id: zucchiniId });
 	const notizGefragt = await notizIm();
 	pruefen(
@@ -2651,19 +2673,43 @@ try {
 			notizGefragt.notiz === null,
 		JSON.stringify({ id: zucchiniId, ...notizGefragt })
 	);
-	await ernteOhneSkriptSenden('notizAendern', { id: zucchiniId, notiz: 'wenig' });
+	await notizSenden('wenig');
 	const notizGesetzt = await notizIm();
 	pruefen(
 		'/ernte ohne JavaScript: eine gespeicherte Notiz steht an der Karte, das Feld ist wieder zu',
 		notizGesetzt.notiz === 'wenig' && notizGesetzt.feld === null,
 		JSON.stringify(notizGesetzt)
 	);
-	await ernteOhneSkriptSenden('notizAendern', { id: zucchiniId, notiz: '' });
+	await notizSenden('');
 	const notizGeleert = await notizIm();
 	pruefen(
 		'/ernte ohne JavaScript: eine geleerte Notiz fällt mit ihrer Zeile weg',
 		notizGeleert.notiz === null && notizGeleert.feld === null,
 		JSON.stringify(notizGeleert)
+	);
+
+	/*
+	 * **Eine abgewiesene Notiz an der Karte bleibt in ihrem Feld** und wandert
+	 * nicht ins Feld `Was ist reif` des Eintragen-Formulars (Review vom
+	 * 2026-10-26: beide lasen `eingabe`). Eine Notiz über der Grenze, wie sie
+	 * nur ein gebauter POST schickt; im zurückgekommenen Dokument trägt das
+	 * Notizfeld der Zeile den Text, das Kulturfeld nichts.
+	 */
+	const zuLangeNotiz = 'n'.repeat(NOTIZ_HOECHSTLAENGE + 1);
+	await notizSenden(zuLangeNotiz);
+	const notizAbgewiesen = await notizBrowser.auswerten<{
+		notiz: string | null;
+		kultur: string | null;
+	}>(`
+		const dok = new DOMParser().parseFromString(window.__ohneSkript, 'text/html');
+		return {
+			notiz: dok.getElementById(${JSON.stringify(`notiz-${zucchiniId}`)})?.getAttribute('value') ?? null,
+			kultur: dok.getElementById('neu-kultur')?.getAttribute('value') ?? null,
+		};`);
+	pruefen(
+		'/ernte ohne JavaScript: eine abgewiesene Notiz steht in ihrem Feld an der Zeile und nicht im Kulturfeld',
+		notizAbgewiesen.notiz === zuLangeNotiz && (notizAbgewiesen.kultur ?? '') === '',
+		JSON.stringify({ ...notizAbgewiesen, notiz: notizAbgewiesen.notiz?.length })
 	);
 
 	/*
@@ -2711,6 +2757,14 @@ try {
 		notizMitSkript.notiz === 'zuerst' && notizMitSkript.sichtbar && !notizMitSkript.feld,
 		JSON.stringify(notizMitSkript)
 	);
+	/*
+	 * **Aufräumen**: Zucchini bekommt ihre Saat zurück (keine Notiz), damit die
+	 * Sonden danach dieselbe Saat sehen wie vorher. Was nach diesem Block an
+	 * Notizen steht, ist ausgeschrieben: Kohlrabi aus der Saat und Mangold, den
+	 * die Eintragen-Probe weiter unten mit einer Notiz anlegt. Der Kontrast-Sweep
+	 * misst die Notizzeile an beiden.
+	 */
+	await notizSenden('');
 
 	/*
 	 * **Ohne JavaScript: die Rückfrage öffnet genau ihr Beet** — das zweite
@@ -2903,6 +2957,7 @@ try {
 		document.querySelector('details.zeilenform').open = true;
 		document.getElementById('neu-kultur').value = 'Mangold';
 		document.getElementById('neu-ort').value = 'Freiland';
+		document.getElementById('neu-notiz').value = '  zuerst  die  grossen ';
 		document.querySelector('input[name="status"][value="stehen"]').checked = true;
 		document.getElementById('neu-kultur').form.requestSubmit();
 		return true;`);
@@ -2910,15 +2965,27 @@ try {
 		"document.querySelector('.meldung').textContent.includes('Mangold')",
 		'die Rückmeldung zum Eintragen von Mangold ist da'
 	);
-	const nachEintragen = await browser.auswerten<{ offen: boolean; sichtbar: boolean }>(`
+	const nachEintragen = await browser.auswerten<{
+		offen: boolean;
+		sichtbar: boolean;
+		notiz: string;
+	}>(`
 		const beet = [...document.querySelectorAll('section.beetliste details.abschnitt')]
 			.find((d) => d.querySelector('h3').textContent.trim() === 'Freiland');
 		const karte = [...beet.querySelectorAll('.karte')].find((k) =>
 			k.querySelector('.zeile__text').textContent.trim() === 'Mangold');
-		return { offen: beet.open, sichtbar: karte?.checkVisibility() ?? false };`);
+		return {
+			offen: beet.open,
+			sichtbar: karte?.checkVisibility() ?? false,
+			notiz: karte?.querySelector('.ernte__notiz')?.textContent.trim() ?? '',
+		};`);
+	/*
+	 * Seit dem 2026-10-26 mit einer Notiz aus dem gerenderten Formular
+	 * (`#neu-notiz`): sie steht gefaltet an der neuen Karte.
+	 */
 	pruefen(
-		'/ernte mit JavaScript: nach dem Eintragen geht das zugeklappte Beet der neuen Zeile auf, und die Zeile ist zu sehen',
-		nachEintragen.offen && nachEintragen.sichtbar,
+		'/ernte mit JavaScript: nach dem Eintragen geht das zugeklappte Beet der neuen Zeile auf, und die Zeile ist zu sehen — mit der Notiz aus dem Formular',
+		nachEintragen.offen && nachEintragen.sichtbar && nachEintragen.notiz === 'zuerst die grossen',
 		JSON.stringify(nachEintragen)
 	);
 

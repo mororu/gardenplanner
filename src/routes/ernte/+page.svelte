@@ -56,8 +56,8 @@
 		Die Rückmeldung eines geglückten Eintragens, Umstufens, Aberntens oder
 		einer gesetzten Notiz.
 
-		Alle vier tragen ihren Satz fertig aus der action mit, samt Kultur und
-		Zielstufe: die Beete sind zugeklappt, das Formular klappt nach dem
+		Alle vier tragen ihren Satz fertig aus der action mit, samt Kultur — und
+		Eintragen wie Umstufen dazu die Zielstufe: die Beete sind zugeklappt, das Formular klappt nach dem
 		Absenden zu, und der Fokus springt nach oben. Ohne die Angaben sagte die
 		Meldung, dass etwas geklappt hat, aber nicht was und nicht wohin.
 	*/
@@ -203,8 +203,19 @@
 		Text auf /wissen, und aus demselben Grund: ohne JavaScript läuft kein
 		Rückruf, und ein Wert, der nur im Browser stünde, wäre fort.
 	*/
-	const kulturWert = $derived(form !== null && form.art === 'fehler' ? form.eingabe : '');
-	const ortWert = $derived(form !== null && form.art === 'fehler' ? form.zweiteEingabe : '');
+	/*
+		**Nur eine Abweisung des Eintragen-Formulars** trägt Text in dessen Felder.
+		Seit dem 2026-10-26 reist auch die Notiz einer Karte über `eingabe` zurück
+		(`feld: 'aendernNotiz'`). `formularOffen` ist genau die Menge der vier
+		Marken des Formulars; ohne die Bedingung stünde eine abgewiesene Notiz
+		danach im Feld `Was ist reif` (Review zu spec-notiz-und-kurzname.md).
+	*/
+	const kulturWert = $derived(
+		form !== null && form.art === 'fehler' && formularOffen ? form.eingabe : ''
+	);
+	const ortWert = $derived(
+		form !== null && form.art === 'fehler' && formularOffen ? form.zweiteEingabe : ''
+	);
 
 	/**
 	 * Die Meldung eines Fehlschlags, der an keine Zeile und an kein Feld gehört.
@@ -256,7 +267,16 @@
 			typeof daten?.zeile === 'number' &&
 			(daten.art === 'notizFragen' || (daten.art === 'fehler' && daten.feld === 'aendernNotiz'))
 		) {
-			document.getElementById(`notiz-${daten.zeile}`)?.focus();
+			/*
+				Fehlt das Feld — die Zeile ist zwischen Antwort und Rendern
+				abgeerntet worden —, an die Meldung oben statt ins Nichts.
+			*/
+			const feld = document.getElementById(`notiz-${daten.zeile}`);
+			if (feld !== null) {
+				feld.focus();
+				return;
+			}
+			meldungKasten?.focus();
 			return;
 		}
 		if (typeof daten?.art === 'string' && daten.art === 'fehler') {
@@ -593,9 +613,13 @@
 					autocomplete="off"
 					maxlength={NOTIZ_HOECHSTLAENGE}
 					aria-invalid={fehlerAmNotiz !== '' ? 'true' : undefined}
-					aria-describedby={fehlerAmNotiz !== '' ? 'neu-notiz-fehler' : undefined}
+					aria-describedby={fehlerAmNotiz !== ''
+						? 'neu-notiz-hinweis neu-notiz-fehler'
+						: 'neu-notiz-hinweis'}
 				/>
-				<p class="hinweis hinweis--am-feld">Freiwillig — z. B. frühe Sorte, wenig, zuerst.</p>
+				<p class="hinweis hinweis--am-feld" id="neu-notiz-hinweis">
+					Freiwillig — z. B. frühe Sorte, wenig, zuerst.
+				</p>
 				<p class="fehler live" id="neu-notiz-fehler" role="alert" aria-live="assertive">
 					{fehlerAmNotiz}
 				</p>
@@ -781,6 +805,13 @@
 											use:enhance={versand}
 										>
 											<input type="hidden" name="id" value={eintrag.id} />
+											<!--
+												Der Abdruck der Notiz, wie diese Seite sie sah — leer heisst
+												„keine". Er entscheidet in der where-Klausel, ob geschrieben
+												wird: ein veralteter Tab drehte sonst eine neuere Notiz still
+												zurück. Dieselbe Klammer wie `bekannterName` auf /verwaltung.
+											-->
+											<input type="hidden" name="bekannteNotiz" value={eintrag.notiz ?? ''} />
 											<div>
 												<label class="feld__beschriftung" for="notiz-{eintrag.id}">
 													Notiz zu {bezeichnung(eintrag)}

@@ -96,6 +96,9 @@
 			// Die Mittel eines Abschlusses — sie stehen an der Zeile, also sind sie findbar.
 			zeile.zusatz ?? '',
 			zeile.uebernehmer ?? '',
+			// Der volle Name dazu, obwohl er nicht dasteht: wer nach einem Nachnamen
+			// sucht, findet den Termin weiter (Review vom 2026-10-26).
+			zeile.uebernehmerVoll ?? '',
 			herkunft(zeile.art),
 			datumKurz(zeile.erledigtAm),
 			monatName(zeile.erledigtAm),

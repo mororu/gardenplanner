@@ -221,6 +221,11 @@
 				Griff wären der teurere Weg zum selben Element.
 			*/
 			const zeile = typeof daten?.zeile === 'number' ? daten.zeile : null;
+			// Die Aufnahme am Kurznamen: an dessen Feld, wo der Satz steht.
+			if (daten?.feld === 'kurzname') {
+				document.getElementById('kurzname')?.focus();
+				return;
+			}
 			if (zeile !== null) {
 				// An das Feld, das nicht trägt: Name oder Kurzname dieser Zeile.
 				const feld = daten?.feld === 'neuerKurzname' ? 'neuer-kurzname' : 'neuer-name';
@@ -504,10 +509,10 @@
 
 			`assertive` und nicht `polite`: der Satz ist die Antwort auf einen eben
 			abgeschickten Versand. Dass die Seite damit mehrere assertive Regionen
-			hat — diese, die obere und eine je aktiver Mitgliedszeile —, ist
-			unbedenklich: die drei Marken `null`, `'name'` und `'neuerName'`
-			schliessen einander aus, und unter `'neuerName'` nennt die Antwort
-			zusätzlich genau eine Zeile. Es spricht nie mehr als eine.
+			hat — diese, die obere, die am Kurznamen und zwei je aktiver Mitgliedszeile —, ist
+			unbedenklich: die Marken `null`, `'name'`, `'kurzname'`, `'neuerName'`
+			und `'neuerKurzname'` schliessen einander aus, und unter den zwei
+			letzten nennt die Antwort zusätzlich genau eine Zeile. Es spricht nie mehr als eine.
 
 			Das aria-describedby am Feld bleibt **bedingt**: eine Beschreibung, die
 			auf ein leeres Element zeigt, sagt nichts.
@@ -535,7 +540,8 @@
 				aria-invalid={fehlerAmKurznamen === '' ? undefined : 'true'}
 			/>
 			<p class="hinweis hinweis--am-feld" id="kurzname-hinweis">
-				Freiwillig — leer gilt der Vorname. So steht die Person an Ernte, Tränkeplan und Terminen.
+				Freiwillig — leer gilt das erste Wort des Namens. So heisst die Person überall in der App
+				ausser hier.
 			</p>
 		</div>
 		<p class="fehler live" id="kurzname-fehler" role="alert" aria-live="assertive">
@@ -710,7 +716,7 @@
 								>
 									Kurzname
 								</label>
-								<!-- Leer gilt der Vorname; der Hinweis sagt das am Feld. -->
+								<!-- Leer gilt das erste Wort des Namens; der Hinweis sagt das am Feld. -->
 								<input
 									class="feld"
 									id="neuer-kurzname-{mitglied.id}"
@@ -722,11 +728,11 @@
 									aria-labelledby="neuer-kurzname-label-{mitglied.id} mitglied-name-{mitglied.id}"
 									aria-invalid={fehlerHier && zeilenFeld === 'neuerKurzname' ? 'true' : undefined}
 									aria-describedby={fehlerHier && zeilenFeld === 'neuerKurzname'
-										? `neuer-kurzname-hinweis-${mitglied.id} neuer-name-fehler-${mitglied.id}`
+										? `neuer-kurzname-hinweis-${mitglied.id} neuer-kurzname-fehler-${mitglied.id}`
 										: `neuer-kurzname-hinweis-${mitglied.id}`}
 								/>
 								<p class="hinweis hinweis--am-feld" id="neuer-kurzname-hinweis-{mitglied.id}">
-									Freiwillig — leer gilt der Vorname.
+									Freiwillig — leer gilt das erste Wort des Namens.
 								</p>
 							</div>
 							<button
@@ -761,7 +767,20 @@
 						role="alert"
 						aria-live="assertive"
 					>
-						{fehlerHier ? fehlerAmNeuenNamen : ''}
+						{fehlerHier && zeilenFeld === 'neuerName' ? fehlerAmNeuenNamen : ''}
+					</p>
+					<!--
+						Der Satz am Kurznamenfeld — ein eigener, damit er zu dem Feld gehört,
+						das nicht trägt (Review vom 2026-10-26). Ausserhalb des <details> und
+						immer im Markup, aus demselben Grund wie der Satz zum Namen darüber.
+					-->
+					<p
+						class="fehler live"
+						id="neuer-kurzname-fehler-{mitglied.id}"
+						role="alert"
+						aria-live="assertive"
+					>
+						{fehlerHier && zeilenFeld === 'neuerKurzname' ? fehlerAmNeuenNamen : ''}
 					</p>
 				{/if}
 

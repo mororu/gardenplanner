@@ -86,6 +86,7 @@ import { ortVereinheitlichen } from '../src/lib/beet.ts';
 import {
 	DIENSTART_TRAENKEN,
 	dutyWeeks,
+	harvests,
 	members,
 	ohneTokenHash,
 	sheets,
@@ -135,6 +136,7 @@ import {
 import {
 	dienstwocheAustragen,
 	dienstwocheBesetzen,
+	dienstwocheEintragen,
 	dienstwochenLesen,
 	eigeneDienstwoche,
 } from '../src/lib/server/db/queries/duty-weeks.ts';
@@ -292,6 +294,8 @@ import {
 	traktandenlisteLesen,
 } from '../src/lib/server/protokollablage.ts';
 import {
+	protokolleLesen,
+	protokollVermerken,
 	traktandenLesen,
 	traktandenlistedateiLesen,
 	traktandenlistenLesen,
@@ -304,7 +308,7 @@ import {
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 831;
+const ERWARTETE_BEHAUPTUNGEN = 835;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -4294,7 +4298,7 @@ try {
 		`verletzt: ${fehlendeTeile(regionenTeile).join(', ')}`
 	);
 	pruefenGleich(
-		'und es sind neun höfliche, siebenunddreissig unterbrechende, eine Ansage und genau eine, die nur die CSS-Rolle braucht',
+		'und es sind neun höfliche, achtunddreissig unterbrechende, eine Ansage und genau eine, die nur die CSS-Rolle braucht',
 		JSON.stringify(
 			liveTags
 				.map(([, roh]) => roh.replace(/\s+/g, ' '))
@@ -4341,7 +4345,7 @@ try {
 		// /wissen hat zwei Feldmeldungen dazubekommen (Titel und Datei des
 		// Ablegen-Formulars), /wissen/dokument/[id] bringt eine Meldungs- und eine
 		// Fehlerregion mit.
-		JSON.stringify({ hoeflich: 9, unterbrechend: 37, ansage: 1, keineRegion: 1 })
+		JSON.stringify({ hoeflich: 9, unterbrechend: 38, ansage: 1, keineRegion: 1 })
 	);
 
 	const rueckmeldungRumpf = glatterRumpf(
@@ -7550,7 +7554,7 @@ try {
 			/aria-describedby=\{fehlerHier && zeilenFeld === 'neuerName' \? `neuer-name-fehler-\$\{mitglied\.id\}` : undefined\}/.test(
 				umbenennenFormular
 			) &&
-				/aria-describedby=\{fehlerHier && zeilenFeld === 'neuerKurzname' \? `neuer-kurzname-hinweis-\$\{mitglied\.id\} neuer-name-fehler-\$\{mitglied\.id\}`/.test(
+				/aria-describedby=\{fehlerHier && zeilenFeld === 'neuerKurzname' \? `neuer-kurzname-hinweis-\$\{mitglied\.id\} neuer-kurzname-fehler-\$\{mitglied\.id\}`/.test(
 					umbenennenFormular
 				),
 		],
@@ -7610,10 +7614,18 @@ try {
 			 * Prettier den Tag faltet oder auf eine Zeile zieht, ist keine gebrochene
 			 * Zusage.
 			 */
-			'und der Satz gilt nur der abgewiesenen Zeile',
-			/id="neuer-name-fehler-\{mitglied\.id\}"[^>]*>\s*\{fehlerHier \? fehlerAmNeuenNamen : ''\}/.test(
+			/*
+			 * Seit dem 2026-10-26 zwei Sätze je Zeile, einer je Feld (Review zu
+			 * spec-notiz-und-kurzname.md): jeder gilt der abgewiesenen Zeile **und**
+			 * seinem Feld.
+			 */
+			'und der Satz gilt nur der abgewiesenen Zeile und seinem Feld',
+			/id="neuer-name-fehler-\{mitglied\.id\}"[^>]*>\s*\{fehlerHier && zeilenFeld === 'neuerName' \? fehlerAmNeuenNamen : ''\}/.test(
 				verwaltungGlatt
-			),
+			) &&
+				/id="neuer-kurzname-fehler-\{mitglied\.id\}"[^>]*>\s*\{fehlerHier && zeilenFeld === 'neuerKurzname' \? fehlerAmNeuenNamen : ''\}/.test(
+					verwaltungGlatt
+				),
 		],
 	] as const;
 	pruefen(
@@ -7682,6 +7694,14 @@ try {
 				/meldungKasten\?\.focus\(\)/.test(fokusRumpf),
 		],
 		[
+			// Eine Abweisung am Kurznamen der Aufnahme: an dessen Feld (Review vom
+			// 2026-10-26) — nicht in die leere obere Region.
+			'fokusNach springt bei einer Abweisung am Kurznamen der Aufnahme an dessen Feld',
+			/if \(daten\?\.feld === 'kurzname'\) \{ document\.getElementById\('kurzname'\)\?\.focus\(\); return; \}/.test(
+				fokusRumpf
+			),
+		],
+		[
 			/*
 			 * Eine beendete Zeile trägt kein Umbenennen-Formular. Serverseitig hält
 			 * das die Bedingung is_active = 1 in der Query; im Markup hängt es allein
@@ -7697,7 +7717,7 @@ try {
 		],
 	] as const;
 	pruefen(
-		'die vier Einzelzusagen der Verwaltungskomponente stehen',
+		'die fünf Einzelzusagen der Verwaltungskomponente stehen',
 		fehlendeTeile(zusagenTeile).length === 0,
 		`fehlt: ${fehlendeTeile(zusagenTeile).join(', ')}`
 	);
@@ -11495,6 +11515,7 @@ try {
 		zusatz: string | null;
 		erledigtAm: number;
 		uebernehmer: string | null;
+		uebernehmerVoll: string | null;
 	};
 	const archivStand = await routenausgang(() => archiv.load());
 	const archivListe = (wertVon(archivStand).erledigte ?? []) as Archivzeile[];
@@ -11543,6 +11564,8 @@ try {
 	pruefen(
 		'ein abgeschlossener Termin steht mit seinem Übernehmer im Archiv, ein offener gar nicht',
 		archivTerminZeile?.uebernehmer === 'Tami N.' &&
+			// Der volle Name reist für die Suche mit (Review vom 2026-10-26).
+			archivTerminZeile?.uebernehmerVoll === 'Tamara Nüesch' &&
 			!archivSchluessel.includes(`termin-${archivTerminOffen.id}`),
 		`Terminzeile: ${JSON.stringify(archivTerminZeile ?? null)}`
 	);
@@ -11550,7 +11573,7 @@ try {
 		'und die Poolzeilen daneben bleiben namenlos',
 		archivListe
 			.filter((zeile) => zeile.schluessel.startsWith('aufgabe-'))
-			.every((zeile) => zeile.uebernehmer === null),
+			.every((zeile) => zeile.uebernehmer === null && zeile.uebernehmerVoll === null),
 		JSON.stringify(archivListe.filter((zeile) => zeile.uebernehmer !== null).slice(0, 3))
 	);
 	pruefen(
@@ -12060,11 +12083,11 @@ try {
 		(zeile) => zeile.art === 'wellness'
 	);
 	pruefenGleich(
-		'jede Wellnesszeile trägt genau art, erledigtAm, schluessel, text, uebernehmer und zusatz',
+		'jede Wellnesszeile trägt genau art, erledigtAm, schluessel, text, uebernehmer, uebernehmerVoll und zusatz',
 		`${wellnessAmEnde.length} / ${[
 			...new Set(wellnessAmEnde.map((zeile) => Object.keys(zeile).sort().join(','))),
 		].join(' | ')}`,
-		'5 / art,erledigtAm,schluessel,text,uebernehmer,zusatz'
+		'5 / art,erledigtAm,schluessel,text,uebernehmer,uebernehmerVoll,zusatz'
 	);
 	/*
 	 * Der Name der eintragenden Person — und die Gegenprobe, dass es ihn zu
@@ -12929,8 +12952,41 @@ try {
 			JSON.stringify(kurznamePruefen(`${kurzGrenze}k`)) ===
 				JSON.stringify({ fehler: KURZNAME_ZU_LANG }),
 		],
-		['ein leerer Kurzname zählt wie keiner', anzeigename('Pia Roth', '') === 'Pia'],
+		/*
+		 * **Eine Faltung für Name und Kurzname** (Review vom 2026-10-26): beide
+		 * Prüfungen rufen nameFalten, und im Modul steht die Leerraum-Faltung genau
+		 * einmal. Eine zweite Fassung liefe beim ersten Unterschied auseinander.
+		 */
+		[
+			'Name und Kurzname falten über dieselbe Funktion',
+			(() => {
+				const quelle = quelltext('src', 'lib', 'mitgliedsname.ts');
+				const rumpf = (name: string) => {
+					const von = quelle.indexOf(`export function ${name}(`);
+					return von < 0 ? '' : quelle.slice(von, quelle.indexOf('\n}\n', von));
+				};
+				return (
+					(quelle.match(/\.replace\(\/\\s\+\/g, ' '\)/g) ?? []).length === 1 &&
+					/\bnameFalten\(eingabe\)/.test(rumpf('namePruefen')) &&
+					/\bnameFalten\(eingabe\)/.test(rumpf('kurznamePruefen'))
+				);
+			})(),
+		],
 	] as const;
+	const anzeigeRandTeile = [
+		['ein leerer Kurzname zählt wie keiner', anzeigename('Pia Roth', '') === 'Pia'],
+		['ein Kurzname aus Leerraum zählt wie keiner', anzeigename('Pia Roth', '   ') === 'Pia'],
+		['ein Name aus einem Wort bleibt ganz', anzeigename('Pia', null) === 'Pia'],
+		[
+			'ein leerer Name ohne Kurzname heisst unbekannt, nicht leer',
+			anzeigename('', null) === 'unbekannt' && anzeigename('   ', null) === 'unbekannt',
+		],
+	] as const;
+	pruefen(
+		'anzeigename an den Rändern: leerer Kurzname, ein Wort, leerer Name',
+		fehlendeTeile(anzeigeRandTeile).length === 0,
+		`fehlt: ${fehlendeTeile(anzeigeRandTeile).join(', ')}`
+	);
 	pruefen(
 		'kurznamePruefen faltet, macht leer zu null und hält die Grenze',
 		fehlendeTeile(kurznameTeile).length === 0,
@@ -12959,6 +13015,14 @@ try {
 				{ name: 'Nici Meier', kurzname: null, isActive: true },
 				{ name: 'Nici Müller', kurzname: 'Nici Mü', isActive: true },
 			]).length === 0,
+		],
+		[
+			// `Mü` einmal als ein Zeichen, einmal als u plus Trema.
+			'NFC-normalisiert verglichen',
+			gleicheAnzeigenamen([
+				{ name: 'Nici Müller', kurzname: 'Nici M\u00fc', isActive: true },
+				{ name: 'Nici Mühle', kurzname: 'Nici Mu\u0308', isActive: true },
+			]).length === 1,
 		],
 		[
 			'ohne Gross und Klein verglichen',
@@ -13124,9 +13188,32 @@ try {
 		neuerKurzname: '  ',
 	});
 	pruefen(
-		'ein leerer Kurzname beim Umbenennen entfernt ihn — dann gilt wieder der Vorname',
+		'ein leerer Kurzname beim Umbenennen entfernt ihn — dann gilt wieder das erste Wort des Namens',
 		kurzGeleert.art === 'wert' && mitgliedNachName('Nico Brunner')?.kurzname === null,
 		JSON.stringify(datenVon(kurzGeleert))
+	);
+
+	/*
+	 * Ein Kurzname aus lauter Leerzeichen, von Hand in die Spalte gesetzt (Review
+	 * vom 2026-10-26): die Seite schickt ihn als Abdruck zurück, und das muss
+	 * treffen — sonst wäre die Zeile für immer gegen Umbenennen gesperrt.
+	 */
+	datenbank()
+		.update(members)
+		.set({ kurzname: '  ' })
+		.where(eq(members.id, nicoBrunner?.id ?? 0))
+		.run();
+	const kurzAusLeerraum = await umbenennenMitKurz({
+		mitgliedId: nicoId,
+		bekannterName: 'Nico Brunner',
+		bekannterKurzname: '  ',
+		neuerName: 'Nico Brunner',
+		neuerKurzname: 'Nico B.',
+	});
+	pruefen(
+		'ein Kurzname aus lauter Leerzeichen in der Spalte sperrt das Umbenennen nicht',
+		kurzAusLeerraum.art === 'wert' && mitgliedNachName('Nico Brunner')?.kurzname === 'Nico B.',
+		JSON.stringify(datenVon(kurzAusLeerraum))
 	);
 
 	/*
@@ -13194,8 +13281,32 @@ try {
 			erntezeileLesen(notizZeileId)?.notiz === 'frühe Sorte, sehr gross',
 		JSON.stringify(wertVon(notizGefragt))
 	);
+	/*
+	 * **Der Abdruck der Notiz** (Review vom 2026-10-26): ein Versand, der eine
+	 * andere Notiz gesehen hat als die gespeicherte, schreibt nicht und bekommt
+	 * den Satz der veralteten Seite.
+	 */
+	const notizVeraltet = await ernteAktion('notizAendern', {
+		id: String(notizZeileId),
+		bekannteNotiz: 'eine alte Fassung',
+		notiz: 'wenig',
+	});
+	const notizOhneAbdruck = await ernteAktion('notizAendern', {
+		id: String(notizZeileId),
+		notiz: 'wenig',
+	});
+	pruefen(
+		'eine Notiz aus einer veralteten Seite schreibt nicht — weder mit falschem noch ohne Abdruck',
+		notizVeraltet.art === 'fehlschlag' &&
+			datenVon(notizVeraltet).meldung === ERNTEZEILE_NICHT_ANSPRECHBAR &&
+			notizOhneAbdruck.art === 'fehlschlag' &&
+			datenVon(notizOhneAbdruck).meldung === ERNTEZEILE_NICHT_ANSPRECHBAR &&
+			erntezeileLesen(notizZeileId)?.notiz === 'frühe Sorte, sehr gross',
+		JSON.stringify({ veraltet: datenVon(notizVeraltet), ohne: datenVon(notizOhneAbdruck) })
+	);
 	const notizGeaendert = await ernteAktion('notizAendern', {
 		id: String(notizZeileId),
+		bekannteNotiz: 'frühe Sorte, sehr gross',
 		notiz: ' wenig ',
 	});
 	pruefen(
@@ -13219,13 +13330,33 @@ try {
 			erntezeileLesen(notizZeileId)?.notiz === 'wenig',
 		JSON.stringify(datenVon(notizAmFeldZuLang))
 	);
-	const notizGeleert = await ernteAktion('notizAendern', { id: String(notizZeileId), notiz: '' });
+	const notizGeleert = await ernteAktion('notizAendern', {
+		id: String(notizZeileId),
+		bekannteNotiz: 'wenig',
+		notiz: '',
+	});
 	pruefen(
 		'eine geleerte Notiz ist entfernt — die Notizzeile fällt weg',
 		notizGeleert.art === 'wert' &&
 			erntezeileLesen(notizZeileId)?.notiz === null &&
 			String(wertVon(notizGeleert).meldung).includes('entfernt'),
 		JSON.stringify(wertVon(notizGeleert))
+	);
+	/*
+	 * Eine Notiz aus lauter Leerzeichen, von Hand in die Spalte gesetzt: die
+	 * Seite schickt sie als „keine" zurück, und das muss treffen — sonst wäre
+	 * die Zeile für immer gesperrt.
+	 */
+	datenbank().update(harvests).set({ notiz: '   ' }).where(eq(harvests.id, notizZeileId)).run();
+	const notizAusLeerraum = await ernteAktion('notizAendern', {
+		id: String(notizZeileId),
+		bekannteNotiz: '   ',
+		notiz: 'zuerst',
+	});
+	pruefen(
+		'eine Notiz aus lauter Leerzeichen in der Spalte sperrt die Zeile nicht',
+		notizAusLeerraum.art === 'wert' && erntezeileLesen(notizZeileId)?.notiz === 'zuerst',
+		JSON.stringify(datenVon(notizAusLeerraum))
 	);
 	abgewiesen(
 		'eine Notiz an einer Zeile, die es nicht gibt, fällt mit dem Satz der Seite',
@@ -13243,6 +13374,16 @@ try {
 	const besetzt = dienstwocheBesetzen(kurzWoche, nici.id);
 	const kurzPlan = dienstwochenLesen([kurzWoche])[0];
 	dienstwocheAustragen(kurzWoche, nici.id);
+	const kurzSelbstEingetragen = dienstwocheEintragen(kurzWoche, nici.id);
+	dienstwocheAustragen(kurzWoche, nici.id);
+	protokollVermerken({
+		sitzungAm: Math.floor(Date.now() / 1000),
+		datei: `kurzname-probe-${nici.id}.pdf`,
+		memberId: nici.id,
+	});
+	const kurzProtokoll = protokolleLesen().find(
+		(protokoll) => protokoll.name === 'Nici Mü' || protokoll.name === 'Nici Müller'
+	);
 	const kurzTermin = einzelaufgabeAusschreiben(
 		'Kurzname am Termin prüfen',
 		Math.floor(Date.now() / 1000) + 5 * TAG_SEKUNDEN
@@ -13259,8 +13400,23 @@ try {
 	);
 	const anzeigeTeile = [
 		[
-			'im Tränkeplan, beim Besetzen und in der Liste',
-			besetzt?.name === 'Nici Mü' && kurzPlan?.name === 'Nici Mü',
+			'im Tränkeplan, beim Besetzen, beim Selbst-Eintragen und in der Liste',
+			besetzt?.name === 'Nici Mü' &&
+				kurzPlan?.name === 'Nici Mü' &&
+				kurzSelbstEingetragen?.name === 'Nici Mü',
+		],
+		['an einem abgelegten Protokoll', kurzProtokoll?.name === 'Nici Mü'],
+		[
+			/*
+			 * Die Suche auf /archiv liest den vollen Namen mit (Entscheid unter
+			 * Manuels Übertragung, Review vom 2026-10-26). Am Quelltext geprüft:
+			 * die Suche läuft im Browser, und die Daten dafür prüft der
+			 * Archivblock weiter oben (`uebernehmerVoll`).
+			 */
+			'und die Archivsuche findet weiter über den vollen Namen',
+			/const durchsuchbar = [\s\S]*?zeile\.uebernehmerVoll \?\? ''[\s\S]*?\.join\(' '\)/.test(
+				quelltext('src', 'routes', 'archiv', '+page.svelte')
+			),
 		],
 		[
 			'an einem übernommenen Termin',

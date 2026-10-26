@@ -103,7 +103,8 @@ export function load({ locals }: ServerLoadEvent): { stand: Erntezeile[] } {
  *
  * `feld` ist `'kultur'`, `'ort'`, `'status'` oder `'notiz'` am
  * Eintragen-Formular, `'aendernNotiz'` am Notizfeld einer Karte und null an
- * den zwei Zeilen-Aktionen, die kein Feld haben. `zeile` trägt die Kennung der
+ * den drei Zeilen-Aktionen, wo sie kein Feld treffen (Umstufen, Abernten und
+ * eine Notiz an einer Zeile, die es nicht mehr gibt oder die sich geändert hat). `zeile` trägt die Kennung der
  * Erntezeile, damit die Meldung an ihr steht statt oben.
  *
  * `eingabe` trägt die verworfene Kultur zurück, `zweiteEingabe` den Ort — die
@@ -287,9 +288,22 @@ export const actions = {
 			return abweisen(notiz.fehler, 'aendernNotiz', notizRoh, id);
 		}
 
-		// Die zweite Prüfung auf null schliesst das Fenster zwischen Auskunft und
-		// UPDATE: dazwischen kann jemand die Zeile abernten.
-		const zeile = ernteNotizSetzen(id, notiz.notiz);
+		/*
+		 * **Der Abdruck der Notiz, die die absendende Seite sah** (Entscheid unter
+		 * Manuels Übertragung, Review vom 2026-10-26): geschrieben wird nur, wenn
+		 * er noch stimmt. Ohne ihn drehte ein veralteter Tab eine neuere Notiz
+		 * still zurück — dieselbe Klammer wie `bekannterName` und
+		 * `bekannterKurzname` auf /verwaltung. Leer und fehlend heissen „keine
+		 * Notiz", ebenso einer aus lauter Leerzeichen; sonst kein Falten, weil er ein
+		 * Abdruck ist und keine Eingabe.
+		 *
+		 * Abgeerntet, veraltet und unbekannt fallen danach auf einen Satz: in
+		 * allen Fällen ist die angezeigte Liste veraltet.
+		 */
+		const rohBekannt = formular.get('bekannteNotiz');
+		const bekannteNotiz =
+			typeof rohBekannt === 'string' && rohBekannt.trim() !== '' ? rohBekannt : null;
+		const zeile = ernteNotizSetzen(id, notiz.notiz, bekannteNotiz);
 		if (zeile === null) {
 			return abweisen(ERNTEZEILE_NICHT_ANSPRECHBAR, null, '', id);
 		}

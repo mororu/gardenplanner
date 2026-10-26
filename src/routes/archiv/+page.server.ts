@@ -96,6 +96,12 @@ export type Archivzeile = {
 	zusatz: string | null;
 	erledigtAm: number;
 	uebernehmer: string | null;
+	/**
+	 * Der volle Name zu `uebernehmer`, gelesen allein von der Suche — angezeigt
+	 * wird der Anzeigename (spec-notiz-und-kurzname.md, Review vom 2026-10-26).
+	 * Null, wo `uebernehmer` null ist.
+	 */
+	uebernehmerVoll: string | null;
 };
 
 /**
@@ -126,6 +132,7 @@ export function load(): { erledigte: Archivzeile[] } {
 		// Namenlos, und zwar nicht mangels Daten: die Spalte gibt es, sie verlässt
 		// nur die Abfrageschicht nicht (AD-5).
 		uebernehmer: null,
+		uebernehmerVoll: null,
 	}));
 	const ausDenTerminen: Archivzeile[] = abgeschlosseneEinzelaufgabenLesen().map((termin) => ({
 		schluessel: `termin-${termin.id}`,
@@ -134,6 +141,7 @@ export function load(): { erledigte: Archivzeile[] } {
 		zusatz: null,
 		erledigtAm: termin.erledigtAm,
 		uebernehmer: termin.uebernehmer,
+		uebernehmerVoll: termin.uebernehmerVoll,
 	}));
 	/*
 	 * Aus dem Tagebuch **je Abschluss eine Zeile** (Entscheid Manuel,
@@ -156,6 +164,7 @@ export function load(): { erledigte: Archivzeile[] } {
 			zusatz: abschluss.mittel.map(({ mittel, anzahl }) => `${mittel} ${anzahl}×`).join(', '),
 			erledigtAm: abschluss.abgeschlossenAm,
 			uebernehmer: null,
+			uebernehmerVoll: null,
 		})
 	);
 	/*

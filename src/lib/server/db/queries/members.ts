@@ -295,8 +295,8 @@ export function aktivesMitgliedLesen(id: number): AngemeldetesMitglied | null {
  * Zugang wird nicht umbenannt — es gibt an ihm nichts mehr zu tun.
  *
  * **Der bekannte Stand (`bekannt`) entscheidet das Wettrennen in der where-Klausel**, nicht in
- * der Route. Geschrieben wird nur, wenn in der Spalte noch genau der Name steht,
- * den die absendende Seite gesehen hat. Dieselbe Bauform wie bei aufgabeAbhaken
+ * der Route. Geschrieben wird nur, wenn in den Spalten noch genau der Name und
+ * der Kurzname stehen, die die absendende Seite gesehen hat. Dieselbe Bauform wie bei aufgabeAbhaken
  * in ./tasks.ts, wo `completed_at IS NULL` das Wettrennen zweier Abhakender
  * entscheidet — und aus demselben Grund an derselben Stelle: eine Prüfung in der
  * Route liesse zwischen Lesen und Schreiben ein Fenster offen, und genau darum
@@ -340,9 +340,13 @@ export function mitgliedUmbenennen(
 				eq(members.isActive, true),
 				eq(members.name, bekannt.name),
 				// null ist kein Wert, mit dem `=` etwas trifft: ein bekannter Kurzname
-				// »keiner« vergleicht über IS NULL.
+				// „keiner" vergleicht über IS NULL — und trifft auch einen gespeicherten
+				// Wert aus lauter Leerzeichen. Die Anwendung schreibt ihn nie
+				// (kurznamePruefen macht ihn zu null), aber eine Zeile, in der er von
+				// Hand stünde, wäre sonst für immer gegen Umbenennen gesperrt: die Seite
+				// schickt ihn als „keiner" zurück (Review vom 2026-10-26).
 				bekannt.kurzname === null
-					? isNull(members.kurzname)
+					? or(isNull(members.kurzname), eq(sql`trim(${members.kurzname})`, ''))
 					: eq(members.kurzname, bekannt.kurzname)
 			)
 		)

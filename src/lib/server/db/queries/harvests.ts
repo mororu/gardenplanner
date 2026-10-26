@@ -1,4 +1,4 @@
-import { asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import { ERNTESTATUS, type Erntestatus } from '../../../ernte.ts';
 import { anzeigename, anzeigenameOderNull } from '../../../mitgliedsname.ts';
 import { datenbank } from '../index.ts';
@@ -210,14 +210,34 @@ export function ernteUmstufen(id: number, status: Erntestatus): Erntezeile | nul
  * zu suchen, die die Zeile angelegt hat. null entfernt die Notiz; die Notiz
  * kommt fertig geprüft herein (`notizPruefen` in src/lib/ernte.ts).
  *
+ * **Aber mit einer Vorbedingung auf die Notiz, die die absendende Seite sah**
+ * (`bekannteNotiz`, Review vom 2026-10-26): anders als beim Umstufen ist die
+ * zweite Angabe nicht einfach die jüngere — sie ist Text, den jemand über
+ * einen Text geschrieben hat, den er gar nicht gesehen hat. Dieselbe Bauform
+ * wie mitgliedUmbenennen in ./members.ts. Ein gespeicherter Wert aus lauter
+ * Leerzeichen zählt dabei wie keiner: die Anwendung schreibt ihn nie
+ * (`notizPruefen` macht ihn zu null), und eine Zeile, die so in der Spalte
+ * stünde, wäre sonst für immer gesperrt.
+ *
  * null zurück heisst: die Zeile gibt es nicht mehr — jemand hat sie
- * abgeerntet.
+ * abgeerntet —, oder ihre Notiz ist inzwischen eine andere.
  */
-export function ernteNotizSetzen(id: number, notiz: string | null): Erntezeile | null {
+export function ernteNotizSetzen(
+	id: number,
+	notiz: string | null,
+	bekannteNotiz: string | null
+): Erntezeile | null {
 	const zeile = datenbank()
 		.update(harvests)
 		.set({ notiz })
-		.where(eq(harvests.id, id))
+		.where(
+			and(
+				eq(harvests.id, id),
+				bekannteNotiz === null
+					? or(isNull(harvests.notiz), eq(sql`trim(${harvests.notiz})`, ''))
+					: eq(harvests.notiz, bekannteNotiz)
+			)
+		)
 		.returning({ id: harvests.id })
 		.get();
 	return zeile === undefined ? null : erntezeileLesen(zeile.id);

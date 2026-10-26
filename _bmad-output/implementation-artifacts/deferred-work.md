@@ -1434,3 +1434,6 @@ werden** — sie sind zurückgestellt und nicht abgeschlossen.
 - source_spec: `_bmad-output/implementation-artifacts/spec-ernte-nach-beet.md`
   summary: Die neue Ernteliste ist von Hand ungeprüft (R5): Ansage des Beet-Kopfs mit Zähler, des X (`Abgeerntet {Kultur}, {Ort}`) und des Kreiszeichens durch VoiceOver/TalkBack; die per `::before` erweiterten Trefferfelder auf iOS Safari; Ansicht bei 375px auf einem Telefon.
   evidence: Review 2026-10-26. `smoke:sicht` misst Trefferfelder und Namen in Chromium; die Ansage und WebKit sind die offenen Zeilen 1 und 2 der R5-Liste, hier für /ernte neu entstanden.
+- source_spec: `_bmad-output/implementation-artifacts/spec-notiz-und-kurzname.md`
+  summary: Handprüfung bei 375px auf einem Telefon offen (R5): die Erntekarte mit drei Knöpfen (`Sofort`, Stift, X) lässt dem Text 123px — lesbar, treffbar? —, und die Warnung bei gleichem Anzeigenamen in der Verwaltung, die nur als Satz ohne Farbe steht.
+  evidence: Review 2026-10-26. Gemessen im Sichtlauf (Chromium, 375×812, `.ernte__text` 123px mit drei, 197px mit zwei Knöpfen); Trefferfelder und Namen prüft `smoke:sicht`. Ob die Karte so lesbar ist und die Warnung auffällt, braucht einen Blick von Manuel auf dem Gerät; Ansage durch einen Screenreader ebenso ungeprüft.

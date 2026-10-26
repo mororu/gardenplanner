@@ -279,7 +279,15 @@ export function einzelaufgabenLesen(): Einzelaufgabe[] {
 export type AbgeschlossenerTermin = {
 	id: number;
 	titel: string;
+	/** Der Anzeigename — was an der Zeile steht. */
 	uebernehmer: string | null;
+	/**
+	 * Der volle Name derselben Person, **nur für die Suche** auf /archiv
+	 * (Entscheid unter Manuels Übertragung, Review vom 2026-10-26): wer nach
+	 * einem Nachnamen sucht, soll den Termin weiter finden, auch wenn die Zeile
+	 * nur `Nici Mü` zeigt. null unter denselben Bedingungen wie `uebernehmer`.
+	 */
+	uebernehmerVoll: string | null;
 	erledigtAm: number;
 };
 
@@ -321,6 +329,7 @@ export function abgeschlosseneEinzelaufgabenLesen(): AbgeschlossenerTermin[] {
 							titel: zeile.titel,
 							uebernehmer:
 								zeile.istAktiv === true ? anzeigenameOderNull(zeile.name, zeile.kurzname) : null,
+							uebernehmerVoll: zeile.istAktiv === true ? zeile.name : null,
 							erledigtAm: zeile.completedAt,
 						},
 					]

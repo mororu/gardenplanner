@@ -87,7 +87,12 @@ import {
 	wurzel,
 	type Server,
 } from './pruefserver.ts';
-import { NAME_HOECHSTLAENGE, NAME_ZU_LANG } from '../src/lib/mitgliedsname.ts';
+import {
+	KURZNAME_HOECHSTLAENGE,
+	KURZNAME_ZU_LANG,
+	NAME_HOECHSTLAENGE,
+	NAME_ZU_LANG,
+} from '../src/lib/mitgliedsname.ts';
 /*
  * Der Satz zum fehlenden Blatt-Titel kommt als **Wert** und nicht abgeschrieben.
  * Derselbe Grund wie bei NAME_ZU_LANG darüber und wie in smoke-zugang.ts: die
@@ -118,7 +123,7 @@ import {
  * Stellen, von denen eine niemand rot macht, ist schlechter als eine Zahl an
  * einer — die Schlussmeldung des Laufs nennt sie ohnehin bei jedem Durchgang.
  */
-const ERWARTETE_BEHAUPTUNGEN = 190;
+const ERWARTETE_BEHAUPTUNGEN = 194;
 
 /**
  * Ein Jahr in Sekunden — die Laufzeit aus src/lib/server/auth.ts.
@@ -163,6 +168,26 @@ function abschicken(
 		redirect: 'manual',
 		signal: AbortSignal.timeout(ANFRAGE_SCHRANKE_MS),
 	});
+}
+
+/**
+ * Steht `wort` als **ganzes Wort** im Text? Für die Namensproben seit dem
+ * 2026-10-26 (spec-notiz-und-kurzname.md): die Anzeigenamen der Saat sind kurz
+ * (`Vera`, `Manu M.`), und ein `includes` zählte `Manuel` als `Manu`.
+ *
+ * Der Wert wird für den regulären Ausdruck maskiert (der Punkt in `Manu M.`
+ * wäre sonst ein beliebiges Zeichen). „Ganzes Wort" heisst: weder davor noch
+ * danach ein Buchstabe oder eine Ziffer, Unicode-weit.
+ *
+ * **Die Grenze der Probe, ausgeschrieben:** eine negative Probe damit sucht
+ * das Wort im ganzen Dokument und nicht an einer bestimmten Stelle. Sie wird
+ * auch dann rot, wenn das Wort aus einem anderen Grund dasteht (ein Titel, der
+ * `Vera` enthält). Die Saat führt keinen solchen Text; wer einen hinzufügt,
+ * sieht die Probe fallen und muss sie enger fassen, nicht abschwächen.
+ */
+function alsWort(text: string, wort: string): boolean {
+	const maskiert = wort.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	return new RegExp(`(?<![\\p{L}\\p{N}])${maskiert}(?![\\p{L}\\p{N}])`, 'u').test(text);
 }
 
 /**
@@ -758,6 +783,18 @@ try {
 	const fehlendeTeile = (teile: readonly (readonly [string, boolean])[]) =>
 		teile.filter(([, gefunden]) => !gefunden).map(([name]) => name);
 
+	/*
+	 * Die Hilfe für die Namensproben, einmal an Hand vorgeführt: ein Teilwort
+	 * zählt nicht, der Punkt in `Manu M.` ist kein beliebiges Zeichen, und ein
+	 * Treffer mitten im Satz zählt.
+	 */
+	pruefen(
+		'alsWort zählt nur ganze Wörter und maskiert den Namen',
+		!alsWort('Manuel', 'Manu') &&
+			!alsWort('Manu Mx', 'Manu M.') &&
+			alsWort('von Manu M., heute', 'Manu M.') &&
+			alsWort('Vera · 26.10.', 'Vera')
+	);
 	const verwaltungHtml = await verwaltungAlsAdmin.text();
 	/*
 	 * Je Formular **eigens** geschnitten, Tag und Rumpf zusammen.
@@ -821,6 +858,125 @@ try {
 		'/verwaltung liefert das Umbenennen-Formular aus — ohne JavaScript bedienbar',
 		fehlendeTeile(noJsTeile).length === 0,
 		`fehlt: ${fehlendeTeile(noJsTeile).join(', ')} (${umbenennenFormulare.length} Formular(e))`
+	);
+
+	/*
+	 * **Der Kurzname am ausgelieferten Dokument** (spec-notiz-und-kurzname.md,
+	 * Review vom 2026-10-26). Das Formular der Zeile von MITGLIED trägt
+	 * `neuerKurzname` mit `Manu M.` und den Abdruck `bekannterKurzname` mit
+	 * demselben Wert; das Aufnahmeformular trägt `name="kurzname"`, und jede
+	 * aktive Zeile sagt, wie die Person ausserhalb der Verwaltung heisst.
+	 *
+	 * Danach ein Umbenennen **mit genau den Werten, die das Formular trägt** —
+	 * so, wie ein Browser ohne JavaScript es abschickte. Es muss gelingen, und
+	 * der Kurzname muss danach derselbe sein. Fiele der Abdruck aus dem Formular
+	 * weg oder trüge er etwas anderes als die Spalte, endete genau dieser
+	 * Versand im Satz über das nicht ansprechbare Mitglied.
+	 */
+	const feldwert = (rumpf: string, name: string): string | null => {
+		const tag = new RegExp(`<input\\b[^>]*\\bname="${name}"[^>]*>`).exec(rumpf)?.[0];
+		return tag === undefined ? null : (/\bvalue="([^"]*)"/.exec(tag)?.[1] ?? '');
+	};
+	const manuFormular =
+		umbenennenFormulare.find(
+			(treffer) => feldwert(treffer[1] ?? '', 'bekannterName') === MITGLIED.name
+		)?.[1] ?? '';
+	const manuWerte = {
+		mitgliedId: feldwert(manuFormular, 'mitgliedId') ?? '',
+		bekannterName: feldwert(manuFormular, 'bekannterName') ?? '',
+		bekannterKurzname: feldwert(manuFormular, 'bekannterKurzname') ?? '',
+		neuerName: feldwert(manuFormular, 'neuerName') ?? '',
+		neuerKurzname: feldwert(manuFormular, 'neuerKurzname') ?? '',
+	};
+	const umbenanntOhneSkript = await abschicken(
+		port,
+		'/verwaltung?/umbenennen',
+		adminKeks,
+		manuWerte
+	);
+	const nachUmbenennenHtml = await (await holen(port, '/verwaltung', { keks: adminKeks })).text();
+	const manuNachher =
+		[
+			...nachUmbenennenHtml.matchAll(
+				/<form\b[^>]*action="\?\/umbenennen"[^>]*>([\s\S]*?)<\/form>/g
+			),
+		].find((treffer) => feldwert(treffer[1] ?? '', 'bekannterName') === MITGLIED.name)?.[1] ?? '';
+	const kurznameTeile = [
+		['die Zeile von MITGLIED war zu finden', manuFormular !== ''],
+		['neuerKurzname trägt den Kurznamen', manuWerte.neuerKurzname === MITGLIED.kurzname],
+		[
+			'bekannterKurzname trägt denselben Abdruck',
+			manuWerte.bekannterKurzname === MITGLIED.kurzname,
+		],
+		[
+			'das Aufnahmeformular trägt das Feld name="kurzname"',
+			/<form\b[^>]*action="\?\/aufnehmen"[^>]*>[\s\S]*?<input\b[^>]*\bname="kurzname"[\s\S]*?<\/form>/.test(
+				verwaltungHtml
+			),
+		],
+		[
+			'jede aktive Zeile sagt, wie die Person ausserhalb der Verwaltung heisst',
+			verwaltungHtml.includes(`Angezeigt als ${MITGLIED.anzeigename}<`) &&
+				verwaltungHtml.includes(`Angezeigt als ${ADMINPERSON.anzeigename}<`),
+		],
+		[
+			'ein Umbenennen mit genau den Werten des Formulars gelingt (303 oder 200, kein 400)',
+			umbenanntOhneSkript.status === 303 || umbenanntOhneSkript.status === 200,
+		],
+		[
+			'und der Kurzname ist danach derselbe',
+			feldwert(manuNachher, 'neuerKurzname') === MITGLIED.kurzname,
+		],
+	] as const;
+	pruefen(
+		'/verwaltung liefert Kurzname und Abdruck aus, und ein Umbenennen ohne JavaScript lässt den Kurznamen stehen',
+		fehlendeTeile(kurznameTeile).length === 0,
+		`fehlt: ${fehlendeTeile(kurznameTeile).join(', ')} (${JSON.stringify(manuWerte)}, Status ${umbenanntOhneSkript.status})`
+	);
+
+	/*
+	 * **Die Warnung bei gleichem Anzeigenamen, gerendert.** Eine zweite Vera
+	 * wird aufgenommen (ohne Kurzname, also `Vera` wie die Adminperson); die
+	 * Seite muss danach einen Satz tragen, der beide vollen Namen nennt. Danach
+	 * wird ihr Zugang beendet — die Saat ist für alles Weitere wieder dieselbe
+	 * (eine beendete Zeile steht in keiner Auswahl), und die Warnung muss fort
+	 * sein, weil beendete Zugänge nicht zählen.
+	 */
+	const zweiteVera = 'Vera Zweitname';
+	const veraAufgenommen = await abschicken(port, '/verwaltung?/aufnehmen', adminKeks, {
+		name: zweiteVera,
+		kurzname: '',
+	});
+	const mitWarnungHtml = await (await holen(port, '/verwaltung', { keks: adminKeks })).text();
+	const warnsatz = (html: string): string =>
+		[...html.matchAll(/<p\b[^>]*\bclass="[^"]*\bnamensgleich\b[^"]*"[^>]*>([\s\S]*?)<\/p>/g)]
+			.map((treffer) => (treffer[1] ?? '').replace(/<!--[\s\S]*?-->/g, '').replace(/\s+/g, ' '))
+			.join(' | ');
+	const zweiteVeraId =
+		new RegExp(`<p\\b[^>]*\\bid="mitglied-name-([0-9]+)"[^>]*>\\s*${zweiteVera}\\b`).exec(
+			mitWarnungHtml
+		)?.[1] ?? '';
+	const veraBeendet = await abschicken(port, '/verwaltung?/widerrufen', adminKeks, {
+		mitgliedId: zweiteVeraId,
+	});
+	const ohneWarnungHtml = await (await holen(port, '/verwaltung', { keks: adminKeks })).text();
+	const warnungTeile = [
+		['die zweite Vera ist aufgenommen', veraAufgenommen.status < 400 && zweiteVeraId !== ''],
+		[
+			'der Satz nennt beide vollen Namen und den gemeinsamen Anzeigenamen',
+			warnsatz(mitWarnungHtml).includes(ADMINPERSON.name) &&
+				warnsatz(mitWarnungHtml).includes(zweiteVera) &&
+				warnsatz(mitWarnungHtml).includes(`„${ADMINPERSON.anzeigename}"`),
+		],
+		[
+			'nach dem Beenden ihres Zugangs ist die Warnung fort',
+			veraBeendet.status < 400 && warnsatz(ohneWarnungHtml) === '',
+		],
+	] as const;
+	pruefen(
+		'/verwaltung warnt im Dokument bei zwei aktiven Personen mit gleichem Anzeigenamen',
+		fehlendeTeile(warnungTeile).length === 0,
+		`fehlt: ${fehlendeTeile(warnungTeile).join(', ')} (Satz: ${warnsatz(mitWarnungHtml)})`
 	);
 
 	/*
@@ -919,6 +1075,52 @@ try {
 		`fehlt: ${fehlendeTeile(abweisungsTeile).join(', ')} (Status ${abweisung.status}, ${aufgeklappte.length} offen)`
 	);
 
+	/*
+	 * **Und die Abweisung am Kurznamen, ohne JavaScript** (Review vom
+	 * 2026-10-26): der Satz steht im eigenen Satz des Kurznamenfelds dieser Zeile,
+	 * der Satz am Namen bleibt leer, und das Kurznamenfeld trägt die Kante und
+	 * die verworfene Eingabe. Der Name reist dabei ebenfalls zurück.
+	 */
+	const zuLangerKurzname = 'K'.repeat(KURZNAME_HOECHSTLAENGE + 1);
+	const kurzAbweisung = await abschicken(port, '/verwaltung?/umbenennen', adminKeks, {
+		mitgliedId: abgewieseneZeile,
+		bekannterName: abgewiesenerAbdruck,
+		neuerName: abgewiesenerAbdruck,
+		neuerKurzname: zuLangerKurzname,
+	});
+	const kurzAbweisungHtml = await kurzAbweisung.text();
+	const regionText = (html: string, id: string): string =>
+		new RegExp(`<p\\b[^>]*\\bid="${id}"[^>]*>([\\s\\S]*?)</p>`)
+			.exec(html)?.[1]
+			?.replace(/<!--[\s\S]*?-->/g, '')
+			.trim() ?? '(fehlt)';
+	const kurzFeldTag =
+		new RegExp(`<input\\b[^>]*\\bid="neuer-kurzname-${abgewieseneZeile}"[^>]*>`).exec(
+			kurzAbweisungHtml
+		)?.[0] ?? '';
+	const kurzAbweisungsTeile = [
+		['die Antwort ist ein 400', kurzAbweisung.status === 400],
+		[
+			'der Satz steht am Kurznamen dieser Zeile',
+			regionText(kurzAbweisungHtml, `neuer-kurzname-fehler-${abgewieseneZeile}`) ===
+				KURZNAME_ZU_LANG,
+		],
+		[
+			'und nicht am Namen',
+			regionText(kurzAbweisungHtml, `neuer-name-fehler-${abgewieseneZeile}`) === '',
+		],
+		[
+			'das Kurznamenfeld trägt die Kante und die verworfene Eingabe',
+			/\baria-invalid="true"/.test(kurzFeldTag) &&
+				kurzFeldTag.includes(`value="${zuLangerKurzname}"`),
+		],
+	] as const;
+	pruefen(
+		'/verwaltung ohne JavaScript: ein zu langer Kurzname kommt mit dem Satz am Kurznamenfeld zurück',
+		fehlendeTeile(kurzAbweisungsTeile).length === 0,
+		`fehlt: ${fehlendeTeile(kurzAbweisungsTeile).join(', ')} (Status ${kurzAbweisung.status})`
+	);
+
 	const mehrOhneRechte = await holen(port, '/mehr', { keks: mitgliedKeks });
 	const mehrOhneRechteHtml = await mehrOhneRechte.text();
 	pruefenGleich('/mehr gehört allen und antwortet mit 200', mehrOhneRechte.status, 200);
@@ -986,7 +1188,7 @@ try {
 		// den Anzeigenamen (spec-notiz-und-kurzname.md). Nur den vollen zu suchen,
 		// prüfte seit dem 2026-10-26 eine Stelle, die ihn ohnehin nicht zeigt.
 		!planOhneRechteHtml.includes(ADMINPERSON.name) &&
-			planOhneRechteHtml.match(new RegExp(`>\\s*${ADMINPERSON.anzeigename}\\s*<`)) === null,
+			!alsWort(planOhneRechteHtml, ADMINPERSON.anzeigename),
 		planOhneRechteHtml.slice(0, 200)
 	);
 
@@ -1477,7 +1679,7 @@ try {
 	const nichtAdminTeile = [
 		[
 			'der Name der zuständigen Person steht da — die Gegenprobe',
-			eingetragenerAnzeigename !== '' && nachBesetzenHtml.includes(eingetragenerAnzeigename),
+			eingetragenerAnzeigename !== '' && alsWort(nachBesetzenHtml, eingetragenerAnzeigename),
 		],
 		[
 			// Der Plan nennt den Anzeigenamen und nie den vollen Namen.
@@ -1492,7 +1694,7 @@ try {
 			// auftauchen — der Rest der Namensliste ist fort.
 			'und der Name aus der Auswahl, der keine Woche hat, fehlt',
 			!nachBesetzenHtml.includes(ADMINPERSON.name) &&
-				nachBesetzenHtml.match(new RegExp(`>\\s*${ADMINPERSON.anzeigename}\\s*<`)) === null,
+				!alsWort(nachBesetzenHtml, ADMINPERSON.anzeigename),
 		],
 		[
 			'weder Hash noch Klartext-Token',
@@ -1842,7 +2044,7 @@ try {
 			 */
 			'und nichts ist geschrieben — die Aufgabe steht weiterhin als frei da',
 			einzelBlock(nachFrageHtml).includes('noch niemand') &&
-				!einzelBlock(nachFrageHtml).includes(MITGLIED.anzeigename) &&
+				!alsWort(einzelBlock(nachFrageHtml), MITGLIED.anzeigename) &&
 				!einzelBlock(nachFrageHtml).includes(MITGLIED.name),
 		],
 	] as const;
@@ -1873,7 +2075,7 @@ try {
 		['die Unterseite zeigt sie', unterseiteHtml.includes(einzelTitel)],
 		[
 			'mit dem Anzeigenamen der zusagenden Person, nicht dem vollen Namen',
-			unterseiteHtml.includes(MITGLIED.anzeigename) && !unterseiteHtml.includes(MITGLIED.name),
+			alsWort(unterseiteHtml, MITGLIED.anzeigename) && !unterseiteHtml.includes(MITGLIED.name),
 		],
 		['und ohne `noch niemand` an dieser Zeile', !unterseiteHtml.includes('noch niemand')],
 		[
@@ -1951,7 +2153,7 @@ try {
 		['die freie ebenso', beideSeite.includes(zweiterTitel)],
 		[
 			'die übernommene trägt den Anzeigenamen der zusagenden Person',
-			beideSeite.includes(MITGLIED.anzeigename) && !beideSeite.includes(MITGLIED.name),
+			alsWort(beideSeite, MITGLIED.anzeigename) && !beideSeite.includes(MITGLIED.name),
 		],
 		[
 			'die freie trägt `noch niemand` — und zwar genau einmal',

@@ -71,6 +71,18 @@ export const NAME_ZU_LANG = `Der Name ist zu lang. Höchstens ${NAME_HOECHSTLAEN
  */
 
 /**
+ * Die Faltung eines Namens — **eine Stelle für Name und Kurzname**
+ * (Review zu spec-notiz-und-kurzname.md, 2026-10-26): erst die unsichtbaren
+ * Zeichen weg, dann Leerraum zusammenziehen, dann trimmen. Die Begründung der
+ * Reihenfolge steht an namePruefen. Zwei Fassungen derselben drei Schritte
+ * liefen beim ersten Unterschied auseinander, und ein Kurzname dürfte dann
+ * Zeichen tragen, die ein Name nicht trägt.
+ */
+export function nameFalten(eingabe: string): string {
+	return unsichtbarEntfernen(eingabe).replace(/\s+/g, ' ').trim();
+}
+
+/**
  * Der Name, wie er in die Datenbank geht — oder null, wenn er nicht taugt.
  *
  * Reihenfolge mit Absicht: erst die unsichtbaren Zeichen weg, dann Leerraum
@@ -82,7 +94,7 @@ export const NAME_ZU_LANG = `Der Name ist zu lang. Höchstens ${NAME_HOECHSTLAEN
  * selbst deuteten, wären genau die Drift zurück, gegen die dieses Modul steht.
  */
 export function namePruefen(eingabe: string): { name: string } | { fehler: string } {
-	const name = unsichtbarEntfernen(eingabe).replace(/\s+/g, ' ').trim();
+	const name = nameFalten(eingabe);
 	if (name === '') return { fehler: NAME_FEHLT };
 	// Nach Codepoints gezählt, nicht nach UTF-16-Einheiten: ein Emoji im Namen
 	// ist keine zwei Zeichen. [...name] zerlegt in Codepoints.
@@ -136,7 +148,7 @@ export const KURZNAME_ZU_LANG = `Der Kurzname ist zu lang. Höchstens ${KURZNAME
  * an der die Person genannt wird.
  */
 export function kurznamePruefen(eingabe: string): { kurzname: string | null } | { fehler: string } {
-	const kurzname = unsichtbarEntfernen(eingabe).replace(/\s+/g, ' ').trim();
+	const kurzname = nameFalten(eingabe);
 	if (kurzname === '') return { kurzname: null };
 	if ([...kurzname].length > KURZNAME_HOECHSTLAENGE) return { fehler: KURZNAME_ZU_LANG };
 	return { kurzname };
@@ -155,9 +167,16 @@ export function kurznamePruefen(eingabe: string): { kurzname: string | null } | 
 export function anzeigename(name: string, kurzname: string | null): string {
 	const kurz = kurzname?.trim() ?? '';
 	if (kurz !== '') return kurz;
-	const gekuerzt = name.trim();
-	return gekuerzt.split(/\s+/, 1)[0] ?? gekuerzt;
+	const erstesWort = name.trim().split(/\s+/, 1)[0] ?? '';
+	// Ein leerer Name entsteht nur durch einen Eingriff von Hand an der
+	// Datenbank (namePruefen weist ihn ab). Er erscheint dann wie ein fehlender
+	// Name — `unbekannt`, dasselbe Wort, das die Seiten für eine fehlende
+	// Mitgliedszeile schreiben — und nicht als leere Lücke.
+	return erstesWort === '' ? ANZEIGENAME_UNBEKANNT : erstesWort;
 }
+
+/** Das Wort für eine Person ohne lesbaren Namen. */
+export const ANZEIGENAME_UNBEKANNT = 'unbekannt';
 
 /**
  * Der Anzeigename einer Zeile aus einem leftJoin, oder null, wenn die
@@ -185,7 +204,8 @@ export type GleicherAnzeigename = { anzeigename: string; namen: string[] };
  *
  * Verglichen wird **ohne Gross und Klein** (`toLocaleLowerCase('de-CH')`):
  * `nici` und `Nici` sind zwei Zeichenketten, aber an einer Erntezeile dieselbe
- * Auskunft. Beendete Zugänge zählen nicht — sie erscheinen nirgends mehr als
+ * Auskunft. Davor **NFC-normalisiert**: `Mü` aus einem Zeichen und `Mü` aus
+ * `u` plus Trema sehen gleich aus und wären ohne Normalisierung zwei Schlüssel. Beendete Zugänge zählen nicht — sie erscheinen nirgends mehr als
  * handelnde Person, und eine Warnung über sie hiesse, einen Kurznamen für
  * jemanden zu pflegen, der nicht mehr da ist.
  *
@@ -200,7 +220,7 @@ export function gleicheAnzeigenamen(
 	for (const mitglied of mitglieder) {
 		if (!mitglied.isActive) continue;
 		const angezeigt = anzeigename(mitglied.name, mitglied.kurzname);
-		const schluessel = angezeigt.toLocaleLowerCase('de-CH');
+		const schluessel = angezeigt.normalize('NFC').toLocaleLowerCase('de-CH');
 		const gruppe = gruppen.get(schluessel);
 		if (gruppe === undefined) {
 			gruppen.set(schluessel, { anzeigename: angezeigt, namen: [mitglied.name] });
