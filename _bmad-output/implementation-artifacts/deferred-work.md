@@ -1421,3 +1421,16 @@ werden** — sie sind zurückgestellt und nicht abgeschlossen.
 - source_spec: `_bmad-output/implementation-artifacts/spec-wellness-abschliessen-ins-archiv.md`
   summary: «Abschliessen» schliesst auch Zeilen derselben Kultur im Beet, die eine andere Person nach dem Laden der Seite eingetragen hat.
   evidence: Review 2026-10-12. Die action trifft alle offenen Zeilen von Ort und Kultur zum Zeitpunkt des Klicks; eine höchste sichtbare id als Grenze würde das verhindern. Bei der Grösse des Gartens selten.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ernte-nach-beet.md`
+  summary: Die Werte der Farbtoken in `src/app.html` (auch `--reif-sofort`/`--reif-stehen`) werden von keiner Prüfung gegen `HELL` in `scripts/kontrast.ts` bzw. die Tabelle in DESIGN.md gehalten.
+  evidence: Review 2026-10-26 (Verification Gap). `kontrast:selftest` rechnet nur die Kopie von Hand, `smoke:sicht` prüft nur, ob eine Kante irgendein `--reif-*`-Token trägt. `--reif-sofort` zurück auf das alte Rot zu setzen liesse alle Läufe grün. Die Lücke bestand vorher für alle Token.
+- source_spec: `_bmad-output/implementation-artifacts/spec-ernte-nach-beet.md`
+  summary: Die action `umstufen` auf /ernte nimmt über einen handgemachten POST weiterhin `wachsen` und Rückwärtsstufen an, obwohl die Oberfläche seit dem 2026-09-17 nur nach vorn und seit dem 2026-10-26 ohne `wachsen` anbietet.
+  evidence: Review 2026-10-26 (Edge Case Hunter). `istErntestatus` lässt alle drei Werte durch; eine Prüfung gegen `SICHTBARE_ERNTESTATUS` und die Richtung wäre eine Änderung an der action (Ask First der Spec).
+- source_spec: `_bmad-output/implementation-artifacts/spec-ernte-nach-beet.md`
+  summary: DESIGN.md dokumentiert `--warn` weiter als Farbe der unbesetzten Dienstwoche, obwohl das Token aus `src/app.html` entfernt ist; der Sichtlauf führte es bis zum 2026-10-26 in seiner Tokenliste.
+  evidence: Review 2026-10-26 (Blind Hunter). Vor dieser Spec entstanden; beim Bau aus `smoke-sicht.ts` TOKENS gestrichen, DESIGN.md noch nicht nachgezogen.
+- source_spec: `_bmad-output/implementation-artifacts/spec-ernte-nach-beet.md`
+  summary: Die neue Ernteliste ist von Hand ungeprüft (R5): Ansage des Beet-Kopfs mit Zähler, des X (`Abgeerntet {Kultur}, {Ort}`) und des Kreiszeichens durch VoiceOver/TalkBack; die per `::before` erweiterten Trefferfelder auf iOS Safari; Ansicht bei 375px auf einem Telefon.
+  evidence: Review 2026-10-26. `smoke:sicht` misst Trefferfelder und Namen in Chromium; die Ansage und WebKit sind die offenen Zeilen 1 und 2 der R5-Liste, hier für /ernte neu entstanden.

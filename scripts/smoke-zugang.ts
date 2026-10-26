@@ -92,6 +92,8 @@ import {
 	tasks,
 } from '../src/lib/server/db/schema.ts';
 import { abschluesseBuendeln, buendeln, letzteJeStelle, nachBeet } from '../src/lib/wellness.ts';
+import { nachBeetGliedern, type Erntestatus } from '../src/lib/ernte.ts';
+import { ernteAbernten, ernteEintragen } from '../src/lib/server/db/queries/harvests.ts';
 import {
 	abgeschlosseneBehandlungenLesen,
 	behandlungEintragen,
@@ -277,7 +279,7 @@ import {
  * keine Spur, und das Skript meldete weiter grün mit weniger Deckung.
  * Wer eine Behauptung hinzufügt oder entfernt, zieht die Zahl mit.
  */
-const ERWARTETE_BEHAUPTUNGEN = 772;
+const ERWARTETE_BEHAUPTUNGEN = 778;
 
 const HERKUNFT = 'https://garten.example.ch';
 const EIN_JAHR = 60 * 60 * 24 * 365;
@@ -7963,10 +7965,11 @@ try {
 	/*
 	 * **Das Wort neben dem Streifen — und warum das hier eine eigene Wache ist.**
 	 *
-	 * Seit dem 2026-09-13 ist `--reif-stehen` ein kräftiges Gelb und hält die
-	 * 3:1 aus NFR9 nicht mehr (1.57:1 auf der Karte). Der Sichtlauf lässt diese
-	 * Kante als `zustandsmarke` durch, und die Begründung dafür steht am
-	 * Tokenblock: Kontrast verlangt WCAG 1.4.11 für das, was zum Erkennen
+	 * Seit dem 2026-09-13 trägt eine Erntestufe ein kräftiges Gelb, das die 3:1
+	 * aus NFR9 nicht hält (1.57:1 auf der Karte) — bis zum 2026-10-26 die
+	 * langsame Stufe, seither `sofort` (spec-ernte-nach-beet.md). Der Sichtlauf
+	 * lässt diese Kante als `zustandsmarke` durch, und die Begründung dafür steht
+	 * am Tokenblock: Kontrast verlangt WCAG 1.4.11 für das, was zum Erkennen
 	 * **nötig** ist, und nötig ist hier nichts an der Farbe — die Stufe steht
 	 * daneben als Wort.
 	 *
@@ -7975,27 +7978,63 @@ try {
 	 * Grund — ohne dass dort etwas rot würde, denn er misst Farben und liest
 	 * keine Sätze. Diese Zeile ist die andere Hälfte.
 	 *
-	 * Jeder Träger von `data-stufe` wird einzeln nachgesehen: die Karte auf
-	 * `/ernte` (ihr Wort steht in der Überschrift, an die ihre Liste über
-	 * aria-labelledby gebunden ist), die Zeile der Stufenwahl und seit dem
-	 * 2026-09-16 die Zeile der Legende.
+	 * Jeder Träger von `data-stufe` wird nachgesehen: die Karte in der Liste
+	 * (ihr Wort steht seit dem 2026-10-26 im Zwischentitel `<h4>` ihres Beets, an
+	 * den ihre Liste über aria-labelledby gebunden ist), die Zeile der
+	 * Stufenwahl, die Zeile der Legende und der Knopf `Sofort` (sein Wort ist
+	 * seine Beschriftung).
 	 *
 	 * **Die Startseite ist seit dem 2026-09-17 keiner mehr.** Sie trug je reifer
 	 * Kultur eine Zeile mit Stufenfarbe und Stufenwort; jetzt steht dort eine
-	 * Zeile mit Zahl und Pfeil, und keine Stufe. Damit gibt es auf `/` keine
-	 * Farbe mehr, die etwas zu tragen hätte — die Zusage dieser Wache ist auf
-	 * /ernte unverändert, sie hat nur einen Ort weniger.
+	 * Zeile mit Zahl und Pfeil, und keine Stufe.
 	 *
-	 * **Die letzte Zeile zählt nicht mehr ab, sondern vergleicht.** Sie stand auf
-	 * `zwei in ernteCode` und wurde rot, als die Legende den dritten Träger
-	 * brachte — während ihre Zusage hielt. Eine Zahl von Hand an dieser Stelle
-	 * sagt nichts über die Zusage; sie sagt nur, wie viele Träger es am Tag des
-	 * Schreibens gab. Jetzt steht dort, was gemeint war: **jede** Stelle, die eine
-	 * Stufenklasse setzt, weist ihre Kante auch als `data-stufe` aus. Ein vierter
-	 * Träger ist damit vom ersten Tag an mitbewacht, ein vergessenes `data-stufe`
-	 * am fünften fällt auf.
+	 * **Die letzte Zeile zählt nicht ab, sondern liest jeden Träger.** Bis zum
+	 * 2026-10-26 verglich sie die Zahl der `class:stufe--sofort=` mit der Zahl
+	 * der `data-stufe={stufe}` — eine Gleichung über zwei Schreibweisen, die der
+	 * Knopf `Sofort` (eine feste Klasse, ein festes `data-stufe="sofort"`) auf
+	 * beiden Seiten verfehlt hätte. Jetzt wird **jedes** öffnende Tag gelesen,
+	 * das eine Stufenklasse trägt, in welcher Schreibweise auch immer, und jedes
+	 * muss `data-stufe` tragen. Ein vergessenes `data-stufe` an einem fünften
+	 * Träger fällt damit vom ersten Tag an auf.
+	 *
+	 * Vorgeführt am 2026-10-26: `data-stufe="sofort"` am Knopf `Sofort`
+	 * entfernt — die letzte Zeile wurde rot, mit dem Tag in der Meldung. Und
+	 * nach dem Review: an der Karte in der Liste ein `ontoggle={(e) => e}` vor
+	 * die Stufenklassen gesetzt und `data-stufe` entfernt — die letzte Zeile
+	 * wurde rot (4 Träger, einer ohne). Das alte Muster `[^<>]*>` zählte am
+	 * selben Quelltext nur 3 Träger und keinen ohne: das Tag endete am `>` von
+	 * `=>`, die Karte fiel aus dem Abgleich, die Zeile wäre grün geblieben.
 	 */
 	const ernteCode = readFileSync(join(wurzel, 'src', 'routes', 'ernte', '+page.svelte'), 'utf8');
+	const ernteMarkup = ernteCode.slice(ernteCode.indexOf('</script>'), ernteCode.indexOf('<style>'));
+	/*
+	 * **Die öffnenden Tags des Markups, mit den Klammern gelesen.** Ein Tag endet
+	 * am ersten `>` **ausserhalb** eines `{…}`-Ausdrucks: `ontoggle={(e) =>
+	 * merken(…)}` trägt ein `>` mitten im Tag, und ein Muster wie `[^<>]*>`
+	 * schnitte das Tag dort ab — alles dahinter, ein `data-stufe` oder ein
+	 * `open`, fiele aus dem Abgleich (Befund aus dem Review vom 2026-10-26).
+	 * Kommentare gehen vorher weg: sie nennen Tags in Backticks, ohne welche zu
+	 * sein. Die Grenze, ausgeschrieben: ein `{` oder `}` in einer Zeichenkette
+	 * innerhalb eines Ausdrucks brächte die Zählung durcheinander; in
+	 * src/routes/ernte/+page.svelte steht keines in einem Tag.
+	 */
+	const ernteTags: string[] = [];
+	{
+		const ohneKommentare = ernteMarkup.replace(/<!--[\s\S]*?-->/g, '');
+		for (const anfang of ohneKommentare.matchAll(/<[a-z]/g)) {
+			let tiefe = 0;
+			let stelle = anfang.index;
+			for (; stelle < ohneKommentare.length; stelle += 1) {
+				const zeichen = ohneKommentare[stelle];
+				if (zeichen === '{') tiefe += 1;
+				else if (zeichen === '}') tiefe -= 1;
+				else if (zeichen === '>' && tiefe === 0) break;
+			}
+			ernteTags.push(ohneKommentare.slice(anfang.index, stelle + 1));
+		}
+	}
+	const stufenTraeger = ernteTags.filter((tag) => /\bstufe--/.test(tag));
+	const traegerOhneMarke = stufenTraeger.filter((tag) => !/\bdata-stufe=/.test(tag));
 	const stufenTeile = [
 		[
 			// Die Gegenprobe zur Umstellung vom 2026-09-17: auf `/` steht keine Stufe
@@ -8005,14 +8044,20 @@ try {
 			!startseiteCodeDienst.includes('data-stufe') && !startseiteCodeDienst.includes('ERNTETEXT'),
 		],
 		[
-			'der Abschnitt auf /ernte trägt die Stufe als Überschrift',
-			/<h3 class="abschnittstitel" id="stufe-\{stufe\}">\{ERNTETEXT\[stufe\]\.titel\}<\/h3>/.test(
-				ernteCode
-			),
+			'im Beet auf /ernte steht die Stufe als Zwischentitel',
+			/<h4 class="marke" id=\{marke\}>\{ERNTETEXT\[gruppe\.stufe\]\.kurz\}<\/h4>/.test(ernteCode),
 		],
 		[
 			'und die Liste der Karten hängt über aria-labelledby daran',
-			/aria-labelledby="stufe-\{stufe\}"/.test(ernteCode),
+			/<ul class="liste liste--getrennt" aria-labelledby=\{marke\}>/.test(ernteCode),
+		],
+		[
+			'die Karte trägt die Stufe des Zwischentitels, unter dem sie steht',
+			/data-stufe=\{gruppe\.stufe\}/.test(ernteCode),
+		],
+		[
+			'der Knopf Sofort trägt sein Wort als Beschriftung',
+			/data-stufe="sofort"[\s\S]*?>\s*\{SOFORT_KNOPF\}\s*<\/button>/.test(ernteCode),
 		],
 		[
 			'die Zeile der Stufenwahl trägt die Stufe als Text',
@@ -8023,10 +8068,8 @@ try {
 			/<p class="zeile__text">\{ERNTETEXT\[stufe\]\.titel\}<\/p>/.test(ernteCode),
 		],
 		[
-			'und jede Stelle mit einer Stufenklasse weist ihre Kante als data-stufe aus',
-			(ernteCode.match(/class:stufe--sofort=/g) ?? []).length ===
-				(ernteCode.match(/data-stufe=\{stufe\}/g) ?? []).length &&
-				(ernteCode.match(/data-stufe=\{stufe\}/g) ?? []).length >= 3,
+			`und jede Stelle mit einer Stufenklasse weist ihre Kante als data-stufe aus (${stufenTraeger.length} Träger${traegerOhneMarke.length > 0 ? `, ohne: ${traegerOhneMarke.map((tag) => JSON.stringify(tag.replace(/\s+/g, ' '))).join(' ')}` : ''})`,
+			stufenTraeger.length > 0 && traegerOhneMarke.length === 0,
 		],
 	] as const;
 	pruefen(
@@ -8039,21 +8082,24 @@ try {
 	 * **Die Legende auf /ernte — sie erklärt Stufen und Zeichen an einer Stelle.**
 	 *
 	 * Sie entstand am 2026-09-16 als Gegenseite zu einem Zeichen, das auf `/`
-	 * ohne gemaltes Wort stand. **Diesen Ort gibt es seit dem 2026-09-17 nicht
-	 * mehr**: die Startseite trägt eine Zeile mit Zahl und Pfeil, und die
-	 * Dauerernte kommt dort gar nicht mehr vor. Damit ist die Ausnahme von
-	 * `Keine Symbole ohne Beschriftung` erledigt — auf /ernte steht neben dem
-	 * Kreis das Wort.
+	 * ohne gemaltes Wort stand. Diesen Ort gibt es seit dem 2026-09-17 nicht
+	 * mehr — **seit dem 2026-10-26 gibt es ihn auf /ernte selbst**: an der Karte
+	 * steht das Kreiszeichen ohne gemaltes Wort (es wird vorgelesen), und das
+	 * Abernten ist ein X, dessen Wort nur der Name des Knopfs trägt
+	 * (spec-ernte-nach-beet.md). Beide Zeichen sind darum hier erklärt, je mit
+	 * ihrem Wort, dazu die zwei Stufenfarben Gelb und Grün.
 	 *
-	 * Die Legende bleibt trotzdem, und aus ihrem zweiten Grund: sie erklärt die
-	 * drei Stufenfarben. Wer die Liste zum zwanzigsten Mal öffnet, liest nur noch
-	 * die Farbe; wer sie zum ersten Mal öffnet, schlägt hier nach. Zugeklappt
-	 * ausgeliefert, damit sie die Liste nicht aus dem Bild schiebt.
+	 * **Die Stufen kommen aus SICHTBARE_ERNTESTATUS und aus nichts sonst.** Bis
+	 * zum 2026-10-26 kam jede Stufe dazu, für die Zeilen dastanden, damit das
+	 * Grün von `Noch wachsen lassen` erklärt war; seit jene Zeilen unter
+	 * `Langsam ernten` erscheinen, gibt es auf der Seite keine dritte Stufe mehr
+	 * — und die Zeile `keine dritte Stufe` hält das für das ganze Markup.
 	 *
 	 * Zugeklappt ausgeliefert ist Teil der Zusage: eine aufgeklappte Legende
-	 * schöbe die Liste, um die es geht, aus dem Bild. Das Gegenstück auf `/` sagt
-	 * das Umgekehrte über die Abschnitte dort — und beide Male steht die Absicht
-	 * im `<details>` selbst.
+	 * schöbe die Liste, um die es geht, aus dem Bild.
+	 *
+	 * Vorgeführt am 2026-10-26: die Legendenzeile zum X gestrichen — `und das X
+	 * mit dem Wort, das es an der Karte vorliest` wurde rot.
 	 */
 	// Das `[^>]*` ist Absicht: fände die Suche den Aufklapper nur ohne `open`,
 	// meldete ein aufgeklappt ausgeliefertes `<details>` **jeden** Teil als fehlend
@@ -8068,30 +8114,38 @@ try {
 			legendeBlock !== '' &&
 				ernteCode.indexOf(legendeBlock) < ernteCode.indexOf('<details class="zeilenform"'),
 		],
-		// Am **Block** gemessen und nicht an der Datei: seit dem 2026-09-16 steht die
-		// Ernteliste in einem zweiten `.abschnitt`, und der kommt offen. Eine Suche
-		// über den ganzen Quelltext machte diese Zeile an ihm rot.
+		// Am **Block** gemessen und nicht an der Datei: die Beete der Liste sind seit
+		// dem 2026-10-26 weitere `details.abschnitt`, und eines davon kommt offen,
+		// wenn die letzte Antwort an einer seiner Zeilen hängt. Eine Suche über den
+		// ganzen Quelltext machte diese Zeile an ihrem `open={…}` rot. (Bis dahin
+		// war es die offen ausgelieferte Ernteliste — derselbe Grund, ein anderer
+		// Nachbar.)
 		[
 			'und sie kommt zugeklappt',
 			legendeBlock !== '' && !/^<details[^>]*\bopen\b/.test(legendeBlock),
 		],
 		[
-			'ihre Stufen sind gerechnet und nicht aufgezählt',
-			legendeBlock.includes('{#each legendenStufen as stufe (stufe)}'),
+			'ihre Stufen sind die angebotenen und nicht aufgezählt',
+			legendeBlock.includes('{#each SICHTBARE_ERNTESTATUS as stufe (stufe)}'),
 		],
 		[
-			// Ohne den zweiten Zweig erklärte die Legende jene Farbe nicht, die man
-			// vor sich sieht: `wachsen` ist verborgen, seine Zeilen stehen aber noch.
-			'und sie rechnen aus den angebotenen Stufen plus denen mit Zeilen',
-			/const legendenStufen = \$derived\(\s*ERNTESTATUS\.filter\([\s\S]*?SICHTBARE_ERNTESTATUS[\s\S]*?zeilenVon\(stufe\)\.length > 0/.test(
-				ernteCode
-			),
+			// `Noch wachsen lassen` verschwindet aus Legende und Oberfläche (Entscheid
+			// 6 der Spec). Gelesen am Markup der ganzen Seite: keine Schleife über
+			// alle drei Stufen, keine dritte Stufenklasse.
+			'und auf der ganzen Seite gibt es keine dritte Stufe',
+			!/\{#each ERNTESTATUS\b/.test(ernteMarkup) && !/stufe--wachsen/.test(ernteCode),
 		],
 		[
 			'sie zeigt das Zeichen der Dauerernte mit seinem Wort',
 			/<p class="zeile__text zeichenwort"><ZeichenKreis \/>\{DAUERERNTE_WORT\}<\/p>/.test(
 				legendeBlock
 			),
+		],
+		[
+			'und das X mit dem Wort, das es an der Karte vorliest',
+			/<p class="zeile__text zeichenwort">\s*<span class="legende__kreuz"><ZeichenKreuz \/><\/span>\{ABERNTEN_WORT\}\s*<\/p>/.test(
+				legendeBlock
+			) && /aria-label="\{ABERNTEN_WORT\} \{bezeichnung\(eintrag\)\}"/.test(ernteCode),
 		],
 		[
 			// Die Gegenprobe zur Umstellung vom 2026-09-17: das Zeichen steht auf `/`
@@ -8102,46 +8156,83 @@ try {
 		],
 	] as const;
 	pruefen(
-		'die Legende auf /ernte erklärt die Stufen und das Zeichen der Dauerernte',
+		'die Legende auf /ernte erklärt die Stufen, das Zeichen der Dauerernte und das X',
 		fehlendeTeile(legendeTeile).length === 0,
 		`fehlt: ${fehlendeTeile(legendeTeile).join(', ')}`
 	);
 
 	/*
-	 * **Die Ernteliste steht in einem Aufklapper — und wird offen ausgeliefert.**
+	 * **Die Ernteliste nach Beet — und die Beete kommen zugeklappt.**
 	 *
-	 * Das `open` ist die eigentliche Behauptung und nicht der Aufklapper. Die
-	 * Liste ist der Gegenstand dieser Seite; ein zugeklappt geliefertes Verzeichnis
-	 * dessen, was reif ist, bricht AD-14, ohne dass irgendeine andere Zusage
-	 * verletzt wäre — die Seite hielte jede Prüfung ein und verschwiege trotzdem,
-	 * dass die Zucchini heute weg muss. Dieselbe Klausel wie bei den Abschnitten
-	 * auf `/`, nur eine Seite weiter.
+	 * Bis zum 2026-10-26 stand hier das Gegenteil: die Liste in einem
+	 * Aufklapper, **offen** ausgeliefert, weil ein zugeklappt geliefertes
+	 * Verzeichnis dessen, was reif ist, AD-14 bricht. Mit der Gliederung nach
+	 * Beet hat Manuel entschieden, dass alle Beete zugeklappt kommen
+	 * (spec-ernte-nach-beet.md, Spec Change Log). Was AD-14 schützt — man sieht
+	 * beim Öffnen, wo etwas sofort zu ernten ist —, trägt jetzt der **Zähler im
+	 * Kopf** jedes Beets. Die Wache ist darum umgestellt und nicht gestrichen:
+	 * sie hält, dass der Zähler im Griff steht, also im zugeklappten Zustand zu
+	 * sehen ist, und dass offen nur kommt, was die letzte Antwort betrifft.
 	 *
-	 * Die Gliederung steht mit in derselben Zeile: der Seitentitel ist `<h1>`, die
-	 * zwei Aufklapper sind `<h2>`, die Stufen darin `<h3>`. Eine Ebene, die eine
-	 * andere überspringt, ist für Vorleseprogramme eine falsche Auskunft — und sie
-	 * entsteht genau dann, wenn jemand eine Überschrift dazwischenschiebt und die
-	 * darunter vergisst. Das ist hier passiert und darum bewacht.
+	 * Die Gliederung steht mit in derselben Zeile: `<h1>` Seite, `<h2>` Liste,
+	 * `<h3>` Beet, `<h4>` Stufe. Eine Ebene, die eine andere überspringt, ist für
+	 * Vorleseprogramme eine falsche Auskunft — und sie entsteht genau dann, wenn
+	 * jemand eine Überschrift dazwischenschiebt und die darunter vergisst.
+	 *
+	 * Vorgeführt am 2026-10-26: `open={istOffen(…)}` durch `open` ersetzt — `die
+	 * Beete kommen zugeklappt` wurde rot; den Zähler aus dem `<summary>` in den
+	 * Inhalt verschoben — `im Kopf jedes Beets steht der Zähler` wurde rot.
+	 * Nach dem Review: ein zusätzliches `open` vor `class` und `open={true}`
+	 * statt des Ausdrucks — beide Male wurde die Zeile rot, mit dem Tag in der
+	 * Meldung; das alte Muster `open\s*>` hätte beide durchgelassen.
 	 */
+	const beetGriff =
+		/<summary class="abschnitt__griff">\s*<h3 class="abschnittstitel beet__name" id="beet-\{beetstelle\}">[\s\S]*?<\/summary>/.exec(
+			ernteCode
+		)?.[0] ?? '';
+	/*
+	 * **Jedes `open` an einem `<details>` dieser Seite ist eines von zweien**:
+	 * das des Formulars (`formularOffen`, offen nur nach einer Abweisung) und das
+	 * der Beete (`istOffen` mit `enthaeltZiel`). Gelesen an den Tags mit ihren
+	 * Klammern, damit `<details open class=…>`, `open={true}` und ein `open` vor
+	 * einem `ontoggle={(e) => …}` genauso rot werden wie ein `open>` am Ende.
+	 * Die zwei erlaubten Ausdrücke stehen hier von Hand, und das ist die Zusage
+	 * selbst und keine Liste von Fundstellen: ein drittes `open` ist genau der
+	 * Fall, über den jemand entscheiden muss.
+	 */
+	const BEET_OFFEN = 'open={istOffen(beet.schluessel, () => enthaeltZiel(beet))}';
+	const offenGesetzt = ernteTags
+		.filter((tag) => tag.startsWith('<details'))
+		.filter((tag) =>
+			/\bopen\b/.test(tag.replace(BEET_OFFEN, '').replace('open={formularOffen}', ''))
+		);
 	const listenTeile = [
 		[
-			'die Ernteliste steht in einem Aufklapper mit eigener Überschrift',
-			/<details class="abschnitt" open>\s*<summary class="abschnitt__griff">\s*<h2 class="abschnittstitel" id="ernteliste-marke">/.test(
+			'die Ernteliste ist ein Abschnitt mit eigener Überschrift',
+			/<section class="beetliste" aria-labelledby="ernteliste-marke">\s*<h2 class="abschnittstitel" id="ernteliste-marke">/.test(
 				ernteCode
 			),
 		],
 		[
-			'die Stufen darin sind eine Ebene tiefer',
-			/<h3 class="abschnittstitel" id="stufe-\{stufe\}">/.test(ernteCode) &&
-				!/<h2 class="abschnittstitel" id="stufe-\{stufe\}">/.test(ernteCode),
+			'je Beet ein Aufklapper mit seinem Namen als h3, ohne Ort `Ohne Beet`',
+			/\{beet\.ort \?\? 'Ohne Beet'\}\s*<\/h3>/.test(beetGriff),
 		],
 		[
-			'und /ernte trägt genau zwei Aufklapper dieser Art',
-			(ernteCode.match(/<details class="abschnitt"/g) ?? []).length === 2,
+			'im Kopf jedes Beets steht der Zähler als gewöhnlicher Nebentext',
+			/<span class="hinweis beet__zaehler">\{beet\.zaehler\}<\/span>/.test(beetGriff),
+		],
+		[
+			'die Stufen darin sind eine Ebene tiefer',
+			/<h4 class="marke" id=\{marke\}>/.test(ernteCode) && !/<h3 class="marke"/.test(ernteCode),
+		],
+		[
+			`die Beete kommen zugeklappt — offen nur das der letzten Antwort${offenGesetzt.length > 0 ? ` (sonst offen: ${offenGesetzt.map((tag) => JSON.stringify(tag.replace(/\s+/g, ' '))).join(' ')})` : ''}`,
+			ernteTags.some((tag) => tag.startsWith('<details') && tag.includes(BEET_OFFEN)) &&
+				offenGesetzt.length === 0,
 		],
 	] as const;
 	pruefen(
-		'die Ernteliste ist zuklappbar und kommt offen — die Legende darüber zugeklappt',
+		'die Ernteliste ist nach Beet gegliedert, die Beete kommen zugeklappt mit Zähler im Kopf',
 		fehlendeTeile(listenTeile).length === 0,
 		`fehlt: ${fehlendeTeile(listenTeile).join(', ')}`
 	);
@@ -10955,6 +11046,151 @@ try {
 	);
 
 	pruefenGleich('buendeln: aus keiner Zeile wird kein Beet', JSON.stringify(buendeln([])), '[]');
+
+	// -----------------------------------------------------------------------
+	// /ernte nach Beet — die Gliederung als reine Funktion
+	// -----------------------------------------------------------------------
+	/*
+	 * **Die I/O-Matrix aus spec-ernte-nach-beet.md, Zeile für Zeile, an
+	 * `nachBeetGliedern` selbst.** Was gerendert zu sehen ist — zugeklappt,
+	 * Trefferfelder, die offene Rückfrage ohne JavaScript —, misst `smoke:sicht`;
+	 * hier steht, welche Zeile in welches Beet und unter welche Stufe fällt.
+	 *
+	 * Die Zeilen tragen nur, was die Funktion liest (`id`, `ort`, `status`), und
+	 * kommen in der Ordnung, in der die Abfrage sie liefert: nach Rang, also
+	 * `sofort` vor `stehen` vor `wachsen`.
+	 *
+	 * Vorgeführt am 2026-10-26, je eine Mutation:
+	 *   - `anzeigestufe` gibt `status` unverändert zurück: die Zeile zu
+	 *     `wachsen` wurde rot (die Zeile fiel aus jeder Stufe heraus);
+	 *   - `leerZuletzt` gegen einen Zeichenvergleich getauscht: die natürliche
+	 *     Ordnung wurde rot (`12` vor `16/17` vor `3`);
+	 *   - der Schlüssel mit weggeschnittenen führenden Nullen gebildet (wie eine
+	 *     Gruppierung über die Ordnung, die `Beet 03` und `Beet 3` für gleich
+	 *     hält): `Zeichen für Zeichen` wurde rot;
+	 *   - die Stufen im Beet in umgekehrter Reihenfolge: das gemischte Beet
+	 *     wurde rot (`1 langsam · 1 sofort`).
+	 * Die Zeile zum leeren Stand ist keine Wache gegen einen Fehler, den eine
+	 * Mutation zeigen könnte, sondern die Zeile `Leer` der Matrix.
+	 */
+	const ernteprobe = (id: number, ort: string | null, status: Erntestatus) => ({
+		id,
+		ort,
+		status,
+	});
+	const erntekurzform = (
+		beete: ReturnType<typeof nachBeetGliedern<ReturnType<typeof ernteprobe>>>
+	) =>
+		beete.map((beet) => [
+			beet.ort,
+			beet.zaehler,
+			beet.stufen.map((gruppe) => [gruppe.stufe, gruppe.zeilen.map((zeile) => zeile.id)]),
+		]);
+	pruefenGleich(
+		'nachBeetGliedern: ein gemischtes Beet trägt beide Stufen, sofort zuerst, und zählt `1 sofort · 1 langsam`',
+		JSON.stringify(
+			erntekurzform(
+				nachBeetGliedern([ernteprobe(1, 'Beet 42', 'sofort'), ernteprobe(2, 'Beet 42', 'stehen')])
+			)
+		),
+		JSON.stringify([
+			[
+				'Beet 42',
+				'1 sofort · 1 langsam',
+				[
+					['sofort', [1]],
+					['stehen', [2]],
+				],
+			],
+		])
+	);
+	pruefenGleich(
+		'nachBeetGliedern: Orte natürlich geordnet — 3, 12, 16/17 —, ohne Ort zuunterst, und der Zähler nennt nur, was da ist',
+		JSON.stringify(
+			erntekurzform(
+				nachBeetGliedern([
+					ernteprobe(1, null, 'sofort'),
+					ernteprobe(2, '12', 'sofort'),
+					ernteprobe(3, '16/17', 'stehen'),
+					ernteprobe(4, '3', 'stehen'),
+				])
+			).map(([ort, zaehler]) => [ort, zaehler])
+		),
+		JSON.stringify([
+			['3', '1 langsam'],
+			['12', '1 sofort'],
+			['16/17', '1 langsam'],
+			[null, '1 sofort'],
+		])
+	);
+	pruefenGleich(
+		'nachBeetGliedern: eine Zeile auf `wachsen` steht unter `stehen`, nach den Zeilen, die wirklich dort stehen',
+		JSON.stringify(
+			erntekurzform(
+				nachBeetGliedern([ernteprobe(1, 'Beet 3', 'stehen'), ernteprobe(2, 'Beet 3', 'wachsen')])
+			)
+		),
+		JSON.stringify([['Beet 3', '2 langsam', [['stehen', [1, 2]]]]])
+	);
+	pruefenGleich(
+		'nachBeetGliedern: Zeichen für Zeichen — `42`, `Beet 42`, `Beet 03` und `Beet 3` sind vier Beete',
+		JSON.stringify(
+			nachBeetGliedern([
+				ernteprobe(1, 'Beet 3', 'sofort'),
+				ernteprobe(2, '42', 'sofort'),
+				ernteprobe(3, 'Beet 03', 'sofort'),
+				ernteprobe(4, 'Beet 42', 'sofort'),
+				ernteprobe(5, 'Beet 3', 'stehen'),
+			]).map((beet) => [beet.ort, beet.stufen.flatMap((gruppe) => gruppe.zeilen.map((z) => z.id))])
+		),
+		JSON.stringify([
+			['42', [2]],
+			['Beet 03', [3]],
+			['Beet 3', [1, 5]],
+			['Beet 42', [4]],
+		])
+	);
+	pruefenGleich(
+		'nachBeetGliedern: aus keiner Zeile wird kein Beet',
+		JSON.stringify(nachBeetGliedern([])),
+		'[]'
+	);
+
+	/*
+	 * **Die Startseite zählt jede Zeile, auch eine alte auf `wachsen`** — das
+	 * erste Abnahmekriterium der Spec, zweite Hälfte. Bis zum 2026-10-26
+	 * filterte sie auf SICHTBARE_ERNTESTATUS; seit /ernte jene Zeilen grün unter
+	 * `Langsam ernten` zeigt, verschwiege die Zahl eine Zeile, die einen Griff
+	 * weiter dasteht.
+	 *
+	 * Gesät über die echte Abfrageschicht, gezählt vor und nach, und die Zeile
+	 * danach wieder abgeerntet, damit spätere Blöcke den Stand vorfinden, den
+	 * sie erwarten.
+	 *
+	 * Vorgeführt am 2026-10-26: den alten Filter in src/routes/+page.server.ts
+	 * zurückgesetzt — diese Zeile wurde rot (`+0` statt `+1`).
+	 */
+	const reifAuf = async () =>
+		((wertVon(await startseiteLadenAn('/')).ueberblick ?? {}) as { reif?: number }).reif ?? -1;
+	const reifVorher = await reifAuf();
+	// try/finally: wirft das Laden der Startseite, ist die gesäte Zeile trotzdem
+	// wieder weg — sonst zählten spätere Blöcke eine Zeile mit, die sie nie gesät
+	// haben, und wären aus einem fremden Grund rot.
+	const wachsZeile = ernteEintragen(
+		{ kultur: 'Kürbis', ort: 'Beet 9', status: 'wachsen', laufend: false },
+		nicoLocals
+	);
+	let reifNachher = -1;
+	try {
+		reifNachher = await reifAuf();
+	} finally {
+		ernteAbernten(wachsZeile.id);
+	}
+	pruefenGleich(
+		'die Startseite zählt eine Erntezeile auf `wachsen` mit — dieselbe Menge wie die Liste auf /ernte',
+		`+${reifNachher - reifVorher}`,
+		'+1'
+	);
 
 	// -----------------------------------------------------------------------
 	// Das Löschen eines Blatts — nur mit Adminrecht, Entscheid Manuel 2026-09-20

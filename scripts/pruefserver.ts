@@ -302,25 +302,33 @@ export function saeen(): Saat {
 	}
 
 	/*
-	 * **Eine Erntezeile je Stufe**, und das ist keine Zierde.
+	 * **Eine Erntezeile je gespeicherter Stufe, und ein gemischtes Beet** —
+	 * das ist keine Zierde.
 	 *
-	 * Ohne sie rendert /ernte drei Überschriften, die es gar nicht gibt: die
-	 * Abschnitte entstehen nur, wo Zeilen sind. Der Sichtlauf hätte dann die
-	 * Karten nie gesehen — und mit ihnen nicht die drei Kanten, die --danger,
-	 * --warn und --accent als Stufenfarbe tragen, nicht die kompakten Knöpfe an
-	 * der Zeile und nicht die Registerkarte auf `/`, die dieselben drei Farben
-	 * wiederholt. Genau diese Lücke ist die Klasse, für die Stufe C gebaut wurde:
-	 * eine Zusage über Gerendertes, die nichts rendert.
+	 * Ohne Zeilen rendert /ernte keine Karte: Beete und Zwischentitel entstehen
+	 * nur, wo Zeilen sind. Der Sichtlauf hätte dann die Kanten in --reif-sofort
+	 * und --reif-stehen nie gesehen und nicht die zwei kleinen Knöpfe an der
+	 * Karte — genau die Klasse, für die Stufe C gebaut wurde: eine Zusage über
+	 * Gerendertes, die nichts rendert.
 	 *
-	 * Die erste trägt zusätzlich `laufend`, damit der Dauerernte-Vermerk und
-	 * sein Satz mindestens einmal im gemessenen Baum stehen; die zweite einen
-	 * Ort, die dritte keinen — so sind beide Formen der Kopfzeile abgedeckt.
+	 * Seit dem 2026-10-26 gliedert /ernte nach Beet (spec-ernte-nach-beet.md),
+	 * und die Saat deckt die Zeilen der I/O-Matrix, die nur gerendert zu sehen
+	 * sind:
+	 *   - **Hochbeet 3 ist gemischt** — Zucchini sofort, Salat langsam: zwei
+	 *     Zwischentitel in einem Beet, der Zähler `1 sofort · 1 langsam`, und an
+	 *     Salat der Knopf `Sofort`, an dem der Sichtlauf das Umstufen im selben
+	 *     Beet vorführt;
+	 *   - **Kürbis ohne Ort auf `wachsen`**: das Beet `Ohne Beet` zuunterst, und
+	 *     die alte Stufe grün unter `Langsam ernten`;
+	 *   - Zucchini trägt `laufend`, damit das Kreiszeichen mindestens einmal im
+	 *     gemessenen Baum steht.
 	 *
 	 * Angelegt über die echte Abfrageschicht wie die Saat darüber, nicht per
 	 * INSERT von Hand: eine Saat, die am Repository vorbeigeht, prüft eine
 	 * Datenlage, die die Anwendung so nie herstellt.
 	 */
 	ernteEintragen({ kultur: 'Zucchini', ort: 'Hochbeet 3', status: 'sofort', laufend: true }, manu);
+	ernteEintragen({ kultur: 'Salat', ort: 'Hochbeet 3', status: 'stehen', laufend: false }, manu);
 	ernteEintragen({ kultur: 'Kohlrabi', ort: 'Freiland', status: 'stehen', laufend: false }, manu);
 	ernteEintragen({ kultur: 'Kürbis', ort: null, status: 'wachsen', laufend: false }, manu);
 

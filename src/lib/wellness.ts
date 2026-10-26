@@ -1,4 +1,5 @@
 import { aufgabentextFalten } from './aufgabentext.ts';
+import { leerZuletzt } from './beet.ts';
 
 /*
  * Was eine Wellnessbehandlung ist — **die eine Stelle**, an der das steht.
@@ -19,9 +20,10 @@ import { aufgabentextFalten } from './aufgabentext.ts';
  * die Vergangenheit **ist** hier die Aussage. Beim Erntestand ist sie wertlos.
  *
  * Das Modul liegt in src/lib/ und nicht unter client/ oder server/: beide
- * Seiten lesen es. Es hängt nur von ./aufgabentext.ts und ./ernte.ts ab, damit
+ * Seiten lesen es. Es hängt nur von ./aufgabentext.ts und ./beet.ts ab, damit
  * ../routes/wellness/+page.server.ts es über nacktes Node laden kann
- * (scripts/smoke-zugang.ts tut genau das).
+ * (scripts/smoke-zugang.ts tut genau das). Bis zum 2026-10-26 nannte dieser
+ * Satz ./ernte.ts statt ./beet.ts — ein Import, den es nie gab.
  */
 
 /**
@@ -335,48 +337,11 @@ export function nachBeet<T extends { kultur: string | null; ort: string | null }
 	);
 }
 
-/**
- * Vergleicht zwei freiwillige Angaben: null steht zuunterst, sonst natürlich.
- *
- * Gibt 0 zurück, wenn beide gleich sind — so lässt sich die Kette mit `||`
- * bauen, wie in `nachBeet` darüber.
+/*
+ * `leerZuletzt` und `natuerlich` standen bis zum 2026-10-26 hier, privat. Seit
+ * die Ernteliste ebenfalls nach Beet gliedert, liegen sie in ./beet.ts — eine
+ * Stelle für „Beet 3 vor Beet 12" (spec-ernte-nach-beet.md).
  */
-function leerZuletzt(a: string | null, b: string | null): number {
-	if (a === b) return 0;
-	if (a === null) return 1;
-	if (b === null) return -1;
-	return natuerlich(a, b);
-}
-
-/**
- * Vergleicht zwei Ortsangaben so, wie ein Mensch sie ordnen würde: `Beet 3` vor
- * `Beet 12`.
- *
- * Zerlegt wird in abwechselnde Ziffern- und Nicht-Ziffern-Stücke. Zwei
- * Ziffernstücke vergleichen sich als **Zahlen**, alles andere über
- * `localeCompare` mit `de-CH`. Stücke unterschiedlicher Art fallen auf den
- * Zeichenvergleich zurück — `Beet 3` gegen `Beet A` hat keine natürliche
- * Ordnung, nur eine festgelegte.
- *
- * Sehr lange Ziffernfolgen (mehr als sechzehn Stellen) verlieren als Zahl an
- * Genauigkeit. Das ist benannt und in Kauf genommen: eine Beetnummer mit
- * siebzehn Stellen ist kein Ort, sondern ein Tippfehler, und zwei davon stehen
- * dann nebeneinander statt in einer bestimmten Reihenfolge.
- */
-function natuerlich(a: string, b: string): number {
-	const teile = (wert: string): string[] => wert.match(/\d+|\D+/g) ?? [];
-	const links = teile(a);
-	const rechts = teile(b);
-	for (let i = 0; i < Math.min(links.length, rechts.length); i += 1) {
-		const l = links[i];
-		const r = rechts[i];
-		if (l === r) continue;
-		const beideZahlen = /^\d/.test(l) && /^\d/.test(r);
-		const vergleich = beideZahlen ? Number(l) - Number(r) : l.localeCompare(r, 'de-CH');
-		if (vergleich !== 0) return vergleich;
-	}
-	return links.length - rechts.length;
-}
 
 /** Ein Mittel an einer Kultur in einem Beet — eine Karte im Tagebuch. */
 export type Mittelbuendel<T extends Anwendung> = {
@@ -428,7 +393,7 @@ export type Beetbuendel<T extends Anwendung> = {
  * **Gebündelt wird Zeichen für Zeichen**, mit demselben Schlüssel wie `stelle`:
  * `Schachtelhalm` und `schachtelhalm` sind zwei Karten, und die Begründung
  * steht dort. Verglichen wird über eine Zuordnung und nicht über „gleich wie
- * die Zeile davor": `natuerlich` hält `Beet 03` und `Beet 3` für gleich, ihre
+ * die Zeile davor": `natuerlich` (./beet.ts) hält `Beet 03` und `Beet 3` für gleich, ihre
  * Zeilen können darum in `nachBeet` ineinander verschränkt stehen, und ein
  * Vergleich mit dem Vorgänger schnitte ein Beet dann in mehrere Stücke.
  */

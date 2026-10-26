@@ -68,7 +68,7 @@ import { einzelaufgabeAusschreiben } from '../src/lib/server/db/queries/signup-t
  * mit — dieselbe Reibung wie in `smoke` und `smoke:http`, und aus demselben
  * Grund: eine Behauptung, die unbemerkt übersprungen wird, fällt so auf.
  */
-const ERWARTETE_BEHAUPTUNGEN = 105;
+const ERWARTETE_BEHAUPTUNGEN = 114;
 
 /** Der Viewport, für den dieses Projekt gestaltet ist. */
 const BREITE = 375;
@@ -2425,6 +2425,345 @@ try {
 	);
 
 	// -----------------------------------------------------------------------
+	// /ernte: nach Beet gegliedert, Beete zu, kleine Knöpfe mit 44px
+	// -----------------------------------------------------------------------
+	/*
+	 * **Die Ernteliste nach Beet** (spec-ernte-nach-beet.md, 2026-10-26). Welche
+	 * Zeile in welches Beet und unter welche Stufe fällt, prüft `smoke` an
+	 * `nachBeetGliedern` selbst; hier gemessen wird, was nur gerendert zu sehen
+	 * ist: dass die Beete zu kommen und ihr Kopf den Zähler trägt, dass die zwei
+	 * Knöpfe einer Karte klein aussehen und trotzdem 44px treffbar sind, wie sie
+	 * vorgelesen werden, und dass Rückfrage und Umstufen ihr Beet offen halten —
+	 * ohne JavaScript über das Server-HTML, mit JavaScript über den Browser.
+	 *
+	 * Die Saat (scripts/pruefserver.ts) trägt vier Zeilen in drei Beeten: in
+	 * Hochbeet 3 Zucchini sofort und Salat langsam, in Freiland Kohlrabi
+	 * langsam, ohne Ort Kürbis auf `wachsen`. **Die Reihenfolge der Beete ist
+	 * hier ausgeschrieben** und nicht aus der Saat gerechnet — dieselbe
+	 * Begründung wie auf /wellness: sie herzuleiten hiesse, `natuerlich` ein
+	 * zweites Mal zu schreiben.
+	 *
+	 * Gemessen wird Sichtbarkeit über `checkVisibility()`: unter einem
+	 * zugeklappten `<details>` behalten die Nachkommen in Chrome ihre Rechtecke.
+	 *
+	 * Vorgeführt am 2026-10-26, je eine Mutation:
+	 *   - das `::before` an `.knopf-klein` entfernt: die Trefferfeld-Zeile wurde
+	 *     rot (die Ränder trafen die Zeile der Karte statt den Knopf);
+	 *   - `zielZeile` ohne den Zweig `fragenAbernten`: die Zeile `ohne
+	 *     JavaScript` wurde rot (kein Beet offen);
+	 *   - das `aufklappen` im Versand gestrichen: die Rückfrage im von Hand
+	 *     zugeklappten Beet wurde rot.
+	 */
+	await browser.besuchen(`${adresse}/ernte`);
+	const ernteStand = await browser.auswerten<{
+		beete: string[];
+		kartenSichtbar: boolean;
+		zaehlerGewicht: number[];
+	}>(`
+		const beete = [...document.querySelectorAll('section.beetliste details.abschnitt')];
+		return {
+			beete: beete.map((d) =>
+				d.querySelector('h3').textContent.trim() + ' ' + (d.open ? 'offen' : 'zu') + ' (' +
+				(d.querySelector('summary .beet__zaehler')?.textContent.trim() ?? 'kein Zähler') + ')'),
+			kartenSichtbar: [...document.querySelectorAll('section.beetliste .karte')].some((k) => k.checkVisibility()),
+			zaehlerGewicht: [...document.querySelectorAll('section.beetliste summary .beet__zaehler')].map(
+				(z) => Number(getComputedStyle(z).fontWeight)
+			),
+		};`);
+	pruefenGleich(
+		'/ernte: die Beete stehen natürlich geordnet, ohne Ort zuunterst, alle zu, und der Kopf trägt den Zähler',
+		ernteStand.beete.join(' | '),
+		'Freiland zu (1 langsam) | Hochbeet 3 zu (1 sofort · 1 langsam) | Ohne Beet zu (1 langsam)'
+	);
+	pruefen(
+		'/ernte: zugeklappt ist keine Karte zu sehen, und der Zähler ist gewöhnlicher Nebentext, nicht fett',
+		!ernteStand.kartenSichtbar &&
+			ernteStand.zaehlerGewicht.length > 0 &&
+			ernteStand.zaehlerGewicht.every((gewicht) => gewicht < 600),
+		JSON.stringify(ernteStand)
+	);
+
+	/*
+	 * **Klein sichtbar, 44px treffbar.** Alle Beete werden aufgeklappt, dann
+	 * wird jeder Knopf einer Karte in die Mitte gerollt und an **acht** Punkten
+	 * geprüft — vier Rändern und vier Ecken —, je `TREFFER_MINIMUM / 2 - 0.1`
+	 * (21,9px) waagrecht und senkrecht von seiner Mitte: `elementFromPoint`
+	 * dort muss den Knopf treffen. Zwischen den äussersten Messpunkten liegen
+	 * damit 43,8px in jeder Richtung; das Feld, das beide trifft, ist also
+	 * mindestens so breit — auf ganze Pixel gebaut heisst das 44px. Genau auf
+	 * ±22px wird nicht gemessen: der Rand eines Felds gehört nur auf einer
+	 * Seite dazu, und die Zeile hinge an dieser Konvention statt am Feld. Bis
+	 * zum Review vom 2026-10-26 stand hier ±21px an vier Rändern, also 42px —
+	 * die Behauptung sagte mehr, als sie mass.
+	 *
+	 * `elementFromPoint` ist dieselbe Trefferprüfung, die ein Fingertipp durchläuft — ein Mass an der Grösse des
+	 * Knopfs bewiese das Trefferfeld nicht, weil es unsichtbar um ihn herum
+	 * liegt. Die sichtbare Höhe muss dabei **unter** 44px liegen; sonst wäre das
+	 * hier eine Prüfung gewöhnlicher Knöpfe.
+	 *
+	 * Vorgeführt nach dem Review: im `inset` des `::before` die Kante nicht
+	 * abgezogen (Feld 42px statt 44px) — die Zeile wurde rot, an den Rändern
+	 * und Ecken unten wie oben (`bei 0/21.9`, `bei -21.9/21.9`).
+	 */
+	const ernteKnoepfe = await browser.auswerten<{
+		zahl: number;
+		befunde: string[];
+		namen: string[];
+	}>(`
+		for (const d of document.querySelectorAll('section.beetliste details.abschnitt')) d.open = true;
+		const knoepfe = [...document.querySelectorAll('section.beetliste .karte button')];
+		const befunde = [];
+		for (const knopf of knoepfe) {
+			knopf.scrollIntoView({ block: 'center', behavior: 'instant' });
+			const r = knopf.getBoundingClientRect();
+			const mx = r.left + r.width / 2;
+			const my = r.top + r.height / 2;
+			const name = knopf.getAttribute('aria-label');
+			if (r.height >= ${TREFFER_MINIMUM}) befunde.push(name + ': sichtbar ' + Math.round(r.height) + 'px hoch');
+			const r2 = ${TREFFER_MINIMUM / 2 - 0.1};
+			for (const [dx, dy] of [[-r2, 0], [r2, 0], [0, -r2], [0, r2], [-r2, -r2], [r2, -r2], [-r2, r2], [r2, r2]]) {
+				const ziel = document.elementFromPoint(mx + dx, my + dy);
+				if (ziel === null || ziel.closest('button') !== knopf)
+					befunde.push(name + ' bei ' + dx + '/' + dy + ': ' + (ziel === null ? 'nichts' : ziel.tagName.toLowerCase() + '.' + ziel.className));
+			}
+		}
+		return { zahl: knoepfe.length, befunde, namen: knoepfe.map((k) => k.getAttribute('aria-label')) };`);
+	pruefen(
+		`/ernte: jeder der ${ernteKnoepfe.zahl} Knöpfe an einer Karte sieht kleiner aus als ${TREFFER_MINIMUM}px und wird an allen vier Rändern und Ecken ${TREFFER_MINIMUM / 2 - 0.1}px von seiner Mitte getroffen — ein Feld von ${TREFFER_MINIMUM}px auf ganze Pixel`,
+		ernteKnoepfe.zahl > 0 && ernteKnoepfe.befunde.length === 0,
+		ernteKnoepfe.befunde.join(' | ') || 'keine Knöpfe gefunden'
+	);
+	/*
+	 * Wie die Knöpfe heissen — vollständig ausgeschrieben, in der Reihenfolge
+	 * der Seite. Daraus lesen sich drei Zusagen auf einmal: das X heisst
+	 * `Abgeerntet {Kultur}, {Ort}` (ohne Ort nur die Kultur), `Sofort` steht nur
+	 * an den langsamen Karten, und der Kürbis auf `wachsen` ist eine davon.
+	 */
+	pruefenGleich(
+		'/ernte: die Knöpfe heissen nach Kultur und Ort, und `Sofort` steht nur an den langsamen Karten — auch am Kürbis auf `wachsen`',
+		ernteKnoepfe.namen.join(' | '),
+		[
+			'Sofort ernten Kohlrabi, Freiland',
+			'Abgeerntet Kohlrabi, Freiland',
+			'Abgeerntet Zucchini, Hochbeet 3',
+			'Sofort ernten Salat, Hochbeet 3',
+			'Abgeerntet Salat, Hochbeet 3',
+			'Sofort ernten Kürbis',
+			'Abgeerntet Kürbis',
+		].join(' | ')
+	);
+
+	/*
+	 * **Ohne JavaScript: die Rückfrage öffnet genau ihr Beet** — das zweite
+	 * Abnahmekriterium der Spec. Ein POST ohne den Kopf von `use:enhance`
+	 * bekommt die ganze Seite zurück, genau die, die ein Browser ohne Skript
+	 * anzeigt; gelesen wird das zurückgekommene HTML. Gefragt wird an Kohlrabi,
+	 * dem ersten Beet: ein Beet weiter unten offen zu finden bewiese nichts über
+	 * die übrigen. Der Weg über `window` ist derselbe wie auf /wellness.
+	 */
+	const kohlrabiId = await browser.auswerten<string>(`
+		const knopf = [...document.querySelectorAll('section.beetliste .karte button')]
+			.find((k) => k.getAttribute('aria-label') === 'Abgeerntet Kohlrabi, Freiland');
+		return knopf?.form.querySelector('input[name="id"]').value ?? '';`);
+	await browser.auswerten(`
+		const daten = new FormData();
+		daten.set('id', ${JSON.stringify(kohlrabiId)});
+		window.__ohneSkript = undefined;
+		fetch('?/abernten', { method: 'POST', body: daten, headers: { accept: 'text/html' } })
+			.then((antwort) => antwort.text())
+			.then((html) => { window.__ohneSkript = html; })
+			.catch((fehler) => { window.__ohneSkript = 'Wurf: ' + fehler; });
+		return true;`);
+	await browser.warten(
+		"typeof window.__ohneSkript === 'string'",
+		'die Antwort auf ?/abernten ohne Skript ist da'
+	);
+	const ernteOhneSkript = await browser.auswerten<{ frage: boolean; offen: string[] }>(`
+		const dok = new DOMParser().parseFromString(window.__ohneSkript, 'text/html');
+		return {
+			frage: dok.getElementById(${JSON.stringify(`abernten-frage-${kohlrabiId}`)}) !== null,
+			offen: [...dok.querySelectorAll('section.beetliste details.abschnitt')]
+				.filter((d) => d.hasAttribute('open'))
+				.map((d) => d.querySelector('h3').textContent.trim()),
+		};`);
+	pruefen(
+		'/ernte ohne JavaScript: die Rückfrage zum Abernten steht an der Zeile, und genau ihr Beet kommt offen',
+		kohlrabiId !== '' &&
+			ernteOhneSkript.frage &&
+			ernteOhneSkript.offen.length === 1 &&
+			ernteOhneSkript.offen[0] === 'Freiland',
+		JSON.stringify({ id: kohlrabiId, ...ernteOhneSkript })
+	);
+
+	/*
+	 * **Ohne JavaScript: Umstufen öffnet genau sein Beet** (Befund aus dem
+	 * Review vom 2026-10-26: die Behauptung mit JavaScript darunter klappt das
+	 * Beet vor dem Klick von Hand auf und belegt `zielZeile` darum nicht). Ein
+	 * POST auf `?/umstufen` ohne den Kopf von `use:enhance`, Salat auf
+	 * `sofort`; im zurückgekommenen HTML muss genau Hochbeet 3 offen sein und
+	 * Salat dort unter `Sofort ernten` stehen.
+	 *
+	 * **Das ändert die Saat**, und das ist ausgeschrieben: ab hier ist Hochbeet 3
+	 * nicht mehr gemischt (zweimal sofort). Der Kontrast-Sweep weiter unten
+	 * braucht davon nichts — er sieht `--reif-stehen` an Kürbis ohne Ort, die
+	 * Kanten in --reif-sofort an Zucchini, Salat und Kohlrabi, und beide kleinen
+	 * Knöpfe an Kürbis. Was er nicht mehr sieht, ist ein gemischtes Beet; das
+	 * belegt der Zähler `1 sofort · 1 langsam` oben, gemessen vor jeder
+	 * Änderung.
+	 *
+	 * Vorgeführt am 2026-10-26: `form.art === 'umgestuft' ||` aus `zielZeile`
+	 * gestrichen — diese Zeile wurde rot (kein Beet offen).
+	 */
+	const salatId = await browser.auswerten<string>(`
+		const knopf = [...document.querySelectorAll('section.beetliste .karte button')]
+			.find((k) => k.getAttribute('aria-label') === 'Sofort ernten Salat, Hochbeet 3');
+		return knopf?.form.querySelector('input[name="id"]').value ?? '';`);
+	await browser.auswerten(`
+		const daten = new FormData();
+		daten.set('id', ${JSON.stringify(salatId)});
+		daten.set('status', 'sofort');
+		window.__ohneSkript = undefined;
+		fetch('?/umstufen', { method: 'POST', body: daten, headers: { accept: 'text/html' } })
+			.then((antwort) => antwort.text())
+			.then((html) => { window.__ohneSkript = html; })
+			.catch((fehler) => { window.__ohneSkript = 'Wurf: ' + fehler; });
+		return true;`);
+	await browser.warten(
+		"typeof window.__ohneSkript === 'string'",
+		'die Antwort auf ?/umstufen ohne Skript ist da'
+	);
+	const umstufenOhneSkript = await browser.auswerten<{ offen: string[]; sofort: string[] }>(`
+		const dok = new DOMParser().parseFromString(window.__ohneSkript, 'text/html');
+		const beet = [...dok.querySelectorAll('section.beetliste details.abschnitt')]
+			.find((d) => d.querySelector('h3').textContent.trim() === 'Hochbeet 3');
+		const marke = beet === undefined ? undefined
+			: [...beet.querySelectorAll('h4')].find((h) => h.textContent.trim() === 'Sofort ernten');
+		const liste = marke === undefined ? null : dok.querySelector('ul[aria-labelledby="' + marke.id + '"]');
+		return {
+			offen: [...dok.querySelectorAll('section.beetliste details.abschnitt')]
+				.filter((d) => d.hasAttribute('open'))
+				.map((d) => d.querySelector('h3').textContent.trim()),
+			sofort: liste === null ? [] : [...liste.querySelectorAll('.karte .zeile__text')].map((p) => p.textContent.trim()),
+		};`);
+	pruefen(
+		'/ernte ohne JavaScript: nach `Sofort` an Salat kommt genau Hochbeet 3 offen, und Salat steht dort unter `Sofort ernten`',
+		salatId !== '' &&
+			umstufenOhneSkript.offen.join(' | ') === 'Hochbeet 3' &&
+			umstufenOhneSkript.sofort.includes('Salat'),
+		JSON.stringify({ id: salatId, ...umstufenOhneSkript })
+	);
+
+	/*
+	 * **Mit JavaScript: Umstufen im selben Beet, und das Beet bleibt offen.**
+	 * Frisch geladen (alle Beete zu), Freiland **von Hand** aufgeklappt und der
+	 * Knopf `Sofort` an Kohlrabi geklickt — über die gemessene Mitte, wie ein
+	 * Finger. Gewartet wird auf die Rückmeldung; danach muss Kohlrabi im selben
+	 * Beet unter `Sofort ernten` stehen und das Beet weiterhin offen sein.
+	 *
+	 * **Was diese Zeile belegt und was nicht:** dass Svelte ein offenes Beet nach
+	 * dem Umstufen nicht unter der Hand zuklappt (`istOffen` liest den Zustand
+	 * des Browsers). Dass das Beet ohne Zutun aufgeht, belegt sie **nicht** —
+	 * es war schon offen; das tun die Zeile ohne JavaScript darüber und die
+	 * Zeile zum Eintragen darunter.
+	 *
+	 * Das ändert die Saat ein zweites Mal: Kohlrabi steht ab hier auf `sofort`.
+	 * Die Rückfrage zu Kohlrabi darunter braucht nur sein X, das jede Karte
+	 * trägt.
+	 */
+	await browser.besuchen(`${adresse}/ernte`);
+	await browser.auswerten(`
+		const beet = [...document.querySelectorAll('section.beetliste details.abschnitt')]
+			.find((d) => d.querySelector('h3').textContent.trim() === 'Freiland');
+		beet.open = true;
+		[...beet.querySelectorAll('button')]
+			.find((k) => k.getAttribute('aria-label') === 'Sofort ernten Kohlrabi, Freiland').id = 'sofort-unter-probe';
+		return true;`);
+	await browser.klicken('#sofort-unter-probe');
+	await browser.warten(
+		"document.querySelector('.meldung').textContent.includes('Kohlrabi')",
+		'die Rückmeldung zum Umstufen von Kohlrabi ist da'
+	);
+	const nachUmstufen = await browser.auswerten<{ offen: boolean; sofort: string[] }>(`
+		const beet = [...document.querySelectorAll('section.beetliste details.abschnitt')]
+			.find((d) => d.querySelector('h3').textContent.trim() === 'Freiland');
+		const marke = [...beet.querySelectorAll('h4')].find((h) => h.textContent.trim() === 'Sofort ernten');
+		const liste = marke === undefined ? null : document.querySelector('ul[aria-labelledby="' + marke.id + '"]');
+		return {
+			offen: beet.open,
+			sofort: liste === null ? [] : [...liste.querySelectorAll('.karte .zeile__text')].map((p) => p.textContent.trim()),
+		};`);
+	pruefen(
+		'/ernte mit JavaScript: nach `Sofort` steht Kohlrabi im selben Beet unter `Sofort ernten`, und das von Hand geöffnete Beet bleibt offen',
+		nachUmstufen.offen && nachUmstufen.sofort.includes('Kohlrabi'),
+		JSON.stringify(nachUmstufen)
+	);
+
+	/*
+	 * **Mit JavaScript: die Rückfrage aus einem von Hand zugeklappten Beet.**
+	 * Abgeschickt über `requestSubmit()`, also durch `use:enhance`, nachdem das
+	 * Beet wieder zugeklappt wurde. Die Frage muss danach zu sehen sein —
+	 * sonst steht eine Frage, die niemand findet, und das X der Zeile ist fort.
+	 */
+	await browser.auswerten(`
+		const knopf = [...document.querySelectorAll('section.beetliste .karte button')]
+			.find((k) => k.getAttribute('aria-label') === 'Abgeerntet Kohlrabi, Freiland');
+		knopf.closest('details').open = false;
+		knopf.form.requestSubmit();
+		return true;`);
+	await browser.warten(
+		`document.getElementById(${JSON.stringify(`abernten-frage-${kohlrabiId}`)}) !== null`,
+		'die Rückfrage zu Kohlrabi mit JavaScript ist da'
+	);
+	const frageSichtbar = await browser.auswerten<{ sichtbar: boolean; offen: boolean }>(`
+		const frage = document.getElementById(${JSON.stringify(`abernten-frage-${kohlrabiId}`)});
+		return { sichtbar: frage.checkVisibility(), offen: frage.closest('details').open };`);
+	pruefen(
+		'/ernte mit JavaScript: die Rückfrage im zugeklappten Beet öffnet das Beet, und die Frage ist zu sehen',
+		frageSichtbar.sichtbar && frageSichtbar.offen,
+		JSON.stringify(frageSichtbar)
+	);
+
+	/*
+	 * **Mit JavaScript: eine neu eingetragene Zeile öffnet ihr Beet** (Befund
+	 * aus dem Review vom 2026-10-26: sonst landete sie unsichtbar in einem
+	 * zugeklappten Beet, und die Meldung oben sagte nur, dass es sie gibt).
+	 * Freiland wird vorher von Hand zugeklappt; damit hat `istOffen` den
+	 * gemerkten Zustand `zu`, und aufgehen kann es nur über `aufklappen` im
+	 * Versand. Eingetragen wird Mangold in Freiland, abgeschickt über
+	 * `requestSubmit()` des Formulars, also durch `use:enhance`.
+	 *
+	 * Das ändert die Saat ein drittes Mal: Freiland trägt ab hier zwei Zeilen.
+	 *
+	 * Vorgeführt am 2026-10-26: `form.art === 'eingetragen' ||` aus `zielZeile`
+	 * gestrichen — diese Zeile wurde rot (Freiland blieb zu).
+	 */
+	await browser.auswerten(`
+		const beet = [...document.querySelectorAll('section.beetliste details.abschnitt')]
+			.find((d) => d.querySelector('h3').textContent.trim() === 'Freiland');
+		beet.open = false;
+		document.querySelector('details.zeilenform').open = true;
+		document.getElementById('neu-kultur').value = 'Mangold';
+		document.getElementById('neu-ort').value = 'Freiland';
+		document.querySelector('input[name="status"][value="stehen"]').checked = true;
+		document.getElementById('neu-kultur').form.requestSubmit();
+		return true;`);
+	await browser.warten(
+		"document.querySelector('.meldung').textContent.includes('Mangold')",
+		'die Rückmeldung zum Eintragen von Mangold ist da'
+	);
+	const nachEintragen = await browser.auswerten<{ offen: boolean; sichtbar: boolean }>(`
+		const beet = [...document.querySelectorAll('section.beetliste details.abschnitt')]
+			.find((d) => d.querySelector('h3').textContent.trim() === 'Freiland');
+		const karte = [...beet.querySelectorAll('.karte')].find((k) =>
+			k.querySelector('.zeile__text').textContent.trim() === 'Mangold');
+		return { offen: beet.open, sichtbar: karte?.checkVisibility() ?? false };`);
+	pruefen(
+		'/ernte mit JavaScript: nach dem Eintragen geht das zugeklappte Beet der neuen Zeile auf, und die Zeile ist zu sehen',
+		nachEintragen.offen && nachEintragen.sichtbar,
+		JSON.stringify(nachEintragen)
+	);
+
+	// -----------------------------------------------------------------------
 	// Die zweite Sitzung: als Adminperson
 	// -----------------------------------------------------------------------
 	/*
@@ -2506,6 +2845,18 @@ try {
 	 *   - Den Fokusring. Er hängt an `:focus-visible`, und ein berechneter Stil
 	 *     zeigt ihn nur am fokussierten Element. Seine Farbe ist `--accent`, und
 	 *     die ist als Umriss des Kästchens ohnehin gemessen.
+	 *   - **Was in einem anderen Aufklapper als `details.abschnitt` liegt.** Seit
+	 *     dem 2026-10-26 klappt der Messkopf vor dem Messen jeden Abschnitt auf:
+	 *     die Beete auf /ernte kommen zugeklappt (spec-ernte-nach-beet.md), und
+	 *     ohne diesen Schritt fielen alle Karten, alle Stufenkanten und beide
+	 *     kleinen Knöpfe aus der Messung — vorgeführt am selben Tag: ohne
+	 *     diesen Schritt wurden die Abdeckungszeile (an beiden --reif-Token)
+	 *     und die Zeile zu den Zustandsmarken rot. Mitgemessen sind damit auch die
+	 *     zugeklappten Beete auf /wellness und die Legende auf /ernte. Nicht
+	 *     geöffnet werden `details.zeilenform` (die Formulare) und
+	 *     `details.eintraege` (die Einträge im Tagebuch): sie öffnen hiesse,
+	 *     Zustände zu messen, die erst nach einem Griff entstehen, und das ist
+	 *     eine eigene Frage.
 	 */
 	const TOKENS = [
 		'--surface-base',
@@ -2518,11 +2869,9 @@ try {
 		'--accent',
 		'--accent-ink',
 		'--overdue',
-		'--warn',
 		'--danger',
 		'--reif-sofort',
 		'--reif-stehen',
-		'--reif-wachsen',
 	] as const;
 
 	/*
@@ -2559,6 +2908,7 @@ try {
 	 * mit dem Verhältnis 1 — gemessen und behoben, statt die Zahl zu erklären.
 	 */
 	const MESSKOPF = `
+		for (const d of document.querySelectorAll('details.abschnitt')) d.open = true;
 		const INTERAKTIV = 'a[href], button, input, select, textarea, summary,' +
 			' [role="button"], [tabindex]:not([tabindex="-1"])';
 		const pfad = (el) => {
@@ -2779,7 +3129,7 @@ try {
 			tokenwerte = messung.tokens;
 			const tokenmenge = new Set(Object.values(messung.tokens));
 			/*
-			 * Die drei Farben, die als Zustandsmarke durchgehen — **abgeleitet aus
+			 * Die Farben, die als Zustandsmarke durchgehen (seit dem 2026-10-26 zwei) — **abgeleitet aus
 			 * dem Tokenblock über ihr Namenspräfix** und nicht hier aufgezählt. Eine
 			 * Liste von Hand wäre genau die Stelle, an der eine vierte Ampelfarbe
 			 * später still an der Prüfung vorbeiliefe.
@@ -2858,8 +3208,8 @@ try {
 				 * Streifen ist die dritte Auskunft über dieselbe Sache, und er darf
 				 * darum so gelb sein, wie er auf diesem Grund sein kann.
 				 *
-				 * **Die Ausnahme bezahlt sich mit zwei Wachen.** Hier: nur die drei
-				 * --reif-Token kommen hinein, jede andere Farbe an einem
+				 * **Die Ausnahme bezahlt sich mit zwei Wachen.** Hier: nur die
+				 * --reif-Token (seit dem 2026-10-26 zwei) kommen hinein, jede andere Farbe an einem
 				 * [data-stufe] fällt auf. Und im Zugangslauf: jede Stufe behält ihr
 				 * Wort neben dem Streifen. Fällt das Wort, fällt die Begründung.
 				 */
@@ -2944,7 +3294,7 @@ try {
 		/*
 		 * **Die Gegenrechnung zur Ausnahme zwei Bildschirme weiter oben.** Die
 		 * Zustandsmarke ist von den 3:1 befreit; damit diese Befreiung nicht zum
-		 * Loch wird, darf ausser den drei --reif-Token nichts hindurch — und es
+		 * Loch wird, darf ausser den --reif-Token (seit dem 2026-10-26 zwei) nichts hindurch — und es
 		 * muss überhaupt welche geben. Eine Ausnahme, die auf null Funden sitzt,
 		 * ist eine Ausnahme, die niemand mehr prüft.
 		 */

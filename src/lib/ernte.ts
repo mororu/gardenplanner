@@ -1,4 +1,5 @@
 import { aufgabentextFalten } from './aufgabentext.ts';
+import { leerZuletzt } from './beet.ts';
 
 /*
  * Was eine Erntezeile ist — **die eine Stelle**, an der das steht.
@@ -9,9 +10,10 @@ import { aufgabentextFalten } from './aufgabentext.ts';
  *      oder weisen ab;
  *   2. die Abfrageschicht in ./server/db/queries/harvests.ts — sie ordnet die
  *      Liste nach der Dringlichkeit, und zwar aus **dieser** Reihenfolge;
- *   3. die Seite /ernte — drei Abschnitte, je Status einer, mit Titel und Satz;
- *   4. die Startseite — dieselben Farben und dieselben Wörter an der
- *      Registerkarte.
+ *   3. die Seite /ernte — je Beet ein Abschnitt, darin je Stufe ein
+ *      Zwischentitel (`nachBeetGliedern` unten);
+ *   4. die Startseite — sie zählt die Zeilen. Farben und Wörter der Stufen
+ *      trägt sie seit dem 2026-09-17 nicht mehr.
  *
  * Der zweite ist der heikle: die Ordnung der Liste ist in SQL eine
  * CASE-Kaskade, und die entsteht aus ERNTESTATUS. Eine zweite Liste im
@@ -20,7 +22,7 @@ import { aufgabentextFalten } from './aufgabentext.ts';
  * warum.
  *
  * Das Modul liegt in src/lib/ und nicht unter client/ oder server/: beide
- * Seiten lesen es. Es hängt nur von ./aufgabentext.ts ab, damit
+ * Seiten lesen es. Es hängt nur von ./aufgabentext.ts und ./beet.ts ab, damit
  * ../routes/ernte/+page.server.ts es über nacktes Node laden kann
  * (scripts/smoke-zugang.ts tut genau das).
  */
@@ -49,12 +51,17 @@ export const ERNTESTATUS = ['sofort', 'stehen', 'wachsen'] as const;
  * Umstufung bleiben, wie sie sind. Was wegfällt, ist die **Wahl**: neu
  * eintragen und umstufen führen nur noch nach `sofort` oder `stehen`.
  *
- * **Bestehende Zeilen bleiben darum erreichbar.** Die Abschnitte auf /ernte
- * entstehen ohnehin nur, wenn sie Zeilen haben — eine Zeile, die noch auf
- * `wachsen` steht, steht dort weiterhin und lässt sich von dort wegstufen. Sie
- * wird nur nicht mehr auf der Startseite gezählt und nicht mehr neu erzeugt.
- * Ohne diese Eigenschaft wäre das Verbergen eine Falle: Daten, die man sieht,
- * aber nicht mehr anfassen kann — oder schlimmer, die man nicht mehr sieht.
+ * **Bestehende Zeilen bleiben darum erreichbar.** Seit dem 2026-10-26
+ * (spec-ernte-nach-beet.md) steht eine Zeile, die noch auf `wachsen` steht,
+ * auf /ernte unter `Langsam ernten` — mit dessen Farbe und dessen Knopf
+ * `Sofort` (siehe `anzeigestufe` unten) —, und die Startseite zählt sie mit.
+ * `Noch wachsen lassen` kommt in der Oberfläche nicht mehr vor. Ohne diese
+ * Eigenschaft wäre das Verbergen eine Falle: Daten, die man sieht, aber nicht
+ * mehr anfassen kann — oder schlimmer, die man nicht mehr sieht.
+ *
+ * Die Spalte wird dafür **nicht** umgeschrieben: eine Änderung an Datenbank
+ * oder actions verlangt die Spec ausdrücklich nur nach Rückfrage, und die
+ * Anzeige allein deckt, was sie verlangt.
  *
  * Zurückgenommen wird das, indem `wachsen` hier wieder dazukommt. Eine Stelle.
  */
@@ -65,11 +72,14 @@ export type Erntestatus = (typeof ERNTESTATUS)[number];
 /**
  * Wie eine Stufe heisst und was sie bedeutet.
  *
- * `titel` ist die Überschrift des Abschnitts, `satz` die Erklärung darunter,
- * `kurz` die Beschriftung des Knopfs, mit dem eine Zeile **in** diese Stufe
- * wandert. Drei Wörter für dieselbe Sache, und das ist Absicht: eine
- * Überschrift trägt den ganzen Gedanken, ein Knopf an einer Zeile nicht — bei
- * 375px stehen zwei davon nebeneinander.
+ * `titel` steht in der Legende, in der Stufenwahl des Formulars und in der
+ * Rückmeldung nach dem Eintragen und Umstufen, `satz` ist die Erklärung
+ * daneben. `kurz` ist seit dem 2026-10-26 der **Zwischentitel** einer Stufe
+ * im Beet auf /ernte (so im abgenommenen Entwurf; spec-ernte-nach-beet.md) und
+ * — für `sofort` — der Anfang des vorgelesenen Namens des Knopfs `Sofort`
+ * (`Sofort ernten Salat, Hochbeet 3`).
+ * Mehrere Wörter für dieselbe Sache, und das ist Absicht: eine Erklärung trägt
+ * den ganzen Gedanken, ein Zwischentitel in einer Karte bei 375px nicht.
  *
  * Der Satz zu `sofort` nannte bis zum 2026-10-12 ein Beispiel mit (Zucchini
  * über zwanzig Zentimeter, dicke Bohnen, schiessender Salat). Seither steht er
@@ -85,15 +95,27 @@ export const ERNTETEXT: Record<Erntestatus, { titel: string; satz: string; kurz:
 	 * **Umbenannt am 2026-09-13.** Die Stufe hiess `Kann noch stehen`, und das
 	 * las sich als Erlaubnis zu warten — gemeint ist der Anfang der Ernte, nicht
 	 * ihr Aufschub. Der kurze Wortlaut ist nicht die Kurzform desselben Satzes,
-	 * sondern so kurz, wie die Marke an einer Zeile sein muss: dort steht er
+	 * sondern so kurz, wie die Marke an einer Zeile sein musste: dort stand er
 	 * neben Kultur und Ort in Grossbuchstaben, und `Langsam anfangen zu ernten`
-	 * bräche die Zeile bei 375px.
+	 * bräche die Zeile bei 375px. Seit dem 2026-10-26 ist er der Zwischentitel
+	 * der Stufe im Beet.
 	 */
 	stehen: {
 		titel: 'Langsam anfangen zu ernten',
 		satz: 'Schon geniessbar, wächst aber ohne Qualitätsverlust weiter. Ernten nach Bedarf.',
 		kurz: 'Langsam ernten',
 	},
+	/*
+	 * Erscheint seit dem 2026-10-26 nirgends mehr in der Oberfläche (Zeilen auf
+	 * `wachsen` stehen unter `Langsam ernten`, siehe `anzeigestufe`). Der
+	 * Eintrag bleibt, weil der Typ jede gespeicherte Stufe abdeckt — und weil
+	 * die actions `eintragen` und `umstufen` den Status über `istErntestatus`
+	 * prüfen, das alle drei Werte aus ERNTESTATUS annimmt. Ein POST, der
+	 * `wachsen` schickt, wird darum angenommen, gespeichert und mit einem Satz
+	 * aus `titel` dieser Zeile beantwortet. Die actions daran anzupassen ist
+	 * eine Änderung an den actions und laut Spec erst nach Rückfrage zu
+	 * machen; sie ist nicht gemacht.
+	 */
 	wachsen: {
 		titel: 'Noch wachsen lassen',
 		satz: 'Nicht anfassen, es lohnt sich noch nicht.',
@@ -114,6 +136,25 @@ export const DAUERERNTE_SATZ = 'Alle zwei bis drei Tage durchgehen.';
 
 /** Die Beschriftung des Häkchens, das denselben Vermerk setzt. */
 export const DAUERERNTE_WORT = 'Laufend ernten';
+
+/**
+ * Das Wort fürs Abernten — eine Stelle für drei Leser auf /ernte: den Namen des
+ * X an jeder Karte (`Abgeerntet Zucchini, Beet 3`), die Zeile der Legende, die
+ * das X erklärt, und den bestätigenden Knopf der Rückfrage.
+ *
+ * Seit dem 2026-10-26 steht das Wort nicht mehr sichtbar an der Karte
+ * (spec-ernte-nach-beet.md); ein vorgelesener Name und eine Legende, die
+ * verschiedene Wörter für dieselbe Handlung trügen, liefen genau dort
+ * auseinander, wo man nachschlägt.
+ */
+export const ABERNTEN_WORT = 'Abgeerntet';
+
+/**
+ * Die Beschriftung des Knopfs an einer langsamen Karte, der sie auf `sofort`
+ * stuft. Kürzer als `ERNTETEXT.sofort.kurz`, weil der Knopf neben dem X in
+ * einer einzeiligen Karte steht; vorgelesen wird er mit Kultur und Ort.
+ */
+export const SOFORT_KNOPF = 'Sofort';
 
 /**
  * Sagt, ob ein Wert aus dem Formular eine der drei Stufen ist.
@@ -258,4 +299,109 @@ export function ortPruefen(eingabe: string): { ort: string | null } | { fehler: 
 	if (ort === '' || ort === aufgabentextFalten(ORT_VORGABE)) return { ort: null };
 	if ([...ort].length > ERNTE_HOECHSTLAENGE) return { fehler: ORT_ZU_LANG };
 	return { ort };
+}
+
+/**
+ * Die Stufen, unter denen eine Zeile auf /ernte **erscheinen** kann.
+ *
+ * Dieselben zwei wie SICHTBARE_ERNTESTATUS, und das ist kein Zufall, sondern
+ * die Regel: was nicht wählbar ist, erscheint unter der nächsten wählbaren
+ * Stufe dahinter. Ein eigener Typ, damit eine Zeile auf `wachsen` in der
+ * Oberfläche gar nicht erst als dritte Stufe ankommt.
+ */
+export type Anzeigestufe = (typeof SICHTBARE_ERNTESTATUS)[number];
+
+/**
+ * Unter welcher Stufe eine Zeile erscheint: `wachsen` unter `stehen`.
+ *
+ * Entscheid Manuel vom 2026-10-26 (spec-ernte-nach-beet.md): `Noch wachsen
+ * lassen` verschwindet aus Legende und Oberfläche. Die Zeilen, die vor dem
+ * 2026-09-14 dort landeten, sind damit grün und tragen den Knopf `Sofort` —
+ * nach vorn, wie jedes Umstufen.
+ */
+export function anzeigestufe(status: Erntestatus): Anzeigestufe {
+	return status === 'wachsen' ? 'stehen' : status;
+}
+
+/**
+ * Das Wort einer Stufe im Zähler am Kopf eines Beets: `2 sofort · 1 langsam`.
+ *
+ * Klein und kurz, weil es im Kopf eines zugeklappten Beets neben dem Namen
+ * steht — und dort ist, was AD-14 schützt: man sieht ohne Aufklappen, wo etwas
+ * sofort zu ernten ist.
+ */
+export const ZAEHLWORT: Record<Anzeigestufe, string> = {
+	sofort: 'sofort',
+	stehen: 'langsam',
+};
+
+/** Eine Stufe in einem Beet — ein Zwischentitel und seine Karten. */
+export type Erntestufe<T> = { stufe: Anzeigestufe; zeilen: T[] };
+
+/** Ein Beet auf /ernte — ein Abschnitt. */
+export type Erntebeet<T> = {
+	/** Der Ort, wie er gespeichert ist, als Schlüssel — eindeutig, auch für null. */
+	schluessel: string;
+	ort: string | null;
+	/** Nur die Stufen mit Zeilen, in der Reihenfolge von SICHTBARE_ERNTESTATUS. */
+	stufen: Erntestufe<T>[];
+	/** Der Kopf des Beets: `{n} sofort · {m} langsam`, nur die vorhandenen Teile. */
+	zaehler: string;
+};
+
+/**
+ * Die Ernteliste gegliedert: **Beet > Stufe > Karte** (spec-ernte-nach-beet.md,
+ * 2026-10-26). Wer im Garten steht, steht in einem Beet; die Liste nach
+ * Dringlichkeit über den ganzen Garten musste nach dem eigenen Ort abgesucht
+ * werden.
+ *
+ * - **Ein Beet je Ort, Zeichen für Zeichen.** `42` und `Beet 42` sind zwei
+ *   Beete; sie zusammenzuführen ist eine eigene Spec (spec-beet-schreibweise.md),
+ *   nicht diese. Gruppiert wird darum über eine Zuordnung mit dem gespeicherten
+ *   Wert als Schlüssel und nicht über die Ordnung: `natuerlich` hält `Beet 03`
+ *   und `Beet 3` für gleich, und eine Gruppierung über die Ordnung legte sie
+ *   zusammen.
+ * - **Natürlich geordnet**, wie das Tagebuch auf /wellness (`leerZuletzt` aus
+ *   ./beet.ts): `Beet 3` vor `Beet 12`, ohne Ort zuunterst. Bei Gleichstand
+ *   (`Beet 03` gegen `Beet 3`) entscheidet der Zeichenvergleich, damit zwei
+ *   Aufrufe dieselbe Reihenfolge liefern.
+ * - **Innerhalb eines Beets** die Stufen in der Reihenfolge von
+ *   SICHTBARE_ERNTESTATUS, `wachsen` unter `stehen` (`anzeigestufe`). Die
+ *   Zeilen einer Stufe stehen in der Reihenfolge, in der sie hereinkommen — die
+ *   Abfrage liefert sie nach Rang und dann jüngste zuerst; eine Zeile auf
+ *   `wachsen` steht damit unter den Zeilen, die wirklich auf `stehen` stehen.
+ *
+ * Rein und ohne Datenbank, damit scripts/smoke-zugang.ts die I/O-Matrix der
+ * Spec direkt daran prüfen kann.
+ */
+export function nachBeetGliedern<T extends { ort: string | null; status: Erntestatus }>(
+	zeilen: readonly T[]
+): Erntebeet<T>[] {
+	const beete = new Map<string, { ort: string | null; zeilen: T[] }>();
+	for (const zeile of zeilen) {
+		const schluessel = JSON.stringify([zeile.ort]);
+		const beet = beete.get(schluessel);
+		if (beet === undefined) beete.set(schluessel, { ort: zeile.ort, zeilen: [zeile] });
+		else beet.zeilen.push(zeile);
+	}
+	return [...beete.entries()]
+		.sort(
+			([schluesselA, a], [schluesselB, b]) =>
+				leerZuletzt(a.ort, b.ort) ||
+				(schluesselA < schluesselB ? -1 : schluesselA > schluesselB ? 1 : 0)
+		)
+		.map(([schluessel, beet]) => {
+			const stufen = SICHTBARE_ERNTESTATUS.map((stufe) => ({
+				stufe,
+				zeilen: beet.zeilen.filter((zeile) => anzeigestufe(zeile.status) === stufe),
+			})).filter((gruppe) => gruppe.zeilen.length > 0);
+			return {
+				schluessel,
+				ort: beet.ort,
+				stufen,
+				zaehler: stufen
+					.map((gruppe) => `${gruppe.zeilen.length} ${ZAEHLWORT[gruppe.stufe]}`)
+					.join(' · '),
+			};
+		});
 }

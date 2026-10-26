@@ -213,7 +213,11 @@ export function gerundet(wert: number): number {
  */
 
 /**
- * Die siebzehn Paarungen der Tabelle „Kontrast, geprüft statt behauptet".
+ * Die fünfzehn Paarungen der Tabelle „Kontrast, geprüft statt behauptet".
+ *
+ * **Zwei sind am 2026-10-26 weggefallen** — die Ampel der dritten Erntestufe
+ * `wachsen`, deren Token mit ihr aus der Oberfläche gegangen ist
+ * (spec-ernte-nach-beet.md).
  *
  * **Zwei sind am 2026-09-17 weggefallen** — `Unbesetzt auf Karte` und
  * `Unbesetzt auf Grund`. Sie beschrieben `--warn`, und dieses Token hat mit
@@ -223,7 +227,9 @@ export function gerundet(wert: number): number {
  *
  * Je Zeile: Name, Vordergrund, Grund, der **dokumentierte** Wert und die
  * Schwelle, die er halten muss. Schwelle 0 heisst: diese Zeile hat keinen
- * Boden — es gibt genau eine solche, und ihre Begründung steht an ihr.
+ * Boden — das gilt für zwei Gruppen, die Ampel der Ernte und die Haarlinie,
+ * und die Begründung steht je an ihnen. (Bis zum 2026-10-26 stand hier „genau
+ * eine solche"; seit dem 2026-09-13 waren es schon zwei Gruppen.)
  */
 const DOKUMENTIERT = [
 	['Fliesstext auf Grund', 'ink', 'base', 14.65, 4.5],
@@ -267,28 +273,29 @@ const DOKUMENTIERT = [
 	 */
 	['Nebentext auf Abschnittskopf', 'ink2', 'griff', 4.93, 4.5],
 	/*
-	 * Die Ampel der Ernte, sechs Zeilen. Sie steht **an beiden** Flächen, weil
+	 * Die Ampel der Ernte, vier Zeilen — seit dem 2026-10-26 zwei Stufen statt
+	 * drei, und die Farben getauscht: Gelb ist `sofort`, Grün ist `langsam`
+	 * (spec-ernte-nach-beet.md). Rot trägt keine Stufe mehr, und `--reif-wachsen`
+	 * ist mit der dritten Stufe entfallen. Sie steht **an beiden** Flächen, weil
 	 * die Kante zwischen Karte und Grund liegt: aussen der Grund der Seite,
 	 * innen die Karte.
 	 *
 	 * **Schwelle 0, seit dem 2026-09-13 — und das ist die zweite und letzte
-	 * Zeilengruppe ohne Boden.** Bis dahin stand hier 3.0, und die drei Farben
-	 * waren danach ausgesucht. Dann sollte die mittlere Stufe kräftig gelb
-	 * werden, und das geht auf diesem Grund nicht zusammen: ein Gelb, das 3:1
-	 * gegen diese Karte hält, ist bei #b87a00 zu Ende und liest sich als Braun.
+	 * Zeilengruppe ohne Boden.** Bis dahin stand hier 3.0, und die Farben waren
+	 * danach ausgesucht. Dann sollte das Gelb kräftig werden, und das geht auf
+	 * diesem Grund nicht zusammen: ein Gelb, das 3:1 gegen diese Karte hält, ist
+	 * bei #b87a00 zu Ende und liest sich als Braun.
 	 *
-	 * Die Zahlen stehen trotzdem hier, und zwar alle sechs. Ohne Boden heisst
-	 * nicht ungemessen: wer eine der drei Farben anfasst, sieht an dieser Zeile,
-	 * was er getan hat, und die Tabellenprobe oben bricht wie bei jeder anderen.
+	 * Die Zahlen stehen trotzdem hier, und zwar alle vier. Ohne Boden heisst
+	 * nicht ungemessen: wer eine der Farben anfasst, sieht an dieser Zeile, was
+	 * er getan hat, und die Tabellenprobe oben bricht wie bei jeder anderen.
 	 * Was hier nicht mehr steht, ist ein Versprechen, das die Farbe nicht halten
 	 * kann — die Stufe trägt ihr Wort daneben, und `smoke` prüft genau das.
 	 */
-	['Ampel sofort an Karte', 'reifSofort', 'raised', 5.35, 0],
-	['Ampel sofort an Grund', 'reifSofort', 'base', 4.87, 0],
-	['Ampel kann stehen an Karte', 'reifStehen', 'raised', 1.57, 0],
-	['Ampel kann stehen an Grund', 'reifStehen', 'base', 1.43, 0],
-	['Ampel wachsen an Karte', 'reifWachsen', 'raised', 4.99, 0],
-	['Ampel wachsen an Grund', 'reifWachsen', 'base', 4.54, 0],
+	['Ampel sofort an Karte', 'reifSofort', 'raised', 1.57, 0],
+	['Ampel sofort an Grund', 'reifSofort', 'base', 1.43, 0],
+	['Ampel langsam an Karte', 'reifStehen', 'raised', 4.99, 0],
+	['Ampel langsam an Grund', 'reifStehen', 'base', 4.54, 0],
 	/*
 	 * Die Haarlinie liegt **auf der Karte** — das ist nachgemessen und nicht
 	 * abgelesen: auf `--surface-base` ergeben dieselben Tokens 1.22 statt 1.34.
@@ -318,9 +325,8 @@ const HELL = {
 	accentInk: '#fffdf8',
 	overdue: '#98481d',
 	danger: '#a33427',
-	reifSofort: '#c0392b',
-	reifStehen: '#ffc400',
-	reifWachsen: '#2f7d46',
+	reifSofort: '#ffc400',
+	reifStehen: '#2f7d46',
 } as const;
 
 /** Ein Hexwert als Farbe — nur für die Vorgaben dieses Selbsttests. */

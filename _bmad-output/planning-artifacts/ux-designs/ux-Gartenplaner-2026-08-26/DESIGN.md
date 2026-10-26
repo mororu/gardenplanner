@@ -3,7 +3,7 @@ name: Gemeinschaftsgarten
 description: Aufgabenliste für einen Gemeinschaftsgarten. Neutral, übersichtlich, anmächelig — Salbei auf warmem Leinen, ein einziges Erscheinungsbild, keine Zählungen, keine Dekoration.
 status: final
 created: '2026-08-26'
-updated: '2026-09-16'
+updated: '2026-10-26'
 experience: './EXPERIENCE.md'
 colors:
   surface-base: '#F6F2EA'
@@ -18,9 +18,8 @@ colors:
   overdue: '#98481D'
   warn: '#856500'
   danger: '#A33427'
-  reif-sofort: '#C0392B'
-  reif-stehen: '#FFC400'
-  reif-wachsen: '#2F7D46'
+  reif-sofort: '#FFC400'
+  reif-stehen: '#2F7D46'
 typography:
   display:
     fontFamily: "'Figtree', system-ui, sans-serif"
@@ -74,6 +73,7 @@ spacing:
   gutter: 16px
   measure: 600px
   touch: 44px
+  knopf-klein: 32px
 components:
   title-bar:
     background: '{colors.accent}'
@@ -145,7 +145,11 @@ components:
   harvest-marker:
     borderLeft: '3px solid {colors.reif-sofort}'
     borderLeftStanding: '3px solid {colors.reif-stehen}'
-    borderLeftGrowing: '3px solid {colors.reif-wachsen}'
+  harvest-list:
+    list: section, one per page, holding all Beete
+    grouping: Beet ({components.section}, details, closed by default) > Stufe (subheading) > Karte
+    beetCount: '{typography.meta}, {colors.ink-secondary}, "{n} sofort · {m} langsam"'
+    cardButtons: '{spacing.knopf-klein} visible, {spacing.touch} hit area'
   harvest-legend:
     shell: '{components.section}'
     openByDefault: false
@@ -177,7 +181,7 @@ Die gewählte Richtung im Vergleich mit den vier verworfenen: [`mockups/farbvari
 
 ## Colors
 
-Ein einziger chromatischer Ton für alles Handlungsfähige, einer für Überfälligkeit, einer für eine Lücke, die jemand schliessen muss, und drei für die Reifestufen der Ernte. Sonst Neutrale mit warmer Leinenneigung — kein reines Grau, damit der Grund gewählt und nicht geerbt wirkt.
+Ein einziger chromatischer Ton für alles Handlungsfähige, einer für Überfälligkeit, einer für eine Lücke, die jemand schliessen muss, und zwei für die Reifestufen der Ernte. Sonst Neutrale mit warmer Leinenneigung — kein reines Grau, damit der Grund gewählt und nicht geerbt wirkt.
 
 > **Neu gesetzt am 2026-09-13, Palette „Leinen & Salbei".** Zugleich ist der dunkle Modus ersatzlos weggefallen: jedes Token hat genau einen Wert, und die Tabelle unten hat nur noch eine Spalte. Die Werte sind gerechnet und nicht gegriffen; `npm run kontrast:selftest` hält diese Tabelle gegen die Rechnung.
 
@@ -185,9 +189,9 @@ Ein einziger chromatischer Ton für alles Handlungsfähige, einer für Überfäl
 - **Leinen (`#F6F2EA`)** ist der Grund, deutlich wärmer als das frühere Off-White. Die Karten darauf sind **nicht reinweiss** (`#FFFDF8`): ein reines Weiss schnitt gegen diesen Grund zu hart, und Struktur ohne Schatten braucht die Stufe, nicht den Sprung.
 - **Rindenschwarz (`#241F18`)** ist Fliesstext und Überschrift. Kein reines Schwarz — der warme Stich hält es mit dem Grund zusammen.
 - **Gedämpftes Rindengrau (`#6B6153`)** trägt Nebeninformation: Termine, `(optional)`, inaktive Navigationsziele, erledigte Zeilen. Bei 5.44:1 auf dem Grund, also mit Reserve über dem Textboden.
-- **Rostlehm (`#98481D`)** ist ausschliesslich Überfälligkeit. Es ist absichtlich **kein Rot**: eine Aufgabe, die vier Wochen liegt, ist kein Fehler und keine Gefahr. Rot bleibt für Zerstörendes reserviert — im MVP nur das Widerrufen einer Einladung.
+- **Rostlehm (`#98481D`)** ist ausschliesslich Überfälligkeit. Es ist absichtlich **kein Rot**: eine Aufgabe, die vier Wochen liegt, ist kein Fehler und keine Gefahr. Rot bleibt für Zerstörendes reserviert — das Widerrufen einer Einladung und seit dem 2026-10-26 auf `/ernte` das X zum Abernten samt dem Knopf `Abgeerntet` in seiner Rückfrage.
 - **Gold (`#856500`)** ist ausschliesslich die unbesetzte Dienstwoche — eine Lücke, die jemand schliessen muss, nicht ein Fehler und nicht eine Gefahr. **Bis zum 2026-09-13 war es ein zweites dunkles Orange und von Rostlehm nahezu ununterscheidbar** (1.07:1 zueinander), und die Dokumentation nannte das ausdrücklich hingenommen. Jetzt trennt die zwei der Farbton: Rostlehm gegen Gold, 1.18:1 zueinander. Getragen wird die Aussage weiterhin vom Wort, nie von der Farbe.
-- **Die Ampel der Ernte (`#C0392B` / `#FFC400` / `#2F7D46`)** steht für *sofort ernten*, *langsam anfangen zu ernten* und *noch wachsen lassen*. **Sie hat seit dem 2026-09-13 eigene Token**, und der Grund ist eine Rechnung: die drei Stufen erscheinen ausschliesslich als 3px-Kante, und eine Kante hält 3:1 statt der 4.5:1 für Text. Solange sie sich `{colors.danger}`, `{colors.warn}` und `{colors.accent}` liehen, waren sie an die strengere Schwelle gebunden und entsprechend gedämpft — *kann noch stehen* war auf drei Pixeln praktisch nicht zu sehen. Nebenbei hört damit auf, dass eine reife Zucchini sich die Farbe des Zerstörenden lieh.
+- **Die Ampel der Ernte (`#FFC400` / `#2F7D46`)** steht für *sofort ernten* und *langsam anfangen zu ernten*. **Seit dem 2026-10-26 ist Gelb die dringende Stufe und Grün die langsame**, und Rot trägt keine Erntestufe mehr: es gehört auf `/ernte` allein dem X, das eine Zeile abräumt (Entscheid Manuel am Entwurf zu spec-ernte-nach-beet.md). Die dritte Stufe *noch wachsen lassen* ist aus der Oberfläche verschwunden; ihre älteren Zeilen stehen grün unter *langsam ernten*. **Sie hat seit dem 2026-09-13 eigene Token**, und der Grund ist eine Rechnung: die Stufen (seit dem 2026-10-26 zwei) erscheinen ausschliesslich als 3px-Kante — an Karte, Legende, Stufenwahl und am Knopf `Sofort` —, und eine Kante hält 3:1 statt der 4.5:1 für Text. Solange sie sich `{colors.danger}`, `{colors.warn}` und `{colors.accent}` liehen, waren sie an die strengere Schwelle gebunden und entsprechend gedämpft — *kann noch stehen* war auf drei Pixeln praktisch nicht zu sehen. Nebenbei hört damit auf, dass eine reife Zucchini sich die Farbe des Zerstörenden lieh.
 - **Abschnittskopf (`#EDE7DB`)** ist die Fläche unter dem Griff eines aufklappbaren Abschnitts — der dunklere Leinenton. Er kam am 2026-09-13 dazu, weil der Griff vorher aussah wie die Karten, die er überschreibt.
 - **Haarlinie (`#E5DCCC`)** trennt Listenzeilen auf der niedrigsten brauchbaren Stufe.
 
@@ -207,19 +211,17 @@ Ein einziger chromatischer Ton für alles Handlungsfähige, einer für Überfäl
 | Bedienelement-Umriss auf Grund | 5.44:1 | 3.0 |
 | Nebentext auf offener Karte | 5.26:1 | 4.5 |
 | Nebentext auf Abschnittskopf | 4.93:1 | 4.5 |
-| Ampel sofort an Karte | 5.35:1 | — |
-| Ampel sofort an Grund | 4.87:1 | — |
-| Ampel kann stehen an Karte | 1.57:1 | — |
-| Ampel kann stehen an Grund | 1.43:1 | — |
-| Ampel wachsen an Karte | 4.99:1 | — |
-| Ampel wachsen an Grund | 4.54:1 | — |
+| Ampel sofort an Karte | 1.57:1 | — |
+| Ampel sofort an Grund | 1.43:1 | — |
+| Ampel langsam an Karte | 4.99:1 | — |
+| Ampel langsam an Grund | 4.54:1 | — |
 | Haarlinie auf Karte | 1.34:1 | — |
 
 Die Ampel steht in **zwei** Zeilen je Stufe, weil ihre Kante zwischen zwei Flächen liegt: aussen der Grund der Seite, innen die Karte.
 
-**Sie hat seit dem 2026-09-13 keinen Boden mehr, und das ist entschieden.** Die mittlere Stufe sollte kräftig gelb werden; ein Gelb, das 3:1 gegen diese Karte hält, ist bei `#B87A00` zu Ende und liest sich als Braun — `#C08400` fällt bereits durch. Kräftiges Gelb und die Schwelle sind auf diesem Grund nicht zusammen zu haben.
+**Sie hat seit dem 2026-09-13 keinen Boden mehr, und das ist entschieden.** Das Gelb sollte kräftig werden (damals an der mittleren Stufe, seit dem 2026-10-26 an *sofort ernten*); ein Gelb, das 3:1 gegen diese Karte hält, ist bei `#B87A00` zu Ende und liest sich als Braun — `#C08400` fällt bereits durch. Kräftiges Gelb und die Schwelle sind auf diesem Grund nicht zusammen zu haben.
 
-Getragen wird das davon, dass WCAG 1.4.11 Kontrast für das verlangt, was zum Erkennen **nötig** ist. Was eine Zeile ist, sagt ihr Wort; dass sie ein Bedienelement ist, sagt ihr eigener Umriss in `{colors.ink-secondary}` bei 5.97:1. Der Streifen ist die dritte Auskunft über dieselbe Sache. Zwei Wachen halten die Ausnahme eng: `smoke:sicht` kennt die Art `zustandsmarke`, misst sie weiter und lässt nur die drei `--reif-*` hinein, und `smoke` prüft, dass jede Stufe ihr Wort neben dem Streifen behält. Fällt das Wort, fällt die Begründung.
+Getragen wird das davon, dass WCAG 1.4.11 Kontrast für das verlangt, was zum Erkennen **nötig** ist. Was eine Zeile ist, sagt ihr Wort; dass sie ein Bedienelement ist, sagt ihr eigener Umriss in `{colors.ink-secondary}` bei 5.97:1. Der Streifen ist die dritte Auskunft über dieselbe Sache — darum trägt der Knopf `Sofort` an einer Erntekarte den gewöhnlichen Umriss und das Gelb nur als Kante links. Zwei Wachen halten die Ausnahme eng: `smoke:sicht` kennt die Art `zustandsmarke`, misst sie weiter und lässt nur die `--reif-*` hinein, und `smoke` prüft, dass jede Stufe ihr Wort neben dem Streifen behält. Fällt das Wort, fällt die Begründung.
 
 Die Haarlinie erfüllt 3:1 **nicht** — bewusst. Sie trägt ausschliesslich Trennlinien und Behälterkanten: Karten, den Dialog und die Linie über der Navigationsleiste. Die sind dekorativ und identifizieren kein Bedienelement; die Zeile bleibt ohne sie eindeutig lesbar. Aus genau diesem Grund trägt der Griff eines Abschnitts **keine** Linie zu seinem Inhalt: er ist ein `<summary>`, also ein Bedienelement, und jede seiner Kanten hinge an der 3:1. Die Trennung leistet dort die Fläche (1.21:1 gegen die Karte).
 
@@ -332,15 +334,21 @@ Im Griff stehen vier Dinge nebeneinander: **Zeichen, Titel, Zahl — und rechts 
 
 Abschnitte werden **offen** ausgeliefert und der Zustand nirgends gespeichert: ein einmaliger Griff darf nicht dauerhaft verbergen, dass etwas ansteht. Die eine Ausnahme ist eine Auskunft, die man einmal braucht und dann nicht mehr — die Legende auf `/ernte` kommt zugeklappt.
 
+**Eine zweite Ausnahme seit dem 2026-10-26: die Beete auf `/ernte`** kommen zugeklappt (Entscheid Manuel, spec-ernte-nach-beet.md). Getragen wird das vom Zähler im Kopf jedes Beets — `2 sofort · 1 langsam` —: man sieht ohne Aufklappen, wo etwas sofort zu ernten ist, und das ist es, was die Regel oben schützt. Offen vom Server her kommt allein das Beet, in dem gerade eine Abweisung, eine Rückfrage zum Abernten, ein Umstufen oder ein Eintragen steht.
+
 Ein Abschnittstitel ist ein Nomen (`Ernten`, `Zwischendurch`) oder die Frage, die der Abschnitt beantwortet (`Was gibt es aktuell zu ernten?`, `Übernimmst du das?`). Er wiederholt nie den Seitentitel darüber.
+
+### `harvest-list`
+
+Die Liste auf `/ernte`, seit dem 2026-10-26 **nach Beet gegliedert** (spec-ernte-nach-beet.md): ein `section` mit eigener Überschrift trägt alle Beete, und je Ort steht darin ein Aufklapper (`details.abschnitt`) in der Form von `{components.section}`, natürlich geordnet (`Beet 3` vor `Beet 12`), ohne Ort `Ohne Beet` zuunterst — dieselbe Ordnung wie das Tagebuch auf `/wellness`. Im Kopf Name und Zähler in `{typography.meta}`, im Beet die Stufen als Zwischentitel (`Sofort ernten`, dann `Langsam ernten`), darunter je Kultur eine einzeilige Karte mit dem Streifen ihrer Stufe, klein Name und Datum. Rechts an einer langsamen Karte der Knopf `Sofort`, an jeder Karte das X zum Abernten. Beide Knöpfe **sehen** `{spacing.knopf-klein}` (32px, Token `--knopf-klein`) gross aus; ihr Trefferfeld bleibt bei `{spacing.touch}` und liegt unsichtbar um sie herum — dieselbe Trennung von sichtbarer Grösse und Trefferfeld wie bei `task-box`.
 
 ### `harvest-legend`
 
-Zuoberst auf `/ernte`, über dem Eintrageformular: ein Abschnitt in der Form von `{components.section}`, **zugeklappt ausgeliefert**. Er zeigt je eine Zeile pro Erntestufe — derselbe Streifen, dieselbe Karte wie in der Liste darunter, dazu Name und Satz der Stufe — und eine Zeile für die Dauerernte mit ihrem Zeichen.
+Zuoberst auf `/ernte`, über dem Eintrageformular: ein Abschnitt in der Form von `{components.section}`, **zugeklappt ausgeliefert**. Er zeigt je eine Zeile pro Erntestufe — derselbe Streifen, dieselbe Karte wie in der Liste darunter, dazu Name und Satz der Stufe —, eine Zeile für die Dauerernte mit ihrem Zeichen und seit dem 2026-10-26 eine für das X.
 
-**Die Erläuterung steht seither nur noch hier** und in der Stufenwahl des Formulars — die Abschnitte der Liste tragen ihre Stufe als Überschrift, ohne den Satz darunter. Er stand dreimal untereinander und erklärte bei jedem Besuch dasselbe; das Wort in der Überschrift bleibt, und an ihm hängt die Ausnahme für das kräftige Gelb.
+**Die Erläuterung steht seither nur noch hier** und in der Stufenwahl des Formulars — die Liste trägt ihre Stufen als Zwischentitel, ohne den Satz darunter. Das Wort im Zwischentitel bleibt, und an ihm hängt die Ausnahme für das kräftige Gelb.
 
-Welche Stufen er zeigt, ist **gerechnet**: die, die das Formular anbietet, plus jede, für die gerade Zeilen dastehen. Damit erklärt er genau die Farben, die man vor sich sieht — auch die von `noch wachsen lassen`, das seit dem 2026-09-14 nicht mehr wählbar ist, dessen ältere Zeilen aber weiter in ihrem Abschnitt stehen.
+Er zeigt **die zwei Stufen, die das Formular anbietet**, und keine weitere. Bis zum 2026-10-26 kam jede Stufe dazu, für die gerade Zeilen dastanden — damit war *noch wachsen lassen* erklärt, solange ältere Zeilen grün in ihrem eigenen Abschnitt standen. Seit sie unter *langsam ernten* erscheinen, gibt es keine dritte Farbe mehr zu erklären.
 
 Der Anlass ist eine **Ausnahme von *keine Symbole ohne Beschriftung***: auf der Startseite steht die Dauerernte seit dem 2026-09-16 nur noch als Zeichen, weil das Wort in der Zeile neben Kultur, Ort, Stufe und Datum der fünfte Text war. Bezahlt ist sie zweifach — das Wort bleibt für Vorleseprogramme im Markup (`.nur-vorgelesen`), und diese Legende erklärt das Zeichen dort, wo die Ernte bearbeitet wird. Fällt eines von beiden, ist die Ausnahme nicht mehr gedeckt; `smoke` hält beide Hälften in **einer** Behauptung.
 

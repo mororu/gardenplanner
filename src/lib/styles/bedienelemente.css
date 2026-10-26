@@ -934,32 +934,6 @@ select.feld {
 }
 
 /*
- * Die erste Zeile einer Karte: der Name, und was rechts daneben noch hingehört.
- *
- * `align-items: baseline` und nicht `center`: neben dem Namen stehen kleinere
- * Schriften — eine Marke, ein Zeichen mit Wort —, und auf der Schriftlinie
- * ausgerichtet lesen sie sich als Fortsetzung derselben Zeile statt als zweite
- * Sache daneben. `flex-wrap`, weil bei 375px eine lange Kultur mit Ort die
- * Zeile allein füllt.
- *
- * `min-width: 0` ist das, was den Umbruch im Kind überhaupt erlaubt: ohne es
- * weicht ein Flexkind nicht unter seine Inhaltsbreite zurück, und ein langes
- * Wort schöbe die Karte auf.
- *
- * **Lag bis zum 2026-09-16 als `.ernte-zeile__titel` im `<style>` der
- * Startseite.** Seit die Karte auf /ernte dieselbe Zeile baut, wären es zwei
- * Regeln mit demselben Rumpf — der Fall, auf den Gate-Regel 14 anschlägt. Der
- * neue Name nennt die Rolle und nicht die eine Seite, auf der sie zuerst stand.
- */
-.titelzeile {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: baseline;
-	gap: var(--space-2);
-	min-width: 0;
-}
-
-/*
  * Der Griff eines zuklappbaren Abschnitts.
  *
  * **Das Dreieck ist fort, und an seiner Stelle steht ein Winkel rechts.**

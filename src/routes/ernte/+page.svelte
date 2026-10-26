@@ -2,27 +2,29 @@
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import type { PageProps } from './$types';
 	import {
+		ABERNTEN_WORT,
 		DAUERERNTE_SATZ,
 		DAUERERNTE_WORT,
-		ERNTESTATUS,
 		SICHTBARE_ERNTESTATUS,
+		SOFORT_KNOPF,
 		ERNTETEXT,
 		ERNTE_HOECHSTLAENGE,
 		KULTUREN,
 		KULTURLISTE,
 		ORT_VORGABE,
-		type Erntestatus,
+		nachBeetGliedern,
 	} from '$lib/ernte';
 	import { VERSAND_FEHLGESCHLAGEN } from '$lib/texte';
 	import ZeichenKreis from '$lib/components/ZeichenKreis.svelte';
+	import ZeichenKreuz from '$lib/components/ZeichenKreuz.svelte';
 	import ZeichenWinkel from '$lib/components/ZeichenWinkel.svelte';
 	import { datumKurz } from '$lib/client/utils/date';
 
 	/*
-		/ernte — was reif ist, in drei Stufen, dringend zuoberst.
+		/ernte — was reif ist, **nach Beet**, und im Beet das Dringende zuerst.
 
 		Die Bauform ist die von /traenkeplan und /wissen: ein aufklappbares
 		Formular in einem <details>, je Zeile ein Bestätigungsschritt aus der
@@ -30,78 +32,28 @@
 		use:enhance-Rückruf, der einen Wurf abfängt. Der ausführliche Grund für
 		jedes dieser Stücke steht dort; hier stehen nur die Unterschiede.
 
-		**Die drei Abschnitte entstehen aus ERNTESTATUS und nicht aus drei
-		geschriebenen Blöcken.** Die Reihenfolge der Stufen ist die Ordnung der
-		Abfrage (siehe `rang` in queries/harvests.ts) — dreimal derselbe Block von
-		Hand hiesse, dieselbe Reihenfolge ein zweites Mal zu behaupten, und die
-		zwei liefen beim ersten Umsortieren auseinander.
+		**Gegliedert nach Beet seit dem 2026-10-26** (spec-ernte-nach-beet.md): wer
+		im Garten steht, steht in einem Beet, und die Liste nach Dringlichkeit über
+		den ganzen Garten musste nach dem eigenen Ort abgesucht werden. Die
+		Gliederung selbst — welches Beet, welche Ordnung, welche Stufe — steht in
+		`nachBeetGliedern` in $lib/ernte.ts und nicht hier; die Aufklapper folgen
+		dem Tagebuch auf /wellness, die Begründung zu ihrem Zustand steht dort.
 	*/
 
 	const { data, form }: PageProps = $props();
 
-	/** Die Zeilen einer Stufe, in der Ordnung, in der die Abfrage sie liefert. */
-	const zeilenVon = (stufe: Erntestatus) => data.stand.filter((zeile) => zeile.status === stufe);
+	/** Beet > Stufe > Karte, aus dem Stand in der Ordnung der Abfrage. */
+	const gliederung = $derived(nachBeetGliedern(data.stand));
 
-	/*
-		Die Stufen, die die Legende zeigt: die **angebotenen** — und dazu jede, für
-		die gerade Zeilen dastehen.
-
-		Der Zusatz ist der Punkt. `wachsen` ist seit dem 2026-09-14 verborgen und
-		nicht entfernt: neu eintragen und umstufen führen nicht mehr dorthin, aber
-		Zeilen, die vorher dort landeten, stehen weiter in ihrem Abschnitt — mit
-		grünem Streifen. Eine Legende aus SICHTBARE_ERNTESTATUS allein erklärte
-		genau die Farbe nicht, die man vor sich sieht, und wäre damit an der
-		einzigen Stelle stumm, an der jemand nachschlägt.
-
-		Umgekehrt steht keine Stufe da, die es auf dieser Seite nicht gibt: ohne
-		grüne Zeile fällt sie aus der Liste. Eine Legende, die eine Farbe erklärt,
-		die nirgends vorkommt, ist eine Aufgabe für den Leser und keine Hilfe.
-	*/
-	const legendenStufen = $derived(
-		ERNTESTATUS.filter(
-			(stufe) =>
-				(SICHTBARE_ERNTESTATUS as readonly Erntestatus[]).includes(stufe) ||
-				zeilenVon(stufe).length > 0
-		)
-	);
-
-	/** Wohin eine Zeile umgestuft werden kann — **nur nach vorn**. */
-	/*
-	 * Angeboten werden die **dringenderen** Stufen, nicht alle anderen.
-	 *
-	 * **Umstufen geht seit dem 2026-09-17 nur in eine Richtung** (Entscheid
-	 * Manuel): was einmal `Sofort ernten` ist, wird nicht wieder
-	 * `Langsam ernten`. Die Stufen beschreiben den Reifegrad einer Kultur, und
-	 * der läuft in eine Richtung — der Knopf zurück bot eine Handlung an, die im
-	 * Beet gar nicht vorkommt. Er stand an jeder roten Zeile, also an genau den
-	 * Zeilen, an denen er am wenigsten zu suchen hatte.
-	 *
-	 * Die Richtung kommt aus der **Reihenfolge von ERNTESTATUS** und nicht aus
-	 * einer zweiten Liste daneben: das Array steht dringend zuerst (siehe dort),
-	 * und „dringender" heisst damit „kleinerer Index". Eine eigene Rangtabelle
-	 * hier wäre dieselbe Ordnung ein zweites Mal behauptet — genau der Fehler,
-	 * gegen den $lib/ernte.ts als einzige Stelle geschrieben ist.
-	 *
-	 * Gefiltert wird zusätzlich auf die **angebotenen** Stufen: `wachsen` ist
-	 * seit dem 2026-09-14 verborgen (siehe SICHTBARE_ERNTESTATUS in
-	 * $lib/ernte). Damit bleibt eine Zeile, die noch dort steht, weiter
-	 * wegstufbar — auf `sofort` und auf `stehen`, beides nach vorn —, und keine
-	 * neue landet dort.
-	 *
-	 * Eine Zeile auf `sofort` bekommt darum **keinen** Umstufen-Knopf mehr. Ihr
-	 * Fuss trägt dann allein `Abgeerntet`, und das ist der ganze Weg, der ihr
-	 * bleibt: sie ist reif.
-	 */
-	const andereStufen = (stufe: Erntestatus) =>
-		SICHTBARE_ERNTESTATUS.filter(
-			(andere) => ERNTESTATUS.indexOf(andere) < ERNTESTATUS.indexOf(stufe)
-		);
+	/** Wie eine Zeile vorgelesen wird: `Zucchini, Beet 3`, ohne Ort nur die Kultur. */
+	const bezeichnung = (eintrag: { kultur: string; ort: string | null }): string =>
+		eintrag.ort === null ? eintrag.kultur : `${eintrag.kultur}, ${eintrag.ort}`;
 
 	/*
 		Die Rückmeldung eines geglückten Eintragens, Umstufens oder Aberntens.
 
 		Alle drei tragen ihren Satz fertig aus der action mit, samt Kultur und
-		Zielstufe: die Liste hat drei Abschnitte, das Formular klappt nach dem
+		Zielstufe: die Beete sind zugeklappt, das Formular klappt nach dem
 		Absenden zu, und der Fokus springt nach oben. Ohne die Angaben sagte die
 		Meldung, dass etwas geklappt hat, aber nicht was und nicht wohin.
 	*/
@@ -120,6 +72,67 @@
 	 * ohne JavaScript entsteht sie als vollständiges Dokument.
 	 */
 	const frage = $derived(form !== null && form.art === 'fragenAbernten' ? form : null);
+
+	/*
+		**Welches Beet vom Server her offen kommt.** Alle Beete werden zugeklappt
+		ausgeliefert (Entscheid Manuel, 2026-10-26; der Zähler im Kopf sagt ohne
+		Aufklappen, wo etwas sofort zu ernten ist). Offen kommt allein das Beet der
+		Zeile, an der die letzte Antwort hängt:
+
+		  - die Rückfrage vor dem Abernten — sie steht an der Zeile, und ohne
+		    JavaScript wäre sie in einem zugeklappten Beet unsichtbar;
+		  - eine Abweisung an einer Zeile — sie trägt `zeile`, wo es die Zeile
+		    noch gibt;
+		  - ein geglücktes Umstufen. Das steht nicht im Wortlaut der Spec, sondern
+		    in ihrer I/O-Matrix („Beet bleibt offen"): ohne JavaScript ist die
+		    Antwort ein neues Dokument, und ohne diese Zeile klappte das Beet, in
+		    dem eben gehandelt wurde, unter der Hand zu. Eingetragen im Spec
+		    Change Log;
+		  - ein geglücktes Eintragen (Review vom 2026-10-26): die neue Zeile
+		    stünde sonst unsichtbar in einem zugeklappten Beet, und die Meldung
+		    oben sagte nur, dass es sie gibt.
+
+		Mit JavaScript liest das Markup diesen Wert nur beim Entstehen eines Beets
+		(`istOffen` darunter); danach führt der Browser den Zustand, und `versand`
+		öffnet das Beet derselben Zeile über `aufklappen` — wie auf /wellness.
+	*/
+	const zielZeile = $derived(
+		form !== null &&
+			(form.art === 'fragenAbernten' ||
+				form.art === 'eingetragen' ||
+				form.art === 'umgestuft' ||
+				(form.art === 'fehler' && form.zeile !== null))
+			? form.zeile
+			: null
+	);
+	const enthaeltZiel = (beet: (typeof gliederung)[number]): boolean =>
+		zielZeile !== null &&
+		beet.stufen.some((gruppe) => gruppe.zeilen.some((zeile) => zeile.id === zielZeile));
+
+	/*
+		Der Zustand der Beete, nach dem Muster von /wellness — die Begründung in
+		ganzer Länge steht dort an `anfangszustand`. Kurz: der Ausdruck an `open`
+		wird beim Entstehen des Aufklappers gelesen und danach über
+		`aufklappzustand` aus dem `toggle` des Elements selbst beantwortet. Reaktiv
+		klappte Svelte ein Beet nach einem geglückten Umstufen unter der Hand zu,
+		weil `zielZeile` wechselt. Ein Beet, das mit demselben Schlüssel neu
+		entsteht (abgeerntet bis leer, dann neu eingetragen), bekommt den
+		gemerkten Zustand zurück — dieselbe ausgeschriebene Grenze wie dort.
+	*/
+	const anfangszustand: Record<string, boolean> = {};
+	const aufklappzustand = $state<Record<string, boolean>>({});
+	const istOffen = (schluessel: string, anfang: () => boolean): boolean => {
+		const gemerkt = aufklappzustand[schluessel];
+		if (gemerkt !== undefined) return gemerkt;
+		const bekannt = anfangszustand[schluessel];
+		if (bekannt !== undefined) return bekannt;
+		const wert = untrack(anfang);
+		anfangszustand[schluessel] = wert;
+		return wert;
+	};
+	const merken = (schluessel: string, ereignis: Event): void => {
+		aufklappzustand[schluessel] = (ereignis.currentTarget as HTMLDetailsElement).open;
+	};
 
 	/*
 		Ein Wurf in der action kommt als `result.type === 'error'` zurück. Der Satz
@@ -185,7 +198,7 @@
 	 * Nach einer Abweisung am Formular an das **erste** Feld, das nicht trägt:
 	 * dort steht der Satz. Nach allem anderen an die Rückmeldung oben — die
 	 * Zeile, an der gehandelt wurde, ist nach dem Abernten fort und nach dem
-	 * Umstufen in einem anderen Abschnitt.
+	 * Umstufen unter einem anderen Zwischentitel.
 	 */
 	function fokusNach(ergebnis: ActionResult): void {
 		/*
@@ -208,6 +221,20 @@
 		}
 		meldungKasten?.focus();
 	}
+
+	/**
+	 * Öffnet das Beet, in dem das Element steht — auch ein von Hand
+	 * zugeklapptes. Dieselbe Funktion wie auf /wellness, und aus demselben
+	 * Grund: das Markup öffnet ein Beet nur beim Entstehen, und eine Rückfrage
+	 * in einem eben zugeklappten Beet stünde sonst unsichtbar da.
+	 */
+	const aufklappen = (element: Element | null): void => {
+		let behaelter = element?.closest('details') ?? null;
+		while (behaelter !== null) {
+			behaelter.open = true;
+			behaelter = behaelter.parentElement?.closest('details') ?? null;
+		}
+	};
 
 	const versand: SubmitFunction = ({ cancel }) => {
 		if (imFlug) {
@@ -236,6 +263,16 @@
 			if (versandFehler !== '') {
 				fehlerKasten?.focus();
 				return;
+			}
+			/*
+				Das Beet der Zeile, an der die Antwort hängt, geht auf — auch ein von
+				Hand zugeklapptes oder ein eben erst entstandenes. Dieselbe Menge wie
+				`zielZeile`, darum aus ihr gelesen; die Kennung `ernte-{id}` trägt die
+				Karte. Gibt es die Zeile nicht mehr (Abweisung, weil schon
+				abgeerntet), findet `getElementById` nichts, und es geht nichts auf.
+			*/
+			if (zielZeile !== null) {
+				aufklappen(document.getElementById(`ernte-${zielZeile}`));
 			}
 			fokusNach(result);
 		};
@@ -269,31 +306,25 @@
 	<!--
 		**Die Legende, und warum sie zuoberst steht.**
 
-		Die Liste darunter sagt alles in Farbe und Zeichen: ein roter Streifen, ein
-		gelber, ein Kreis aus zwei Pfeilen. Wer die Seite zum ersten Mal öffnet,
-		liest die Wörter daneben und versteht sie — wer sie zum zwanzigsten Mal
-		öffnet, liest nur noch die Farbe. Genau dazwischen fehlte etwas: auf der
-		Startseite steht die Dauerernte seit dem 2026-09-16 **nur** als Zeichen, und
-		ein Zeichen ohne Wort muss irgendwo erklärt sein. Hier ist dieses Irgendwo.
-		Entscheid Manuel, 2026-09-16.
+		Die Liste darunter sagt viel in Farbe und Zeichen: ein gelber Streifen, ein
+		grüner, ein Kreis aus zwei Pfeilen, ein X. Wer die Seite zum ersten Mal
+		öffnet, schlägt hier nach — wer sie zum zwanzigsten Mal öffnet, liest nur
+		noch die Farbe. Seit dem 2026-10-26 steht an der Karte weder das Wort der
+		Dauerernte (es wird vorgelesen) noch das Wort `Abgeerntet` (das X trägt es
+		als Namen); beide Zeichen sind hier erklärt (spec-ernte-nach-beet.md).
 
-		**Zugeklappt ausgeliefert**, und das ist der Unterschied zu den Abschnitten
-		auf `/`. Dort verlangt AD-14, dass man beim Öffnen sieht, was zu tun ist;
-		hier steht kein Vorrat an Arbeit, sondern eine Auskunft, die man einmal
-		braucht und dann nicht mehr. Aufgeklappt schöbe sie die Liste, um die es
-		geht, aus dem Bild.
+		**Zugeklappt ausgeliefert.** Hier steht kein Vorrat an Arbeit, sondern eine
+		Auskunft, die man einmal braucht und dann nicht mehr. Aufgeklappt schöbe
+		sie die Liste, um die es geht, aus dem Bild.
 
-		**Die Zeilen entstehen aus `legendenStufen`** und nicht aus zwei
-		geschriebenen Blöcken — dieselbe Quelle wie die Stufenwahl im Formular,
-		erweitert um die Stufen, für die gerade Zeilen dastehen. Die Begründung für
-		den Zusatz steht am Ausdruck selbst. Eine Legende, die ihre Stufen von Hand
-		aufzählte, wäre die erste Stelle, die beim nächsten Umbau falsch stünde.
+		**Die Stufen entstehen aus SICHTBARE_ERNTESTATUS** — dieselbe Quelle wie die
+		Stufenwahl im Formular. Bis zum 2026-10-26 kam jede Stufe dazu, für die
+		gerade Zeilen dastanden, damit das Grün von `Noch wachsen lassen` erklärt
+		war; seit jene Zeilen unter `Langsam ernten` erscheinen, gibt es keine
+		dritte Farbe mehr.
 
 		Jede Zeile zeigt, was sie erklärt: derselbe Streifen, dieselbe Karte,
-		dasselbe Zeichen wie in der Liste. Der Streifen hängt am `<li>` und die
-		Karte darin, weil die Regel `.stufe--… .karte` heisst — eine zweite Regel
-		mit demselben Rumpf an der Karte selbst wäre der Zwilling, auf den
-		Gate-Regel 14 anschlägt.
+		dasselbe Zeichen wie in der Liste.
 	-->
 	<details class="abschnitt">
 		<summary class="abschnitt__griff">
@@ -302,37 +333,40 @@
 		</summary>
 		<div class="abschnitt__inhalt">
 			<ul class="liste liste--getrennt" aria-labelledby="legende-marke">
-				{#each legendenStufen as stufe (stufe)}
+				{#each SICHTBARE_ERNTESTATUS as stufe (stufe)}
+					<!--
+						data-stufe sagt dem Sichtlauf, dass die Kante links eine
+						Zustandsmarke ist und nicht der Umriss eines Bedienelements — siehe
+						den Tokenblock in src/app.html.
+					-->
 					<li
+						class="karte"
 						class:stufe--sofort={stufe === 'sofort'}
 						class:stufe--stehen={stufe === 'stehen'}
-						class:stufe--wachsen={stufe === 'wachsen'}
+						data-stufe={stufe}
 					>
-						<!--
-							data-stufe sagt dem Sichtlauf, dass die Kante links eine
-							Zustandsmarke ist und nicht der Umriss eines Bedienelements — siehe
-							den Tokenblock in src/app.html.
-						-->
-						<div class="karte" data-stufe={stufe}>
-							<p class="zeile__text">{ERNTETEXT[stufe].titel}</p>
-							<p class="hinweis">{ERNTETEXT[stufe].satz}</p>
-						</div>
+						<p class="zeile__text">{ERNTETEXT[stufe].titel}</p>
+						<p class="hinweis">{ERNTETEXT[stufe].satz}</p>
 					</li>
 				{/each}
-				<li>
-					<div class="karte">
-						<!--
-							Dieselbe Form wie an der Karte darunter: schwarzes Zeichen, Wort in
-							Kleinbuchstaben daneben. Auf der Startseite ist das Wort
-							`.nur-vorgelesen` und nur das Zeichen gemalt — hier steht beides, und
-							das ist der Zweck der Zeile.
-						-->
-						<p class="zeile__text zeichenwort"><ZeichenKreis />{DAUERERNTE_WORT}</p>
-						<p class="hinweis">
-							Regelmässiges Pflücken erhöht den Ertrag. Z. B. Bohnen, Zucchini, Gurken, Erbsen,
-							Cherrytomaten. {DAUERERNTE_SATZ}
-						</p>
-					</div>
+				<li class="karte">
+					<!--
+						Schwarzes Zeichen, Wort daneben. An der Karte darunter steht seit dem
+						2026-10-26 nur das Zeichen, das Wort ist `.nur-vorgelesen` — hier
+						steht beides, und das ist der Zweck der Zeile.
+					-->
+					<p class="zeile__text zeichenwort"><ZeichenKreis />{DAUERERNTE_WORT}</p>
+					<p class="hinweis">
+						Regelmässiges Pflücken erhöht den Ertrag. Z. B. Bohnen, Zucchini, Gurken, Erbsen,
+						Cherrytomaten. {DAUERERNTE_SATZ}
+					</p>
+				</li>
+				<li class="karte">
+					<!-- Das X in seiner Farbe, mit dem Wort, das es an der Karte vorliest. -->
+					<p class="zeile__text zeichenwort">
+						<span class="legende__kreuz"><ZeichenKreuz /></span>{ABERNTEN_WORT}
+					</p>
+					<p class="hinweis">Nimmt die Zeile für alle weg. Vorher fragt die Seite nach.</p>
 				</li>
 			</ul>
 		</div>
@@ -426,11 +460,11 @@
 			</div>
 
 			<!--
-				Der Status als drei Knöpfe und nicht als Auswahlliste: die Erklärung
+				Der Status als Knöpfe und nicht als Auswahlliste: die Erklärung
 				gehört zur Stufe und ist das, was sie überhaupt entscheidbar macht. In
 				einem <select> stünde sie nirgends.
 
-				Keine Vorauswahl — `required` an allen dreien, und der Browser lässt das
+				Keine Vorauswahl — `required` an jedem, und der Browser lässt das
 				Formular nicht ab, bevor eine gewählt ist. Eine vorgewählte Stufe wäre
 				eine Behauptung über ein Beet, das niemand angesehen hat.
 			-->
@@ -446,8 +480,8 @@
 						Nur die zwei angebotenen Klassen: die Schleife läuft über
 						SICHTBARE_ERNTESTATUS, und ein `stufe === 'wachsen'` wäre ein
 						Vergleich, der nie zutrifft — svelte-check meldet ihn als solchen.
-						Die Kartenliste weiter unten läuft weiterhin über alle drei und
-						behält ihre dritte Klasse.
+						Seit dem 2026-10-26 gilt das für die ganze Seite: eine Zeile auf
+						`wachsen` erscheint in der Liste als `stehen`.
 					-->
 					<label
 						class="stufenwahl__zeile"
@@ -472,8 +506,8 @@
 			</fieldset>
 			<!--
 				Die Meldung steht ausserhalb des <fieldset>: ein `id` am Feld allein
-				trüge sie nur an einen der drei Knöpfe, und aria-describedby zeigt von
-				allen dreien hierher. `neu-status` ist zugleich das Fokusziel nach einer
+				trüge sie nur an einen der Knöpfe, und aria-describedby zeigt von
+				allen hierher. `neu-status` ist zugleich das Fokusziel nach einer
 				Abweisung — darum trägt der erste Knopf diese Kennung.
 			-->
 			<p class="fehler live" id="neu-status-fehler" role="alert" aria-live="assertive">
@@ -496,228 +530,189 @@
 	</details>
 
 	<!--
-		**Die Liste steht in einem Aufklapper**, seit dem 2026-09-16 (Entscheid
-		Manuel): wer weiss, was reif ist, klappt sie weg und hat Legende und
-		Eintragen ohne Blättern vor sich. **Offen ausgeliefert** — sie ist der
-		Gegenstand dieser Seite, und ein zugeklappt gelieferter Vorrat an Arbeit ist
-		genau das, wogegen AD-14 geschrieben ist. Der Zustand wird nirgends
-		gespeichert; beim nächsten Laden steht wieder alles offen.
+		**Die Liste, nach Beet gegliedert** (spec-ernte-nach-beet.md, 2026-10-26):
+		Beet > Stufe > Karte, wie das Tagebuch auf /wellness.
 
-		**Der Titel ist eine Frage.** `Ernte` steht schon als Seitentitel darüber,
-		und ein zweites `Ernte` sagte nichts dazu. Die Frage sagt, was die Liste
-		beantwortet — dieselbe Wendung wie `So liest du die Liste` darüber und wie
-		die Abschnitte auf `/`.
+		**Ein `section` mit eigener Überschrift und kein Aufklapper mehr.** Die
+		Liste stand vom 2026-09-16 an in einem offen ausgelieferten `<details>`;
+		jetzt ist jedes Beet ein Aufklapper, und ein Aufklapper um alle Aufklapper
+		wäre ein Griff mehr ohne eigene Aussage. Der Titel bleibt die Frage, die
+		die Liste beantwortet.
 
-		**Die Stufen darin sind `<h3>`.** Sie standen als `<h2>` unter dem
-		Seitentitel; jetzt liegt eine Überschrift dazwischen, und eine Ebene, die
-		eine andere überspringt, ist für Vorleseprogramme eine falsche Auskunft über
-		die Gliederung.
+		**Die Beete kommen zugeklappt** — eine Abweichung von AD-14, entschieden
+		von Manuel am 2026-10-26 und im Spec Change Log festgehalten. Was AD-14
+		schützt, trägt der Zähler im Kopf jedes Beets: `1 sofort · 2 langsam` sagt
+		ohne Aufklappen, wo etwas sofort zu ernten ist. Gewöhnlicher Nebentext,
+		nicht fett und ohne Farbpunkt — die Farbe gehört an die Kante der Karte.
+
+		**Die Gliederung der Überschriften:** `<h1>` Seite, `<h2>` Liste, `<h3>`
+		Beet, `<h4>` Stufe. Der Zwischentitel trägt das **Wort** der Stufe, und
+		an ihm hängt die Ausnahme für das kräftige Gelb an der Kante (siehe den
+		Tokenblock in src/app.html und die Wache `jede Erntestufe steht als Wort
+		neben ihrer Kante`). Die Liste der Karten hängt über aria-labelledby daran.
+
+		Die Kennungen tragen **die Stelle** des Beets und nicht seinen Namen: der
+		Ort ist getippter Text, und eine Kennung aus Leerzeichen und Umlauten wäre
+		keine.
 
 		Der leere Zustand steht **mit** darin: `Es gibt nichts zu ernten.` ist die
 		Antwort auf dieselbe Frage.
 	-->
-	<details class="abschnitt" open>
-		<summary class="abschnitt__griff">
-			<h2 class="abschnittstitel" id="ernteliste-marke">Was gibt es aktuell zu ernten?</h2>
-			<ZeichenWinkel class="aufklapp" />
-		</summary>
-		<div class="abschnitt__inhalt">
-			{#if data.stand.length === 0}
-				<p class="leer">Es gibt nichts zu ernten.</p>
-			{/if}
+	<section class="beetliste" aria-labelledby="ernteliste-marke">
+		<h2 class="abschnittstitel" id="ernteliste-marke">Was gibt es aktuell zu ernten?</h2>
+		{#if data.stand.length === 0}
+			<p class="leer">Es gibt nichts zu ernten.</p>
+		{/if}
 
-			{#each ERNTESTATUS as stufe (stufe)}
-				{@const zeilen = zeilenVon(stufe)}
-				<!--
-				Ein Abschnitt ohne Zeilen entsteht gar nicht. Eine leere Überschrift
-				`Noch wachsen lassen` sagt nichts, was die Liste nicht schon sagt, und
-				drei davon untereinander sind bei 375px der halbe Bildschirm.
-			-->
-				{#if zeilen.length > 0}
-					<!--
-					**Ohne den Satz der Stufe**, seit die Legende oben ihn trägt (Entscheid
-					Manuel, 2026-09-16). Er stand hier dreimal untereinander und erklärte bei
-					jedem Besuch dasselbe — bei 375px kostete das mehr Bildschirm als die
-					Liste, um die es geht. Die Stufe steht weiterhin als **Wort** in dieser
-					Überschrift, und das ist es, woran die Ausnahme für das kräftige Gelb
-					hängt (siehe die Wache `jede Erntestufe steht als Wort neben ihrer
-					Kante`); was wegfällt, ist die Erläuterung, nicht der Name.
-				-->
-					<h3 class="abschnittstitel" id="stufe-{stufe}">{ERNTETEXT[stufe].titel}</h3>
-					<!--
-					Überschrift, Satz und Liste stehen als **Geschwister** in `.seite` und
-					nicht in einem <section> mit eigenem Stapel. Ein solcher Behälter
-					bräuchte `display: flex; flex-direction: column; gap: var(--space-2)`
-					— und damit denselben Regelkörper wie `.knoepfe` im geteilten
-					Stilblatt. Gate-Regel 14 hat genau das gemeldet, und sie hat recht:
-					das wäre dieselbe Rolle unter neuem Namen. Die Zuordnung von Liste und
-					Überschrift trägt `aria-labelledby`, und die ist es, auf die es
-					ankommt — ein <section> allein hätte sie nicht hergestellt.
-				-->
-					<ul
-						class="liste liste--getrennt"
-						class:stufe--sofort={stufe === 'sofort'}
-						class:stufe--stehen={stufe === 'stehen'}
-						class:stufe--wachsen={stufe === 'wachsen'}
-						aria-labelledby="stufe-{stufe}"
-					>
-						{#each zeilen as eintrag (eintrag.id)}
-							{@const fragtHier = frage !== null && frage.zeile === eintrag.id}
-							<li class="karte" data-stufe={stufe}>
+		{#each gliederung as beet, beetstelle (beet.schluessel)}
+			<details
+				class="abschnitt"
+				open={istOffen(beet.schluessel, () => enthaeltZiel(beet))}
+				ontoggle={(ereignis) => merken(beet.schluessel, ereignis)}
+			>
+				<summary class="abschnitt__griff">
+					<h3 class="abschnittstitel beet__name" id="beet-{beetstelle}">
+						{beet.ort ?? 'Ohne Beet'}
+					</h3>
+					<span class="hinweis beet__zaehler">{beet.zaehler}</span>
+					<ZeichenWinkel class="aufklapp" />
+				</summary>
+				<div class="abschnitt__inhalt">
+					{#each beet.stufen as gruppe (gruppe.stufe)}
+						{@const marke = `beet-${beetstelle}-${gruppe.stufe}`}
+						<h4 class="marke" id={marke}>{ERNTETEXT[gruppe.stufe].kurz}</h4>
+						<ul class="liste liste--getrennt" aria-labelledby={marke}>
+							{#each gruppe.zeilen as eintrag (eintrag.id)}
+								{@const fragtHier = frage !== null && frage.zeile === eintrag.id}
 								<!--
-									Die Farbe der Stufe liegt als Kante an der Karte und kommt aus
-									dem Abschnitt darüber. Das **Wort** steht in der Überschrift —
-									kein Zustand hängt allein an der Farbe, dieselbe Regel wie bei
-									überfällig auf / und unbesetzt im Tränkeplan.
-
-									Die Kennung dieser Zeile, und der Grund, warum sie eine hat: die
-									Knöpfe darunter tragen Beschriftungen, die sich über alle Zeilen
-									wortgleich wiederholen — `Kann stehen`, `Abgeerntet`. Sie zeigen
-									darum mit aria-labelledby auf sich selbst und dann hierher:
-									`Abgeerntet Zucchini, Hochbeet 3`.
+									Die Farbe der Stufe liegt als Kante an der Karte, das **Wort** steht
+									im Zwischentitel darüber — kein Zustand hängt allein an der Farbe.
+									Eine Zeile auf `wachsen` steht hier als `stehen`: `gruppe.stufe`
+									ist die angezeigte Stufe und nicht die gespeicherte.
 								-->
-								<!--
-								**Der Vermerk steht neben der Kultur und nicht darunter** (Entscheid
-								Manuel, 2026-09-16), und in Kleinbuchstaben statt als Marke: als
-								eigene Zeile in Grossbuchstaben las er sich wie eine zweite
-								Überschrift der Karte, und das ist er nicht — er ergänzt den Namen.
-
-								**Er steht ausserhalb des `<p id="ernte-…">`**, obwohl er in dieselbe
-								Zeile gehört. Auf diese Kennung zeigen die Knöpfe der Karte mit
-								aria-labelledby; stünde er darin, hiesse der Knopf `Abgeerntet
-								Zucchini, Hochbeet 3 Laufend ernten` — der Vermerk ist für die
-								Handlung ohne Belang. Die Zeile hält `.titelzeile` zusammen.
-							-->
-								<div class="titelzeile">
-									<p class="zeile__text" id="ernte-{eintrag.id}">
-										{eintrag.kultur}{#if eintrag.ort !== null}<span class="ernte__ort"
-												>, {eintrag.ort}</span
-											>{/if}
-									</p>
-									{#if eintrag.laufend}
-										<span class="zeichenwort"
-											><ZeichenKreis /><span class="hinweis">{DAUERERNTE_WORT}</span></span
-										>
-									{/if}
-								</div>
-
-								{#if eintrag.laufend}
-									<p class="hinweis">{DAUERERNTE_SATZ}</p>
-								{/if}
-
-								<!--
-									Name und Datum: nicht als Zuständigkeit, sondern als Herkunft —
-									wie frisch die Angabe ist und wen man fragen kann. Ein fehlender
-									Name kann nur aus einem Eingriff von Hand an der Datenbank
-									stammen; die Zeile bleibt dann trotzdem lesbar.
-								-->
-								<p class="hinweis hinweis--ziffern">
-									{eintrag.name ?? 'unbekannt'} · {datumKurz(eintrag.createdAt)}
-								</p>
-
-								{#if fragtHier && frage !== null}
-									<div class="ernte__frage">
-										<p class="fliesstext" id="abernten-frage-{eintrag.id}">
-											{frage.kultur}{#if frage.ort !== null}, {frage.ort}{/if} abräumen? Die Zeile ist
-											dann für alle weg.
-										</p>
-										<div class="knoepfe">
-											<!-- `Abbrechen` steht zuerst: die Reihenfolge im DOM ist die
-											     Fokusreihenfolge, und die zusagende Handlung soll nicht die
-											     erste sein. Ein Link und kein Knopf — er verwirft die Antwort
-											     der action, indem er die Seite neu holt. -->
-											<a class="button-quiet" href={resolve('/ernte')}>Abbrechen</a>
-											<form method="POST" action="?/abernten" use:enhance={versand}>
-												<input type="hidden" name="id" value={eintrag.id} />
-												<input type="hidden" name="bestaetigt" value="1" />
-												<button
-													class="button-quiet button-quiet--zerstoerend"
-													type="submit"
-													aria-describedby="abernten-frage-{eintrag.id}"
-													disabled={imFlug}
-												>
-													Abgeerntet
-												</button>
-											</form>
+								<li
+									class="karte"
+									id="ernte-{eintrag.id}"
+									class:stufe--sofort={gruppe.stufe === 'sofort'}
+									class:stufe--stehen={gruppe.stufe === 'stehen'}
+									data-stufe={gruppe.stufe}
+								>
+									<div class="ernte__zeile">
+										<!--
+											**Einzeilig**: die Kultur, bei Dauerernte das Kreiszeichen mit
+											vorgelesenem Wort, darunter klein Name und Datum — das Datum
+											immer, weil es sagt, wie frisch die Angabe ist. Der Satz `Alle
+											zwei bis drei Tage durchgehen.` steht seit dem 2026-10-26 nur
+											noch in der Legende. Ein fehlender Name kann nur aus einem
+											Eingriff von Hand an der Datenbank stammen; die Zeile bleibt
+											dann trotzdem lesbar.
+										-->
+										<div class="ernte__text">
+											<p class="zeile__text zeichenwort">
+												{eintrag.kultur}{#if eintrag.laufend}<ZeichenKreis /><span
+														class="nur-vorgelesen">{DAUERERNTE_WORT}</span
+													>{/if}
+											</p>
+											<p class="hinweis hinweis--ziffern">
+												{eintrag.name ?? 'unbekannt'} · {datumKurz(eintrag.createdAt)}
+											</p>
 										</div>
-									</div>
-								{:else}
-									<!--
-										Umstufen zeigt die **dringenderen** Stufen, und an einer roten
-										Zeile darum keine. Die Begründung in ganzer Länge steht an
-										`andereStufen` oben: der Reifegrad läuft in eine Richtung.
+										{#if !fragtHier}
+											<!--
+												**Die Knöpfe sehen 32px gross aus, ihr Trefferfeld bleibt 44px**
+												(`.knopf-klein` unten). Sie tragen ihren Namen selbst, mit Kultur
+												und Ort: an zwanzig Karten hiessen sie sonst zwanzigmal gleich.
 
-										Ohne Rückfrage — und das ist seit dem 2026-09-17 **nicht** mehr
-										damit begründet, dass der Knopf daneben es zurücknähme: den gibt
-										es nicht mehr. Getragen wird es davon, dass Umstufen nichts
-										wegnimmt: die Zeile wechselt den Abschnitt und steht weiter da.
-										Nur `Abgeerntet` fragt, weil es löscht.
-									-->
-									<div class="ernte__fuss">
-										{#each andereStufen(stufe) as ziel (ziel)}
-											<form method="POST" action="?/umstufen" use:enhance={versand}>
-												<input type="hidden" name="id" value={eintrag.id} />
-												<input type="hidden" name="status" value={ziel} />
-												<button
-													class="button-quiet button-quiet--kompakt"
-													type="submit"
-													id="umstufen-{ziel}-{eintrag.id}"
-													aria-labelledby="umstufen-{ziel}-{eintrag.id} ernte-{eintrag.id}"
-													disabled={imFlug}
-												>
-													{ERNTETEXT[ziel].kurz}
-												</button>
-											</form>
-										{/each}
-										<form
-											class="ernte__weg"
-											method="POST"
-											action="?/abernten"
-											use:enhance={versand}
-										>
-											<input type="hidden" name="id" value={eintrag.id} />
-											<button
-												class="button-quiet button-quiet--kompakt button-quiet--zerstoerend"
-												type="submit"
-												id="abernten-{eintrag.id}"
-												aria-labelledby="abernten-{eintrag.id} ernte-{eintrag.id}"
-												disabled={imFlug}
-											>
-												Abgeerntet
-											</button>
-										</form>
+												`Sofort` nur an einer langsamen Karte — Umstufen geht seit dem
+												2026-09-17 nur nach vorn (Entscheid Manuel), und an einer Zeile
+												auf `sofort` bleibt allein das X. Ohne Rückfrage: Umstufen nimmt
+												nichts weg, die Zeile wechselt den Zwischentitel und steht weiter
+												da. Der Umriss ist der gewöhnliche, das Gelb liegt nur als Kante
+												links — als Umriss hielte es die 3:1 aus NFR9 nicht (Spec Change
+												Log). Die Kante ist eine Zustandsmarke und trägt darum data-stufe.
+
+												Das X fragt nach, weil es löscht; die Rückfrage steht dann an
+												seiner Stelle.
+											-->
+											<div class="ernte__knoepfe">
+												{#if gruppe.stufe === 'stehen'}
+													<form method="POST" action="?/umstufen" use:enhance={versand}>
+														<input type="hidden" name="id" value={eintrag.id} />
+														<input type="hidden" name="status" value="sofort" />
+														<button
+															class="button-quiet button-quiet--kompakt knopf-klein stufe--sofort"
+															type="submit"
+															data-stufe="sofort"
+															aria-label="{ERNTETEXT.sofort.kurz} {bezeichnung(eintrag)}"
+															disabled={imFlug}
+														>
+															{SOFORT_KNOPF}
+														</button>
+													</form>
+												{/if}
+												<form method="POST" action="?/abernten" use:enhance={versand}>
+													<input type="hidden" name="id" value={eintrag.id} />
+													<button
+														class="button-quiet button-quiet--kompakt button-quiet--zerstoerend knopf-klein knopf-klein--zeichen"
+														type="submit"
+														aria-label="{ABERNTEN_WORT} {bezeichnung(eintrag)}"
+														disabled={imFlug}
+													>
+														<ZeichenKreuz />
+													</button>
+												</form>
+											</div>
+										{/if}
 									</div>
-								{/if}
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			{/each}
-		</div>
-	</details>
+
+									{#if fragtHier && frage !== null}
+										<div class="ernte__frage">
+											<p class="fliesstext" id="abernten-frage-{eintrag.id}">
+												{frage.kultur}{#if frage.ort !== null}, {frage.ort}{/if} abräumen? Die Zeile ist
+												dann für alle weg.
+											</p>
+											<div class="knoepfe">
+												<!-- `Abbrechen` steht zuerst: die Reihenfolge im DOM ist die
+												     Fokusreihenfolge, und die zusagende Handlung soll nicht die
+												     erste sein. Ein Link und kein Knopf — er verwirft die Antwort
+												     der action, indem er die Seite neu holt. -->
+												<a class="button-quiet" href={resolve('/ernte')}>Abbrechen</a>
+												<form method="POST" action="?/abernten" use:enhance={versand}>
+													<input type="hidden" name="id" value={eintrag.id} />
+													<input type="hidden" name="bestaetigt" value="1" />
+													<button
+														class="button-quiet button-quiet--zerstoerend"
+														type="submit"
+														aria-describedby="abernten-frage-{eintrag.id}"
+														disabled={imFlug}
+													>
+														{ABERNTEN_WORT}
+													</button>
+												</form>
+											</div>
+										</div>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					{/each}
+				</div>
+			</details>
+		{/each}
+	</section>
 </div>
 
 <style>
 	/*
-		Die drei Stufenfarben haben seit dem 2026-09-13 **eigene** Token:
-		--reif-sofort, --reif-stehen, --reif-wachsen.
-
-		**Bis dahin liehen sie sich --danger, --warn und --accent**, und die
-		Begründung dafür stand hier: drei neue Farben hätten die veröffentlichte
-		Kontrasttabelle aus DESIGN.md umgeschrieben und `kontrast:selftest`
-		gebrochen. Das stimmt weiterhin — es ist nur nicht mehr der teurere
-		Handel. Die drei geliehenen Token sind Textfarben und an 4.5:1 gebunden;
-		diese Kanten halten als Umriss eines Bedienelements 3:1. An der strengeren
-		Schwelle war „kann noch stehen" auf der Breite von --border-marker
-		praktisch unsichtbar, und genau das hat Manuel am 2026-09-13 bemängelt.
-
-		Der Bedeutung nach passten sie ohnehin nur zwei von drei Mal: --danger
-		heisst im Produkt „das hier zerstört etwas", und eine reife Zucchini ist
-		das nicht. DESIGN.md reserviert Rot ausdrücklich für Zerstörendes.
+		Die zwei Stufenfarben haben eigene Token: --reif-sofort (Gelb) und
+		--reif-stehen (Grün), seit dem 2026-10-26 in dieser Zuordnung. Bis dahin
+		war `sofort` rot und eine dritte Stufe grün; Rot trägt seither keine
+		Erntestufe mehr, sondern auf dieser Seite allein das X zum Abernten
+		(spec-ernte-nach-beet.md). Die Begründung der Token und die Messwerte
+		stehen im Tokenblock in src/app.html.
 
 		Die Kante ist dieselbe Marke wie „diese Woche" im Tränkeplan — derselbe
-		Gedanke an zwei Orten: hier ist etwas los. Der Diensthinweis auf / trug sie
-		bis zum 2026-09-13 ebenfalls und ist seither eine gefüllte Fläche.
+		Gedanke an zwei Orten: hier ist etwas los.
 	*/
 	/*
 		Was ein `<summary>` zusätzlich zu `.button-primary` braucht, steht seit dem
@@ -727,93 +722,10 @@
 		dort.
 	*/
 
-	.stufe--sofort .karte {
-		border-inline-start: var(--border-marker) solid var(--reif-sofort);
-	}
-
-	.stufe--stehen .karte {
-		border-inline-start: var(--border-marker) solid var(--reif-stehen);
-	}
-
-	.stufe--wachsen .karte {
-		border-inline-start: var(--border-marker) solid var(--reif-wachsen);
-	}
-
 	/*
-		Derselbe Strich am Knopf im Formular — er ist dort die einzige Stelle, an
-		der die Farbe der Stufe vor dem Absenden zu sehen ist.
-	*/
-	.stufenwahl__zeile.stufe--sofort {
-		border-inline-start: var(--border-marker) solid var(--reif-sofort);
-	}
-
-	.stufenwahl__zeile.stufe--stehen {
-		border-inline-start: var(--border-marker) solid var(--reif-stehen);
-	}
-
-	/*
-	 * Die dritte Zeile der Stufenwahl gibt es seit dem 2026-09-14 nicht mehr —
-	 * `wachsen` ist verborgen (SICHTBARE_ERNTESTATUS in $lib/ernte). Die Regel
-	 * dazu ist mitgegangen statt stehenzubleiben: svelte-check meldet einen
-	 * Selektor ohne Markup, und eine Regel, die auf nichts zeigt, behauptet eine
-	 * Oberfläche, die es nicht gibt. Sie kommt mit der Stufe zurück.
-	 */
-
-	/*
-		Der Ort in der Zeile der Kultur: Nebentext-Rolle, weil er eine Frage
-		beantwortet, die sich nicht an jeder Zeile stellt — er ist freiwillig. Er
-		trägt **kein** eigenes `line-height`: als Span in der Zeile darüber
-		zerteilte das die Zeilenbox der Kultur. Derselbe Handgriff und dieselbe
-		Begründung wie beim ISO-Jahr im Tränkeplan.
-	*/
-	.ernte__ort {
-		color: var(--ink-secondary);
-		font-family: var(--meta-font);
-		font-size: var(--meta-size);
-		font-weight: var(--meta-weight);
-	}
-
-	/*
-		Die Knopfreihe einer Zeile. `flex-wrap`, weil bei 375px drei kompakte
-		Knöpfe nebeneinander nicht sicher passen — `Wachsen lassen` ist der
-		längste, und ein Umbruch ist besser als ein waagrecht laufender Kasten.
-	*/
-	.ernte__fuss {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-2);
-		align-items: center;
-	}
-
-	/*
-		Das Abernten rückt ans andere Ende: es ist die zerstörende Handlung, und
-		sie soll nicht neben den zwei harmlosen stehen, als wäre sie die dritte
-		davon. `margin-inline-start: auto` schiebt es weg, solange die Reihe nicht
-		umbricht; bricht sie, steht es in der zweiten Zeile links, und das ist der
-		bessere von zwei Ausgängen.
-	*/
-	.ernte__weg {
-		margin-inline-start: auto;
-	}
-
-	/*
-		Die Rückfrage. Aufgehellte Fläche statt einer roten Kante: die Zeile
-		darunter trägt schon die Farbe ihrer Stufe, und zwei Farbaussagen an
-		einer Karte behaupten zwei Dinge zugleich.
-	*/
-	.ernte__frage {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
-		padding: var(--space-3);
-		border-radius: var(--radius-sm);
-		background-color: var(--surface-open);
-	}
-
-	/*
-		Die Stufenwahl: kein <select>, sondern drei Knöpfe mit ihrer Erklärung.
-		Der Rahmen ist der eines Bedienelements — die ganze Zeile ist das
-		Trefferfeld, weil das <label> den Knopf umschliesst.
+		Die Stufenwahl: kein <select>, sondern Knöpfe mit ihrer Erklärung. Der
+		Rahmen ist der eines Bedienelements — die ganze Zeile ist das Trefferfeld,
+		weil das <label> den Knopf umschliesst.
 	*/
 	.stufenwahl {
 		display: flex;
@@ -841,5 +753,151 @@
 		flex-direction: column;
 		gap: var(--space-1);
 		min-width: 0;
+	}
+
+	/*
+		**Eine Regel je Stufe, für jeden Träger.** Die Kante liegt an der Karte in
+		der Liste, an der Karte der Legende, an der Zeile der Stufenwahl und am
+		Knopf `Sofort` — bis zum 2026-10-26 waren das zwei Regeln je Stufe, eine
+		für die Karte unter einer Liste mit Stufenklasse und eine für die
+		Stufenwahl. Jetzt trägt jedes dieser Elemente die Klasse selbst.
+
+		**Nach `.stufenwahl__zeile`**, und das ist Absicht: beide setzen die Kante
+		mit derselben Spezifität, und die spätere gewinnt.
+	*/
+	.stufe--sofort {
+		border-inline-start: var(--border-marker) solid var(--reif-sofort);
+	}
+
+	.stufe--stehen {
+		border-inline-start: var(--border-marker) solid var(--reif-stehen);
+	}
+
+	/*
+		Die Zeile der Legende, die das X erklärt: Anordnung aus `.zeichenwort`, das
+		Wort in Tinte wie jede andere Zeile der Legende, und **nur das Zeichen** im
+		Rot des Zerstörenden — so, wie es an der Karte steht. Bis zum Review vom
+		2026-10-26 färbte die Regel die ganze Zeile rot.
+
+		Das Rot muss gegen `.zeichenwort .zeichen` aus dem geteilten Blatt gewinnen,
+		das ein Zeichen neben seinem Wort bewusst in Tinte setzt; der Selektor hier
+		ist um die Klasse des Behälters spezifischer. `:global`, weil das SVG aus
+		einer anderen Komponente kommt und den Gültigkeitsbereich dieser Seite
+		nicht trägt.
+	*/
+	.legende__kreuz {
+		display: inline-flex;
+	}
+
+	.legende__kreuz :global(.zeichen) {
+		color: var(--danger);
+	}
+
+	/*
+		Der Abstand zwischen den Beeten — derselbe wie im Tagebuch auf /wellness
+		(`.tagebuch` dort). Nicht ins geteilte Stilblatt gezogen: derselbe
+		Regelkörper steht mit dieser Regel in sechs Komponentenregeln (gezählt am
+		2026-10-26 über alle .svelte unter src/ nach genau diesen drei
+		Deklarationen), und Gate-Regel 14 schlug beim Versuch mit vier Meldungen
+		an. Die Zusammenlegung ist ein eigener Posten.
+	*/
+	.beetliste {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+
+	/*
+		Der Zähler im Kopf eines Beets steht gleich neben dem Namen; der Winkel
+		bleibt rechts aussen. `.abschnitt__griff` verteilt seine Kinder über
+		`space-between`, und ohne diese Zeile stünde der Zähler in der Mitte.
+	*/
+	.beet__zaehler {
+		flex: 0 0 auto;
+		margin-inline-end: auto;
+	}
+
+	/*
+		**Ein langer Ort ohne Leerzeichen bricht, statt den Zähler zu quetschen**
+		(Review vom 2026-10-26). Der Titel gibt nach (`min-width: 0`, sonst weicht
+		ein Flexkind nicht unter seine Inhaltsbreite zurück), der Zähler daneben
+		nicht (`flex: 0 0 auto` oben). `overflow-wrap: anywhere` aus demselben
+		Grund wie an `.zeile__text` im geteilten Blatt: nur `anywhere` zieht die
+		Trennstelle in die Breitenrechnung des Flexbehälters. Die Klasse
+		`.zeile__text` selbst trägt der Titel nicht — sie ist die Rolle einer
+		Zeile in einer Liste, nicht die einer Überschrift.
+	*/
+	.beet__name {
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
+
+	/*
+		Die Karte als eine Zeile: Text links, Knöpfe rechts. Der Text gibt nach
+		(`min-width: 0` am Kind), die Knöpfe nicht — eine lange Kultur bricht um,
+		statt sie aus der Karte zu schieben.
+	*/
+	.ernte__zeile {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+	}
+
+	.ernte__text {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	/*
+		Der Abstand zwischen `Sofort` und dem X ist so gross wie die zwei
+		unsichtbaren Ränder der Trefferfelder zusammen: so berühren sie sich, ohne
+		sich zu überlappen, und ein Tipp zwischen beide trifft keinen falschen.
+	*/
+	.ernte__knoepfe {
+		display: flex;
+		flex: 0 0 auto;
+		align-items: center;
+		gap: calc(var(--touch) - var(--knopf-klein));
+	}
+
+	/*
+		**Klein sichtbar, gross zu treffen** (spec-ernte-nach-beet.md): der Knopf
+		zeigt --knopf-klein (32px), und ein unsichtbares Pseudoelement legt das
+		Trefferfeld auf --touch (44px) — dieselbe Trennung wie beim Kästchen der
+		Aufgabenzeile. Gerechnet wird ab der Innenkante, an der ein absolut
+		gesetztes Pseudoelement ansetzt: darum zieht die Rechnung die Kante noch
+		einmal ab. Gemessen wird das Trefferfeld in `smoke:sicht` mit
+		`elementFromPoint` an den Rändern, nicht an der Grösse des Knopfs.
+	*/
+	.knopf-klein {
+		position: relative;
+		min-width: var(--knopf-klein);
+		min-height: var(--knopf-klein);
+		padding-block: 0;
+	}
+
+	.knopf-klein::before {
+		position: absolute;
+		inset: calc((var(--knopf-klein) - var(--touch)) / 2 - var(--border-hairline));
+		content: '';
+	}
+
+	/* Der Knopf, der nur ein Zeichen trägt, ist quadratisch. */
+	.knopf-klein--zeichen {
+		padding-inline: 0;
+	}
+
+	/*
+		Die Rückfrage. Aufgehellte Fläche statt einer roten Kante: die Karte trägt
+		schon die Farbe ihrer Stufe, und zwei Farbaussagen an einer Karte
+		behaupten zwei Dinge zugleich.
+	*/
+	.ernte__frage {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding: var(--space-3);
+		border-radius: var(--radius-sm);
+		background-color: var(--surface-open);
 	}
 </style>

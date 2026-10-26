@@ -145,6 +145,9 @@ graph TD
 >
 > Die unbesetzten Tränkewochen haben auf dieser Seite keinen Block, weil der Plan eine eigene Seite ist. Sie stehen als **Verweis** neben dem Diensthinweis — mit Pfeil statt Dreieck, weil gleiche Form bei verschiedenem Verhalten die Falle wäre. Die Schranke bleibt die alte: wer eine Aufgabenart nur in eine Überschrift oder einen Verweis schreibt und nicht in einen der drei Blöcke, verstösst gegen AD-14.
 
+>
+> **Ausnahme für `/ernte`, Entscheid Manuel vom 2026-10-26** (spec-ernte-nach-beet.md, Spec Change Log). Die Ernteliste ist nach Beet gegliedert, und **jedes Beet kommt zugeklappt** — gegen die Lesart dieser Regel, dass ein Vorrat an Arbeit offen ausgeliefert wird. Getragen ist sie von derselben Einsicht wie die Fassung vom 2026-09-11: der Griff jedes Beets trägt seinen Zähler (`1 sofort · 2 langsam`), ein zugeklapptes Beet verbirgt also seinen Inhalt, nicht seine Lage und nicht, ob dort etwas sofort zu ernten ist. Vom Server her offen kommt allein das Beet der Zeile, an der die letzte Antwort hängt (Rückfrage, Abweisung, Umstufen, Eintragen). Die Startseite bleibt davon unberührt: `Zum Ernten` zählt weiterhin jede Zeile der Liste. Bewacht in `scripts/smoke-zugang.ts` (`die Beete kommen zugeklappt`) und `scripts/smoke-sicht.ts` (/ernte-Block).
+
 ## Consistency Conventions
 
 | Concern | Convention |

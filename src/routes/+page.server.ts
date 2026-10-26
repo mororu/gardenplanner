@@ -24,7 +24,6 @@ import { erntestandLesen } from '../lib/server/db/queries/harvests.ts';
 import { behandlungenLesen } from '../lib/server/db/queries/treatments.ts';
 import { istWiederDran, letzteJeStelle } from '../lib/wellness.ts';
 import { tageZurueck } from '../lib/zeit.ts';
-import { SICHTBARE_ERNTESTATUS } from '../lib/ernte.ts';
 import { AUFGABE_NICHT_ANSPRECHBAR, EINZELAUFGABE_NICHT_ANSPRECHBAR } from '../lib/texte.ts';
 import {
 	fristlage,
@@ -381,19 +380,15 @@ export function load({ locals, url }: ServerLoadEvent): {
 	 * ist, wird abgeerntet, und die Tabelle trägt zu jeder Zeit eine Handvoll
 	 * Zeilen.
 	 *
-	 * **Nur die angebotenen Stufen** — seit dem 2026-09-14 zwei von drei. Eine
-	 * Zeile auf `wachsen` ist ausdrücklich nichts zu tun, und die Startseite
-	 * beantwortet die Frage, was ansteht; sie mitzuzählen machte die Zahl
-	 * grösser, ohne dass mehr zu tun wäre.
-	 *
-	 * Gefiltert wird **hier** und nicht in der Abfrage: /ernte zeigt weiterhin
-	 * alle Stufen, damit eine Zeile, die noch auf `wachsen` steht, erreichbar
-	 * bleibt und weggestuft werden kann. Zwei Abfragen für zwei Ausschnitte wären
-	 * zwei Stände, die auseinanderlaufen.
+	 * **Alle Zeilen, auch die alten auf `wachsen`** — seit dem 2026-10-26
+	 * (spec-ernte-nach-beet.md). Vom 2026-09-14 an wurden sie hier
+	 * weggefiltert, weil `wachsen` „nichts zu tun" hiess. Seit /ernte sie grün
+	 * unter `Langsam ernten` zeigt, mit dem Knopf `Sofort`, sind sie dort von
+	 * den übrigen nicht mehr zu unterscheiden — und eine Zahl, die eine Zeile
+	 * verschweigt, die einen Griff weiter dasteht, meinte eine andere Menge als
+	 * die Liste. Ohne Filter ist die Zahl wieder genau deren Länge.
 	 */
-	const ernte = erntestandLesen().filter((zeile) =>
-		(SICHTBARE_ERNTESTATUS as readonly string[]).includes(zeile.status)
-	);
+	const ernte = erntestandLesen();
 	/*
 	 * **Was wieder ansteht — gerechnet, nicht abgefragt.**
 	 *
