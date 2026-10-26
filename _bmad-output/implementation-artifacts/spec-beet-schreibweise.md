@@ -2,7 +2,7 @@
 title: 'Eine Schreibweise je Beet, auf Ernte und Wellness'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-review'
+status: 'done'
 baseline_commit: 'df663539d60c066ae439e3749d768b29063b4f31'
 review_loop_iteration: 0
 context: ['spec-ernte-nach-beet.md']
@@ -108,3 +108,45 @@ context: ['spec-ernte-nach-beet.md']
 **Commands:**
 - `npm run build && npm run lint` -- grün, Zähler nachgeführt.
 - `npm run check` -- 0 Fehler, 0 Warnungen.
+
+## Suggested Review Order
+
+**Die Regel**
+
+- Einstieg: eine reine Funktion für Nummer, Buchstabe, Doppelbeet und Tunnel.
+  [`beet.ts:100`](../../src/lib/beet.ts#L100)
+
+- Eine Fassung (falten, vereinheitlichen, Vorgabe → null) für alle Leser.
+  [`ernte.ts:303`](../../src/lib/ernte.ts#L303)
+
+- `ortPruefen` prüft die Länge erst nach dem Vereinheitlichen.
+  [`ernte.ts:330`](../../src/lib/ernte.ts#L330)
+
+**Umschreibung beim Start**
+
+- Idempotent, eine IMMEDIATE-Transaktion über alle Tabellen mit `ort`.
+  [`index.ts:177`](../../src/lib/server/db/index.ts#L177)
+
+- Tabellen aus dem Schema abgeleitet, keine Liste von Hand.
+  [`index.ts:129`](../../src/lib/server/db/index.ts#L129)
+
+- Aufruf nach `migrate()`, Fehler als benannte Meldung.
+  [`index.ts:105`](../../src/lib/server/db/index.ts#L105)
+
+**Leser**
+
+- Versteckte Felder alter Seiten gehen durch dieselbe Fassung.
+  [`+page.server.ts:126`](../../src/routes/wellness/+page.server.ts#L126)
+
+**Betrieb**
+
+- Sicherung vor dem Update, weil der erste Start Orte umschreibt.
+  [`README.md:697`](../../README.md#L697)
+
+**Prüfkette**
+
+- Matrix- und Entscheidproben an Regel und Fassung.
+  [`smoke-zugang.ts:12162`](../../scripts/smoke-zugang.ts#L12162)
+
+- Fehlerpfad: Trigger bricht ab, alle Orte bleiben unverändert.
+  [`smoke-zugang.ts:12611`](../../scripts/smoke-zugang.ts#L12611)
