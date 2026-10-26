@@ -591,7 +591,7 @@
 									ist die angezeigte Stufe und nicht die gespeicherte.
 								-->
 								<li
-									class="karte"
+									class="karte ernte__karte"
 									id="ernte-{eintrag.id}"
 									class:stufe--sofort={gruppe.stufe === 'sofort'}
 									class:stufe--stehen={gruppe.stufe === 'stehen'}
@@ -846,6 +846,23 @@
 	.ernte__text {
 		flex: 1 1 auto;
 		min-width: 0;
+	}
+
+	/*
+		**Die Karte der Liste ist enger als die geteilte `.karte`** (Rückmeldung
+		Manuel, 26.10.2026: „die Kacheln sind grösser als im interaktiven Bild").
+		Der Innenabstand oben und unten fällt von --space-3 auf --space-1: die
+		Höhe der Karte trägt jetzt der 32px-Knopf und nicht der Rand. Das
+		Trefferfeld leidet nicht darunter — es ragt über den Knopf hinaus und
+		in den Abstand zur nächsten Karte, nicht in deren Feld.
+	*/
+	.ernte__karte {
+		padding-block: var(--space-1);
+	}
+
+	/* Kultur und Name rücken zusammen: zwei kurze Zeilen, eine Aussage. */
+	.ernte__text > p {
+		line-height: var(--label-line);
 	}
 
 	/*
